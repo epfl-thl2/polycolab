@@ -1,0 +1,47 @@
+# Roadmap
+
+This page lists unfinished capabilities and acceptance work.
+It is not a delivery schedule.
+Product requirements define the intended behavior.
+The [architecture index](architecture/README.md) describes existing foundations.
+
+## Product work
+
+| Area                       | Remaining work                                                                                                                                                                                                                                                               |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Research editing           | Authorized object deletion and restoration with retained history, exact references, and independently published copies. Define the role/ownership policy before implementing it.                                                                                             |
+| Verification               | Production Lean and Python runners, exact declaration/policy observations, authorized cache reuse, and selective publication of verified evidence. Existing job, artifact, source-editor, and result-view foundations do not establish machine assurance.                    |
+| Hosted agents              | Resolve the [known controller defects](architecture/hosted-failures.md#known-controller-defects-queued-for-the-next-development-iteration) before production enablement. Complete native isolation, recovery, provider, and browser acceptance before production enablement. |
+| Community and accounts     | Connect general Chat and the People directory. Complete profile editing, account-session management, and membership-entry guidance. Existing activity and profile reads remain available.                                                                                    |
+| Browsing and accessibility | Preserve list filters and position across navigation. Validate keyboard/focus, mobile reading, accessible mathematics, and research inspection with representative users.                                                                                                    |
+| Persistence boundaries     | Complete service-to-store conversion where application services still use SQL directly. See [persistence](architecture/persistence.md#implemented-and-remaining-conversion).                                                                                                 |
+| Scheduling and capacity    | Complete verification scheduling. Measure fairness and capacity. The [hosted controller](architecture/hosted-controller.md) describes the existing agent allocator. Stored policy alone does not establish service guarantees.                                               |
+
+External MCP, Git/filesystem synchronization, literature retrieval, persistent notebooks, GPUs, live coediting, and configurable agent builders remain candidates on this branch.
+They are not prerequisites for the existing browser and shared HTTPS API.
+
+## Design decisions to resolve
+
+- Decide which research kinds appear directly on the map and which appear through inspectors and lists.
+  See [object presentation](architecture/object-kinds-and-reviews.md).
+
+These questions do not change existing authorization or grant new write access.
+
+## Release acceptance
+
+Use the checks documented in the [repository skill](../.agents/skills/polycolab-repository/SKILL.md#verify-changes).
+Real PostgreSQL, API, storage, worker, and browser evidence follows the [system test guide](../tests/system/README.md).
+Deployment-specific checks follow the [staging gate](../deploy/staging/staging-gate.md).
+
+Before making production claims, verify:
+
+- Populated schema upgrades and coordinated database, object-storage, and key recovery, with preserved research identities and immutable public releases.
+- The selected authentication providers, HTTPS ingress, registration limits, credential rotation, and cross-scope denials on the target deployment.
+- Native sandbox containment and recovery before enabling agent execution.
+  Lean/Python verification requires its own runner and evidence acceptance.
+- Browser responsiveness on a documented device and production build, including large research lists and relationship maps.
+- Researchers finding and resuming work, distinguishing evidence from proof, and sharing intentionally.
+
+Keep dated measurements and deployment evidence with the release record.
+Update this page when the remaining work changes.
+Do not append milestone journals.

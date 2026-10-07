@@ -1,0 +1,17 @@
+# Build from the repository root. Supply an approved digest-pinned Node image
+# containing Python 3 and glibc. Record the resulting image digest in the registry.
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+USER root
+RUN apt-get update && apt-get install --yes --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+RUN test -x /usr/bin/python3 && npm install --global @openai/codex@0.154.0 \
+    && codex --version | grep -Fx 'codex-cli 0.154.0' \
+    && mkdir -p /workspace /inputs /outputs /opt/polycolab /home/agent \
+    && chown -R 1000:1000 /workspace /outputs /home/agent
+COPY backend/polycolab/execution/guest_bridge.py /opt/polycolab/guest_bridge.py
+COPY backend/polycolab/execution/guest_repository.py /opt/polycolab/guest_repository.py
+ENV HOME=/home/agent CODEX_HOME=/home/agent/.codex
+WORKDIR /workspace
+USER 1000:1000
+# The host starts the bridge over exec stdin/stdout; no listening host port.
+CMD ["sleep", "infinity"]

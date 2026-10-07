@@ -1,0 +1,9 @@
+{
+  "name": "@polycolab/brand",
+  "version": "0.0.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "exports": {
+    "./tokens.css": "./src/tokens.css"
+  }
+}

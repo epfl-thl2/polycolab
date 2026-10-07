@@ -1,0 +1,27 @@
+name: polycolab-integration
+
+# This compose file intentionally owns only disposable test PostgreSQL.  The
+# API, worker, web application, identities, and provider are launched by the
+# adjacent test harness so no test authentication or provider configuration is
+# available to production containers.
+services:
+  postgres:
+    image: postgres:18.3-bookworm
+    environment:
+      POSTGRES_DB: polycolab_integration
+      POSTGRES_USER: polycolab_integration
+      POSTGRES_PASSWORD: polycolab_integration
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U polycolab_integration -d polycolab_integration']
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    ports:
+      - '127.0.0.1:${POLYCOLAB_INTEGRATION_POSTGRES_PORT:-55432}:5432'
+    volumes:
+      # PostgreSQL 18 stores versioned clusters below this parent directory.
+      # Mounting the legacy /var/lib/postgresql/data path makes the image abort.
+      - integration-postgres-data:/var/lib/postgresql
+
+volumes:
+  integration-postgres-data:

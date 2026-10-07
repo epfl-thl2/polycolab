@@ -1,0 +1,29 @@
+{
+  "name": "@polycolab/api-client",
+  "version": "0.0.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generate": "openapi-typescript openapi.json -o src/generated/schema.ts",
+    "generate:check": "temp_file=$(mktemp) && openapi-typescript openapi.json -o \"$temp_file\" && cmp -s \"$temp_file\" src/generated/schema.ts",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@scalar/api-reference": "1.62.6",
+    "eslint": "10.8.1",
+    "openapi-typescript": "7.10.1",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.67.0",
+    "vitest": "4.1.11"
+  },
+  "dependencies": {
+    "openapi-fetch": "0.14.0"
+  }
+}

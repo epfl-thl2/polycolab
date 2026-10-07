@@ -1,0 +1,57 @@
+:root {
+  /* EPFL corporate palette. Keep these values aligned with the brand guidelines. */
+  --polycolab-epfl-red: #ff0000;
+  --polycolab-epfl-groseille: #b51f1f;
+  --polycolab-epfl-leman: #00a79f;
+  --polycolab-epfl-canard: #007480;
+  --polycolab-epfl-taupe: #413d3a;
+  --polycolab-epfl-perle: #cac7c7;
+
+  /* Accessible product neutrals and status colors supplement the brand palette. */
+  --polycolab-white: #ffffff;
+  --polycolab-ink: #18181b;
+  --polycolab-ink-secondary: #27272a;
+  --polycolab-ink-subtle: #71717a;
+  --polycolab-surface-muted: #f4f4f5;
+  --polycolab-surface-strong: #f0f0f2;
+  --polycolab-surface-subtle: #fafafa;
+  --polycolab-border: #e4e4e7;
+  --polycolab-input: #d4d4d8;
+  --polycolab-info: #0369a1;
+  --polycolab-info-soft: #f0f9ff;
+  --polycolab-success: #15803d;
+  --polycolab-success-soft: #f0fdf4;
+  --polycolab-warning: #8a632f;
+  --polycolab-warning-soft: #f6f0e7;
+  --polycolab-danger: #b91c1c;
+  --polycolab-shadow: #18181b0d;
+
+  /* Dark surfaces are functional UI extensions; EPFL does not define a dark theme. */
+  --polycolab-dark-surface: #0f0f0f;
+  --polycolab-dark-surface-raised: #1a1a1a;
+  --polycolab-dark-surface-muted: #272727;
+  --polycolab-dark-foreground: #e7e7e7;
+  --polycolab-dark-foreground-muted: #a4a4a4;
+  --polycolab-dark-border: #2d2d2d;
+
+  --polycolab-groseille-strong: color-mix(
+    in srgb,
+    var(--polycolab-epfl-groseille) 82%,
+    var(--polycolab-epfl-taupe)
+  );
+  --polycolab-groseille-soft: color-mix(
+    in srgb,
+    var(--polycolab-epfl-groseille) 5%,
+    var(--polycolab-white)
+  );
+  --polycolab-canard-strong: color-mix(
+    in srgb,
+    var(--polycolab-epfl-canard) 82%,
+    var(--polycolab-epfl-taupe)
+  );
+  --polycolab-canard-soft: color-mix(
+    in srgb,
+    var(--polycolab-epfl-canard) 10%,
+    var(--polycolab-white)
+  );
+}

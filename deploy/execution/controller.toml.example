@@ -1,0 +1,10 @@
+# Host service configuration; no database URL or inline secrets.
+api_url = "http://127.0.0.1:8000"
+poll_seconds = 5.0
+capacity = 4
+agent_credential_file = "/etc/polycolab-execution/agent-token"
+worker_id = "codex-controller"
+state_dir = "/var/lib/polycolab-execution"
+# Register immutable [[images]] only after image builds and acceptance.
+# Fields: reference (registry/image@sha256:digest), language (AGENT/PYTHON/LEAN),
+# toolchain_version, dependency_lock_digest, build_digest, platform_identity.

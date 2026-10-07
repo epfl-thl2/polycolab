@@ -1,0 +1,47 @@
+# JavaScript
+node_modules/
+web/dist/
+*.tsbuildinfo
+coverage/
+playwright-report/
+test-results/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+backend/dist/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Local configuration and runtime data
+.env
+.env.*
+!.env.example
+deploy/.env
+deploy/postgres-data/
+.pgpass
+.pg_service.conf
+.netrc
+.pypirc
+.aws/
+
+# Generated documentation/build artifacts
+.artifacts/
+
+# OS metadata
+.DS_Store
+
+.omnigent
+web/.svelte-kit/
+
+docs-site/.astro/
+docs-site/.cache/
+docs-site/site/
+docs-site/docs/styles/brand-tokens.css
+
+web/.astro/
+
+# Persistent Docker-free development data
+.local/

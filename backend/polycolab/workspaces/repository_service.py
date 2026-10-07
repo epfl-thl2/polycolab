@@ -1,0 +1,321 @@
+"""Workspace working-file policy and recoverable Git/SQL coordination."""
+
+from __future__ import annotations
+
+import base64
+import hashlib
+import json
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass
+from uuid import UUID, uuid4
+
+from polycolab.access.authorization import WorkspaceAction, workspace_policy
+from polycolab.entities.repositories import RepositoryError, RepositoryReceipt, WorkspaceTask
+from polycolab.entities.time import utc_now
+from polycolab.transaction import Transaction
+from polycolab.workspaces.git_storage import GitRepository, branch_name
+from polycolab.workspaces.repository_store import RepositoryStore
+
+
+def decode_changes(changes: list[tuple[str, str | None]]) -> dict[str, bytes | None]:
+    result: dict[str, bytes | None] = {}
+    for path, content in changes:
+        if path in result:
+            raise RepositoryError("repository_duplicate_path", 422)
+        try:
+            result[path] = base64.b64decode(content, validate=True) if content is not None else None
+        except ValueError:
+            raise RepositoryError("repository_invalid_content", 422) from None
+    return result
+
+
+@dataclass
+class RepositoryService:
+    transaction: Transaction
+    store: RepositoryStore
+    git: GitRepository
+    workspace_id: UUID
+    user_id: UUID
+
+    def authorize(self, write: bool = False, branch: str = "main") -> None:
+        workspace_policy.require_scope(
+            self.transaction,
+            self.workspace_id,
+            self.user_id,
+            WorkspaceAction.CREATE_RESEARCH if write else WorkspaceAction.VIEW,
+        )
+        if write:
+            self.store.lock_branch(self.workspace_id, branch)
+        if (
+            write
+            and branch_name(branch) != "main"
+            and self.store.branch_active(self.workspace_id, branch)
+        ):
+            raise RepositoryError("task_active")
+        if write and self.store.branch_archived(self.workspace_id, branch):
+            raise RepositoryError("task_archived")
+
+    @contextmanager
+    def open(self) -> Iterator[GitRepository]:
+        self.authorize()
+        registered = self.store.registered(self.workspace_id)
+        self.transaction.commit()
+        with self.git.locked(initialize=not registered):
+            self.store.register(self.workspace_id)
+            for receipt in self.store.pending(self.workspace_id):
+                if self.git.contains(receipt.branch, receipt.new_commit):
+                    self.store.complete(receipt.id)
+            self.transaction.commit()
+            yield self.git
+
+    def mutate(
+        self,
+        *,
+        branch: str,
+        expected: str,
+        key: str,
+        payload: object,
+        prepare: Callable[[], str],
+        authority: Callable[[], None] | None = None,
+    ) -> str:
+        """Caller holds repository lock. SQL receipt precedes the ref update.
+
+        Final authority locks fence membership/archive changes during the short
+        ref update. Recovery only acknowledges an already-applied operation;
+        it never applies a write on behalf of a revoked user.
+        """
+        (authority or (lambda: self.authorize(True, branch)))()
+        self.transaction.commit()
+        digest = hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        receipt = self.store.receipt(self.workspace_id, self.user_id, key)
+        self.transaction.commit()
+        if receipt is not None:
+            if receipt.digest != digest or receipt.branch != branch:
+                raise RepositoryError("repository_retry_mismatch")
+            if receipt.completed:
+                return receipt.new_commit
+        else:
+            if self.git.head(branch) != expected:
+                raise RepositoryError("repository_stale_save")
+            new_commit = prepare()
+            if self.git.size() > self.git.quota:
+                raise RepositoryError("repository_quota_exceeded", 413)
+            receipt = RepositoryReceipt(
+                uuid4(),
+                self.workspace_id,
+                self.user_id,
+                key,
+                digest,
+                branch,
+                expected,
+                new_commit,
+                False,
+                utc_now(),
+            )
+            self.store.prepare(receipt)
+            self.transaction.commit()
+        (authority or (lambda: self.authorize(True, branch)))()
+        if not self.git.contains(branch, receipt.new_commit):
+            if self.git.head(branch) != receipt.old_commit:
+                raise RepositoryError("repository_stale_save")
+            self.git.advance(branch, receipt.old_commit, receipt.new_commit)
+        self.store.complete(receipt.id)
+        self.transaction.commit()
+        return receipt.new_commit
+
+    def save(
+        self,
+        *,
+        branch: str,
+        expected: str,
+        key: str,
+        changes: dict[str, bytes | None],
+        payload: object,
+    ) -> str:
+        with self.open():
+            return self.mutate(
+                branch=branch,
+                expected=expected,
+                key=key,
+                payload=payload,
+                prepare=lambda: self.git.commit_tree(
+                    self.git.changed_tree(expected, changes),
+                    [expected],
+                    "Save workspace files",
+                    str(self.user_id),
+                ),
+            )
+
+    def preview(self, target: str, source: str) -> dict[str, object]:
+        with self.open():
+            current, incoming = self.git.head(target), self.git.head(source)
+            _, paths = self.git.merge(current, incoming)
+            base = self.git.git("merge-base", current, incoming).decode().strip()
+            entries = {c: self.git.entries(c) for c in (base, current, incoming)}
+
+            def content(commit: str, path: str) -> str | None:
+                return (
+                    base64.b64encode(self.git.read(commit, path)).decode()
+                    if path in entries[commit]
+                    else None
+                )
+
+            return {
+                "target_commit": current,
+                "source_commit": incoming,
+                "diff": self.git.diff(current, incoming),
+                "conflicts": [
+                    {
+                        "path": path,
+                        "base_base64": content(base, path),
+                        "current_base64": content(current, path),
+                        "incoming_base64": content(incoming, path),
+                    }
+                    for path in paths
+                ],
+            }
+
+    def merge(
+        self,
+        *,
+        target: str,
+        source: str,
+        expected_target: str,
+        expected_source: str,
+        resolutions: dict[str, bytes | None] | None,
+        key: str,
+        payload: object,
+    ) -> str:
+        with self.open():
+
+            def prepare() -> str:
+                if source == target or self.git.head(source) != expected_source:
+                    raise RepositoryError("repository_stale_merge")
+                tree, conflicts = self.git.merge(expected_target, expected_source)
+                if conflicts:
+                    if resolutions is None or set(resolutions) != set(conflicts):
+                        raise RepositoryError("repository_merge_conflicts")
+                    # merge-tree's tree includes automatic resolutions for unrelated paths.
+                    temporary = self.git.commit_tree(
+                        tree, [expected_target], "Merge preparation", "Polycolab"
+                    )
+                    existing = self.git.entries(temporary)
+                    actual = {
+                        p: c for p, c in resolutions.items() if c is not None or p in existing
+                    }
+                    tree = self.git.changed_tree(temporary, actual)
+                elif resolutions:
+                    raise RepositoryError("repository_unexpected_resolutions", 422)
+                return self.git.commit_tree(
+                    tree,
+                    [expected_target, expected_source],
+                    "Merge workspace changes",
+                    str(self.user_id),
+                )
+
+            return self.mutate(
+                branch=target, expected=expected_target, key=key, payload=payload, prepare=prepare
+            )
+
+    def enable_session(self, session_id: UUID) -> str:
+        with self.open():
+            self.authorize(True)
+            session = self.store.session(self.workspace_id, session_id)
+            if session.owner_id != self.user_id:
+                raise RepositoryError("repository_session_not_found", 404)
+            branch = session.branch or f"sessions/{session_id}"
+            if session.enabled:
+                self.transaction.commit()
+                return branch
+            if session.active:
+                raise RepositoryError("repository_session_active")
+            self.transaction.commit()
+            commit = self.git.head("main")
+            if not self.git.head(branch, missing=True):
+                self.git.advance(branch, "0" * 40, commit)
+            self.authorize(True)
+            if self.store.session_active(self.workspace_id, session_id):
+                raise RepositoryError("repository_session_active")
+            self.store.enable_session(self.workspace_id, session_id, commit)
+            self.transaction.commit()
+            return branch
+
+    def pin_run(self, run_id: UUID, session_id: UUID) -> dict[str, str] | None:
+        session = self.store.session(self.workspace_id, session_id)
+        self.transaction.commit()
+        if not session.enabled:
+            return None
+        if self.store.public_run(run_id):
+            raise RepositoryError("repository_public_run_denied", 403)
+        self.transaction.commit()
+        with self.open():
+            binding = self.store.run(run_id)
+            branch = session.branch or f"sessions/{session_id}"
+            if binding is None:
+                self.store.enable_session(self.workspace_id, session_id, self.git.head(branch))
+                self.store.pin_run(run_id, session_id, self.git.head(branch), branch)
+                self.transaction.commit()
+                binding = self.store.run(run_id)
+            assert binding is not None
+            return {"branch": branch, "commit": binding.input_commit}
+
+    def export_run(self, run_id: UUID, data: bytes, authority: Callable[[], None]) -> str:
+        with self.open():
+            binding = self.store.run(run_id)
+            if binding is None:
+                raise RepositoryError("repository_not_in_run", 403)
+            self.transaction.commit()
+            branch = binding.branch or f"sessions/{binding.session_id}"
+            commit = self.mutate(
+                branch=branch,
+                expected=binding.input_commit,
+                key=f"run-{run_id}",
+                payload={"sha256": hashlib.sha256(data).hexdigest()},
+                prepare=lambda: self.git.import_bundle(data, branch, binding.input_commit),
+                authority=authority,
+            )
+            self.store.finish_run(run_id, commit)
+            self.transaction.commit()
+            return commit
+
+    def create_task(self, task_id: UUID, title: str) -> WorkspaceTask:
+        with self.open():
+            self.authorize(True)
+            try:
+                existing = self.store.task(self.workspace_id, task_id)
+            except RepositoryError as error:
+                if error.status != 404:
+                    raise
+            else:
+                if existing.created_by_user_id != self.user_id:
+                    raise RepositoryError("workspace_task_not_found", 404)
+                if existing.title != title:
+                    raise RepositoryError("task_retry_conflict")
+                self.transaction.commit()
+                return existing
+            if self.store.task_identifier_taken(task_id):
+                raise RepositoryError("workspace_task_not_found", 404)
+            branch = f"tasks/{task_id}"
+            head = self.git.head("main")
+            if not self.git.head(branch, missing=True):
+                self.git.advance(branch, "0" * 40, head)
+            now = utc_now()
+            task = WorkspaceTask(
+                task_id, self.workspace_id, title, branch, self.user_id, now, now, None
+            )
+            self.store.create_task(task)
+            self.transaction.commit()
+            return task
+
+    def update_task(self, task_id: UUID, title: str | None, archived: bool | None) -> WorkspaceTask:
+        with self.open():
+            self.authorize(True)
+            task = self.store.task(self.workspace_id, task_id, lock=True)
+            if archived is True and self.store.branch_active(self.workspace_id, task.branch):
+                raise RepositoryError("task_active")
+            updated = self.store.update_task(task_id, title, archived)
+            self.transaction.commit()
+            return updated

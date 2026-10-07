@@ -1,0 +1,111 @@
+name: Staging gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: 'Exact image/source SHA deployed to staging'
+        required: true
+        type: string
+      evidence_ref:
+        description: 'Restricted evidence record containing all external gate results'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  repository-and-compose:
+    name: Repository and Compose checks
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.release_sha }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.1.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 26.5.0
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: 0.10.10
+      - run: pnpm install --frozen-lockfile
+      - run: uv --directory backend sync --all-groups --frozen
+      - name: Validate local Compose configuration
+        run: |
+          cp deploy/docker/.env.example deploy/docker/.env
+          docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml config --quiet
+      - run: pnpm run api:contract:check
+      - run: pnpm run check
+      - run: pnpm run api:check
+      - run: for script in deploy/scripts/*.sh; do bash -n "$script"; done
+
+  staging-health-and-auth:
+    name: Staging health and selected authentication probe
+    runs-on: ubuntu-24.04
+    environment: staging
+    needs: repository-and-compose
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.release_sha }}
+      - name: Public liveness and readiness
+        env:
+          STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL }}
+        run: |
+          test -n "$STAGING_BASE_URL"
+          curl --fail --silent --show-error --max-time 15 "$STAGING_BASE_URL/health/live" >/dev/null
+          curl --fail --silent --show-error --max-time 15 "$STAGING_BASE_URL/health/ready" >/dev/null
+      - name: Same-origin browser shell
+        env:
+          STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL }}
+        run: |
+          test -n "$STAGING_BASE_URL"
+          content_type="$(curl --fail --silent --show-error --max-time 15 \
+            --output /dev/null --write-out '%{content_type}' "$STAGING_BASE_URL/")"
+          case "$content_type" in
+            text/html*) ;;
+            *) echo "FastAPI root did not return the browser HTML shell" >&2; exit 2 ;;
+          esac
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: 0.10.10
+      - run: uv --directory backend sync --frozen --no-dev
+      - name: Selected authentication boundary probe
+        env:
+          STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL }}
+          STAGING_AUTH_MODE: ${{ vars.STAGING_AUTH_MODE }}
+          STAGING_AUTH_COOKIE_NAME: ${{ vars.STAGING_AUTH_COOKIE_NAME }}
+          STAGING_OPERATOR_SESSION: ${{ secrets.STAGING_OPERATOR_SESSION }}
+          STAGING_OPERATOR_TOKEN: ${{ secrets.STAGING_OPERATOR_TOKEN }}
+        run: uv --directory backend run --no-dev python -m polycolab.staging_auth_probe
+
+  external-gate-evidence:
+    name: Protected external gate evidence
+    runs-on: ubuntu-24.04
+    environment: staging
+    needs: staging-health-and-auth
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.release_sha }}
+      - name: Require immutable evidence reference
+        env:
+          EVIDENCE_REF: ${{ inputs.evidence_ref }}
+        run: |
+          # The evidence record is maintained in the restricted operations
+          # system. This prevents a workflow run from silently treating an
+          # unexecuted provider/KMS/network check as a pass.
+          test -n "$EVIDENCE_REF"
+          case "$EVIDENCE_REF" in
+            https://*|s3://*|gs://*|ops://*) ;;
+            *) echo "evidence_ref must be an approved immutable reference" >&2; exit 2 ;;
+          esac
+          echo "External gate evidence reference recorded; contents are not copied into logs."
+      - name: Print required gate checklist
+        run: |
+          sed -n '1,220p' deploy/staging/staging-gate.md

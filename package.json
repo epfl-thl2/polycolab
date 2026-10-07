@@ -1,0 +1,41 @@
+{
+  "name": "polycolab",
+  "private": true,
+  "version": "0.0.0",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@12.1.0",
+  "workspaces": [
+    "web",
+    "packages/*"
+  ],
+  "scripts": {
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "pnpm --recursive --if-present run lint && pnpm exec web/node_modules/.bin/eslint --config web/eslint.config.mjs tests/web",
+    "typecheck": "pnpm --recursive --if-present run typecheck",
+    "test": "pnpm --recursive --if-present run test",
+    "test:e2e": "pnpm --filter @polycolab/web run test:e2e",
+    "web:dev": "pnpm --filter @polycolab/web run dev",
+    "docs:prepare": "node docs-site/sync-brand.mjs",
+    "docs:build": "pnpm run docs:prepare && uv run --project docs-site zensical build --clean --strict --config-file docs-site/mkdocs.yml && node docs-site/install-output.mjs",
+    "web:build": "pnpm --filter @polycolab/web run build && pnpm run docs:build",
+    "api:dev": "AUTH_MODE=local uv --directory backend run sh -c 'python -m polycolab.bootstrap_admin && exec uvicorn polycolab.main:app --reload --host 0.0.0.0 --port 8000'",
+    "api:worker": "uv --directory backend run python -m polycolab.builtin_worker",
+    "api:check": "uv --directory backend run ruff format --check . ../tests/backend && uv --directory backend run ruff check . ../tests/backend && uv --directory backend run mypy polycolab ../tests/backend && uv --directory backend run pytest",
+    "api:migrate": "uv --directory backend run alembic upgrade head",
+    "api:contract": "uv --directory backend run python -m polycolab.export_openapi && pnpm --filter @polycolab/api-client run generate",
+    "api:contract:check": "uv --directory backend run python -m polycolab.export_openapi --check && pnpm --filter @polycolab/api-client run generate:check",
+    "api:test": "uv --directory backend run pytest",
+    "dev:local": "node scripts/development.mjs local",
+    "dev:docker": "node scripts/development.mjs docker",
+    "dev:docker:apply": "node scripts/development.mjs apply"
+  },
+  "devDependencies": {
+    "prettier": "3.9.6"
+  },
+  "engines": {
+    "node": ">=24.0.0 <27.0.0",
+    "pnpm": ">=12.1.0 <13.0.0"
+  }
+}

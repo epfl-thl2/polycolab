@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  repository-checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.1.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 26.5.0
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: 0.10.10
+      - run: pnpm install --frozen-lockfile
+      - run: uv --directory backend sync --all-groups --extra execution --frozen
+      - run: pnpm run check
+      - run: pnpm run api:check
+      - run: pnpm run api:contract:check
+      - run: pnpm --filter @polycolab/web exec playwright install --with-deps chromium
+      - run: pnpm run test:e2e
+      - run: pnpm run web:build
+      - run: pnpm --filter @polycolab/web exec playwright test --config ../tests/web/browser/playwright.production.config.ts
+      - name: Validate local Compose configuration
+        run: |
+          cp deploy/docker/.env.example deploy/docker/.env
+          docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml config --quiet
+      - run: docker build -f backend/Dockerfile .

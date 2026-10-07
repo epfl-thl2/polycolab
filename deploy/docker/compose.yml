@@ -1,0 +1,166 @@
+name: polycolab
+
+# Copy deploy/docker/.env.example to deploy/docker/.env to configure every application option.
+services:
+  postgres:
+    image: postgres:18.3-bookworm
+    environment:
+      POSTGRES_DB: polycolab
+      POSTGRES_USER: polycolab
+      POSTGRES_PASSWORD: polycolab
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    ports:
+      - '127.0.0.1:${POLYCOLAB_POSTGRES_PORT:-5432}:5432'
+    networks: [backend]
+
+  migrate:
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      PUBLIC_APP_ORIGIN: ${PUBLIC_APP_ORIGIN:-http://localhost:8000}
+      DATABASE_URL: ${POLYCOLAB_COMPOSE_DATABASE_URL:-postgresql+psycopg://polycolab:polycolab@postgres:5432/polycolab}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ['alembic', 'upgrade', 'head']
+    networks: [backend]
+
+  garage:
+    extends:
+      file: ../garage/compose.yaml
+      service: garage
+    ports: !reset []
+    networks: [backend]
+
+  api:
+    volumes:
+      - workspace-repositories:/var/lib/polycolab/repositories
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      APP_ENV: ${APP_ENV:-local}
+      PUBLIC_APP_ORIGIN: ${PUBLIC_APP_ORIGIN:-http://localhost:8000}
+      DATABASE_URL: ${POLYCOLAB_COMPOSE_DATABASE_URL:-postgresql+psycopg://polycolab:polycolab@postgres:5432/polycolab}
+      DATABASE_POOL_SIZE: ${POLYCOLAB_API_DATABASE_POOL_SIZE:-5}
+      DATABASE_MAX_OVERFLOW: ${POLYCOLAB_API_DATABASE_MAX_OVERFLOW:-5}
+      DATABASE_POOL_TIMEOUT_SECONDS: ${POLYCOLAB_API_DATABASE_POOL_TIMEOUT_SECONDS:-30}
+      ALLOWED_ORIGINS: '${ALLOWED_ORIGINS:-["http://localhost:8000", "http://localhost:5173"]}'
+      WORKSPACE_REPOSITORY_DIRECTORY: /var/lib/polycolab/repositories
+      ARTIFACT_S3_ENDPOINT: ${POLYCOLAB_COMPOSE_ARTIFACT_S3_ENDPOINT:-http://garage:3900}
+      ARTIFACT_S3_BUCKET: ${ARTIFACT_S3_BUCKET:-polycolab-artifacts}
+      ARTIFACT_S3_REGION: ${ARTIFACT_S3_REGION:-garage}
+      ARTIFACT_S3_ACCESS_KEY: ${ARTIFACT_S3_ACCESS_KEY:-GK0123456789abcdef0123456789}
+      ARTIFACT_S3_SECRET_KEY: ${ARTIFACT_S3_SECRET_KEY:-local-only-garage-secret}
+    depends_on:
+      garage:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command:
+      [
+        'sh',
+        '-c',
+        'python -m polycolab.bootstrap_admin && exec uvicorn polycolab.main:app --host 0.0.0.0 --port 8000 --no-proxy-headers',
+      ]
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          'from urllib.request import urlopen; urlopen("http://127.0.0.1:8000/health/live")',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    ports:
+      - '127.0.0.1:${POLYCOLAB_API_PORT:-8000}:8000'
+    networks: [backend]
+
+  community:
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      APP_ENV: ${APP_ENV:-local}
+      PUBLIC_APP_ORIGIN: ${PUBLIC_APP_ORIGIN:-http://localhost:8000}
+      DATABASE_URL: ${POLYCOLAB_COMPOSE_DATABASE_URL:-postgresql+psycopg://polycolab:polycolab@postgres:5432/polycolab}
+      DATABASE_POOL_SIZE: ${POLYCOLAB_COMMUNITY_DATABASE_POOL_SIZE:-2}
+      DATABASE_MAX_OVERFLOW: ${POLYCOLAB_COMMUNITY_DATABASE_MAX_OVERFLOW:-0}
+      DATABASE_POOL_TIMEOUT_SECONDS: ${POLYCOLAB_COMMUNITY_DATABASE_POOL_TIMEOUT_SECONDS:-30}
+    depends_on:
+      api:
+        condition: service_healthy
+    command: ['python', '-m', 'polycolab.community_consumer']
+    # Application-owned canonical outbox consumer, separate from agent workers.
+    networks: [backend]
+
+  execution-reconciler:
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      APP_ENV: ${APP_ENV:-local}
+      PUBLIC_APP_ORIGIN: ${PUBLIC_APP_ORIGIN:-http://localhost:8000}
+      DATABASE_URL: ${POLYCOLAB_COMPOSE_DATABASE_URL:-postgresql+psycopg://polycolab:polycolab@postgres:5432/polycolab}
+      DATABASE_POOL_SIZE: 2
+      DATABASE_MAX_OVERFLOW: 0
+      DATABASE_POOL_TIMEOUT_SECONDS: 5
+    depends_on:
+      api:
+        condition: service_healthy
+    command: ['python', '-m', 'polycolab.execution.reconciler']
+    networks: [backend]
+
+  worker:
+    profiles: [execution]
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+    environment:
+      APP_ENV: ${APP_ENV:-local}
+      PUBLIC_APP_ORIGIN: ${PUBLIC_APP_ORIGIN:-http://localhost:8000}
+      RUNTIME_INTERNAL_API_URL: http://api:8000
+      RUNTIME_WORKER_ID: ${RUNTIME_WORKER_ID:-compose-builtin-worker}
+      RUNTIME_WORKER_TOKEN: ${RUNTIME_WORKER_TOKEN:-polycolab-local-runtime-worker-token}
+      RUNTIME_WORKER_POLL_SECONDS: ${RUNTIME_WORKER_POLL_SECONDS:-0.25}
+      GATEWAY_REQUEST_TIMEOUT_SECONDS: ${GATEWAY_REQUEST_TIMEOUT_SECONDS:-30}
+      GATEWAY_MAX_RESPONSE_BYTES: ${GATEWAY_MAX_RESPONSE_BYTES:-1000000}
+      RUNTIME_API_MAX_REQUEST_BYTES: ${RUNTIME_API_MAX_REQUEST_BYTES:-400000}
+      RUNTIME_API_MAX_RESPONSE_BYTES: ${RUNTIME_API_MAX_RESPONSE_BYTES:-1000000}
+    depends_on:
+      api:
+        condition: service_healthy
+    command: ['python', '-m', 'polycolab.builtin_worker']
+    # No published port and no database credential: the worker reaches all
+    # canonical state through authenticated private Application API routes.
+    networks: [backend]
+
+networks:
+  backend:
+
+volumes:
+  garage-metadata:
+  garage-data:
+  postgres-data:
+  workspace-repositories:

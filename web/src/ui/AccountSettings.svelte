@@ -1,0 +1,115 @@
+<script lang="ts">
+  import AgentApiKeys from './AgentApiKeys.svelte';
+  import { UserRound, ShieldCheck, Mail, Bot, KeyRound } from '@lucide/svelte';
+  import { Separator } from '../lib/components/ui/separator';
+  import { Button } from '../lib/components/ui/button';
+  import { workspace } from '../svelte-lib/context';
+  let { path }: { path: string } = $props();
+  const { auth, capabilities } = workspace();
+  const section = $derived(
+    path === '/settings/agent-keys'
+      ? 'agent-keys'
+      : path === '/settings/security'
+        ? 'security'
+        : path === '/settings/recovery'
+          ? 'recovery'
+          : path === '/settings/providers'
+            ? 'providers'
+            : 'general',
+  );
+</script>
+
+<main id="main" class="page settings-layout" tabindex="-1">
+  <header class="settings-heading"><h1>Settings</h1></header>
+  <aside class="settings-navigation">
+    <nav aria-label="Settings sections">
+      <a href="/settings" aria-current={section === 'general' ? 'page' : undefined}
+        ><UserRound aria-hidden="true" />Profile</a
+      >
+      <a href="/settings/security" aria-current={section === 'security' ? 'page' : undefined}
+        ><ShieldCheck aria-hidden="true" />Security</a
+      >
+      {#if capabilities?.enabled('email_recovery')}<a
+          href="/settings/recovery"
+          aria-current={section === 'recovery' ? 'page' : undefined}
+          ><Mail aria-hidden="true" />Account recovery</a
+        >{/if}
+      <div class="settings-agent-group" role="group" aria-labelledby="agent-settings-label">
+        <h2 id="agent-settings-label">Agent settings</h2>
+        <a href="/settings/agent-keys" aria-current={section === 'agent-keys' ? 'page' : undefined}>
+          <KeyRound aria-hidden="true" />API keys
+        </a>
+        <a href="/settings/providers" aria-current={section === 'providers' ? 'page' : undefined}>
+          <Bot aria-hidden="true" />Builtin agents
+        </a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="settings-surface">
+    {#if section === 'recovery' && capabilities?.enabled('email_recovery')}
+      {#await import('./RecoverySettings.svelte') then module}<module.default />{/await}
+    {:else if section === 'providers'}
+      {#if capabilities?.enabled('agent_execution')}
+        {#await import('./Providers.svelte') then module}<module.default />{/await}
+      {:else}
+        <section class="settings-content" aria-labelledby="providers-unavailable-title">
+          <h2 class="sr-only" id="providers-unavailable-title">Builtin agents</h2>
+          <p class="muted">Configure models used by the built-in agent.</p>
+          <Separator />
+          <div class="settings-profile-action">
+            <div>
+              <h2>Built-in agents are unavailable</h2>
+              <p class="muted">
+                Your deployment administrator needs to enable agent execution before you can
+                configure model providers.
+              </p>
+            </div>
+            <Button disabled variant="outline">Add model provider</Button>
+          </div>
+        </section>
+      {/if}
+    {:else if section === 'agent-keys'}
+      <AgentApiKeys />
+    {:else if section === 'security'}
+      <section class="settings-content" aria-labelledby="security-title">
+        <h2 class="sr-only" id="security-title">Security</h2>
+        <div class="settings-sections">
+          <section>
+            <h2>Reset password</h2>
+            {#if auth.configuration?.mode === 'oidc'}
+              <p class="muted">Your password is managed by your identity provider.</p>
+              <Button variant="outline" disabled>Reset password</Button>
+            {:else if capabilities?.enabled('email_recovery')}
+              <p class="muted">Send a reset link to your verified recovery email.</p>
+              <Button variant="outline" href="/forgot-password">Reset password</Button>
+            {:else}
+              <p class="muted">
+                Password reset is unavailable on this deployment. Contact your administrator for
+                help.
+              </p>
+              <Button variant="outline" disabled>Reset password</Button>
+            {/if}
+          </section>
+        </div>
+      </section>
+    {:else}
+      <section class="settings-content" aria-labelledby="settings-title">
+        <h2 class="sr-only" id="settings-title">Profile</h2>
+        <p class="muted">Your account details.</p>
+        <dl class="settings-details">
+          <div>
+            <dt>Display name</dt>
+            <dd>{auth.label}</dd>
+          </div>
+          {#if auth.account?.username || auth.user?.profile.preferred_username}
+            <div>
+              <dt>Username</dt>
+              <dd>{auth.account?.username ?? auth.user?.profile.preferred_username}</dd>
+            </div>
+          {/if}
+        </dl>
+      </section>
+    {/if}
+  </div>
+</main>

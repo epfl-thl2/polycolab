@@ -1,0 +1,29 @@
+services:
+  garage:
+    image: dxflrs/garage:v2.3.0@sha256:866bd13ed2038ba7e7190e840482bc27234c4afaf77be8cfa439ae088c1e4690
+    command: ['/garage', 'server', '--single-node', '--default-bucket']
+    environment:
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      GARAGE_DEFAULT_ACCESS_KEY: ${GARAGE_DEFAULT_ACCESS_KEY:-GK0123456789abcdef0123456789}
+      GARAGE_DEFAULT_SECRET_KEY: ${GARAGE_DEFAULT_SECRET_KEY:-local-only-garage-secret}
+      GARAGE_DEFAULT_BUCKET: ${GARAGE_DEFAULT_BUCKET:-polycolab-artifacts}
+    ports:
+      - '127.0.0.1:${POLYCOLAB_GARAGE_PORT:-0}:3900'
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
+      - garage-metadata:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    mem_limit: 512m
+    cpus: 1
+    pids_limit: 128
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ['CMD', '/garage', 'status']
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  garage-metadata:
+  garage-data:

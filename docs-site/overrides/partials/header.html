@@ -1,0 +1,38 @@
+{% import "partials/tabs-item.html" as item with context %}
+
+<header class="md-header md-header--shadow polycolab-docs-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Documentation header">
+    <a
+      href="/"
+      title="Return to Polycolab"
+      class="polycolab-docs-brand"
+      aria-label="Polycolab home"
+    >
+      <img src="/brand/polycolab-mark.png" alt="" />
+      <span>Polycolab <strong>Docs</strong></span>
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="{{ lang.t('nav') }}">
+      {% set icon = config.theme.icon.menu or "material/menu" %} {% include ".icons/" ~ icon ~
+      ".svg" %}
+    </label>
+    <div class="polycolab-docs-actions">
+      {% if config.theme.palette %} {% if not config.theme.palette is mapping %} {% include
+      "partials/palette.html" %} {% endif %} {% endif %} {% if not config.theme.palette is mapping
+      %} {% include "partials/javascripts/palette.html" %} {% endif %} {% if "search" in
+      config.plugins %} {% set search = config.plugins["search"] | attr("config") %} {% if
+      search.enabled %}
+      <label class="md-header__button md-icon" for="__search" aria-label="{{ lang.t('search') }}">
+        {% set icon = config.theme.icon.search or "material/magnify" %} {% include ".icons/" ~ icon
+        ~ ".svg" %}
+      </label>
+      {% include "partials/search.html" %} {% endif %} {% endif %}
+    </div>
+  </nav>
+  <nav class="polycolab-docs-tabs" aria-label="Documentation sections">
+    <div class="polycolab-docs-tabs__inner md-grid">
+      <ul class="md-tabs__list">
+        {% for nav_item in nav.items %} {{ item.render(nav_item) }} {% endfor %}
+      </ul>
+    </div>
+  </nav>
+</header>

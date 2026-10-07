@@ -1,0 +1,46 @@
+# Disposable dependencies only; caller supplies a unique Compose project name.
+services:
+  postgres:
+    image: postgres:18.3-bookworm
+    environment:
+      POSTGRES_DB: research
+      POSTGRES_USER: research
+      POSTGRES_PASSWORD: research-test-only
+    ports: ['127.0.0.1::5432']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U research -d research']
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    volumes: ['postgres:/var/lib/postgresql']
+  garage: &garage
+    image: dxflrs/garage:v2.3.0@sha256:866bd13ed2038ba7e7190e840482bc27234c4afaf77be8cfa439ae088c1e4690
+    command: ['/garage', 'server', '--single-node', '--default-bucket']
+    environment:
+      GARAGE_RPC_SECRET: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+      GARAGE_DEFAULT_ACCESS_KEY: GK0123456789abcdef0123456789
+      GARAGE_DEFAULT_SECRET_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+      GARAGE_DEFAULT_BUCKET: research-artifacts
+    ports: ['127.0.0.1::3900']
+    volumes:
+      - ../../deploy/garage/garage.toml:/etc/garage.toml:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    healthcheck:
+      test: ['CMD', '/garage', 'status']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  garage-restore:
+    <<: *garage
+    profiles: [restore]
+    volumes:
+      - ../../deploy/garage/garage.toml:/etc/garage.toml:ro
+      - restored-garage-meta:/var/lib/garage/meta
+      - restored-garage-data:/var/lib/garage/data
+volumes:
+  postgres:
+  garage-meta:
+  garage-data:
+  restored-garage-meta:
+  restored-garage-data:
