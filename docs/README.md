@@ -2,18 +2,19 @@
 
 Start with the guide for your task:
 
-| Task                                          | Guide                                                               |
-| --------------------------------------------- | ------------------------------------------------------------------- |
-| Run Polycolab locally                         | [Project README](../README.md#run-locally-or-with-docker)           |
-| Use workspaces, research, and agents          | [User guides](../docs-site/docs/index.md)                           |
-| Understand the product and its requirements   | [Requirements](requirements/README.md)                              |
-| Understand the implementation                 | [Architecture](architecture/README.md)                              |
-| Find source code and tests                    | [Repository map](../README.md#repository-map)                       |
-| Work on the repository with a coding agent    | [Repository skill](../.agents/skills/polycolab-repository/SKILL.md) |
-| Integrate an external agent                   | [Shared research API](architecture/external-agent-api.md)           |
-| Deploy, operate, or recover the service       | [Deployment](../deploy/README.md)                                   |
-| Run integration checks                        | [System tests](../tests/system/README.md)                           |
-| See unfinished capabilities and release gates | [Roadmap](roadmap.md)                                               |
+| Task                                          | Guide                                                         |
+| --------------------------------------------- | ------------------------------------------------------------- |
+| Run Polycolab locally                         | [Project README](../README.md#run-locally-or-with-docker)     |
+| Use workspaces, research, and agents          | [User guides](../docs-site/docs/index.md)                     |
+| Understand the product and its requirements   | [Requirements](requirements/README.md)                        |
+| Understand the implementation                 | [Architecture](architecture/README.md)                        |
+| Find source code and tests                    | [Repository map](../README.md#repository-map)                 |
+| Work on the repository with a coding agent    | [Agent guidance](../AGENTS.md)                                |
+| Write, run, or debug browser journeys         | [E2E testing skill](../.agents/skills/polycolab-e2e/SKILL.md) |
+| Integrate an external agent                   | [Shared research API](architecture/external-agent-api.md)     |
+| Deploy, operate, or recover the service       | [Deployment](../deploy/README.md)                             |
+| Run integration checks                        | [System tests](../tests/system/README.md)                     |
+| See unfinished capabilities and release gates | [Roadmap](roadmap.md)                                         |
 
 The generated [OpenAPI snapshot](../packages/api-client/openapi.json) lives with the TypeScript client.
 Run `pnpm run api:contract` after API changes.

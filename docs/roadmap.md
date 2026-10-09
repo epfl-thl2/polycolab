@@ -29,7 +29,7 @@ These questions do not change existing authorization or grant new write access.
 
 ## Release acceptance
 
-Use the checks documented in the [repository skill](../.agents/skills/polycolab-repository/SKILL.md#verify-changes).
+Use the checks documented in the [agent guidance](../AGENTS.md#verify-changes).
 Real PostgreSQL, API, storage, worker, and browser evidence follows the [system test guide](../tests/system/README.md).
 Deployment-specific checks follow the [staging gate](../deploy/staging/staging-gate.md).
 

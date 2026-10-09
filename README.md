@@ -30,8 +30,8 @@ They have no endpoint for browser access and no database credential.
 
 Start with the [documentation index](docs/README.md).
 The [architecture](docs/architecture/README.md) describes the current implementation.
-Coding agents can use the [repository skill](.agents/skills/polycolab-repository/SKILL.md) for development and checks.
-Invoke the skill as `$polycolab-repository`.
+Coding agents follow the repository's [agent guidance](AGENTS.md) for development and checks.
+For browser test authoring, execution, and debugging, use the [E2E testing skill](.agents/skills/polycolab-e2e/SKILL.md) as `$polycolab-e2e`.
 
 ## Common commands
 
