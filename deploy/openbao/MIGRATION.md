@@ -9,7 +9,7 @@ It does not provision keys or change policies.
 First inspect one bounded page without key-service calls or credential writes:
 
 ```sh
-uv run --directory backend python -m polycolab.credential_rewrap --limit 100
+uv run --directory src/backend python -m polycolab.credential_rewrap --limit 100
 ```
 
 Verify backups, reader compatibility, and live key checks before applying one page.
@@ -17,7 +17,7 @@ Replace the example target with the exact configured envelope version.
 The command refuses a mismatch before opening the database:
 
 ```sh
-uv run --directory backend python -m polycolab.credential_rewrap --apply --limit 100 --expected-target-version openbao:v1:primary:production:transit:gateway:2
+uv run --directory src/backend python -m polycolab.credential_rewrap --apply --limit 100 --expected-target-version openbao:v1:primary:production:transit:gateway:2
 ```
 
 The default is a read-only count, not a decryption-readiness check.

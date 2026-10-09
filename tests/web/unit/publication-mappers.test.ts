@@ -1,10 +1,10 @@
 import { expect, it } from 'vitest';
-import type { components } from '@polycolab/api-client';
+import type { components } from '../../../src/web/src/lib/api-client';
 import {
   mapPublicationManifest,
   mapPublicationPreview,
   publicationSelection,
-} from '../../../web/src/lib/publication-mappers';
+} from '../../../src/web/src/lib/publication-mappers';
 import { claimVersion, proofVersion, versionAuthorship } from './version-fixtures';
 
 const record = proofVersion({

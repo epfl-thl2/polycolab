@@ -1,6 +1,6 @@
 import { afterEach, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
-import ProductFooter from '../../../web/src/ui/ProductFooter.svelte';
+import ProductFooter from '../../../src/web/src/ui/ProductFooter.svelte';
 
 afterEach(cleanup);
 

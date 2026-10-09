@@ -1,10 +1,10 @@
 import { expect, it } from 'vitest';
-import type { components } from '@polycolab/api-client';
+import type { components } from '../../../src/web/src/lib/api-client';
 
 import {
   mapVerificationJob,
   verificationRevisionIds,
-} from '../../../web/src/lib/verification-mappers';
+} from '../../../src/web/src/lib/verification-mappers';
 
 const job: components['schemas']['VersionJobRead'] = {
   id: 'job-a',

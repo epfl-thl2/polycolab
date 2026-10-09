@@ -24,16 +24,16 @@ jobs:
         with:
           version: 0.10.10
       - run: pnpm install --frozen-lockfile
-      - run: uv --directory backend sync --all-groups --extra execution --frozen
+      - run: uv --directory src/backend sync --all-groups --extra execution --frozen
       - run: pnpm run check
       - run: pnpm run api:check
       - run: pnpm run api:contract:check
       - run: pnpm --filter @polycolab/web exec playwright install --with-deps chromium
       - run: pnpm run test:e2e
       - run: pnpm run web:build
-      - run: pnpm --filter @polycolab/web exec playwright test --config ../tests/web/browser/playwright.production.config.ts
+      - run: pnpm --filter @polycolab/web exec playwright test --config ../../tests/web/browser/playwright.production.config.ts
       - name: Validate local Compose configuration
         run: |
           cp deploy/docker/.env.example deploy/docker/.env
           docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml config --quiet
-      - run: docker build -f backend/Dockerfile .
+      - run: docker build -f src/backend/Dockerfile .

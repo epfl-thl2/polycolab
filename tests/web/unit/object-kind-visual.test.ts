@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
-import { objectKindVisual } from '../../../web/src/lib/object-kind-visual';
-import { mapNodeShape } from '../../../web/src/lib/map-node-shape';
-import { mapNodeSize } from '../../../web/src/lib/workspace-map-layout';
+import { objectKindVisual } from '../../../src/web/src/lib/object-kind-visual';
+import { mapNodeShape } from '../../../src/web/src/lib/map-node-shape';
+import { mapNodeSize } from '../../../src/web/src/lib/workspace-map-layout';
 
 it.each([
   ['CLAIM', 'STATEMENT', 'Statement'],

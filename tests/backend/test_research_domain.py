@@ -639,7 +639,7 @@ def test_database_metadata_pins_current_base_relation_and_comment_scope() -> Non
 
 
 def test_postgresql_migration_compiles_immutable_history_triggers_and_downgrade_removal() -> None:
-    api_directory = Path(__file__).resolve().parents[2] / "backend"
+    api_directory = Path(__file__).resolve().parents[2] / "src/backend"
     sql = StringIO()
     config = Config(str(api_directory / "alembic.ini"), output_buffer=sql)
     config.set_main_option(

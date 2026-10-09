@@ -3,7 +3,7 @@ import {
   matchesProfileGroup,
   profileGroups,
   profileKindLabels,
-} from '../../../web/src/lib/profile-view';
+} from '../../../src/web/src/lib/profile-view';
 
 it('assigns every research kind to exactly one summary/filter category', () => {
   for (const kind of Object.keys(profileKindLabels) as Array<keyof typeof profileKindLabels>) {
@@ -20,7 +20,7 @@ import {
   contributionDay,
   contributionDays,
   validHistoryDay,
-} from '../../../web/src/lib/contribution-history';
+} from '../../../src/web/src/lib/contribution-history';
 
 it('counts unique loaded revisions on UTC days without inventing dates for missing timestamps', () => {
   const record = (object_version_id: string, created_at?: string) => ({

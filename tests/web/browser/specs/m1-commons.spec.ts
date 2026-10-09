@@ -1,5 +1,5 @@
 import { expect, test } from '../fixtures';
-import type { components } from '../../../../packages/api-client/src/generated/schema';
+import type { components } from '../../../../src/web/src/lib/api-client/generated/schema';
 import { claimVersion, versionAuthorship } from '../../unit/version-fixtures';
 
 test('M1 admission to attempt, private reference, public direct turn, and suggestion', async ({

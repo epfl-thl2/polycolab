@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { createCatalogueApi } from '../../../web/src/lib/catalogue-api';
-import { createRecordsApi } from '../../../web/src/lib/records-api';
+import { createCatalogueApi } from '../../../src/web/src/lib/catalogue-api';
+import { createRecordsApi } from '../../../src/web/src/lib/records-api';
 
 const originalFetch = globalThis.fetch;
 afterEach(() => {

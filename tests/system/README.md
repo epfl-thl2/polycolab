@@ -3,9 +3,9 @@
 ## Research and external agents (no hosted worker)
 
 ```sh
-uv run --directory backend python ../tests/system/run_research.py
-POLYCOLAB_RESEARCH_BROWSER=1 uv run --directory backend python ../tests/system/run_research.py
-POLYCOLAB_RESEARCH_ENCRYPTED_DB_DRILL=1 uv run --directory backend python ../tests/system/run_research.py
+uv run --directory src/backend python ../../tests/system/run_research.py
+POLYCOLAB_RESEARCH_BROWSER=1 uv run --directory src/backend python ../../tests/system/run_research.py
+POLYCOLAB_RESEARCH_ENCRYPTED_DB_DRILL=1 uv run --directory src/backend python ../../tests/system/run_research.py
 ```
 
 This separate harness creates a unique disposable Compose project with PostgreSQL 18 and Garage, applies migrations and starts the real FastAPI service on loopback.
@@ -52,7 +52,7 @@ They do not establish live model reasoning, target-deployment acceptance, or res
 The separate key recovery gate is:
 
 ```sh
-uv run --directory backend python ../tests/system/run_key_restore.py
+uv run --directory src/backend python ../../tests/system/run_key_restore.py
 ```
 
 The gate performs this sequence:
@@ -115,7 +115,7 @@ It is not a production bundle or live-provider test.
 Catalogue and scoped direct writes are standard features.
 The test-only API entrypoint enables hosted execution for this harness.
 
-The test-only API entrypoint is outside `backend` and cannot be selected by application configuration.
+The test-only API entrypoint is outside `src/backend` and cannot be selected by application configuration.
 Its `MappingIdentityVerifier` accepts only the fixed `owner`, `contributor`, `reader`, and `outsider` tokens.
 Its provider transport forwards a policy-validated provider request to the local fake server.
 Do not use either artifact outside this harness.
@@ -145,7 +145,7 @@ It does not represent staging validation, backup restore, deployed network-role 
 
 ## Docker-free development smoke test
 
-Run `uv run --directory backend python ../tests/system/run_local_mode.py` after installing the normal locked dependencies and Playwright Chromium.
+Run `uv run --directory src/backend python ../../tests/system/run_local_mode.py` after installing the normal locked dependencies and Playwright Chromium.
 It starts a real API and Vite on unused loopback ports with temporary migrated SQLite and filesystem storage.
 It exercises registration, research, Library copying, activity and uploads without mocking HTTP or changing the user's local database or Docker services.
 The runner stops its process groups and removes its temporary data on exit.

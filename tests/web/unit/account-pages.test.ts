@@ -1,11 +1,11 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 
-import AccountSettings from '../../../web/src/ui/AccountSettings.svelte';
-import Administration from '../../../web/src/ui/Administration.svelte';
-import Profile from '../../../web/src/ui/Profile.svelte';
-import { Auth } from '../../../web/src/svelte-lib/auth.svelte';
-import { contextKey } from '../../../web/src/svelte-lib/context';
+import AccountSettings from '../../../src/web/src/ui/AccountSettings.svelte';
+import Administration from '../../../src/web/src/ui/Administration.svelte';
+import Profile from '../../../src/web/src/ui/Profile.svelte';
+import { Auth } from '../../../src/web/src/svelte-lib/auth.svelte';
+import { contextKey } from '../../../src/web/src/svelte-lib/context';
 
 afterEach(cleanup);
 

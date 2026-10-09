@@ -1,8 +1,8 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import WorkspaceFiles from '../../../web/src/ui/WorkspaceFiles.svelte';
-import { contextKey } from '../../../web/src/svelte-lib/context';
-import { encodeFile } from '../../../web/src/lib/repository-api';
+import WorkspaceFiles from '../../../src/web/src/ui/WorkspaceFiles.svelte';
+import { contextKey } from '../../../src/web/src/svelte-lib/context';
+import { encodeFile } from '../../../src/web/src/lib/repository-api';
 
 afterEach(() => {
   cleanup();

@@ -1,8 +1,8 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import CatalogueEdit from '../../../web/src/ui/CatalogueEdit.svelte';
-import { contextKey } from '../../../web/src/svelte-lib/context';
-import type { CatalogueEntry } from '../../../web/src/lib/catalogue-api';
+import CatalogueEdit from '../../../src/web/src/ui/CatalogueEdit.svelte';
+import { contextKey } from '../../../src/web/src/svelte-lib/context';
+import type { CatalogueEntry } from '../../../src/web/src/lib/catalogue-api';
 import { claimVersion } from './version-fixtures';
 
 afterEach(cleanup);

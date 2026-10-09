@@ -176,7 +176,7 @@ def test_real_consumer_sigterm_cleans_socket(
             "--metrics-uds",
             str(socket_path),
         ],
-        cwd=Path(__file__).resolve().parents[2] / "backend",
+        cwd=Path(__file__).resolve().parents[2] / "src/backend",
         env={
             "PATH": os.environ["PATH"],
             "APP_ENV": "local",

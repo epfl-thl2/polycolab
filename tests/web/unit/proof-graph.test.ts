@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
-import { proofGraph } from '../../../web/src/lib/proof-graph';
-import type { ProofSketchView } from '../../../web/src/lib/assurance-view';
+import { proofGraph } from '../../../src/web/src/lib/proof-graph';
+import type { ProofSketchView } from '../../../src/web/src/lib/assurance-view';
 
 const alternative = (sketchId: string, premiseRevisionIds: string[]): ProofSketchView => ({
   sketchId,

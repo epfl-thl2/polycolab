@@ -24,7 +24,7 @@ A checksum detects corruption but does not authenticate an attacker-controlled m
 Verify a copied bundle before decrypting or restoring it:
 
 ```sh
-uv run --directory backend python -m polycolab.backup_bundle /private/recovery/polycolab-backup-bundle
+uv run --directory src/backend python -m polycolab.backup_bundle /private/recovery/polycolab-backup-bundle
 ```
 
 The read-only verifier requires the exact v1 marker, one archive, and its checksum.
@@ -125,14 +125,14 @@ Retain it separately from the backup.
 Capture refuses to overwrite an existing file and creates it with mode 600:
 
 ```sh
-uv run --directory backend python -m polycolab.recovery_integrity capture --output /private/recovery/source-manifest.json
+uv run --directory src/backend python -m polycolab.recovery_integrity capture --output /private/recovery/source-manifest.json
 ```
 
 After restoring, point the operator's `DATABASE_URL` at the isolated restore.
 Use the same manifest key:
 
 ```sh
-uv run --directory backend python -m polycolab.recovery_integrity compare --expected /private/recovery/source-manifest.json
+uv run --directory src/backend python -m polycolab.recovery_integrity compare --expected /private/recovery/source-manifest.json
 ```
 
 For an integrated local drill, pass `--manifest /private/recovery/source-manifest.json` to `scripts/verify-restore.sh`.
@@ -177,7 +177,7 @@ The read-only verifier checks these relationships:
 Run the verifier:
 
 ```sh
-uv run --directory backend python -m polycolab.recovery_dependencies research --isolated-restore --max-items 100000
+uv run --directory src/backend python -m polycolab.recovery_dependencies research --isolated-restore --max-items 100000
 ```
 
 The explicit limit covers the combined objects, revisions, relations, publication manifests/members, public releases and assurance rows.
@@ -198,8 +198,8 @@ Supply the isolated database, restored object-store endpoint and read-only stora
 Do not enable application or agent writers during these checks.
 
 ```sh
-uv run --directory backend python -m polycolab.recovery_dependencies artifacts --isolated-restore --max-items 1000
-uv run --directory backend python -m polycolab.recovery_dependencies credentials --isolated-restore --max-items 1000
+uv run --directory src/backend python -m polycolab.recovery_dependencies artifacts --isolated-restore --max-items 1000
+uv run --directory src/backend python -m polycolab.recovery_dependencies credentials --isolated-restore --max-items 1000
 ```
 
 Alternatively, opt into these checks in `scripts/verify-restore.sh` using `--artifacts-max-items N` and/or `--credentials-max-items N`, together with `--isolated-dependencies`.

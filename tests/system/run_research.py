@@ -1,6 +1,6 @@
 """Separate-process research HTTP acceptance with disposable PostgreSQL and Garage.
 
-Run: uv run --directory backend python ../tests/system/run_research.py
+Run: uv run --directory src/backend python ../tests/system/run_research.py
 No worker/provider/controller runs. Only this invocation's unique Compose project
 and API child are removed. Diagnostics never print response bodies or secrets.
 """
@@ -151,11 +151,13 @@ def main() -> int:
                 "ARTIFACT_S3_SECRET_KEY": "0123456789abcdef" * 4,
             }
             command(
-                [sys.executable, "-m", "alembic", "upgrade", "head"], cwd=ROOT / "backend", env=env
+                [sys.executable, "-m", "alembic", "upgrade", "head"],
+                cwd=ROOT / "src/backend",
+                env=env,
             )
             command(
                 [sys.executable, "-m", "polycolab.bootstrap_admin"],
-                cwd=ROOT / "backend",
+                cwd=ROOT / "src/backend",
                 env=env,
             )
             browser_enabled = os.environ.get("POLYCOLAB_RESEARCH_BROWSER") == "1"
@@ -177,7 +179,7 @@ def main() -> int:
                     str(api_port),
                     "--no-access-log",
                 ],
-                cwd=ROOT / "backend",
+                cwd=ROOT / "src/backend",
                 env=env,
                 stdout=diagnostics,
                 stderr=diagnostics,
@@ -302,7 +304,7 @@ def main() -> int:
                             "--workspace-id",
                             workspace["id"],
                         ],
-                        cwd=ROOT / "backend",
+                        cwd=ROOT / "src/backend",
                         env=client_env,
                     )
                 probe = ExternalClient(origin, credential["secret"])
@@ -442,7 +444,7 @@ def main() -> int:
                 revoked = human.delete(f"/api/v1/account/agent-keys/{credential['id']}")
                 if revoked.status_code != 204:
                     raise RuntimeError("revoke_failed")
-                command(invocation + ["--expect-revoked"], cwd=ROOT / "backend", env=client_env)
+                command(invocation + ["--expect-revoked"], cwd=ROOT / "src/backend", env=client_env)
                 with httpx.Client(base_url=origin, trust_env=False) as anonymous:
                     response = anonymous.get(f"/api/v1/workspaces/{workspace['id']}/objects")
                     if response.status_code != 200:
@@ -488,10 +490,10 @@ def main() -> int:
                     sys.executable,
                     "-m",
                     "pytest",
-                    "../tests/backend/test_external_agents_postgresql.py",
+                    "../../tests/backend/test_external_agents_postgresql.py",
                     "-q",
                 ],
-                cwd=ROOT / "backend",
+                cwd=ROOT / "src/backend",
                 env={
                     **env,
                     "M0_POSTGRES_TEST_URL": env["DATABASE_URL"],
@@ -590,7 +592,7 @@ def main() -> int:
                             "--recovery-reference",
                             "research-restore-drill",
                         ],
-                        cwd=ROOT / "backend",
+                        cwd=ROOT / "src/backend",
                         env={**env, "DATABASE_URL": restored_database_url},
                     )
                     result = subprocess.check_output(
@@ -687,7 +689,7 @@ def main() -> int:
                             str(api_port),
                             "--no-access-log",
                         ],
-                        cwd=ROOT / "backend",
+                        cwd=ROOT / "src/backend",
                         env=restored_env,
                         stdout=diagnostics,
                         stderr=diagnostics,

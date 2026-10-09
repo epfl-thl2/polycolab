@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { activityView, type Activity } from '../../../web/src/lib/history-api';
+import { activityView, type Activity } from '../../../src/web/src/lib/history-api';
 
 it('maps activity to its exact object version in public and workspace views', () => {
   const event: Activity = {

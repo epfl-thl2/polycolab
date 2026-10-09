@@ -1,10 +1,10 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import PublicationPanel from '../../../web/src/ui/PublicationPanel.svelte';
-import { contextKey } from '../../../web/src/svelte-lib/context';
+import PublicationPanel from '../../../src/web/src/ui/PublicationPanel.svelte';
+import { contextKey } from '../../../src/web/src/svelte-lib/context';
 import { proofVersion } from './version-fixtures';
 
-vi.mock('../../../web/src/lib/reviews-api', () => ({
+vi.mock('../../../src/web/src/lib/reviews-api', () => ({
   listReviews: vi.fn().mockResolvedValue({ items: [], next_cursor: null }),
 }));
 afterEach(cleanup);

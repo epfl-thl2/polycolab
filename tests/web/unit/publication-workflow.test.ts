@@ -1,11 +1,11 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import PublicationWorkflow from '../../../web/src/ui/PublicationWorkflow.svelte';
+import PublicationWorkflow from '../../../src/web/src/ui/PublicationWorkflow.svelte';
 import type {
   PublicationManifestView,
   PublicationPreviewView,
   PublicationSelectionItem,
-} from '../../../web/src/lib/publication-view';
+} from '../../../src/web/src/lib/publication-view';
 
 afterEach(cleanup);
 

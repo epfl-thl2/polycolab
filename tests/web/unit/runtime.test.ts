@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { applicationName, createWebApiClient } from '../../../web/src/lib/runtime';
+import { applicationName, createWebApiClient } from '../../../src/web/src/lib/runtime';
 
 describe('web foundation', () => {
   it('identifies the application', () => {

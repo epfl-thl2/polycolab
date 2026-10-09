@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import ResearchContextPanel from '../../../web/src/ui/ResearchContextPanel.svelte';
-import { contextKey } from '../../../web/src/svelte-lib/context';
+import ResearchContextPanel from '../../../src/web/src/ui/ResearchContextPanel.svelte';
+import { contextKey } from '../../../src/web/src/svelte-lib/context';
 import { claimVersion, structuralPin } from './version-fixtures';
 
 afterEach(cleanup);

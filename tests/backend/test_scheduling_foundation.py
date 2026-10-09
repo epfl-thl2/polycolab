@@ -182,7 +182,7 @@ def scheduler_pg_schema(
     engine = create_engine(scoped_url)
     monkeypatch.setenv("DATABASE_URL", scoped)
     get_settings.cache_clear()
-    backend = Path(__file__).resolve().parents[2] / "backend"
+    backend = Path(__file__).resolve().parents[2] / "src/backend"
     config = Config(str(backend / "alembic.ini"))
     config.set_main_option(
         "script_location", str(backend / "polycolab" / "db" / "migrations" / "postgresql")

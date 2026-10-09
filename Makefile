@@ -7,7 +7,7 @@ help:
 
 install:
 	pnpm install --frozen-lockfile
-	uv --directory backend sync --all-groups --frozen
+	uv --directory src/backend sync --all-groups --frozen
 
 check:
 	pnpm run check

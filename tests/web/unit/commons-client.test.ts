@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
-import { result } from '../../../web/src/lib/commons-client';
-import { explain } from '../../../web/src/svelte-lib/context';
+import { result } from '../../../src/web/src/lib/commons-client';
+import { explain } from '../../../src/web/src/svelte-lib/context';
 
 it('preserves normalized generated-client error codes for actionable presentation', async () => {
   const failure = result(

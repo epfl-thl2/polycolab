@@ -438,7 +438,7 @@ def test_cancel_resume_and_runtime_bindings_preserve_history(client: TestClient)
 
 
 def test_postgresql_migration_compiles_runtime_integrity_and_immutable_history() -> None:
-    api_directory = Path(__file__).resolve().parents[2] / "backend"
+    api_directory = Path(__file__).resolve().parents[2] / "src/backend"
     sql = StringIO()
     config = Config(str(api_directory / "alembic.ini"), output_buffer=sql)
     config.set_main_option(

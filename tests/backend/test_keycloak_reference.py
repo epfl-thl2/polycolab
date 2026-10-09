@@ -16,7 +16,7 @@ def test_optional_realm_matches_browser_paths_and_token_boundary() -> None:
         assert client[key] is False
     assert "secret" not in client
     assert client["attributes"]["pkce.code.challenge.method"] == "S256"
-    browser = (root / "web/src/svelte-lib/auth.svelte.ts").read_text()
+    browser = (root / "src/web/src/svelte-lib/auth.svelte.ts").read_text()
     assert client["redirectUris"] == [
         "https://polycolab.example.org/oidc/callback",
         "https://polycolab.example.org/oidc/silent-callback",

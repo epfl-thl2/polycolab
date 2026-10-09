@@ -2,7 +2,7 @@
   "singleQuote": true,
   "trailingComma": "all",
   "printWidth": 100,
-  "plugins": ["./web/node_modules/prettier-plugin-svelte/plugin.js"],
+  "plugins": ["./src/web/node_modules/prettier-plugin-svelte/plugin.js"],
   "overrides": [
     {
       "files": "*.svelte",

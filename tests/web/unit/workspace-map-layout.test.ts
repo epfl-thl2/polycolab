@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { relationshipEndpoints } from '../../../web/src/lib/relationship-view';
-import ELK from '../../../web/node_modules/elkjs/lib/elk.bundled.js';
+import { relationshipEndpoints } from '../../../src/web/src/lib/relationship-view';
+import ELK from '../../../src/web/node_modules/elkjs/lib/elk.bundled.js';
 import {
   layoutWorkspaceMap,
   mapNodeSize,
   roundedRoute,
-} from '../../../web/src/lib/workspace-map-layout';
-import type { WorkspaceMap } from '../../../web/src/lib/workspace-map';
+} from '../../../src/web/src/lib/workspace-map-layout';
+import type { WorkspaceMap } from '../../../src/web/src/lib/workspace-map';
 const graph = (links: [string, string][]): WorkspaceMap => ({
   objects: [],
   nodes: ['a', 'b', 'c', 'd', 'isolated'].map((id) => ({

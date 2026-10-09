@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import Activity from '../../../web/src/ui/Activity.svelte';
-import type { ActivitySource } from '../../../web/src/lib/activity-view';
+import Activity from '../../../src/web/src/ui/Activity.svelte';
+import type { ActivitySource } from '../../../src/web/src/lib/activity-view';
 
 afterEach(cleanup);
 

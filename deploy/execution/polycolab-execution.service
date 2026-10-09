@@ -4,8 +4,8 @@ After=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/polycolab/backend
-ExecStart=/opt/polycolab/backend/.venv/bin/python -m polycolab.execution.service --config /etc/polycolab-execution/controller.toml
+WorkingDirectory=/opt/polycolab/src/backend
+ExecStart=/opt/polycolab/src/backend/.venv/bin/python -m polycolab.execution.service --config /etc/polycolab-execution/controller.toml
 Restart=no
 KillSignal=SIGTERM
 KillMode=control-group

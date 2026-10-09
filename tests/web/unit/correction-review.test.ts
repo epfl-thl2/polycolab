@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
-import CorrectionReview from '../../../web/src/ui/CorrectionReview.svelte';
-import { contextKey } from '../../../web/src/svelte-lib/context';
+import CorrectionReview from '../../../src/web/src/ui/CorrectionReview.svelte';
+import { contextKey } from '../../../src/web/src/svelte-lib/context';
 import { claimVersion } from './version-fixtures';
 
 afterEach(cleanup);

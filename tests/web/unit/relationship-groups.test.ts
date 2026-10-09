@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
-import { groupRelationships } from '../../../web/src/lib/relationship-groups';
-import type { WorkspaceMap } from '../../../web/src/lib/workspace-map';
+import { groupRelationships } from '../../../src/web/src/lib/relationship-groups';
+import type { WorkspaceMap } from '../../../src/web/src/lib/workspace-map';
 import { claimVersion } from './version-fixtures';
 
 it('groups directed links from the focused object perspective without substituting revisions', () => {

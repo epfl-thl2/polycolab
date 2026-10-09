@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createResearchApi } from '../../../web/src/lib/research-api';
+import { createResearchApi } from '../../../src/web/src/lib/research-api';
 
 const fetchBeforeTest = globalThis.fetch;
 

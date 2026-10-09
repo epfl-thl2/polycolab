@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import Search from '../../../web/src/ui/Search.svelte';
-import { contextKey } from '../../../web/src/svelte-lib/context';
+import Search from '../../../src/web/src/ui/Search.svelte';
+import { contextKey } from '../../../src/web/src/svelte-lib/context';
 
 afterEach(cleanup);
 

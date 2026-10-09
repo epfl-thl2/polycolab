@@ -1,12 +1,12 @@
 # API contract and reference
 
 FastAPI is the only producer of Polycolab's machine-readable API contract.
-The checked-in [OpenAPI snapshot](../../packages/api-client/openapi.json) and the generated TypeScript output in `packages/api-client/src/generated` are derived artifacts.
+The checked-in [OpenAPI snapshot](../../src/web/openapi.json) and the generated TypeScript output in `src/web/src/lib/api-client/generated` are derived artifacts.
 Do not edit them by hand.
 
 Run `pnpm run api:contract` after an intentional API change.
 CI runs `pnpm run api:contract:check`, which fails if either the snapshot or generated client is stale.
-Browser code imports `@polycolab/api-client`.
+Browser code imports the frontend API client module through `$lib/api-client`.
 Its callable `createApiClient` factory uses types from the generated `paths` map.
 
 The [external-agent API guide](external-agent-api.md) summarizes delegated HTTPS operations.
@@ -467,7 +467,7 @@ The Tool Gateway and Model Gateway remain separate run-scoped private interfaces
 
 The implemented private route is `/internal/v1/tools/call`.
 It is absent from the public OpenAPI contract and browser network surface.
-The dispatcher lives in `backend/polycolab/agents/tools.py` and uses platform-owned function schemas over HTTP.
+The dispatcher lives in `src/backend/polycolab/agents/tools.py` and uses platform-owned function schemas over HTTP.
 The browser never calls the worker, and the gateway authorizes each tool call before invoking shared domain services.
 
 ```text

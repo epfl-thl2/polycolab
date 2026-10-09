@@ -34,7 +34,7 @@ jobs:
         with:
           version: 0.10.10
       - run: pnpm install --frozen-lockfile
-      - run: uv --directory backend sync --all-groups --frozen
+      - run: uv --directory src/backend sync --all-groups --frozen
       - name: Validate local Compose configuration
         run: |
           cp deploy/docker/.env.example deploy/docker/.env
@@ -74,7 +74,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           version: 0.10.10
-      - run: uv --directory backend sync --frozen --no-dev
+      - run: uv --directory src/backend sync --frozen --no-dev
       - name: Selected authentication boundary probe
         env:
           STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL }}
@@ -82,7 +82,7 @@ jobs:
           STAGING_AUTH_COOKIE_NAME: ${{ vars.STAGING_AUTH_COOKIE_NAME }}
           STAGING_OPERATOR_SESSION: ${{ secrets.STAGING_OPERATOR_SESSION }}
           STAGING_OPERATOR_TOKEN: ${{ secrets.STAGING_OPERATOR_TOKEN }}
-        run: uv --directory backend run --no-dev python -m polycolab.staging_auth_probe
+        run: uv --directory src/backend run --no-dev python -m polycolab.staging_auth_probe
 
   external-gate-evidence:
     name: Protected external gate evidence

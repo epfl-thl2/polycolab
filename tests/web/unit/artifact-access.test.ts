@@ -1,8 +1,8 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import ArtifactAccess from '../../../web/src/ui/ArtifactAccess.svelte';
-import type { ArtifactView } from '../../../web/src/lib/artifact-view';
-import type { ExactResearchRevisionView } from '../../../web/src/lib/research-structure-view';
+import ArtifactAccess from '../../../src/web/src/ui/ArtifactAccess.svelte';
+import type { ArtifactView } from '../../../src/web/src/lib/artifact-view';
+import type { ExactResearchRevisionView } from '../../../src/web/src/lib/research-structure-view';
 
 afterEach(cleanup);
 

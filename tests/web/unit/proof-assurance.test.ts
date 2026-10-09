@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
-import ProofAssurance from '../../../web/src/ui/ProofAssurance.svelte';
-import type { ProofSketchView } from '../../../web/src/lib/assurance-view';
+import ProofAssurance from '../../../src/web/src/ui/ProofAssurance.svelte';
+import type { ProofSketchView } from '../../../src/web/src/lib/assurance-view';
 
 afterEach(cleanup);
 

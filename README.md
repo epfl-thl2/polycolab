@@ -44,7 +44,7 @@ For browser test authoring, execution, and debugging, use the [E2E testing skill
 2. Install the Python dependencies from the lockfile:
 
    ```sh
-   uv --directory backend sync --all-groups --frozen
+   uv --directory src/backend sync --all-groups --frozen
    ```
 
 3. Run the repository's JavaScript and TypeScript checks:
@@ -55,18 +55,18 @@ For browser test authoring, execution, and debugging, use the [E2E testing skill
 
 ## Repository map
 
-| Directory              | Contents                                                       |
-| ---------------------- | -------------------------------------------------------------- |
-| `web/`                 | Svelte browser application                                     |
-| `backend/`             | FastAPI services, database migrations, and private workers     |
-| `packages/api-client/` | OpenAPI snapshot and generated TypeScript client               |
-| `packages/brand/`      | Shared color tokens                                            |
-| `tests/`               | Browser, backend, execution, and system checks                 |
-| `deploy/`              | Deployment configuration and operator guides                   |
-| `docs/`                | Product requirements, implementation architecture, and roadmap |
-| `docs-site/`           | Public documentation for users and developers                  |
-| `skills/`              | Instructions for external agents that use Polycolab            |
-| `.agents/skills/`      | Skills for coding agents that work on this repository          |
+| Directory                     | Contents                                                       |
+| ----------------------------- | -------------------------------------------------------------- |
+| `src/web/`                    | Svelte browser application                                     |
+| `src/backend/`                | FastAPI services, database migrations, and private workers     |
+| `src/web/src/lib/api-client/` | Generated TypeScript API types and typed client                |
+| `src/web/src/styles/`         | Frontend styles and canonical color tokens                     |
+| `tests/`                      | Browser, backend, execution, and system checks                 |
+| `deploy/`                     | Deployment configuration and operator guides                   |
+| `docs/`                       | Product requirements, implementation architecture, and roadmap |
+| `docs-site/`                  | Public documentation for users and developers                  |
+| `skills/`                     | Instructions for external agents that use Polycolab            |
+| `.agents/skills/`             | Skills for coding agents that work on this repository          |
 
 See the [architecture](docs/architecture/README.md) for component boundaries.
 
@@ -148,7 +148,7 @@ Never use `down -v` for routine restarts.
 ### Shared settings
 
 Both development commands read **`deploy/docker/.env`**.
-They do not read `.env` files from the repository root, `backend/`, or legacy deployment directories.
+They do not read `.env` files from the repository root, `src/backend/`, or legacy deployment directories.
 Shell variables override values in the file.
 Each command selects the database and storage addresses for its mode.
 

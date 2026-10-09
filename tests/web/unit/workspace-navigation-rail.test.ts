@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
-import WorkspaceNavigationRail from '../../../web/src/ui/WorkspaceNavigationRail.svelte';
+import WorkspaceNavigationRail from '../../../src/web/src/ui/WorkspaceNavigationRail.svelte';
 afterEach(cleanup);
 function setup(extra = {}) {
   const onNavigate = vi.fn();

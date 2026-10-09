@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ObjectVersion } from '../../../web/src/lib/research-api';
-import { editableVersionSnapshot } from '../../../web/src/lib/version-snapshot';
+import type { ObjectVersion } from '../../../src/web/src/lib/research-api';
+import { editableVersionSnapshot } from '../../../src/web/src/lib/version-snapshot';
 
 function version(): ObjectVersion {
   return {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createAgentSessionsApi } from '../../../web/src/lib/agent-sessions-api';
+import { createAgentSessionsApi } from '../../../src/web/src/lib/agent-sessions-api';
 
 const originalFetch = globalThis.fetch;
 afterEach(() => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { prepareTurn, type TurnDraft } from '../../../web/src/lib/run-authority';
+import { prepareTurn, type TurnDraft } from '../../../src/web/src/lib/run-authority';
 
 const draft: TurnDraft = {
   destination: 'PUBLIC',

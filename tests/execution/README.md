@@ -8,7 +8,7 @@ Run from the repository root with Docker available:
 
 ```sh
 docker pull dxflrs/garage:v2.3.0
-POLYCOLAB_TEST_GARAGE=1 uv run --directory backend pytest ../tests/execution/test_garage_storage.py -q
+POLYCOLAB_TEST_GARAGE=1 uv run --directory src/backend pytest ../../tests/execution/test_garage_storage.py -q
 ```
 
 The fixture runs the actual [development profile](../../deploy/garage/README.md) in a unique, disposable Compose project.

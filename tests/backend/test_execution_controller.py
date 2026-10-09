@@ -267,7 +267,7 @@ def test_output_collector_limits_and_links(tmp_path: Path) -> None:
 def test_controller_dependency_boundary() -> None:
     import ast
 
-    package = Path(__file__).resolve().parents[2] / "backend" / "polycolab"
+    package = Path(__file__).resolve().parents[2] / "src/backend" / "polycolab"
     for name in (
         "execution/controller.py",
         "execution/gateway.py",

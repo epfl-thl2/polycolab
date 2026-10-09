@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import ScopedRelations from '../../../web/src/ui/ScopedRelations.svelte';
-import { contextKey } from '../../../web/src/svelte-lib/context';
+import ScopedRelations from '../../../src/web/src/ui/ScopedRelations.svelte';
+import { contextKey } from '../../../src/web/src/svelte-lib/context';
 
 afterEach(cleanup);
 

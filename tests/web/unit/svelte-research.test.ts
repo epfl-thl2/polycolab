@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { renderMarkdown } from '../../../web/src/svelte-lib/markdown';
-import { advancesCursor, statusFromEvent } from '../../../web/src/svelte-lib/session-events';
-import type { AgentEvent } from '../../../web/src/lib/agent-sessions-api';
+import { renderMarkdown } from '../../../src/web/src/svelte-lib/markdown';
+import { advancesCursor, statusFromEvent } from '../../../src/web/src/svelte-lib/session-events';
+import type { AgentEvent } from '../../../src/web/src/lib/agent-sessions-api';
 
 describe('Svelte research content and event boundaries', () => {
   it('renders accessible mathematics without enabling injected HTML or unsafe links', () => {

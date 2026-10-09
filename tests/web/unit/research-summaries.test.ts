@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import ResearchSummaries from '../../../web/src/ui/ResearchSummaries.svelte';
+import ResearchSummaries from '../../../src/web/src/ui/ResearchSummaries.svelte';
 
 afterEach(cleanup);
 

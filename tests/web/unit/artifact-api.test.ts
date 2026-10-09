@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { createArtifactApi } from '../../../web/src/lib/artifact-api';
+import { createArtifactApi } from '../../../src/web/src/lib/artifact-api';
 
 const originalFetch = globalThis.fetch;
 afterEach(() => {

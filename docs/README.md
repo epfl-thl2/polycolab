@@ -16,7 +16,7 @@ Start with the guide for your task:
 | Run integration checks                        | [System tests](../tests/system/README.md)                     |
 | See unfinished capabilities and release gates | [Roadmap](roadmap.md)                                         |
 
-The generated [OpenAPI snapshot](../packages/api-client/openapi.json) lives with the TypeScript client.
+The generated [OpenAPI snapshot](../src/web/openapi.json) lives with the TypeScript client.
 Run `pnpm run api:contract` after API changes.
 Do not edit generated files by hand.
 

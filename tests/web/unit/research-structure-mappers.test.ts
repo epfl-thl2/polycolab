@@ -5,7 +5,7 @@ import {
   mapHumanNote,
   mapProofSketch,
   mapResearchAttempt,
-} from '../../../web/src/lib/research-structure-mappers';
+} from '../../../src/web/src/lib/research-structure-mappers';
 
 const base = {
   schema_version: 1,

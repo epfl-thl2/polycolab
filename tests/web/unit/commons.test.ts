@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import Commons from '../../../web/src/ui/Commons.svelte';
-import { contextKey } from '../../../web/src/svelte-lib/context';
+import Commons from '../../../src/web/src/ui/Commons.svelte';
+import { contextKey } from '../../../src/web/src/svelte-lib/context';
 import { proofVersion } from './version-fixtures';
 
 afterEach(() => {

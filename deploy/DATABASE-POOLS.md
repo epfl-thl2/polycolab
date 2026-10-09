@@ -47,7 +47,7 @@ Run the offline preflight with one repeated `--pool PROCESSES SIZE OVERFLOW` per
 This example represents four API processes (including any surge) and two serial consumers on a **hypothetical** 100-connection server:
 
 ```sh
-uv run --directory backend python -m polycolab.database_budget \
+uv run --directory src/backend python -m polycolab.database_budget \
   --server-limit 100 --reserved 10 --headroom 10 \
   --pool 4 5 5 --pool 2 2 0
 ```

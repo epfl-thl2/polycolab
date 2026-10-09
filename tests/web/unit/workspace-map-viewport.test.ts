@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { localMapViewport } from '../../../web/src/lib/workspace-map-viewport';
+import { localMapViewport } from '../../../src/web/src/lib/workspace-map-viewport';
 
 const layout = {
   positions: {

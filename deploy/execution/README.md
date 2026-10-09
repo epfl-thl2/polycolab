@@ -22,7 +22,7 @@ Prepare the execution account:
    Install the repository under `/opt/polycolab` and its locked environment:
 
 ```sh
-uv --directory backend sync --extra execution --all-groups --frozen
+uv --directory src/backend sync --extra execution --all-groups --frozen
 ```
 
 Provision `/var/lib/polycolab-execution` as an account-owned mode-0700 directory.
@@ -56,7 +56,7 @@ As the execution account, run this command to load the image in every slot.
 The command also verifies the image:
 
 ```sh
-/opt/polycolab/backend/.venv/bin/python -m polycolab.execution.preflight \
+/opt/polycolab/src/backend/.venv/bin/python -m polycolab.execution.preflight \
   --config /etc/polycolab-execution/controller.toml --archive /absolute/agent.tar
 ```
 

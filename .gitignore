@@ -1,6 +1,6 @@
 # JavaScript
 node_modules/
-web/dist/
+src/web/dist/
 *.tsbuildinfo
 coverage/
 playwright-report/
@@ -10,7 +10,7 @@ test-results/
 __pycache__/
 *.py[cod]
 .venv/
-backend/dist/
+src/backend/dist/
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
@@ -34,14 +34,14 @@ deploy/postgres-data/
 .DS_Store
 
 .omnigent
-web/.svelte-kit/
+src/web/.svelte-kit/
 
 docs-site/.astro/
 docs-site/.cache/
 docs-site/site/
 docs-site/docs/styles/brand-tokens.css
 
-web/.astro/
+src/web/.astro/
 
 # Persistent Docker-free development data
 .local/

@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { accountHref, accountReturnPath } from '../../../web/src/lib/account-navigation';
+import { accountHref, accountReturnPath } from '../../../src/web/src/lib/account-navigation';
 
 it.each([
   undefined,

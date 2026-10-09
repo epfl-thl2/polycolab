@@ -1,6 +1,6 @@
 import { afterEach, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
-import PublicationHistory from '../../../web/src/ui/PublicationHistory.svelte';
+import PublicationHistory from '../../../src/web/src/ui/PublicationHistory.svelte';
 
 afterEach(cleanup);
 

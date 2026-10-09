@@ -2,8 +2,8 @@
 
 PostgreSQL is the canonical deployment database.
 Local development uses SQLite with a separate migration history.
-SQLAlchemy mappings live in [`backend/polycolab/db/models/`](../../backend/polycolab/db/models/).
-Use the [database directory guide](../../backend/polycolab/db/README.md) to find models, stores, converters, and migrations.
+SQLAlchemy mappings live in [`src/backend/polycolab/db/models/`](../../src/backend/polycolab/db/models).
+Use the [database directory guide](../../src/backend/polycolab/db/README.md) to find models, stores, converters, and migrations.
 
 This document describes the current storage boundaries.
 The [research version contract](research-versions.md) defines application snapshots and wire behavior.
@@ -78,7 +78,7 @@ Follow the [recovery contract](../../deploy/RECOVERY.md) and [incident procedure
 
 ## Verification
 
-Database checks live in [`tests/backend/`](../../tests/backend/), including `test_m0_postgresql.py`, `test_relationships_postgresql.py`, `test_records_postgresql.py`, and the publication/recovery suites.
+Database checks live in [`tests/backend/`](../../tests/backend), including `test_m0_postgresql.py`, `test_relationships_postgresql.py`, `test_records_postgresql.py`, and the publication/recovery suites.
 They cover fresh schema/ORM agreement, populated upgrades, immutable history, retry contention, stale edits, and permission changes against waiting writers.
 Use the fixtures' disposable schemas.
 SQLite checks do not establish PostgreSQL constraint or concurrency behavior.

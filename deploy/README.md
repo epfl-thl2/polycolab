@@ -124,7 +124,7 @@ Set `API_REFERENCE_ACCESS=public` to publish it or `operators` together with `AP
 The legacy `API_REFERENCE_ENABLED=true` production setting continues to mean operator-only access so upgrades cannot accidentally publish a formerly restricted reference.
 Scalar cannot send requests or retain credentials in any access mode.
 
-In Vite development, the reference reads the current worktree's generated `packages/api-client/openapi.json`.
+In Vite development, the reference reads the current worktree's generated `src/web/openapi.json`.
 Run `pnpm run api:contract` after changing the API contract.
 Application requests still use `POLYCOLAB_API_PROXY_TARGET` (port 8000 by default), so inspecting the new reference does not start or migrate the matching backend.
 
@@ -153,7 +153,7 @@ Direct-write authority does not grant permission to start execution services.
 
 The `community` Compose service processes catalogue/research outbox events for private notifications and deterministic progress summaries.
 It is an application-owned database consumer, separate from the database-free agent worker.
-Outside Compose, run `uv --directory backend run python -m polycolab.community_consumer` with the same application/database environment as the API.
+Outside Compose, run `uv --directory src/backend run python -m polycolab.community_consumer` with the same application/database environment as the API.
 It commits bounded recipient batches, resumes after restart, and performs no model calls.
 
 Moderator assignment requires an explicit JSON list of verified human subjects in `CATALOGUE_OPERATOR_SUBJECTS`.
@@ -162,7 +162,7 @@ The local Compose service supplies these variables.
 See the [catalogue contract](../docs/architecture/catalogue.md) for endpoints and authority.
 The Svelte Library supplies discovery, admission, revision history and workspace imports.
 
-Local browser and integration tests do not establish deployment acceptance for the combined web/API image.
+Local browser and integration tests do not establish deployment acceptance for the combined src/web/API image.
 
 `docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up --build` starts PostgreSQL, Garage, migrations, FastAPI, the community consumer and hosted-run reconciler.
 Enable the `execution` profile and matching API capability explicitly to start a private built-in worker.

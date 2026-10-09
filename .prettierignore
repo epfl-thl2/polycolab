@@ -1,13 +1,13 @@
 node_modules/
-web/dist/
-backend/dist/
+src/web/dist/
+src/backend/dist/
 .venv/
 coverage/
 playwright-report/
 test-results/
-backend/uv.lock
+src/backend/uv.lock
 .artifacts/
-web/.svelte-kit/
+src/web/.svelte-kit/
 # Byte-exact generator outputs; validated by api:contract:check.
-packages/api-client/openapi.json
-packages/api-client/src/generated/
+src/web/openapi.json
+src/web/src/lib/api-client/generated/

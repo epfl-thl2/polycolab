@@ -14,7 +14,7 @@ from pathlib import Path
 from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "backend"))
+sys.path.insert(0, str(ROOT / "src/backend"))
 from polycolab.operations.local_development import upgrade_database  # noqa: E402
 
 
@@ -61,7 +61,7 @@ def main() -> int:
         try:
             subprocess.run(
                 [sys.executable, "-m", "polycolab.bootstrap_admin"],
-                cwd=ROOT / "backend",
+                cwd=ROOT / "src/backend",
                 env=env,
                 check=True,
             )
@@ -77,7 +77,7 @@ def main() -> int:
                         "--port",
                         str(api_port),
                     ],
-                    ROOT / "backend",
+                    ROOT / "src/backend",
                 ),
                 (
                     [
@@ -110,7 +110,7 @@ def main() -> int:
                     "playwright",
                     "test",
                     "--config",
-                    "../tests/web/browser/local-mode.config.ts",
+                    "../../tests/web/browser/local-mode.config.ts",
                 ],
                 cwd=ROOT,
                 env=env,

@@ -136,7 +136,7 @@ Hosted execution is unchanged.
 After applying the migration, operators must backfill facts supported by retained canonical source records:
 
 ```sh
-uv --directory backend run python -m polycolab.research.history
+uv --directory src/backend run python -m polycolab.research.history
 ```
 
 The command uses bounded batches and deduplicates live events.

@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { mapArtifactAttachments } from '../../../web/src/lib/artifact-view';
+import { mapArtifactAttachments } from '../../../src/web/src/lib/artifact-view';
 
 const artifact = {
   id: 'artifact-a',

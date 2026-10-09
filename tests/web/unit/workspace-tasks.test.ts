@@ -1,8 +1,8 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import WorkspaceTasks from '../../../web/src/ui/WorkspaceTasks.svelte';
-import { contextKey } from '../../../web/src/svelte-lib/context';
-import type { WorkspaceTask } from '../../../web/src/lib/workspace-tasks-api';
+import WorkspaceTasks from '../../../src/web/src/ui/WorkspaceTasks.svelte';
+import { contextKey } from '../../../src/web/src/svelte-lib/context';
+import type { WorkspaceTask } from '../../../src/web/src/lib/workspace-tasks-api';
 const task = (id: string, title = 'Prove the bound', archived = false): WorkspaceTask => ({
   id,
   workspace_id: 'workspace',

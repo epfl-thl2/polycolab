@@ -30,13 +30,13 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 docker compose -f "$compose_file" up -d --wait
-DATABASE_URL="$database_url" uv --directory "$root_dir/backend" run alembic upgrade head
+DATABASE_URL="$database_url" uv --directory "$root_dir/src/backend" run alembic upgrade head
 
-uv --directory "$root_dir/backend" run python "$root_dir/tests/system/fake_openai.py" --port 18080 & provider_pid=$!
-PYTHONPATH="$root_dir/backend" uv --directory "$root_dir/backend" run python "$root_dir/tests/system/serve_api.py" --database-url "$database_url" --provider-url "$provider_url" --port 18000 --web-origin "$web_url" --registration-mode "${POLYCOLAB_INTEGRATION_REGISTRATION_MODE:-closed}" & api_pid=$!
-APP_ENV=local RUNTIME_INTERNAL_API_URL="$api_url" RUNTIME_WORKER_ID=integration-worker uv --directory "$root_dir/backend" run python -m polycolab.builtin_worker & worker_pid=$!
+uv --directory "$root_dir/src/backend" run python "$root_dir/tests/system/fake_openai.py" --port 18080 & provider_pid=$!
+PYTHONPATH="$root_dir/src/backend" uv --directory "$root_dir/src/backend" run python "$root_dir/tests/system/serve_api.py" --database-url "$database_url" --provider-url "$provider_url" --port 18000 --web-origin "$web_url" --registration-mode "${POLYCOLAB_INTEGRATION_REGISTRATION_MODE:-closed}" & api_pid=$!
+APP_ENV=local RUNTIME_INTERNAL_API_URL="$api_url" RUNTIME_WORKER_ID=integration-worker uv --directory "$root_dir/src/backend" run python -m polycolab.builtin_worker & worker_pid=$!
 (
-  cd "$root_dir/web"
+  cd "$root_dir/src/web"
   export POLYCOLAB_API_PROXY_TARGET="$api_url" VITE_API_BASE_URL="$api_url"
   exec node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 13000 --strictPort
 ) & web_pid=$!

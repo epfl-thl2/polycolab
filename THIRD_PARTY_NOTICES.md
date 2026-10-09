@@ -6,8 +6,8 @@ This file is not a complete inventory of dependencies in built artifacts.
 
 ## shadcn-svelte
 
-The components in `web/src/lib/components/ui/` include source copied and adapted from the [shadcn-svelte registry](https://github.com/huntabyte/shadcn-svelte).
-The registry settings are in `web/components.json`.
+The components in `src/web/src/lib/components/ui/` include source copied and adapted from the [shadcn-svelte registry](https://github.com/huntabyte/shadcn-svelte).
+The registry settings are in `src/web/components.json`.
 Polycolab changes component styling and behavior for its Svelte application.
 
 This source uses the MIT license.

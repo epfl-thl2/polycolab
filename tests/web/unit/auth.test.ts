@@ -5,7 +5,7 @@ import {
   externalAuthStartUrl,
   readCachedAuthConfiguration,
   safeReturnPath,
-} from '../../../web/src/svelte-lib/auth.svelte';
+} from '../../../src/web/src/svelte-lib/auth.svelte';
 
 afterEach(() => {
   vi.unstubAllGlobals();

@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { createResearchStructureApi } from '../../../web/src/lib/research-structure-api';
+import { createResearchStructureApi } from '../../../src/web/src/lib/research-structure-api';
 
 const originalFetch = globalThis.fetch;
 afterEach(() => {

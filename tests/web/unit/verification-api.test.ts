@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import {
   createVerificationApi,
   type VerificationJobSubmission,
-} from '../../../web/src/lib/verification-api';
+} from '../../../src/web/src/lib/verification-api';
 
 const originalFetch = globalThis.fetch;
 afterEach(() => {

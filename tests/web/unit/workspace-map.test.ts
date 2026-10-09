@@ -7,8 +7,8 @@ import {
   type WorkspaceMap,
   searchMapObjects,
   type MapObject,
-} from '../../../web/src/lib/workspace-map';
-import type { ResearchApi } from '../../../web/src/lib/research-api';
+} from '../../../src/web/src/lib/workspace-map';
+import type { ResearchApi } from '../../../src/web/src/lib/research-api';
 
 const object = (id: string, title: string, content = '') =>
   ({

@@ -9,7 +9,7 @@ from pathlib import Path
 from polycolab.db import models
 from polycolab.db.base import Base
 
-PACKAGE = Path(__file__).resolve().parents[2] / "backend" / "polycolab"
+PACKAGE = Path(__file__).resolve().parents[2] / "src/backend" / "polycolab"
 
 
 def test_mapped_classes_and_exports_keep_sql_prefix() -> None:
@@ -32,7 +32,7 @@ def test_mapped_classes_and_exports_keep_sql_prefix() -> None:
 
 def test_mapped_class_imports_keep_sql_prefix() -> None:
     mapped_names = {mapper.class_.__name__ for mapper in Base.registry.mappers}
-    root = PACKAGE.parents[1]
+    root = PACKAGE.parents[2]
     paths = list(PACKAGE.rglob("*.py")) + list((root / "tests").rglob("*.py"))
     for path in paths:
         for node in ast.walk(ast.parse(path.read_text(), filename=str(path))):
@@ -148,7 +148,7 @@ def test_removed_persistence_modules_are_not_imported() -> None:
         "polycolab.db.mappings",
         "polycolab.db.models.base",
     )
-    paths = list(PACKAGE.rglob("*.py")) + list((PACKAGE.parents[1] / "tests").rglob("*.py"))
+    paths = list(PACKAGE.rglob("*.py")) + list((PACKAGE.parents[2] / "tests").rglob("*.py"))
     for path in paths:
         for module in imported_modules(path):
             assert not any(module == old or module.startswith(old + ".") for old in removed), (

@@ -1,6 +1,6 @@
 """Test-only API entrypoint for the local integrated acceptance harness.
 
-It is deliberately outside ``backend``: production configuration cannot
+It is deliberately outside ``src/backend``: production configuration cannot
 select this identity verifier or the loopback provider transport.
 """
 

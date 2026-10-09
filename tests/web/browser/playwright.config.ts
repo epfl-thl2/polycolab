@@ -12,7 +12,7 @@ export default defineConfig({
     ? undefined
     : {
         command: `node node_modules/vite/bin/vite.js --host 127.0.0.1 --port ${port}`,
-        cwd: resolve(__dirname, '../../../web'),
+        cwd: resolve(__dirname, '../../../src/web'),
         gracefulShutdown: { signal: 'SIGTERM', timeout: 1000 },
         reuseExistingServer: false,
         url: `${baseURL}/`,

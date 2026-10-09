@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createProposalApi } from '../../../web/src/lib/proposals-api';
+import { createProposalApi } from '../../../src/web/src/lib/proposals-api';
 
 const originalFetch = globalThis.fetch;
 

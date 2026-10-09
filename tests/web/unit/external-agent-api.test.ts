@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 
-import { createExternalAgentApi } from '../../../web/src/lib/external-agent-api';
+import { createExternalAgentApi } from '../../../src/web/src/lib/external-agent-api';
 
 const originalFetch = globalThis.fetch;
 afterEach(() => {

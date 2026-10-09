@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import WorkspaceTabStrip from '../../../web/src/ui/WorkspaceTabStrip.svelte';
-import type { WorkspaceTab } from '../../../web/src/lib/workspace-tabs';
+import WorkspaceTabStrip from '../../../src/web/src/ui/WorkspaceTabStrip.svelte';
+import type { WorkspaceTab } from '../../../src/web/src/lib/workspace-tabs';
 afterEach(cleanup);
 const tabs: WorkspaceTab[] = [
   { id: 'chat', kind: 'chat', label: 'New chat', href: '/sessions/new' },

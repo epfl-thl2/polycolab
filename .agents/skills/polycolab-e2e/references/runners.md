@@ -21,7 +21,7 @@ The [browser configuration](../../../../tests/web/browser/playwright.config.ts) 
 Run the full suite with `pnpm run test:e2e`, or select a spec:
 
 ```sh
-pnpm --filter @polycolab/web exec playwright test --config ../tests/web/browser/playwright.config.ts research-workflow.spec.ts --workers=1
+pnpm --filter @polycolab/web exec playwright test --config ../../tests/web/browser/playwright.config.ts research-workflow.spec.ts --workers=1
 ```
 
 Use `--grep` to select a named journey and `--list` to check discovery without running it.
@@ -35,7 +35,7 @@ Build the browser before running the [production-preview configuration](../../..
 
 ```sh
 pnpm --filter @polycolab/web run build
-pnpm --filter @polycolab/web exec playwright test --config ../tests/web/browser/playwright.production.config.ts
+pnpm --filter @polycolab/web exec playwright test --config ../../tests/web/browser/playwright.production.config.ts
 ```
 
 The configuration starts Vite preview on port 4183 and selects an explicit subset of specs.
@@ -45,7 +45,7 @@ CI separately runs `pnpm run web:build`, which also builds the documentation sit
 ## Real local-mode smoke test
 
 ```sh
-uv run --directory backend python ../tests/system/run_local_mode.py
+uv run --directory src/backend python ../../tests/system/run_local_mode.py
 ```
 
 The [runner](../../../../tests/system/run_local_mode.py) starts FastAPI and Vite on unused loopback ports with temporary migrated SQLite and filesystem artifacts.
@@ -55,7 +55,7 @@ It establishes local-mode integration; PostgreSQL locking and production storage
 ## Real research browser gate
 
 ```sh
-POLYCOLAB_RESEARCH_BROWSER=1 uv run --directory backend python ../tests/system/run_research.py
+POLYCOLAB_RESEARCH_BROWSER=1 uv run --directory src/backend python ../../tests/system/run_research.py
 ```
 
 The [runner](../../../../tests/system/run_research.py) creates a unique disposable PostgreSQL/Garage Compose project, migrates the database, and serves the built Svelte application from FastAPI.

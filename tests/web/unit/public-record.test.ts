@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import PublicRecord from '../../../web/src/ui/PublicRecord.svelte';
-import { contextKey } from '../../../web/src/svelte-lib/context';
+import PublicRecord from '../../../src/web/src/ui/PublicRecord.svelte';
+import { contextKey } from '../../../src/web/src/svelte-lib/context';
 import { claimVersion, structuralPin } from './version-fixtures';
 
 afterEach(cleanup);

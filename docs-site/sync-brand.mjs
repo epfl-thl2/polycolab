@@ -2,7 +2,7 @@ import { copyFile, mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 export const brandTokensSource = fileURLToPath(
-  new URL('../packages/brand/src/tokens.css', import.meta.url),
+  new URL('../src/web/src/styles/tokens.css', import.meta.url),
 );
 const target = fileURLToPath(new URL('./docs/styles/brand-tokens.css', import.meta.url));
 

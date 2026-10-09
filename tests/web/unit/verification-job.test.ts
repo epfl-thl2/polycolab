@@ -1,7 +1,10 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import VerificationJob from '../../../web/src/ui/VerificationJob.svelte';
-import { acceptsJobUpdate, type VerificationJobView } from '../../../web/src/lib/verification-view';
+import VerificationJob from '../../../src/web/src/ui/VerificationJob.svelte';
+import {
+  acceptsJobUpdate,
+  type VerificationJobView,
+} from '../../../src/web/src/lib/verification-view';
 
 afterEach(cleanup);
 

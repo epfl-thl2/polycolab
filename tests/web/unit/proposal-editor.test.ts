@@ -4,7 +4,7 @@ import {
   proposalAcceptanceEdit,
   proposalTextFields,
   proposalTextValue,
-} from '../../../web/src/lib/proposal-editor';
+} from '../../../src/web/src/lib/proposal-editor';
 
 describe('complete-snapshot proposal editor', () => {
   const proposal = {

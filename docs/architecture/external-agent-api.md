@@ -165,7 +165,7 @@ Before enabling traffic, backfill facts supported by retained canonical source r
 Related-resource reads share the history visibility policy, so this step is required to make historical discussion and evidence available:
 
 ```sh
-uv --directory backend run python -m polycolab.research.history
+uv --directory src/backend run python -m polycolab.research.history
 ```
 
 The command commits bounded batches, deduplicates against live events and can be rerun after interruption.

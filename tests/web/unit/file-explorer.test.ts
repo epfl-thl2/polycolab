@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
-import FileExplorer from '../../../web/src/ui/FileExplorer.svelte';
+import FileExplorer from '../../../src/web/src/ui/FileExplorer.svelte';
 
 afterEach(cleanup);
 it('groups nested paths into folders, keeps collapsed folders, and finds nested files', async () => {

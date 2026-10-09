@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createAccountRecoveryApi } from '../../../web/src/lib/account-recovery-api';
+import { createAccountRecoveryApi } from '../../../src/web/src/lib/account-recovery-api';
 
 const fetchBeforeTest = globalThis.fetch;
 

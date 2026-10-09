@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import HumanNote from '../../../web/src/ui/HumanNote.svelte';
-import type { HumanNoteView } from '../../../web/src/lib/research-structure-view';
+import HumanNote from '../../../src/web/src/ui/HumanNote.svelte';
+import type { HumanNoteView } from '../../../src/web/src/lib/research-structure-view';
 
 afterEach(cleanup);
 

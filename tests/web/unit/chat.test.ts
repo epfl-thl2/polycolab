@@ -1,6 +1,6 @@
 import { afterEach, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
-import Chat from '../../../web/src/ui/Chat.svelte';
+import Chat from '../../../src/web/src/ui/Chat.svelte';
 
 afterEach(cleanup);
 

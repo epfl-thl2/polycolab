@@ -755,7 +755,7 @@ def test_proposal_metadata_and_postgresql_migration_preserve_scoped_integrity() 
         "fk_proposal_decision_batches_proposal_project",
         "ck_proposal_decision_batches_digest_length",
     } <= {item.name for item in batches_table.constraints}
-    api_directory = Path(__file__).resolve().parents[2] / "backend"
+    api_directory = Path(__file__).resolve().parents[2] / "src/backend"
     sql = StringIO()
     config = Config(str(api_directory / "alembic.ini"), output_buffer=sql)
     config.set_main_option(

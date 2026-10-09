@@ -433,7 +433,7 @@ Library, scoped direct contributions, and human publication use the implemented 
 Optional hosted execution and verification retain separate capability gates.
 See the [roadmap](../roadmap.md) for remaining work and acceptance requirements.
 
-Build output remains `web/dist`.
+Build output remains `src/web/dist`.
 `index.html` is the SPA fallback and `/_app` serves Svelte assets with real missing-file responses.
 Anonymous research uses the same application routes and API resources as signed-in readers.
 `/workspaces?scope=public` browses public investigations.
@@ -473,7 +473,7 @@ The developer component gallery exercises configured components with Polycolab-s
 
 `pnpm run web:dev` starts a Zensical preview through the Vite plugin and proxies `/docs` to it.
 Guide edits use Zensical's live reload.
-`pnpm run web:build` builds Svelte, then builds Zensical inside `docs-site/site` and installs that generated tree into `web/dist/docs`.
+`pnpm run web:build` builds Svelte, then builds Zensical inside `docs-site/site` and installs that generated tree into `src/web/dist/docs`.
 FastAPI serves those static pages and assets from the same deployment, with 404s for missing documentation.
 `/guide`, `/connect` and superseded guide paths redirect to their current documentation pages.
 Zensical's `/docs/api/` page mounts Scalar inline with the checked-in OpenAPI snapshot and a static read-only configuration.
@@ -483,7 +483,7 @@ The reference and focused documentation header share the browser's native page s
 The API reference uses the ordinary Zensical page shell, including its native search, theme controls and mobile drawer.
 Its loader removes Zensical's prose styling from the Scalar mount before initialization so Scalar retains its own presentation.
 Zensical remains the mode authority: the loader initializes Scalar with the current mode and remounts it when that mode changes.
-Both renderers map their framework-specific variables onto `@polycolab/brand` color tokens.
+Both renderers map their framework-specific variables onto the color tokens owned by `src/web/src/styles/tokens.css`.
 
 Service links to documentation use full page navigation.
 
@@ -511,14 +511,15 @@ The homepage introduction contains no additional links.
 
 ### Shared visual foundation
 
-The app and documentation share the framework-neutral color tokens exported by `@polycolab/brand`.
+The frontend owns the framework-neutral color tokens in `src/web/src/styles/tokens.css`.
+The documentation build copies that file into its generated styles.
 The app maps Groseille to primary actions and Canard to research accents.
 Documentation maps Canard to its primary role.
 Accessible neutral, status, and dark-surface extensions supplement the six official EPFL colors.
 The application theme continues to own typography and spacing, including a locally bundled Inter variable font.
-Production controls use shadcn-svelte components in `web/src/lib/components/ui/`.
+Production controls use shadcn-svelte components in `src/web/src/lib/components/ui/`.
 
-`web/components.json` configures its registry.
+`src/web/components.json` configures its registry.
 `design-system.css` supplies their Tailwind utilities to SvelteKit.
 Zensical's native components map their color variables to the shared tokens without loading the application design system.
 Production forms, buttons, field labels, alerts, selection controls, menus, and modal surfaces use the shared registry components.

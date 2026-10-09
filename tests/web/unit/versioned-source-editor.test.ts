@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import VersionedSourceEditor from '../../../web/src/ui/VersionedSourceEditor.svelte';
+import VersionedSourceEditor from '../../../src/web/src/ui/VersionedSourceEditor.svelte';
 
 afterEach(cleanup);
 

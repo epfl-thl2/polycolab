@@ -1,5 +1,8 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { deviceSubmissionClock, utcSubmissionClock } from '../../../web/src/lib/submission-time';
+import {
+  deviceSubmissionClock,
+  utcSubmissionClock,
+} from '../../../src/web/src/lib/submission-time';
 
 afterEach(() => vi.restoreAllMocks());
 

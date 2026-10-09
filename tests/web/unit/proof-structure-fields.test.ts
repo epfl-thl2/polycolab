@@ -1,6 +1,6 @@
 import { afterEach, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
-import ProofStructureFields from '../../../web/src/ui/ProofStructureFields.svelte';
+import ProofStructureFields from '../../../src/web/src/ui/ProofStructureFields.svelte';
 
 afterEach(cleanup);
 

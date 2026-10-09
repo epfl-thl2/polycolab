@@ -1,8 +1,8 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 
-import ProductHeader from '../../../web/src/ui/ProductHeader.svelte';
-import { Auth } from '../../../web/src/svelte-lib/auth.svelte';
+import ProductHeader from '../../../src/web/src/ui/ProductHeader.svelte';
+import { Auth } from '../../../src/web/src/svelte-lib/auth.svelte';
 
 afterEach(cleanup);
 

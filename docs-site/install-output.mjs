@@ -2,8 +2,10 @@ import { access, cp, mkdir, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const source = fileURLToPath(new URL('./site/', import.meta.url));
-const target = fileURLToPath(new URL('../web/dist/docs/', import.meta.url));
-const previewClient = fileURLToPath(new URL('../web/.svelte-kit/output/client/', import.meta.url));
+const target = fileURLToPath(new URL('../src/web/dist/docs/', import.meta.url));
+const previewClient = fileURLToPath(
+  new URL('../src/web/.svelte-kit/output/client/', import.meta.url),
+);
 
 await rm(target, { recursive: true, force: true });
 await mkdir(target, { recursive: true });

@@ -1,9 +1,9 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 
-import VerificationWorkspace from '../../../web/src/ui/VerificationWorkspace.svelte';
-import { contextKey } from '../../../web/src/svelte-lib/context';
-import type { VerificationJobRead } from '../../../web/src/lib/verification-api';
+import VerificationWorkspace from '../../../src/web/src/ui/VerificationWorkspace.svelte';
+import { contextKey } from '../../../src/web/src/svelte-lib/context';
+import type { VerificationJobRead } from '../../../src/web/src/lib/verification-api';
 
 afterEach(cleanup);
 

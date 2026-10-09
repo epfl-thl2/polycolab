@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import ObjectProgress from '../../../web/src/ui/ObjectProgress.svelte';
-import { contextKey } from '../../../web/src/svelte-lib/context';
+import ObjectProgress from '../../../src/web/src/ui/ObjectProgress.svelte';
+import { contextKey } from '../../../src/web/src/svelte-lib/context';
 import { claimVersion, proofVersion } from './version-fixtures';
 
 afterEach(cleanup);

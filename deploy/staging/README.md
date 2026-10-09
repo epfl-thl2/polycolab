@@ -32,7 +32,7 @@ There is no alternate-mode fallback.
 Local invocation with credentials already supplied through the environment:
 
 ```sh
-uv run --directory backend python -m polycolab.staging_auth_probe
+uv run --directory src/backend python -m polycolab.staging_auth_probe
 ```
 
 This HTTP smoke check does not prove browser login, cookie/CSRF behavior, logout, OIDC PKCE/JWKS rotation or deployment security.

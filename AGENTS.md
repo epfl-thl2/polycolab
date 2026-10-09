@@ -7,8 +7,8 @@ Read the source, tests, and documents relevant to the change.
 ## Local development shortcuts
 
 Run commands from the repository root.
-Use pnpm for JavaScript/TypeScript and uv for Python, with the versions declared in `package.json` and `backend/pyproject.toml`.
-Install locked dependencies with `pnpm install --frozen-lockfile` and `uv --directory backend sync --all-groups --frozen`.
+Use pnpm for JavaScript/TypeScript and uv for Python, with the versions declared in `package.json` and `src/backend/pyproject.toml`.
+Install locked dependencies with `pnpm install --frozen-lockfile` and `uv --directory src/backend sync --all-groups --frozen`.
 
 | Task                      | Command                |
 | ------------------------- | ---------------------- |
@@ -23,10 +23,10 @@ See the [deployment guide](deploy/README.md) for authentication and deployment c
 
 ## Component boundaries
 
-- `web/src/` owns the Svelte application. Reuse its components and styles, and call the typed API client through adapters in `web/src/lib/`.
-- `backend/polycolab/<capability>/routes/` owns HTTP handlers and capability-local Pydantic schemas. Shared business policy belongs in capability services.
-- `backend/polycolab/entities/` owns application dataclasses and shared enums; it must not depend on HTTP schemas or database adapters.
-- `backend/polycolab/db/` owns SQLAlchemy mappings, stores, and converters. Follow the [persistence contract](docs/architecture/persistence.md) for store interfaces and the shared `transaction.py` boundary.
+- `src/web/src/` owns the Svelte application. Reuse its components and styles, and call the typed API client through adapters in `src/web/src/lib/`.
+- `src/backend/polycolab/<capability>/routes/` owns HTTP handlers and capability-local Pydantic schemas. Shared business policy belongs in capability services.
+- `src/backend/polycolab/entities/` owns application dataclasses and shared enums; it must not depend on HTTP schemas or database adapters.
+- `src/backend/polycolab/db/` owns SQLAlchemy mappings, stores, and converters. Follow the [persistence contract](docs/architecture/persistence.md) for store interfaces and the shared `transaction.py` boundary.
 - Every SQLAlchemy mapped class, including query projections, uses the `Sql` prefix in declarations, imports, and exports. Application entities, shared enums, unmapped `Base`, and plain table variables are exempt.
 - Apply schema changes through Alembic. Add SQLite revisions alongside PostgreSQL revisions where the shared schema changes; preserve migration/model parity.
 
@@ -48,7 +48,7 @@ See the [technical contracts](docs/architecture/README.md#technical-contracts) w
 
 ## Generated API contract
 
-FastAPI produces `packages/api-client/openapi.json`, which generates `packages/api-client/src/generated/`.
+FastAPI produces `src/web/openapi.json`, which generates `src/web/src/lib/api-client/generated/`.
 Do not edit either output by hand.
 Run `pnpm run api:contract` after intentional API changes and verify freshness with `pnpm run api:contract:check`.
 

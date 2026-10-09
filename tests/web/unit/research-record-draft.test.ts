@@ -3,7 +3,7 @@ import {
   proofStructureWrite,
   researchAttemptWrite,
   newVersionSnapshot,
-} from '../../../web/src/lib/research-record-draft';
+} from '../../../src/web/src/lib/research-record-draft';
 
 describe('structured research record drafts', () => {
   const draft = {

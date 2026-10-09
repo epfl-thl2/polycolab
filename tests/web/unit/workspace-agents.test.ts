@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import WorkspaceAgents from '../../../web/src/ui/WorkspaceAgents.svelte';
-import { contextKey } from '../../../web/src/svelte-lib/context';
+import WorkspaceAgents from '../../../src/web/src/ui/WorkspaceAgents.svelte';
+import { contextKey } from '../../../src/web/src/svelte-lib/context';
 
 afterEach(() => {
   cleanup();

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   defaultWorkspaceLayout,
   parseWorkspaceLayout,
-} from '../../../web/src/lib/workspace-layout';
+} from '../../../src/web/src/lib/workspace-layout';
 describe('workspace layout preferences', () => {
   it('restores widths and collapsed rails', () => {
     const preferences = { leftWidth: 240, rightShare: 0.52, leftClosed: true, rightClosed: true };

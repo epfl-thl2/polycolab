@@ -30,9 +30,9 @@ pnpm run typecheck
 pnpm run test
 # Uses disposable schemas; never migrate a development database directly.
 M0_POSTGRES_TEST_URL=postgresql+psycopg://USER:PASSWORD@localhost:5432/DATABASE \
-  uv run --directory backend pytest ../tests/backend/test_hosted_scheduler.py -q
+  uv run --directory src/backend pytest ../../tests/backend/test_hosted_scheduler.py -q
 pnpm --filter @polycolab/web exec playwright test \
-  --config ../tests/web/browser/playwright.config.ts --grep 'hosted run history'
+  --config ../../tests/web/browser/playwright.config.ts --grep 'hosted run history'
 ```
 
 ## Native gates still required
@@ -45,7 +45,7 @@ It uses no provider or application credential.
 
 ```sh
 POLYCOLAB_NATIVE_CONTROLLER_CONFIG=/etc/polycolab-execution/controller.toml \
-  uv run --directory backend pytest ../tests/execution/test_hosted_native.py -q
+  uv run --directory src/backend pytest ../../tests/execution/test_hosted_native.py -q
 ```
 
 A skipped test is not native evidence.

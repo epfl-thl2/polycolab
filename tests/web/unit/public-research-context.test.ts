@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import PublicResearchContext from '../../../web/src/ui/PublicResearchContext.svelte';
-import { contextKey } from '../../../web/src/svelte-lib/context';
+import PublicResearchContext from '../../../src/web/src/ui/PublicResearchContext.svelte';
+import { contextKey } from '../../../src/web/src/svelte-lib/context';
 import { claimVersion, proofVersion } from './version-fixtures';
 
 afterEach(cleanup);

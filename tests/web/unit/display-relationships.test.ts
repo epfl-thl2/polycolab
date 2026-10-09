@@ -3,10 +3,10 @@ import {
   displayRelationship,
   displayRelationships,
   relationshipWrite,
-} from '../../../web/src/lib/display-relationships';
-import { objectDiagram, type WorkspaceMap } from '../../../web/src/lib/workspace-map';
+} from '../../../src/web/src/lib/display-relationships';
+import { objectDiagram, type WorkspaceMap } from '../../../src/web/src/lib/workspace-map';
 import { proofVersion, claimVersion, structuralPin } from './version-fixtures';
-import type { Relation } from '../../../web/src/lib/research-api';
+import type { Relation } from '../../../src/web/src/lib/research-api';
 
 it.each(['DEPENDS_ON', 'USES', 'PROVES', 'REFUTES'] as const)(
   'round-trips %s display and API direction',

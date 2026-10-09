@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { restoreWorkspaceTabs, workspaceRouteTab } from '../../../web/src/lib/workspace-tabs';
+import { restoreWorkspaceTabs, workspaceRouteTab } from '../../../src/web/src/lib/workspace-tabs';
 
 describe('workspace route tabs', () => {
   it('uses stable route identities for pages, objects and chats', () => {

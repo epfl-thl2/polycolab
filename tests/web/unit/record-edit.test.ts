@@ -1,8 +1,8 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import RecordEdit from '../../../web/src/ui/RecordEdit.svelte';
-import { contextKey } from '../../../web/src/svelte-lib/context';
-import type { RecordRead } from '../../../web/src/lib/records-api';
+import RecordEdit from '../../../src/web/src/ui/RecordEdit.svelte';
+import { contextKey } from '../../../src/web/src/svelte-lib/context';
+import type { RecordRead } from '../../../src/web/src/lib/records-api';
 
 afterEach(cleanup);
 const record: RecordRead = {

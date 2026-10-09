@@ -6,14 +6,14 @@ An application entity does not have to correspond to one table.
 
 ## Ownership and dependency direction
 
-- `backend/polycolab/entities/` contains application dataclasses and shared enum values.
+- `src/backend/polycolab/entities/` contains application dataclasses and shared enum values.
   These modules do not import database adapters, SQLAlchemy, FastAPI, or HTTP schemas.
   Snapshots are immutable and have no lazy database access.
 - Capability-local `store.py` modules define store Protocols.
   They accept application values and return materialized entities, with explicit operations for writes rather than a generic aggregate `save()`.
 - Capability services own authorization decisions, invariants, and workflows.
-- `backend/polycolab/transaction.py` defines transaction completion and savepoints shared by stores participating in one operation.
-- `backend/polycolab/db/` implements the interfaces with SQLAlchemy.
+- `src/backend/polycolab/transaction.py` defines transaction completion and savepoints shared by stores participating in one operation.
+- `src/backend/polycolab/db/` implements the interfaces with SQLAlchemy.
   `models/` describes persisted rows.
   `stores/` owns SQL and lock acquisition.
   `converters/` explicitly constructs application values.
@@ -80,8 +80,8 @@ Credentials do not cache membership.
 
 ## Migration ownership
 
-`backend/polycolab/db/migrations/postgresql/` contains the Alembic environment, revision script template, and complete ordered version history.
-`backend/alembic.ini` remains the CLI configuration entrypoint and resolves that directory relative to its own location.
+`src/backend/polycolab/db/migrations/postgresql/` contains the Alembic environment, revision script template, and complete ordered version history.
+`src/backend/alembic.ini` remains the CLI configuration entrypoint and resolves that directory relative to its own location.
 Existing migration/deployment commands are unchanged.
 
 Migration relocation does not alter version identifiers, SQL, schema state, or an existing database's Alembic version record.
@@ -163,7 +163,7 @@ HTTP contract checks ensure generated OpenAPI/client output remains current.
 This is a single-API-worker development mode, not a production database substitute.
 Docker remains PostgreSQL plus Garage, with independent data.
 
-SQLite uses a separate Alembic history under `backend/polycolab/db/migrations/sqlite`.
+SQLite uses a separate Alembic history under `src/backend/polycolab/db/migrations/sqlite`.
 The frozen baseline contains schema and required system seeds.
 Startup never uses `metadata.create_all()` to upgrade a user database.
 Add a SQLite revision alongside each schema change.

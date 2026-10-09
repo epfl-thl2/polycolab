@@ -1,10 +1,10 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
-import ResearchAttemptHistory from '../../../web/src/ui/ResearchAttemptHistory.svelte';
+import ResearchAttemptHistory from '../../../src/web/src/ui/ResearchAttemptHistory.svelte';
 import type {
   ExactResearchRevisionView,
   ResearchAttemptView,
-} from '../../../web/src/lib/research-structure-view';
+} from '../../../src/web/src/lib/research-structure-view';
 
 afterEach(cleanup);
 

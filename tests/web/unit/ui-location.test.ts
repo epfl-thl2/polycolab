@@ -5,12 +5,12 @@ import {
   readPeople,
   readProfile,
   profileQuery,
-} from '../../../web/src/lib/ui-location';
+} from '../../../src/web/src/lib/ui-location';
 import {
   excerptBlocks,
   highlightParts,
   renderSearchExcerpt,
-} from '../../../web/src/lib/search-excerpt';
+} from '../../../src/web/src/lib/search-excerpt';
 
 it('normalizes old routes and invalid filters without enabling examples', () => {
   expect(canonicalUiLocation('/search', '?q=graph&type=workspaces')).toBe(

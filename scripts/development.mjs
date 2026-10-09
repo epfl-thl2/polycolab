@@ -102,7 +102,14 @@ try {
     };
     await run(
       'uv',
-      ['run', '--directory', 'backend', 'python', '-m', 'polycolab.operations.local_development'],
+      [
+        'run',
+        '--directory',
+        'src/backend',
+        'python',
+        '-m',
+        'polycolab.operations.local_development',
+      ],
       env,
     );
     if (!stopping) {
@@ -112,7 +119,7 @@ try {
           [
             'run',
             '--directory',
-            'backend',
+            'src/backend',
             'uvicorn',
             'polycolab.main:app',
             '--reload',
@@ -122,9 +129,15 @@ try {
             '8000',
           ],
         ],
-        ['uv', ['run', '--directory', 'backend', 'python', '-m', 'polycolab.community_consumer']],
-        ['uv', ['run', '--directory', 'backend', 'python', '-m', 'polycolab.artifact_gc']],
-        ['uv', ['run', '--directory', 'backend', 'python', '-m', 'polycolab.execution.reconciler']],
+        [
+          'uv',
+          ['run', '--directory', 'src/backend', 'python', '-m', 'polycolab.community_consumer'],
+        ],
+        ['uv', ['run', '--directory', 'src/backend', 'python', '-m', 'polycolab.artifact_gc']],
+        [
+          'uv',
+          ['run', '--directory', 'src/backend', 'python', '-m', 'polycolab.execution.reconciler'],
+        ],
         [
           'pnpm',
           [

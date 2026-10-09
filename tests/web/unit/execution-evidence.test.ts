@@ -1,7 +1,7 @@
 import { afterEach, expect, it } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/svelte';
-import PythonEvidence from '../../../web/src/ui/PythonEvidence.svelte';
-import LeanEvidence from '../../../web/src/ui/LeanEvidence.svelte';
+import PythonEvidence from '../../../src/web/src/ui/PythonEvidence.svelte';
+import LeanEvidence from '../../../src/web/src/ui/LeanEvidence.svelte';
 
 afterEach(cleanup);
 const target = {

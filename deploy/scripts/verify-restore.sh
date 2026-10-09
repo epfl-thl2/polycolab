@@ -176,7 +176,7 @@ if [[ -n "$manifest" ]]; then
   repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
   # The token/key stay in the environment, and private module diagnostics are
   # suppressed. Only its bounded content-free report reaches the operator.
-  DATABASE_URL="$target_url" uv run --frozen --directory "$repo_root/backend" \
+  DATABASE_URL="$target_url" uv run --frozen --directory "$repo_root/src/backend" \
     python -m polycolab.recovery_integrity compare --expected "$manifest" 2>/dev/null || {
       echo "Canonical integrity verification failed; drill database retained" >&2
       exit 1
@@ -184,7 +184,7 @@ if [[ -n "$manifest" ]]; then
 fi
 if [[ "$check_research" == true ]]; then
   repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
-  DATABASE_URL="$target_url" uv run --frozen --directory "$repo_root/backend" \
+  DATABASE_URL="$target_url" uv run --frozen --directory "$repo_root/src/backend" \
     python -m polycolab.recovery_dependencies research --isolated-restore \
     --max-items "$research_max_items" 2>/dev/null || {
       echo "Research integrity verification failed or incomplete; drill database retained" >&2
@@ -198,7 +198,7 @@ for dependency in artifacts credentials; do
   esac
   if [[ -n "$bound" ]]; then
     repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
-    DATABASE_URL="$target_url" uv run --frozen --directory "$repo_root/backend" \
+    DATABASE_URL="$target_url" uv run --frozen --directory "$repo_root/src/backend" \
       python -m polycolab.recovery_dependencies "$dependency" --isolated-restore \
       --max-items "$bound" 2>/dev/null || {
         echo "Restored $dependency verification failed or incomplete; drill database retained" >&2

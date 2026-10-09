@@ -22,7 +22,7 @@ services:
   migrate:
     build:
       context: ../..
-      dockerfile: backend/Dockerfile
+      dockerfile: src/backend/Dockerfile
     env_file:
       - path: .env
         required: true
@@ -47,7 +47,7 @@ services:
       - workspace-repositories:/var/lib/polycolab/repositories
     build:
       context: ../..
-      dockerfile: backend/Dockerfile
+      dockerfile: src/backend/Dockerfile
     env_file:
       - path: .env
         required: true
@@ -94,7 +94,7 @@ services:
   community:
     build:
       context: ../..
-      dockerfile: backend/Dockerfile
+      dockerfile: src/backend/Dockerfile
     env_file:
       - path: .env
         required: true
@@ -115,7 +115,7 @@ services:
   execution-reconciler:
     build:
       context: ../..
-      dockerfile: backend/Dockerfile
+      dockerfile: src/backend/Dockerfile
     env_file:
       - path: .env
         required: true
@@ -136,7 +136,7 @@ services:
     profiles: [execution]
     build:
       context: ../..
-      dockerfile: backend/Dockerfile
+      dockerfile: src/backend/Dockerfile
     environment:
       APP_ENV: ${APP_ENV:-local}
       PUBLIC_APP_ORIGIN: ${PUBLIC_APP_ORIGIN:-http://localhost:8000}

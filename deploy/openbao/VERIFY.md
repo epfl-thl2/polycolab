@@ -27,7 +27,7 @@ Supply these values through the test process environment, not command arguments,
 Run from the repository root:
 
 ```sh
-uv run --directory backend pytest ../tests/execution/test_openbao_live.py -q
+uv run --directory src/backend pytest ../../tests/execution/test_openbao_live.py -q
 ```
 
 Do not enable HTTP wire logging or pytest local-variable dumps for credential tests.

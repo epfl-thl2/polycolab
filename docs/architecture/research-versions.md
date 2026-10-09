@@ -7,7 +7,7 @@ See the [object kinds and reviews contract](object-kinds-and-reviews.md) for cur
 
 ## Application snapshots
 
-`backend/polycolab/entities/research.py` defines frozen `ResearchObject` and `ResearchObjectVersion` parents, with concrete object and version classes for the supported kinds.
+`src/backend/polycolab/entities/research.py` defines frozen `ResearchObject` and `ResearchObjectVersion` parents, with concrete object and version classes for the supported kinds.
 The registry connects persisted encodings to these classes and creation support.
 Current creation uses the [canonical kinds](object-kinds-and-reviews.md).
 Historical proof and attempt rows remain readable.
@@ -64,7 +64,7 @@ Verification-job coherence resolves attempt targets from canonical `TARGET` rela
 Reviewed snapshot and declaration writes derive provenance from the contribution envelope so human review preserves `AGENT_PROPOSAL` attribution.
 
 PostgreSQL 18.3 tests cover these paths alongside artifact bindings, scheduling constraints, populated relationship upgrades, and baseline schema/integrity checks.
-The broader local PostgreSQL 18.3 audit passes all 95 tests selected by `pytest ../tests/backend -k 'postgresql or scheduling_foundation'`.
+The broader local PostgreSQL 18.3 audit passes all 95 tests selected by `pytest ../../tests/backend -k 'postgresql or scheduling_foundation'`.
 These tests cover publication, catalogue, records, proofs, relationships, verification, concurrent mutation constraints, and account infrastructure.
 The expanded read-only restore test also accepts complete proof and attempt structures.
 

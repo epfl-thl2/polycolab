@@ -1,4 +1,4 @@
-import type { components } from '@polycolab/api-client';
+import type { components } from '../../../src/web/src/lib/api-client';
 
 export const versionAuthorship: components['schemas']['VersionAuthorshipRead'] = {
   actor_kind: 'HUMAN',
