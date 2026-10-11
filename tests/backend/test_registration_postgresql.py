@@ -14,7 +14,6 @@ from pydantic import AnyUrl
 from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
-from test_m0_postgresql import pg_schema as pg_schema
 
 import polycolab.accounts.builtin as local_accounts
 from polycolab.accounts.builtin import (

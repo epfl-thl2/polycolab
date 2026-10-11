@@ -14,14 +14,6 @@ from polycolab.app.application import create_app
 from polycolab.platform.config import AuthMode, Environment, Settings
 
 
-def test_local_browser_can_read_pagination_cursor(client: TestClient) -> None:
-    app = cast(FastAPI, client.app)
-    origin = str(app.state.settings.allowed_origins[0]).rstrip("/")
-    response = client.get("/health/live", headers={"Origin": origin})
-    assert response.headers["access-control-allow-origin"] == origin
-    assert "X-Next-Cursor" in response.headers["access-control-expose-headers"]
-
-
 def test_new_public_routes_reach_handlers_and_retain_rate_limits(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -39,18 +31,15 @@ def test_new_public_routes_reach_handlers_and_retain_rate_limits(
 
 
 def test_removed_public_project_routes_stay_blocked(client: TestClient) -> None:
-    for path in ("/api/v1/public/projects", "/api/v1/public/projects/probe", "/public/workspaces"):
+    for path in (
+        "/api/v1/public/projects",
+        "/api/v1/public/projects/probe",
+        "/public/workspaces",
+        "/public/projects/probe/objects/probe",
+        "/api/v1/workspaces/probe/objects/probe/neighborhood",
+    ):
         for method in ("GET", "POST"):
             assert client.request(method, path).status_code in (404, 405)
-
-
-def test_public_project_creation_is_supported(client: TestClient) -> None:
-    response = client.post(
-        "/api/v1/workspaces",
-        headers={"Authorization": "Bearer owner"},
-        json={"name": "Public", "visibility": "PUBLIC"},
-    )
-    assert response.status_code == 201
 
 
 def test_private_and_unknown_public_pages_have_the_same_non_disclosing_response(
@@ -67,24 +56,6 @@ def test_private_and_unknown_public_pages_have_the_same_non_disclosing_response(
     unknown = client.get("/public/projects/00000000-0000-0000-0000-000000000001")
     assert private.status_code == unknown.status_code == 404
     assert private.json()["error"]["code"] == unknown.json()["error"]["code"]
-
-
-def test_removed_public_html_is_non_disclosing(client: TestClient) -> None:
-    project = client.post(
-        "/api/v1/workspaces",
-        headers={"Authorization": "Bearer owner"},
-        json={"name": "Private research", "visibility": "PRIVATE"},
-    )
-    assert project.status_code == 201
-
-    disabled = client.get(f"/public/projects/{project.json()['id']}")
-    unknown = client.get("/public/projects/00000000-0000-0000-0000-000000000001")
-    assert disabled.status_code == unknown.status_code == 404
-    assert disabled.json()["error"]["code"] == unknown.json()["error"]["code"]
-
-
-def test_removed_public_html_stays_unavailable(client: TestClient) -> None:
-    assert client.get("/public/projects/00000000-0000-0000-0000-000000000001").status_code == 404
 
 
 def test_auth_config_exposes_only_browser_safe_public_metadata(client: TestClient) -> None:

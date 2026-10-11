@@ -3,7 +3,6 @@
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
-from typing import Any, cast
 
 import pytest
 from alembic import command
@@ -22,7 +21,6 @@ from test_direct_contributions import (
 from test_discovery import (
     test_search_finds_failed_attempts_and_filters_private_and_hidden as discovery_journey,
 )
-from test_m0_postgresql import pg_schema as pg_schema
 from test_notifications import (
     test_notification_retry_reference_revocation_and_filtered_summary as notification_journey,
 )
@@ -58,6 +56,7 @@ from test_workspace_references import (
     test_pin_reuse_explicit_upgrade_and_private_history as reference_history,
 )
 
+from polycolab.accounts.authentication import MappingIdentityVerifier
 from polycolab.agents.tools import execute_tool
 from polycolab.app.application import create_app
 from polycolab.db.models import SqlAgentRunEvent, SqlRunRevisionOutput
@@ -84,14 +83,14 @@ from polycolab.platform.config import Settings
 )
 def test_postgresql_research_journey(
     pg_schema: tuple[Engine, Config, str],
-    client: TestClient,
+    identity_verifier: MappingIdentityVerifier,
     journey: Callable[[TestClient], None],
 ) -> None:
     _, config, url = pg_schema
     command.upgrade(config, "head")
     app = create_app(
         Settings(database_url=url, web_dist_dir="/missing-records-web"),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:
@@ -127,13 +126,13 @@ def test_postgresql_discovery_index_predicates(pg_schema: tuple[Engine, Config, 
 
 @pytest.mark.parametrize("kind", ["ATTEMPT", "CLAIM"])
 def test_postgresql_metadata_retention(
-    pg_schema: tuple[Engine, Config, str], client: TestClient, kind: str
+    pg_schema: tuple[Engine, Config, str], identity_verifier: MappingIdentityVerifier, kind: str
 ) -> None:
     _, config, url = pg_schema
     command.upgrade(config, "head")
     app = create_app(
         Settings(database_url=url, web_dist_dir="/missing-records-web"),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:
@@ -145,14 +144,14 @@ def test_postgresql_metadata_retention(
 @pytest.mark.parametrize("public", [False, True])
 def test_postgresql_direct_contribution(
     pg_schema: tuple[Engine, Config, str],
-    client: TestClient,
+    identity_verifier: MappingIdentityVerifier,
     public: bool,
 ) -> None:
     _, config, url = pg_schema
     command.upgrade(config, "head")
     app = create_app(
         Settings(database_url=url, web_dist_dir="/missing-direct-web"),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:
@@ -162,13 +161,13 @@ def test_postgresql_direct_contribution(
 
 
 def test_postgresql_concurrent_direct_retry(
-    pg_schema: tuple[Engine, Config, str], client: TestClient
+    pg_schema: tuple[Engine, Config, str], identity_verifier: MappingIdentityVerifier
 ) -> None:
     _, config, url = pg_schema
     command.upgrade(config, "head")
     app = create_app(
         Settings(database_url=url, web_dist_dir="/missing-direct-web"),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:

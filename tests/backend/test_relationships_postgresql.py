@@ -1,6 +1,6 @@
 """Populated upgrades and canonical exact-version relationship integrity."""
 
-from typing import Any, cast
+from typing import Any
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -12,7 +12,6 @@ from sqlalchemy import inspect, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
-from test_m0_postgresql import pg_schema as pg_schema
 from test_m0_postgresql import seed
 from test_relationship_scopes import (
     test_declaration_cannot_reference_another_workspaces_private_version as inaccessible_endpoint,
@@ -21,6 +20,7 @@ from test_relationship_scopes import (
     test_private_equivalence_between_public_versions as scoped_equivalence,
 )
 
+from polycolab.accounts.authentication import MappingIdentityVerifier
 from polycolab.app.application import create_app
 from polycolab.db.models import (
     SqlObjectRevision,
@@ -45,13 +45,13 @@ from polycolab.research.contributions import human_contribution
 
 def test_scoped_equivalence_visibility_postgresql(
     pg_schema: tuple[Engine, Config, str],
-    client: TestClient,
+    identity_verifier: MappingIdentityVerifier,
 ) -> None:
     _, config, url = pg_schema
     command.upgrade(config, "head")
     app = create_app(
         Settings(database_url=url, web_dist_dir="/missing-relationship-test-web"),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:

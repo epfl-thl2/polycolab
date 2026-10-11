@@ -1,7 +1,6 @@
 """The real database contract; uses an isolated disposable PostgreSQL schema."""
 
 from pathlib import Path
-from typing import Any, cast
 
 import pytest
 import test_hosted_repository as hosted
@@ -10,9 +9,9 @@ from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy.engine import Engine
-from test_m0_postgresql import pg_schema as pg_schema
 from test_sessions_api import create_profile, create_workspace, headers
 
+from polycolab.accounts.authentication import MappingIdentityVerifier
 from polycolab.app.application import create_app
 from polycolab.platform.config import Settings
 
@@ -20,7 +19,7 @@ from polycolab.platform.config import Settings
 @pytest.mark.parametrize("scenario", ["save", "recovery", "hosted"])
 def test_repository_postgresql(
     pg_schema: tuple[Engine, Config, str],
-    client: TestClient,
+    identity_verifier: MappingIdentityVerifier,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     scenario: str,
@@ -34,7 +33,7 @@ def test_repository_postgresql(
             feature_agent_execution_enabled=True,
             workspace_repository_directory=tmp_path / "repos",
         ),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:
@@ -58,7 +57,10 @@ def test_repository_postgresql(
 
 @pytest.mark.parametrize("scenario", ["task_privacy", "task_runs", "task_claim_race"])
 def test_workspace_tasks_postgresql(
-    pg_schema: tuple[Engine, Config, str], client: TestClient, tmp_path: Path, scenario: str
+    pg_schema: tuple[Engine, Config, str],
+    identity_verifier: MappingIdentityVerifier,
+    tmp_path: Path,
+    scenario: str,
 ) -> None:
     import test_workspace_tasks as tasks
 
@@ -71,7 +73,7 @@ def test_workspace_tasks_postgresql(
             feature_agent_execution_enabled=True,
             workspace_repository_directory=tmp_path / "repos",
         ),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:

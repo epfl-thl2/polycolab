@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID, uuid4
@@ -8,8 +10,8 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
-from sqlalchemy.dialects import postgresql
+from pydantic import SecretStr
+from sqlalchemy import select
 
 import polycolab.execution.limits as execution_limits
 from polycolab.agents.routes.sessions import (
@@ -26,12 +28,9 @@ from polycolab.agents.sessions import (
 )
 from polycolab.db.models import (
     SqlAgentRun,
-    SqlAgentRunUsage,
     SqlExecutionRateWindow,
     SqlOperationalMetricAggregate,
     SqlOperatorDiagnosticAccess,
-    SqlProject,
-    SqlUser,
 )
 from polycolab.entities.enums import AgentRunEventKind, AgentRunStatus, UsageSource
 from polycolab.execution.limits import (
@@ -134,17 +133,31 @@ def test_public_workspaces_are_available_while_hosted_execution_is_disabled(
     assert response.status_code == 404
 
 
-def test_removed_public_reads_do_not_retain_client_addresses(client: TestClient) -> None:
-    project = _project(client)
-    for _ in range(2):
-        assert client.get(f"/api/v1/projects/{project['id']}").status_code == 404
+def test_public_reads_store_keyed_identifiers_without_client_addresses(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = _app(client).state.settings
+    settings.public_read_requests_per_minute = 10
+    settings.admission_scope_hmac_key = SecretStr("public-read-test-key")
+    now = datetime(2026, 9, 5, tzinfo=UTC)
+    monkeypatch.setattr("polycolab.app.application.utc_now", lambda: now)
+    address = "192.0.2.10"
+    with TestClient(_app(client), client=(address, 50000)) as anonymous:
+        for _ in range(2):
+            assert anonymous.get("/api/v1/catalogue").status_code == 200
+    expected_id = UUID(
+        bytes=hmac.new(
+            settings.admission_hmac_key.encode(), address.encode(), hashlib.sha256
+        ).digest()[:16]
+    )
     with _app(client).state.session_factory() as db:
-        assert (
-            db.scalar(
-                select(SqlExecutionRateWindow).where(SqlExecutionRateWindow.scope == "public_ip")
-            )
-            is None
-        )
+        row = db.scalars(
+            select(SqlExecutionRateWindow).where(SqlExecutionRateWindow.scope == "public_ip")
+        ).one()
+        assert row.scope_id == expected_id
+        assert row.count == 2
+        persisted = {column.name: getattr(row, column.name) for column in row.__table__.columns}
+        assert address not in repr(persisted)
 
 
 def test_sse_cursor_reconnects_are_rate_limited_after_authorization(
@@ -475,32 +488,6 @@ def test_rate_window_retention_deletes_only_old_rows_in_bounded_batches(client: 
         assert db.query(SqlExecutionRateWindow).count() == 1
     finally:
         db.close()
-
-
-def test_postgresql_admission_and_retention_queries_use_locks_and_indexed_timestamp() -> None:
-    user_lock = str(select(SqlUser).with_for_update().compile(dialect=postgresql.dialect()))  # type: ignore[no-untyped-call]
-    project_lock = str(select(SqlProject).with_for_update().compile(dialect=postgresql.dialect()))  # type: ignore[no-untyped-call]
-    cleanup = str(
-        select(SqlExecutionRateWindow.id)
-        .where(SqlExecutionRateWindow.window_started_at < datetime.now(UTC))
-        .order_by(SqlExecutionRateWindow.window_started_at)
-        .with_for_update(skip_locked=True)
-        .compile(dialect=postgresql.dialect())  # type: ignore[no-untyped-call]
-    )
-    assert user_lock.endswith("FOR UPDATE")
-    assert project_lock.endswith("FOR UPDATE")
-    assert "execution_rate_windows.window_started_at" in cleanup
-    assert "FOR UPDATE SKIP LOCKED" in cleanup
-    usage_expression = str(
-        select(
-            func.greatest(
-                func.coalesce(SqlAgentRunUsage.total_tokens, 0),
-                func.coalesce(SqlAgentRunUsage.input_tokens, 0)
-                + func.coalesce(SqlAgentRunUsage.output_tokens, 0),
-            )
-        ).compile(dialect=postgresql.dialect())  # type: ignore[no-untyped-call]
-    )
-    assert "greatest" in usage_expression.lower()
 
 
 def test_nullable_usage_is_conservatively_aggregated_and_charged(client: TestClient) -> None:

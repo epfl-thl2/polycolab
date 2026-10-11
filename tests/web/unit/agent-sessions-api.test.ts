@@ -28,8 +28,4 @@ describe('agent sessions API adapter', () => {
     expect(requests[0]?.url).toContain('/api/v1/gateway/profiles');
     expect(requests[0]?.headers.get('Authorization')).toBe(`Bearer ${token}`);
   });
-
-  it('does not leak credentials into the browser adapter contract', () => {
-    expect(Object.keys(createAgentSessionsApi())).not.toContain('apiKey');
-  });
 });

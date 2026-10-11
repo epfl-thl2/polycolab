@@ -6,13 +6,10 @@ drops only its own random schema.
 
 from __future__ import annotations
 
-import os
-from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
-from pathlib import Path
 from threading import Barrier, Event
-from typing import Any, cast
+from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
@@ -21,13 +18,14 @@ from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event, func, inspect, select, text
-from sqlalchemy.engine import Engine, make_url
+from sqlalchemy import event, func, inspect, select, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from polycolab.access.actors import human_actor
 from polycolab.access.authorization import AuthorizationDenied
+from polycolab.accounts.authentication import MappingIdentityVerifier
 from polycolab.app.application import create_app
 from polycolab.db.base import Base
 from polycolab.db.models import (
@@ -53,7 +51,7 @@ from polycolab.entities.enums import (
 )
 from polycolab.entities.time import utc_now
 from polycolab.operations.telemetry import community_outbox_snapshot
-from polycolab.platform.config import Settings, get_settings
+from polycolab.platform.config import Settings
 from polycolab.platform.outbox import canonical_digest, claim_events, record_consumer_receipt
 from polycolab.research.contributions import ContributionOutput, record_contribution
 from polycolab.research.objects import StaleRevision, create_object, create_revision
@@ -61,7 +59,7 @@ from polycolab.workspaces.service import create_workspace
 
 
 def test_postgresql_proposal_batch_retains_agent_provenance(
-    pg_schema: tuple[Engine, Config, str], client: TestClient
+    pg_schema: tuple[Engine, Config, str], identity_verifier: MappingIdentityVerifier
 ) -> None:
     from test_proposals_api import (
         test_selected_proposal_decisions_are_atomic_and_replay_as_one_batch,
@@ -75,7 +73,7 @@ def test_postgresql_proposal_batch_retains_agent_provenance(
             web_dist_dir="/missing-m0-web-dist",
             feature_agent_execution_enabled=True,
         ),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:
@@ -191,35 +189,6 @@ def test_postgresql_atomic_failure_rolls_back_all_mutation_rows(
             SqlMutationReceipt,
         ):
             assert db.scalar(select(func.count()).select_from(table)) == 0
-
-
-@pytest.fixture
-def pg_schema(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[Engine, Config, str]]:
-    url = os.environ.get("M0_POSTGRES_TEST_URL")
-    if not url:
-        pytest.skip("M0_POSTGRES_TEST_URL is required for real PostgreSQL evidence")
-    admin = create_engine(url)
-    schema = "m0_test_" + uuid4().hex
-    with admin.begin() as connection:
-        connection.execute(text(f'CREATE SCHEMA "{schema}"'))
-    scoped_url = make_url(url).update_query_dict({"options": f"-csearch_path={schema}"})
-    scoped = scoped_url.render_as_string(hide_password=False)
-    engine = create_engine(scoped_url)
-    monkeypatch.setenv("DATABASE_URL", scoped)
-    get_settings.cache_clear()
-    backend = Path(__file__).resolve().parents[2] / "src/backend"
-    config = Config(str(backend / "alembic.ini"))
-    config.set_main_option(
-        "script_location", str(backend / "polycolab" / "db" / "migrations" / "postgresql")
-    )
-    try:
-        yield engine, config, scoped
-    finally:
-        engine.dispose()
-        get_settings.cache_clear()
-        with admin.begin() as connection:
-            connection.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
-        admin.dispose()
 
 
 def seed(engine: Engine) -> tuple[UUID, UUID, UUID]:

@@ -1,6 +1,5 @@
 """Real PostgreSQL evidence for the public-workspace/external-agent boundary."""
 
-from typing import Any, cast
 from unittest.mock import patch
 from uuid import UUID
 
@@ -18,7 +17,6 @@ from test_application_configuration import (
 from test_application_configuration import (
     test_private_workspace_search_preserves_access_boundaries as verify_private_search,
 )
-from test_m0_postgresql import pg_schema as pg_schema
 from test_public_external_agents import (
     test_external_artifact_becomes_public_only_after_attachment as verify_artifact_visibility,
 )
@@ -41,6 +39,7 @@ from test_public_external_agents import (
     test_transition_and_operator_recovery_invalidate_protected_access as verify_transition_recovery,
 )
 
+from polycolab.accounts.authentication import MappingIdentityVerifier
 from polycolab.app.application import create_app
 from polycolab.db.models import (
     SqlObjectRevision,
@@ -58,7 +57,9 @@ from polycolab.research.contributions import human_contribution
     "starting_revision", ["20260914_login_rate_limits", "20260914_version_relationships"]
 )
 def test_unification_migration_preserves_workspace_research(
-    pg_schema: tuple[Engine, Config, str], client: TestClient, starting_revision: str
+    pg_schema: tuple[Engine, Config, str],
+    identity_verifier: MappingIdentityVerifier,
+    starting_revision: str,
 ) -> None:
     from test_public_external_agents import headers
 
@@ -67,7 +68,7 @@ def test_unification_migration_preserves_workspace_research(
     assert "beta_sample_data_installations" in inspect(engine).get_table_names()
     app = create_app(
         Settings(database_url=url, web_dist_dir="/missing-migration-web"),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:
@@ -138,13 +139,13 @@ def test_unification_migration_preserves_workspace_research(
 
 
 def test_external_agent_authority_retries_and_revocation_on_postgresql(
-    pg_schema: tuple[Engine, Config, str], client: TestClient
+    pg_schema: tuple[Engine, Config, str], identity_verifier: MappingIdentityVerifier
 ) -> None:
     engine, config, url = pg_schema
     command.upgrade(config, "head")
     app = create_app(
         Settings(database_url=url, web_dist_dir="/missing-research-external-web"),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:

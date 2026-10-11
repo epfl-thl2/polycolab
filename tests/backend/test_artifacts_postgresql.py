@@ -12,7 +12,6 @@ from alembic.config import Config
 from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
-from test_m0_postgresql import pg_schema as pg_schema
 from test_m0_postgresql import seed
 
 from polycolab.artifacts import cleanup

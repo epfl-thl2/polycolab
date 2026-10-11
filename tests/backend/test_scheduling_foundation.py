@@ -19,6 +19,7 @@ from test_research_domain import create_object, create_workspace
 from test_sessions_store import _new_run
 from test_verification_foundation_postgresql import _job
 
+from polycolab.accounts.authentication import MappingIdentityVerifier
 from polycolab.agents.sessions import claim_next_run_in_transaction
 from polycolab.app.application import create_app
 from polycolab.db.models import (
@@ -204,13 +205,13 @@ def _expect_pg_rejection(db: Session, slot: SqlExecutionSlotLease) -> None:
 
 
 def test_postgresql_slot_triggers_bind_class_owner_timestamps_and_attempt(
-    scheduler_pg_schema: tuple[Engine, Config, str], client: TestClient
+    scheduler_pg_schema: tuple[Engine, Config, str], identity_verifier: MappingIdentityVerifier
 ) -> None:
     engine, config, url = scheduler_pg_schema
     command.upgrade(config, "head")
     app = create_app(
         Settings(database_url=url, web_dist_dir="/missing-scheduler-web"),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:

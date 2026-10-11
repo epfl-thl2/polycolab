@@ -13,7 +13,6 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
-from test_m0_postgresql import pg_schema as pg_schema
 
 from polycolab.accounts.builtin import create_account
 from polycolab.accounts.recovery import (

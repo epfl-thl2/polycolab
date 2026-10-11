@@ -1,7 +1,6 @@
 """Real PostgreSQL checks for the Research-owned artifact schema handoff."""
 
 from datetime import UTC, datetime, timedelta
-from typing import Any, cast
 from uuid import UUID, uuid4
 
 import pytest
@@ -11,9 +10,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import DBAPIError
-from test_m0_postgresql import pg_schema as pg_schema
 from test_research_domain import create_object, create_workspace
 
+from polycolab.accounts.authentication import MappingIdentityVerifier
 from polycolab.app.application import create_app
 from polycolab.db.models import SqlArtifact, SqlArtifactResearchLink, SqlObjectRevision
 from polycolab.entities.enums import ArtifactResearchRole, ArtifactState
@@ -21,13 +20,13 @@ from polycolab.platform.config import Settings
 
 
 def test_artifact_identity_lifecycle_and_typed_binding_constraints(
-    pg_schema: tuple[Engine, Config, str], client: TestClient
+    pg_schema: tuple[Engine, Config, str], identity_verifier: MappingIdentityVerifier
 ) -> None:
     _, config, url = pg_schema
     command.upgrade(config, "head")
     app = create_app(
         Settings(database_url=url, web_dist_dir="/missing-artifact-foundation-web"),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:

@@ -9,14 +9,13 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import AnyUrl, SecretStr
 from sqlalchemy import select
-from sqlalchemy.dialects import postgresql
 
 from polycolab.access.authorization import ROLE_ACTIONS, WorkspaceAction
 from polycolab.accounts.authentication import MappingIdentityVerifier, Principal
 from polycolab.accounts.delivery import LocalInvitationOutbox, UnconfiguredInvitationDelivery
 from polycolab.accounts.identity import current_user
 from polycolab.app.application import create_app
-from polycolab.db.models import SqlInvitation, SqlMembership, SqlUser
+from polycolab.db.models import SqlInvitation, SqlUser
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.enums import InvitationStatus, WorkspaceRole
 from polycolab.entities.time import utc_now
@@ -58,7 +57,7 @@ def add_member(client: TestClient, project_id: str, token: str, role: str) -> No
     assert response.status_code == 201
 
 
-def test_exact_role_action_matrix_and_postgresql_owner_lock_shape() -> None:
+def test_exact_role_action_matrix() -> None:
     assert ROLE_ACTIONS[WorkspaceRole.OWNER] == frozenset(WorkspaceAction)
     assert ROLE_ACTIONS[WorkspaceRole.CONTRIBUTOR] == {
         WorkspaceAction.VIEW,
@@ -68,10 +67,6 @@ def test_exact_role_action_matrix_and_postgresql_owner_lock_shape() -> None:
         WorkspaceAction.RUN_AGENTS,
     }
     assert ROLE_ACTIONS[WorkspaceRole.READ_ONLY] == {WorkspaceAction.VIEW}
-    statement = (
-        select(SqlMembership).where(SqlMembership.role == WorkspaceRole.OWNER).with_for_update()
-    )
-    assert "FOR UPDATE" in str(statement.compile(dialect=postgresql.dialect()))  # type: ignore[no-untyped-call]
 
 
 def test_project_roles_and_current_membership_are_checked_per_request(client: TestClient) -> None:

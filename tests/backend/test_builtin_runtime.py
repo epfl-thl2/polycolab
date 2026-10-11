@@ -31,6 +31,7 @@ from polycolab.agents.sessions import (
 )
 from polycolab.agents.tools import issue_tool_capability
 from polycolab.db.models import (
+    ResearchScopeKind,
     SqlAgentMessage,
     SqlAgentRun,
     SqlAgentRunEvent,
@@ -38,6 +39,7 @@ from polycolab.db.models import (
     SqlGatewayProfile,
     SqlMembership,
     SqlProject,
+    SqlResearchScope,
     SqlRunToolCapability,
     SqlUser,
 )
@@ -229,8 +231,11 @@ def test_worker_allows_exact_reservation_then_fails_before_over_budget_round(
     assert len(tools.calls) == 1
 
 
-def _active_capability(client: TestClient) -> tuple[str, UUID]:
-    app, _, run_id, _ = _queue_run(client)
+def _active_capability(client: TestClient, run_id: UUID | None = None) -> tuple[str, UUID]:
+    if run_id is None:
+        app, _, run_id, _ = _queue_run(client)
+    else:
+        app = cast(Any, client.app)
     session = app.state.session_factory()
     try:
         claimed = claim_next_run(
@@ -568,9 +573,9 @@ def test_internal_tool_gateway_denies_current_capability_lifecycle_state(
     "name,arguments",
     [
         ("get_context", {"extra": True}),
-        ("get_object_revision", {}),
-        ("get_object_revision", {"revision_id": "not-a-uuid"}),
-        ("get_dependencies", {"revision_id": "not-a-uuid", "extra": True}),
+        ("get_object_version", {}),
+        ("get_object_version", {"object_version_id": "not-a-uuid"}),
+        ("get_dependencies", {"object_version_id": "not-a-uuid", "extra": True}),
         ("submit_proposal", {"summary": "x", "changes": "not-an-array"}),
         (
             "submit_proposal",
@@ -582,7 +587,17 @@ def test_internal_tool_gateway_rejects_every_fixed_tool_malformed_arguments(
     client: TestClient, name: str, arguments: dict[str, object]
 ) -> None:
     token, _ = _active_capability(client)
-    assert _internal_tool_call(client, token, name=name, arguments=arguments).status_code == 401
+    assert (
+        _internal_tool_call(
+            client,
+            token,
+            name=name,
+            arguments=arguments,
+            invocation="malformed-tool-arguments" if name == "submit_proposal" else None,
+            source_cursor=1 if name == "submit_proposal" else None,
+        ).status_code
+        == 401
+    )
 
 
 def test_internal_tool_gateway_rejects_private_creator_scope_mismatch(
@@ -650,17 +665,31 @@ def test_internal_tool_gateway_rejects_capability_session_and_tool_scope_mismatc
     assert _internal_tool_call(client, token).status_code == 401
 
 
-def test_internal_tool_gateway_rejects_cross_project_revision_reference(client: TestClient) -> None:
+def test_internal_tool_gateway_rejects_cross_workspace_object_version(client: TestClient) -> None:
     from polycolab.workspaces.service import create_workspace
 
-    token, run_id = _active_capability(client)
-    app = cast(Any, client.app)
+    app, _, run_id, _ = _queue_run(client)
     session = app.state.session_factory()
     try:
         run = session.get(SqlAgentRun, run_id)
         assert run is not None
         user = session.get(SqlUser, run.requested_by_user_id)
         assert user is not None
+        session.add(
+            SqlResearchScope(scope_kind=ResearchScopeKind.WORKSPACE, project_id=run.project_id)
+        )
+        session.flush()
+        _, permitted = create_object(
+            session,
+            project_id=run.project_id,
+            kind=ResearchObjectKind.CLAIM,
+            title="Pinned context",
+            content_md="permitted",
+            rationale=None,
+            author=user,
+        )
+        run.requested_context_revision_ids = [str(permitted.id)]
+        session.commit()
         project = create_workspace(
             SqlAlchemyTransaction(session),
             name="Other project",
@@ -679,11 +708,20 @@ def test_internal_tool_gateway_rejects_cross_project_revision_reference(client: 
         )
     finally:
         session.close()
+    token, _ = _active_capability(client, run_id)
+    allowed = _internal_tool_call(
+        client,
+        token,
+        name="get_object_version",
+        arguments={"object_version_id": str(permitted.id)},
+    )
+    assert allowed.status_code == 200
+    assert allowed.json()["id"] == str(permitted.id)
     response = _internal_tool_call(
         client,
         token,
-        name="get_object_revision",
-        arguments={"revision_id": str(revision.id)},
+        name="get_object_version",
+        arguments={"object_version_id": str(revision.id)},
     )
     assert response.status_code == 401
 

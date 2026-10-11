@@ -3,7 +3,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from threading import Barrier
-from typing import Any, cast
+from typing import Any
 from uuid import UUID
 
 import pytest
@@ -13,7 +13,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
-from test_m0_postgresql import pg_schema as pg_schema
 from test_verification import (
     admit,
     claim,
@@ -42,6 +41,7 @@ from test_verification_queue import (
     test_claim_reaches_quiet_user_behind_full_page_of_cooling_retries as queue_page_case,
 )
 
+from polycolab.accounts.authentication import MappingIdentityVerifier
 from polycolab.app.application import create_app
 from polycolab.db.models import (
     SqlAgentRun,
@@ -63,13 +63,13 @@ from polycolab.workspaces.service import DomainConflict
 
 @pytest.mark.parametrize("case", [admission_case, completion_case, cancel_case, output_case])
 def test_migrated_lifecycle(
-    pg_schema: tuple[Engine, Config, str], client: TestClient, case: Any
+    pg_schema: tuple[Engine, Config, str], identity_verifier: MappingIdentityVerifier, case: Any
 ) -> None:
     _, config, url = pg_schema
     command.upgrade(config, "head")
     app = create_app(
         Settings(database_url=url, web_dist_dir="/missing-verification-test"),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:
@@ -80,14 +80,14 @@ def test_migrated_lifecycle(
 
 def test_migrated_interleaved_candidate_page(
     pg_schema: tuple[Engine, Config, str],
-    client: TestClient,
+    identity_verifier: MappingIdentityVerifier,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _, config, url = pg_schema
     command.upgrade(config, "head")
     app = create_app(
         Settings(database_url=url, web_dist_dir="/missing-verification-test"),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:
@@ -98,14 +98,14 @@ def test_migrated_interleaved_candidate_page(
 
 def test_migrated_lease_loss_and_attempt_exhaustion(
     pg_schema: tuple[Engine, Config, str],
-    client: TestClient,
+    identity_verifier: MappingIdentityVerifier,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _, config, url = pg_schema
     command.upgrade(config, "head")
     app = create_app(
         Settings(database_url=url, web_dist_dir="/missing-verification-test"),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:
@@ -149,13 +149,13 @@ def test_migrated_lease_loss_and_attempt_exhaustion(
 
 
 def test_migrated_agent_artifact_manifest_and_late_member_rejection(
-    pg_schema: tuple[Engine, Config, str], client: TestClient
+    pg_schema: tuple[Engine, Config, str], identity_verifier: MappingIdentityVerifier
 ) -> None:
     _, config, url = pg_schema
     command.upgrade(config, "head")
     app = create_app(
         Settings(database_url=url, web_dist_dir="/missing-verification-test"),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:
@@ -191,13 +191,13 @@ def test_migrated_agent_artifact_manifest_and_late_member_rejection(
 
 
 def test_migrated_agent_output_scope_and_attribution_rejection(
-    pg_schema: tuple[Engine, Config, str], client: TestClient
+    pg_schema: tuple[Engine, Config, str], identity_verifier: MappingIdentityVerifier
 ) -> None:
     _, config, url = pg_schema
     command.upgrade(config, "head")
     app = create_app(
         Settings(database_url=url, web_dist_dir="/missing-verification-test"),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:
@@ -223,13 +223,13 @@ def test_migrated_agent_output_scope_and_attribution_rejection(
 
 
 def test_concurrent_admission_claim_completion_and_cancel(
-    pg_schema: tuple[Engine, Config, str], client: TestClient
+    pg_schema: tuple[Engine, Config, str], identity_verifier: MappingIdentityVerifier
 ) -> None:
     _, config, url = pg_schema
     command.upgrade(config, "head")
     app = create_app(
         Settings(database_url=url, web_dist_dir="/missing-verification-test"),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:

@@ -57,12 +57,6 @@ def test_new_project_research_has_typed_revision_and_scope(client: TestClient) -
 
 def test_private_workspace_reads_require_membership_until_owner_shares(client: TestClient) -> None:
     headers = {"Authorization": "Bearer owner"}
-    assert (
-        client.post(
-            "/api/v1/workspaces", headers=headers, json={"name": "Public", "visibility": "PUBLIC"}
-        ).status_code
-        == 201
-    )
     project = client.post(
         "/api/v1/workspaces", headers=headers, json={"visibility": "PRIVATE", "name": "Private"}
     ).json()
@@ -85,17 +79,15 @@ def test_private_workspace_reads_require_membership_until_owner_shares(client: T
             },
         },
     ).json()
-    for route in (
+    routes = (
         f"/api/v1/workspaces/{project['id']}",
         f"/api/v1/workspaces/{project['id']}/objects",
         f"/api/v1/objects/{created['id']}",
         f"/api/v1/objects/{created['id']}/versions",
         f"/api/v1/versions/{created['current_object_version_id']}",
         f"/api/v1/objects/{created['id']}/relations",
-        f"/api/v1/workspaces/{project['id']}/objects/{created['id']}/neighborhood",
-        f"/public/projects/{project['id']}",
-        f"/public/projects/{project['id']}/objects/{created['id']}",
-    ):
+    )
+    for route in routes:
         response = client.get(route)
         assert response.status_code == 404
         assert "Private draft" not in response.text
@@ -105,9 +97,16 @@ def test_private_workspace_reads_require_membership_until_owner_shares(client: T
         ).status_code
         == 200
     )
-    assert (
-        client.patch(
-            f"/api/v1/workspaces/{project['id']}", headers=headers, json={"name": "Still private"}
-        ).status_code
-        == 200
-    )
+    responses = []
+    for route in routes:
+        response = client.get(route)
+        assert response.status_code == 200, (route, response.text)
+        responses.append(response.json())
+    workspace, objects, obj, versions, version, relations = responses
+    assert workspace["id"] == project["id"]
+    assert [item["id"] for item in objects["items"]] == [created["id"]]
+    assert obj["id"] == created["id"]
+    assert [item["id"] for item in versions["items"]] == [created["current_object_version_id"]]
+    assert version["id"] == created["current_object_version_id"]
+    assert version["content"]["content_md"] == "Private draft"
+    assert relations["items"] == []

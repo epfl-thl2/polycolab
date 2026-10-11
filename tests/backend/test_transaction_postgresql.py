@@ -6,7 +6,6 @@ from threading import Barrier
 from alembic import command
 from alembic.config import Config
 from sqlalchemy.engine import Engine
-from test_m0_postgresql import pg_schema as pg_schema
 
 from polycolab.db.session import make_session_factory
 from polycolab.db.transaction import make_transaction_factory

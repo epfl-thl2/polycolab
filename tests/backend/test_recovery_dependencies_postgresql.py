@@ -1,15 +1,15 @@
 """Real PostgreSQL evidence for restored research semantic verification."""
 
-from typing import Any, cast
+from typing import cast
 from uuid import UUID
 
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy.engine import Engine
-from test_m0_postgresql import pg_schema as pg_schema
 from test_research_domain import create_object, create_workspace
 
+from polycolab.accounts.authentication import MappingIdentityVerifier
 from polycolab.app.application import create_app
 from polycolab.db.models import (
     SqlContributionEnvelope,
@@ -27,13 +27,13 @@ from polycolab.platform.outbox import canonical_digest
 
 
 def test_postgresql_restored_research_semantics_are_verified_read_only(
-    pg_schema: tuple[Engine, Config, str], client: TestClient
+    pg_schema: tuple[Engine, Config, str], identity_verifier: MappingIdentityVerifier
 ) -> None:
     _, config, url = pg_schema
     command.upgrade(config, "head")
     app = create_app(
         Settings(database_url=url, web_dist_dir="/missing-recovery-research-web"),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:

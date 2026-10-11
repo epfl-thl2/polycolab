@@ -3,7 +3,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from threading import Barrier
-from typing import Any, cast
 from uuid import UUID
 
 from alembic import command
@@ -13,9 +12,9 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import DBAPIError
 from test_catalogue_api import admit, enable, headers
-from test_m0_postgresql import pg_schema as pg_schema
 from test_research_structure import attempt_payload, proof_snapshot, saved_version
 
+from polycolab.accounts.authentication import MappingIdentityVerifier
 from polycolab.app.application import create_app
 from polycolab.db.models import SqlObjectRevision, SqlRevisionEndorsement
 from polycolab.platform.config import Settings
@@ -23,13 +22,13 @@ from polycolab.research.contributions import human_contribution
 
 
 def test_concurrent_proof_edges_cannot_jointly_create_cycle(
-    pg_schema: tuple[Engine, Config, str], client: TestClient
+    pg_schema: tuple[Engine, Config, str], identity_verifier: MappingIdentityVerifier
 ) -> None:
     _, config, url = pg_schema
     command.upgrade(config, "head")
     app = create_app(
         Settings(database_url=url, web_dist_dir="/missing-proofs-web"),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:
@@ -68,13 +67,13 @@ def test_concurrent_proof_edges_cannot_jointly_create_cycle(
 
 
 def test_proof_and_assurance_history_is_database_immutable(
-    pg_schema: tuple[Engine, Config, str], client: TestClient
+    pg_schema: tuple[Engine, Config, str], identity_verifier: MappingIdentityVerifier
 ) -> None:
     engine, config, url = pg_schema
     command.upgrade(config, "head")
     app = create_app(
         Settings(database_url=url, web_dist_dir="/missing-proofs-web"),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:
@@ -178,13 +177,13 @@ def test_proof_and_assurance_history_is_database_immutable(
 
 
 def test_postgresql_assurance_uses_time_not_uuid_and_keeps_assessors_independent(
-    pg_schema: tuple[Engine, Config, str], client: TestClient
+    pg_schema: tuple[Engine, Config, str], identity_verifier: MappingIdentityVerifier
 ) -> None:
     _, config, url = pg_schema
     command.upgrade(config, "head")
     app = create_app(
         Settings(database_url=url, web_dist_dir="/missing-research-assurance-web"),
-        cast(Any, client.app).state.identity_verifier,
+        identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:

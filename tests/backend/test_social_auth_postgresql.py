@@ -14,7 +14,6 @@ from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
-from test_m0_postgresql import pg_schema as pg_schema
 
 import polycolab.accounts.social as social_auth
 from polycolab.accounts.builtin import create_account, create_session, token_digest

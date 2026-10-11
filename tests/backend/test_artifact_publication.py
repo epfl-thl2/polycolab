@@ -12,10 +12,10 @@ from research_requests import post_research
 from sqlalchemy import select
 from sqlalchemy.engine import Engine
 from test_catalogue_api import enable
-from test_m0_postgresql import pg_schema as pg_schema
 from test_publication import headers
 from test_research_domain import create_object, create_workspace
 
+from polycolab.accounts.authentication import MappingIdentityVerifier
 from polycolab.app.application import create_app
 from polycolab.artifacts.storage import GarageStorage
 from polycolab.db.models import (
@@ -289,7 +289,7 @@ def test_public_artifact_download_rechecks_moderation_after_storage_read(
 
 
 def test_postgresql_artifact_release_membership_commits_with_exact_release(
-    pg_schema: tuple[Engine, Config, str], client: TestClient
+    pg_schema: tuple[Engine, Config, str], identity_verifier: MappingIdentityVerifier
 ) -> None:
     _, config, url = pg_schema
     command.upgrade(config, "head")
@@ -304,7 +304,7 @@ def test_postgresql_artifact_release_membership_commits_with_exact_release(
             "artifact_s3_secret_key": "test-secret-value",
         }
     )
-    app = create_app(settings, cast(Any, client.app).state.identity_verifier)
+    app = create_app(settings, identity_verifier)
     app.state.artifact_storage = GarageStorage(MemoryS3(), "publication-postgresql")
     try:
         with TestClient(app) as pg_client:

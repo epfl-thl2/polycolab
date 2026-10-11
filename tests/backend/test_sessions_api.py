@@ -57,6 +57,47 @@ def create_session(client: TestClient, project_id: str, token: str = "owner") ->
     return cast(dict[str, object], response.json())
 
 
+def test_local_browser_can_read_pagination_cursor(client: TestClient) -> None:
+    app = cast(FastAPI, client.app)
+    origin = str(app.state.settings.allowed_origins[0]).rstrip("/")
+    workspace = create_workspace(client)
+    agent_session = create_session(client, str(workspace["id"]))
+    profile = create_profile(client, "owner")
+    run_ids = []
+    for _ in range(2):
+        queued = client.post(
+            f"/api/v1/agent-sessions/{agent_session['id']}/messages",
+            headers=headers("owner"),
+            json={
+                "content_md": "Paginate this run.",
+                "gateway_profile_id": profile["id"],
+                "client_request_id": str(uuid4()),
+            },
+        )
+        assert queued.status_code == 202, queued.text
+        run_id = queued.json()["run"]["id"]
+        run_ids.append(run_id)
+        assert (
+            client.post(f"/api/v1/agent-runs/{run_id}/cancel", headers=headers("owner")).status_code
+            == 202
+        )
+    url = f"/api/v1/agent-sessions/{agent_session['id']}/runs"
+    browser_headers = {**headers("owner"), "Origin": origin}
+    response = client.get(url, params={"limit": 1}, headers=browser_headers)
+    assert response.status_code == 200
+    assert [run["id"] for run in response.json()] == run_ids[:1]
+    assert response.headers["access-control-allow-origin"] == origin
+    assert "X-Next-Cursor" in response.headers["access-control-expose-headers"]
+    next_page = client.get(
+        url,
+        params={"limit": 1, "cursor": response.headers["X-Next-Cursor"]},
+        headers=browser_headers,
+    )
+    assert next_page.status_code == 200
+    assert [run["id"] for run in next_page.json()] == run_ids[1:]
+    assert "X-Next-Cursor" not in next_page.headers
+
+
 def test_session_list_orders_by_latest_activity(client: TestClient) -> None:
     project = create_workspace(client)
     project_id = str(project["id"])
