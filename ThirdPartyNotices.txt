@@ -1,19 +1,14 @@
-# Third-party notices
+NOTICES
 
 This file records third-party source copied into the Polycolab repository.
 Installed dependencies retain their own licenses.
 This file is not a complete inventory of dependencies in built artifacts.
 
-## shadcn-svelte
+-----------------------------------------------------------------------
 
-The components in `src/web/src/lib/components/ui/` include source copied and adapted from the [shadcn-svelte registry](https://github.com/huntabyte/shadcn-svelte).
-The registry settings are in `src/web/components.json`.
-Polycolab changes component styling and behavior for its Svelte application.
+shadcn-svelte (Lyra registry snapshot, retrieved 2026-10-12) - MIT
+https://github.com/huntabyte/shadcn-svelte
 
-This source uses the MIT license.
-The full copyright and license text follows.
-
-```text
 MIT License
 
 Copyright (c) 2023 Hunter Johnston <https://github.com/huntabyte>
@@ -37,4 +32,13 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-```
+
+The components in src/web/src/lib/components/ui/ were copied from the
+shadcn-svelte registry and modified for Polycolab. The Lyra styles were
+retrieved with shadcn-svelte CLI 1.7.0. The CLI version identifies the tooling,
+not the component source version. The registry snapshot has no recorded
+upstream release version. Customized tooltip and separator implementations
+retain source from the original import, whose upstream version was not recorded.
+Registry configuration is in src/web/components.json.
+
+-----------------------------------------------------------------------

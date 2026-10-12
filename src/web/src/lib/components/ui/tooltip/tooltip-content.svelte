@@ -17,7 +17,7 @@
     role="tooltip"
     {sideOffset}
     class={cn(
-      'z-50 max-w-xs rounded-md bg-foreground px-2.5 py-1.5 text-xs leading-tight text-background shadow-md',
+      'z-50 max-w-xs rounded-none bg-foreground px-2.5 py-1.5 text-xs leading-tight text-background shadow-md',
       className,
     )}
     {...restProps}

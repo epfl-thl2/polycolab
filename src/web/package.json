@@ -52,6 +52,7 @@
     "jsdom": "27.0.1",
     "openapi-typescript": "7.10.1",
     "prettier-plugin-svelte": "^4.1.1",
+    "shadcn-svelte": "1.7.0",
     "svelte-check": "^4.7.6",
     "tailwind-variants": "^3.3.0",
     "tailwindcss": "4.2.4",

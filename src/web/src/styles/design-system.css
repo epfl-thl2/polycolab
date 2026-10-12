@@ -48,10 +48,6 @@
   [data-slot] {
     border-color: var(--border);
   }
-  [data-slot='input'],
-  [data-slot='native-select'] {
-    min-height: 2.25rem;
-  }
   [data-slot='textarea'] {
     min-height: 7rem;
   }

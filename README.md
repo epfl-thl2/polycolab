@@ -177,4 +177,4 @@ Frontend unit tests and browser tests with mocked APIs do not require Docker or 
 
 Polycolab's original source code and repository documentation use the [Apache License 2.0](LICENSE).
 Third-party code retains its existing licenses and attribution notices.
-See the [third-party notices](THIRD_PARTY_NOTICES.md).
+See the [third-party notices](ThirdPartyNotices.txt).
