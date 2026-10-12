@@ -39,17 +39,16 @@ Require confirmation.
 
 The workspace uses four panes. A thin navigation rail at the far left provides
 icons for existing workspace pages at a fixed width, with accessible labels and
-tooltips. Hover and keyboard focus do not expand it. The left panel organizes named tasks and their conversations. Shared workspace
-comes first, followed by active tasks and a collapsed archived section. Each task
-has one working copy and can contain multiple private conversations. Show branch
-identity as secondary information and activity from the viewer’s conversations. The middle panel holds unified tabs for chats,
-files, research objects, and diffs, with New chat as the default view. The right
-panel switches between Explorer, Source control, and Details for the current work.
+tooltips. Hover and keyboard focus do not expand it. Rail selections switch page
+layouts. In the Workspace layout, the left panel lists Main and named worktrees,
+with the current user's conversations nested beneath each. The middle panel holds unified tabs
+for chats, files, research objects, and diffs, with New chat as the default view.
+The right panel switches between Explorer, Source control, and Details.
 
-- **Keep navigation distinct from task management.** Page navigation belongs
-  in the far-left rail; tasks and their conversations belong in the left panel. Make the
-  selected task, conversation, and content tab clear. Selecting a task changes
-  Explorer to its working copy; New conversation uses that task.
+- **Keep navigation distinct from content.** Page navigation belongs in the
+  far-left rail; worktrees and their conversations belong in the left panel. Make
+  the selected worktree, conversation, and content tab clear. Selecting a worktree
+  switches Explorer to its files. New conversations use the selected worktree.
 - **Keep context stable.** Switching tabs or right-panel tools preserves drafts,
   selections, and positions. New AI output should not replace what the user is
   inspecting or editing without their action.
@@ -63,7 +62,7 @@ panel switches between Explorer, Source control, and Details for the current wor
   actions for the active content.
 - **Adapt to small screens.** Provide focused views and clear return actions while
   preserving the same task, active tab, and editing state. Keep navigation,
-  task controls, and right-panel tools reachable.
+  conversations, and right-panel tools reachable.
 
 ## Main panel and right panel
 

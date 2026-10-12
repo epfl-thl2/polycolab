@@ -45,3 +45,5 @@ src/web/.astro/
 
 # Persistent Docker-free development data
 .local/
+
+.svelte-kit-test-*/

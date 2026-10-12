@@ -40,7 +40,10 @@ def ready(url: str, processes: list[subprocess.Popen[bytes]]) -> None:
 
 def main() -> int:
     processes: list[subprocess.Popen[bytes]] = []
-    with tempfile.TemporaryDirectory(prefix="polycolab-local-smoke-") as temporary:
+    with (
+        tempfile.TemporaryDirectory(prefix="polycolab-local-smoke-") as temporary,
+        tempfile.TemporaryDirectory(prefix=".svelte-kit-test-", dir=ROOT / "src/web") as web_temporary,
+    ):
         directory = Path(temporary)
         database = directory / "research.db"
         upgrade_database(database)
@@ -51,11 +54,13 @@ def main() -> int:
             "APP_ENV": "local",
             "AUTH_MODE": "local",
             "DATABASE_URL": f"sqlite+pysqlite:///{database}",
+            "WORKSPACE_REPOSITORY_DIRECTORY": str(directory / "repositories"),
             "ARTIFACT_LOCAL_DIRECTORY": str(directory / "artifacts"),
             "REGISTRATION_MODE": "open",
             "PUBLIC_APP_ORIGIN": origin,
             "POLYCOLAB_API_PROXY_TARGET": f"http://127.0.0.1:{api_port}",
             "LOCAL_MODE_URL": origin,
+            "POLYCOLAB_SVELTE_OUT_DIR": Path(web_temporary).name,
             "BOOTSTRAP_ADMIN_PASSWORD": secrets.token_urlsafe(24),
         }
         try:
@@ -81,18 +86,10 @@ def main() -> int:
                 ),
                 (
                     [
-                        "pnpm",
-                        "--filter",
-                        "@polycolab/web",
-                        "run",
-                        "dev",
-                        "--host",
-                        "127.0.0.1",
-                        "--port",
-                        str(web_port),
-                        "--strictPort",
+                        "node", "node_modules/vite/bin/vite.js",
+                        "--host", "127.0.0.1", "--port", str(web_port), "--strictPort",
                     ],
-                    ROOT,
+                    ROOT / "src/web",
                 ),
             ]
             for command, cwd in commands:
@@ -111,6 +108,7 @@ def main() -> int:
                     "test",
                     "--config",
                     "../../tests/web/browser/local-mode.config.ts",
+                    *sys.argv[1:],
                 ],
                 cwd=ROOT,
                 env=env,

@@ -1,15 +1,21 @@
 <script lang="ts">
   import * as Tooltip from '../lib/components/ui/tooltip';
+  import * as DropdownMenu from '../lib/components/ui/dropdown-menu';
+  import AccountMenu from './AccountMenu.svelte';
+  import type { Auth } from '../svelte-lib/auth.svelte';
+  import { accountHref } from '../lib/account-navigation';
   import {
-    LayoutDashboard,
+    FolderKanban,
+    PanelsLeftBottom,
     Files,
     Map as MapIcon,
     History,
     Plug,
     Settings,
-    PanelsTopLeft,
+    UserRound,
   } from '@lucide/svelte';
   let {
+    auth,
     projectId,
     section,
     canManage,
@@ -17,6 +23,7 @@
     expanded = false,
     showBrand = true,
   }: {
+    auth: Auth;
     projectId: string;
     section: string;
     canManage: boolean;
@@ -24,8 +31,18 @@
     expanded?: boolean;
     showBrand?: boolean;
   } = $props();
+  let accountError = $state('');
+  async function signOut() {
+    accountError = '';
+    try {
+      await auth.signOut();
+    } catch {
+      accountError = 'Sign-out failed. Please retry.';
+    }
+  }
   const links = [
-    ['overview', 'Overview', LayoutDashboard],
+    ['overview', 'Project', FolderKanban],
+    ['sessions', 'Workspace', PanelsLeftBottom],
     ['research', 'Research objects', Files],
     ['map', 'Map', MapIcon],
     ['activity', 'Activity', History],
@@ -41,7 +58,7 @@
 {#snippet navLink(
   href: string,
   label: string,
-  Icon: typeof LayoutDashboard,
+  Icon: typeof FolderKanban,
   active = false,
   extraClass = '',
 )}
@@ -99,7 +116,43 @@
             section === 'settings',
           )}
         {/if}
-        {@render navLink('/workspaces', 'Workspaces', PanelsTopLeft, false, 'workspaces-link')}
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger
+            class="rail-link profile-link"
+            aria-label="Open account menu"
+            title="Account"
+            disabled={!auth.loaded}
+          >
+            <UserRound size={18} aria-hidden="true" /><span class="label">Account</span>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Content
+            class="w-60"
+            side="right"
+            align="end"
+            sideOffset={8}
+            preventScroll={false}
+          >
+            {#if auth.signedIn}
+              <AccountMenu {auth} onSignOut={() => void signOut()} />
+            {:else}
+              <DropdownMenu.Item>
+                {#snippet child({ props })}
+                  <a {...props} href={accountHref('signin', `/workspaces/${projectId}/${section}`)}
+                    >Sign in</a
+                  >
+                {/snippet}
+              </DropdownMenu.Item>
+              <DropdownMenu.Item>
+                {#snippet child({ props })}
+                  <a {...props} href={accountHref('signup', `/workspaces/${projectId}/${section}`)}
+                    >Create account</a
+                  >
+                {/snippet}
+              </DropdownMenu.Item>
+            {/if}
+          </DropdownMenu.Content>
+        </DropdownMenu.Root>
+        {#if accountError}<p role="alert">{accountError}</p>{/if}
       </nav>
     </aside>
   </div>
@@ -141,7 +194,7 @@
   .footer-links {
     margin-top: auto;
   }
-  .rail-link {
+  :global(.navigation-rail .rail-link) {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -158,11 +211,12 @@
     text-align: left;
     cursor: pointer;
   }
-  .rail-link :global(svg) {
+  :global(.navigation-rail .rail-link svg) {
     flex-shrink: 0;
   }
-  .rail-link:hover,
-  .rail-link[aria-current='page'] {
+  :global(.navigation-rail .rail-link:hover),
+  :global(.navigation-rail .rail-link[aria-current='page']),
+  :global(.navigation-rail .rail-link[data-state='open']) {
     background: var(--brand-soft);
     color: var(--brand-strong);
   }
@@ -182,7 +236,7 @@
     height: 28px;
     flex-shrink: 0;
   }
-  .rail-link:focus-visible {
+  :global(.navigation-rail .rail-link:focus-visible) {
     outline: 2px solid var(--ring);
     outline-offset: -2px;
   }
@@ -195,7 +249,7 @@
     opacity: 1;
     visibility: visible;
   }
-  .workspaces-link {
+  :global(.navigation-rail .profile-link) {
     margin-top: 7px;
   }
 </style>

@@ -4,12 +4,18 @@ import WorkspaceFiles from '../../../src/web/src/ui/WorkspaceFiles.svelte';
 import { contextKey } from '../../../src/web/src/svelte-lib/context';
 import { encodeFile } from '../../../src/web/src/lib/repository-api';
 
+// These cases exercise workspace saving and tab policy; real Monaco is covered in browser journeys.
+vi.mock(
+  '../../../src/web/src/ui/MonacoSourceEditor.svelte',
+  () => import('./fixtures/SourceEditorStub.svelte'),
+);
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
 
-function setup() {
+function setup(paths = ['note.md']) {
   const api = {
     state: vi.fn().mockResolvedValue({
       enabled: true,
@@ -17,7 +23,7 @@ function setup() {
       branch: 'main',
       commit: 'a'.repeat(40),
       branches: { main: 'a'.repeat(40) },
-      files: [{ path: 'note.md', size: 4, executable: false }],
+      files: paths.map((path) => ({ path, size: 4, executable: false })),
     }),
     file: vi.fn().mockResolvedValue({ content_base64: encodeFile('base') }),
     save: vi.fn(),
@@ -29,30 +35,29 @@ function setup() {
   return { ...api, component };
 }
 
-it('protects drafts when changing working copies, including a failed branch read', async () => {
+it('retains per-worktree drafts and preserves them after a failed switch', async () => {
   const api = setup();
   await fireEvent.click(await screen.findByRole('button', { name: 'note.md' }));
   await fireEvent.input(screen.getByLabelText('File contents'), {
-    target: { value: 'unsaved task work' },
+    target: { value: 'unsaved work' },
   });
-  const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
-  api.state.mockClear();
-  expect(await api.component.selectWorkspaceBranch('tasks/next')).toBe(false);
-  expect(api.state).not.toHaveBeenCalled();
-  expect((screen.getByLabelText('File contents') as HTMLTextAreaElement).value).toBe(
-    'unsaved task work',
-  );
-  confirm.mockReturnValue(true);
+  const confirm = vi.spyOn(window, 'confirm');
   api.state.mockRejectedValueOnce(new Error('Temporary storage outage'));
-  await expect(api.component.selectWorkspaceBranch('tasks/next')).rejects.toThrow(
+  await expect(api.component.selectWorkspaceBranch('experiment')).rejects.toThrow(
     'Temporary storage outage',
   );
   expect((screen.getByLabelText('File contents') as HTMLTextAreaElement).value).toBe(
-    'unsaved task work',
+    'unsaved work',
   );
-  expect(await api.component.selectWorkspaceBranch('tasks/next')).toBe(true);
+  expect(await api.component.selectWorkspaceBranch('experiment')).toBe(true);
   await waitFor(() => expect(screen.queryByLabelText('File contents')).toBeNull());
-  expect(api.state).toHaveBeenLastCalledWith('workspace', 'tasks/next');
+  expect(await api.component.selectWorkspaceBranch('main')).toBe(true);
+  await waitFor(() =>
+    expect((screen.getByLabelText('File contents') as HTMLTextAreaElement).value).toBe(
+      'unsaved work',
+    ),
+  );
+  expect(confirm).not.toHaveBeenCalled();
 });
 
 it('rejects exported file selection during a pending save and permits it after completion', async () => {
@@ -219,4 +224,47 @@ it('can compare and save a new file after a collaborator advances the shared cop
     expected_commit: 'b'.repeat(40),
     changes: [{ path: 'new.md', content_base64: encodeFile('my new note') }],
   });
+});
+
+it('replaces clean previews, keeps pinned and edited files, and retains tabs on failed opens', async () => {
+  const api = setup(['a.md', 'b.md', 'c.md', 'broken.md']);
+  const open = async (name: string) => {
+    await fireEvent.click(await screen.findByRole('button', { name }));
+    await screen.findByRole('tab', { name });
+  };
+  await open('a.md');
+  await open('b.md');
+  expect(screen.queryByRole('tab', { name: 'a.md' })).toBeNull();
+  await fireEvent.doubleClick(screen.getByRole('tab', { name: 'b.md' }));
+  await open('c.md');
+  expect(screen.getByRole('tab', { name: 'b.md' })).toBeTruthy();
+  await fireEvent.input(screen.getByLabelText('File contents'), { target: { value: 'draft' } });
+  await open('a.md');
+  expect(screen.getByRole('tab', { name: /c.md/ })).toBeTruthy();
+  api.file.mockRejectedValueOnce(new Error('File unavailable'));
+  await fireEvent.click(screen.getByRole('button', { name: 'broken.md' }));
+  await screen.findByRole('alert');
+  expect(screen.queryByRole('tab', { name: 'broken.md' })).toBeNull();
+  expect(screen.getByRole('tab', { name: 'a.md' }).getAttribute('aria-selected')).toBe('true');
+});
+
+it('ignores a late preview response after selecting an already-open file', async () => {
+  const api = setup(['a.md', 'b.md']);
+  await fireEvent.click(await screen.findByRole('button', { name: 'a.md' }));
+  await screen.findByRole('tab', { name: 'a.md' });
+  let resolveFile!: (file: { content_base64: string }) => void;
+  api.file.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveFile = resolve;
+      }),
+  );
+  await fireEvent.click(screen.getByRole('button', { name: 'b.md' }));
+  await fireEvent.click(screen.getByRole('button', { name: 'a.md' }));
+  resolveFile({ content_base64: encodeFile('late response') });
+  await waitFor(() =>
+    expect(screen.getByRole('tab', { name: 'a.md' }).getAttribute('aria-selected')).toBe('true'),
+  );
+  expect(screen.queryByRole('tab', { name: 'b.md' })).toBeNull();
+  expect((screen.getByLabelText('File contents') as HTMLTextAreaElement).value).toBe('base');
 });

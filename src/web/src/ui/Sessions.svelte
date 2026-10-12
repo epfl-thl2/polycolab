@@ -18,21 +18,14 @@
   import type { AgentRun } from '../lib/agent-sessions-api';
   import { prepareTurn, type TurnDraft } from '../lib/run-authority';
   import Markdown from './Markdown.svelte';
-  import {
-    ArrowUp,
-    ChevronDown,
-    GitBranch,
-    RotateCcw,
-    SlidersHorizontal,
-    Sparkles,
-  } from '@lucide/svelte';
+  import { ArrowUp, ChevronDown, RotateCcw, SlidersHorizontal, Sparkles } from '@lucide/svelte';
   import { Popover } from 'bits-ui';
   import { chatPanelPortal } from '../lib/chat-panel-portal';
   import { tick } from 'svelte';
   let {
     projectId,
     sessionId,
-    taskId,
+    worktreeId,
     view,
     isVisible = true,
     onState,
@@ -40,7 +33,7 @@
   }: {
     projectId: string;
     sessionId?: string;
-    taskId?: string;
+    worktreeId?: string;
     view?: 'chat' | 'list';
     isVisible?: boolean;
     onState?: (state: { label?: string; dirty: boolean }) => void;
@@ -130,7 +123,7 @@
     })),
   );
   const tasks = workspace().tasks;
-  const currentTaskId = $derived(sessionId ? $session.data?.task_id : taskId);
+  const currentTaskId = $derived(sessionId ? $session.data?.task_id : worktreeId);
   const task = createQuery(
     toStore(() => ({
       queryKey: ['workspace-task', projectId, currentTaskId],
@@ -270,9 +263,9 @@
   );
   const newChatSendReason = $derived.by(() => {
     if (busy) return 'Sending…';
-    if (taskId && $task.isPending) return 'Opening task…';
-    if (taskId && $task.isError) return 'This task is unavailable.';
-    if ($task.data?.archived_at) return 'This task is archived.';
+    if (worktreeId && $task.isPending) return 'Opening worktree…';
+    if (worktreeId && $task.isError) return 'This worktree is unavailable.';
+    if ($task.data?.archived_at) return 'This worktree is archived.';
     if (!executionEnabled) return 'Hosted execution is disabled.';
     if (configurationMode === 'custom' && !hostedAvailable) return 'Hosted Codex is unavailable.';
     if (!agentId) return 'Choose a preset below.';
@@ -287,7 +280,7 @@
   );
   const sessionSendReason = $derived.by(() => {
     if (busy) return 'Working…';
-    if ($task.data?.archived_at) return 'This task is archived.';
+    if ($task.data?.archived_at) return 'This worktree is archived.';
     if ($session.data?.status === 'ARCHIVED') return 'This session is archived.';
     if (!executionEnabled) return 'Hosted execution is disabled.';
     if (!$capabilities.data?.execution_available) return 'Agent execution is unavailable.';
@@ -323,7 +316,7 @@
     event.preventDefault();
     if (
       busy ||
-      (taskId && ($task.isPending || $task.isError || $task.data?.archived_at)) ||
+      (worktreeId && ($task.isPending || $task.isError || $task.data?.archived_at)) ||
       !executionEnabled ||
       !draft.trim() ||
       !profileId ||
@@ -339,7 +332,7 @@
       if (!startingSessionId) {
         const created = await agents.createSession({
           workspace_id: projectId,
-          ...(taskId ? { task_id: taskId } : {}),
+          ...(worktreeId ? { worktree_id: worktreeId } : {}),
           agent_kind: choice.agent_kind,
           agent_version: choice.version,
           ...(configurationMode === 'custom'
@@ -349,7 +342,7 @@
         startingSessionId = created.id;
         await query.invalidateQueries({ queryKey: ['sessions', projectId] });
       }
-      if (!taskId && useWorkspaceFiles && repository)
+      if (!worktreeId && useWorkspaceFiles && repository)
         await repository.enableSession(projectId, startingSessionId);
       const body = {
         ...prepareTurn({
@@ -503,16 +496,6 @@
   }
 </script>
 
-{#if currentTaskId && $task.data}
-  <div class="session-task-context">
-    <span><GitBranch size={14} />{$task.data.title}</span>
-    <small
-      >{$task.data.archived_at
-        ? 'Archived task'
-        : 'Shared working copy · private conversation'}</small
-    >
-  </div>
-{/if}
 {#if sessionId && !currentTaskId && $repositoryState.data?.enabled && hostedAvailable}
   <div class="session-repository-controls">
     {#if $sessionRepository.data?.enabled}
@@ -660,12 +643,12 @@
             <Textarea
               required
               aria-label="Message the agent"
-              placeholder="Describe a task or ask a question…"
+              placeholder="Ask a question or describe what you want to do…"
               bind:value={draft}
               bind:ref={newChatInput}
               onkeydown={composerKeydown}
             />
-            {#if !taskId && $repositoryState.data?.enabled && hostedAvailable}
+            {#if !worktreeId && $repositoryState.data?.enabled && hostedAvailable}
               <label
                 ><input type="checkbox" bind:checked={useWorkspaceFiles} disabled={busy} /> Use workspace
                 files (saved changes are shared with members)</label
@@ -826,7 +809,11 @@
       {#if $runRepository.data?.input_commit}
         <p>Workspace input: <code>{$runRepository.data.input_commit.slice(0, 12)}</code></p>
         <p>
-          Saved output: <code>{$runRepository.data.output_commit?.slice(0, 12) ?? 'Not saved'}</code
+          Saved output: <code
+            >{($runRepository.data.output_revision || $runRepository.data.output_commit)?.slice(
+              0,
+              12,
+            ) ?? 'Not saved'}</code
           >
         </p>
       {/if}
@@ -1089,21 +1076,3 @@
     </form>
   {/if}
 </div>
-
-<style>
-  .session-task-context {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px 16px;
-    padding: 8px 0;
-    color: var(--muted-foreground);
-    font-size: 12px;
-  }
-  .session-task-context span {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: var(--foreground);
-  }
-</style>

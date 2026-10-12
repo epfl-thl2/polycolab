@@ -1,22 +1,23 @@
 <script lang="ts">
+  import { SvelteMap } from 'svelte/reactivity';
   import { onMount, tick, untrack, type Snippet } from 'svelte';
   import { goto, beforeNavigate } from '$app/navigation';
   import { page } from '$app/state';
   import {
-    PanelLeftClose,
     PanelLeftOpen,
     PanelRightClose,
     PanelRightOpen,
     FolderOpen,
     GitBranch,
     Info,
+    History,
     Menu,
     X,
   } from '@lucide/svelte';
   import { Button } from '../lib/components/ui/button';
   import * as Sheet from '../lib/components/ui/sheet';
+  import * as Tooltip from '../lib/components/ui/tooltip';
   import { workspace, explain } from '../svelte-lib/context';
-  import type { AgentSession } from '../lib/agent-sessions-api';
   import type { WorkspaceTask } from '../lib/workspace-tasks-api';
   import { canWriteResearch } from '../lib/access';
   import type { Project, ObjectVersion } from '../lib/research-api';
@@ -24,16 +25,16 @@
   import type { WorkspaceMap } from '../lib/workspace-map';
   import {
     workspaceRouteTab,
+    isWorkspaceLayoutPage,
     restoreWorkspaceTabs,
     type WorkspaceTab,
   } from '../lib/workspace-tabs';
   import WorkspaceNavigationRail from './WorkspaceNavigationRail.svelte';
-  import WorkspaceTasks from './WorkspaceTasks.svelte';
+  import WorkspaceWorktrees from './WorkspaceWorktrees.svelte';
+  import WorkspacePanelHeader from './WorkspacePanelHeader.svelte';
   import WorkspaceTabStrip from './WorkspaceTabStrip.svelte';
-  import BrandWordmark from './BrandWordmark.svelte';
   import WorkspaceFiles from './WorkspaceFiles.svelte';
   import WorkspacePage from './WorkspacePage.svelte';
-  import WorkspaceMapPanel from './WorkspaceMapPanel.svelte';
   import WorkspaceObjectPanel from './WorkspaceObjectPanel.svelte';
   import WorkspaceSectionPanel from './WorkspaceSectionPanel.svelte';
   let { project, path }: { project: Project; path: string } = $props();
@@ -57,7 +58,9 @@
   let filesEnabled = $state(false);
   let filesBusy = $state(false);
   let files = $state<WorkspaceFiles>();
-  let fileItems = $state<{ id: string; label: string; path: string; dirty: boolean }[]>([]);
+  let fileItems = $state<
+    { id: string; label: string; path: string; dirty: boolean; preview?: boolean }[]
+  >([]);
   let currentFileId = $state('');
   let workingBranch = $state('main');
   let knownTasks = $state.raw<Record<string, WorkspaceTask>>({});
@@ -65,22 +68,62 @@
   let contextSwitching = false;
   let pendingBranch: Promise<boolean> | undefined;
   let routeVersion = 0;
-  const selectedTask = $derived(
-    Object.values(knownTasks).find((task) => task.branch === workingBranch),
+  const selectedWorktree = $derived(
+    Object.values(knownTasks).find((item) => item.branch === workingBranch),
   );
   const branchLabels = $derived(
     Object.fromEntries(Object.values(knownTasks).map((task) => [task.branch, task.title])),
   );
   let selectedResearch = $state<{ version: ObjectVersion; searchResult: boolean }>();
+  let researchCreationOpen = $state(false);
+  let researchCountLabel = $state('');
   let selectedActivity = $state<Activity>();
   let mapData = $state<WorkspaceMap>();
   let mapObjectId = $state('');
   let mapPanelTab = $state('body');
   let objectPanelTab = $state('body');
   const active = $derived(tabs.find((tab) => tab.id === activeId));
-  const activeUrl = $derived(new URL(active?.href || path, 'http://workspace.local'));
+  let layoutHref = $state(untrack(() => (isWorkspaceLayoutPage(path) ? path : '')));
+  const workspaceView = $derived(!layoutHref);
+  const activeUrl = $derived(new URL(layoutHref || active?.href || path, 'http://workspace.local'));
+  const layoutLabels: Record<string, string> = {
+    overview: 'Project',
+    research: 'Research objects',
+    map: 'Map',
+    activity: 'Activity',
+    settings: 'Project settings',
+    'agent-connect': 'Agent connect',
+    records: 'Research record',
+    references: 'References',
+  };
   const section = $derived(activeUrl.pathname.split('/')[3] || 'overview');
+  const selectionPanels: Record<
+    string,
+    { hasSelection: boolean; label: string; guidance: string }
+  > = $derived({
+    research: { hasSelection: Boolean(selectedResearch), label: 'Object details', guidance: '' },
+    map: {
+      hasSelection: Boolean(mapObjectId),
+      label: 'Object details',
+      guidance: 'Select an object on the map to see its details.',
+    },
+    activity: {
+      hasSelection: Boolean(selectedActivity),
+      label: 'Activity details',
+      guidance: 'Select a change to see its details.',
+    },
+  });
+  const selectionPanel = $derived(selectionPanels[section]);
+  const toolsVisible = $derived((workspaceView || selectionPanel?.hasSelection) && !rightClosed);
   const entity = $derived(activeUrl.pathname.split('/')[4]);
+  const showLayoutHeading = $derived(
+    !['overview', 'agent-connect', 'settings', 'research', 'map', 'activity'].includes(section),
+  );
+  const projectLayout = $derived(
+    ['overview', 'records', 'references', 'settings', 'agent-connect'].includes(section),
+  );
+  const railSection = $derived(workspaceView ? 'sessions' : projectLayout ? 'overview' : section);
+  const leftPanelTitle = $derived(workspaceView ? 'Worktrees' : layoutLabels[railSection]);
   const fileView = $derived(
     active?.kind === 'diff' ? (active.id === 'diff:merge' ? 'merge' : 'history') : 'file',
   );
@@ -92,17 +135,43 @@
     mobilePanel = undefined;
     void goto(href, { noScroll: true, keepFocus: true, replaceState });
   }
-  function newChat(taskId: string | null = selectedTask?.id || null) {
-    const href = `/workspaces/${projectId}/sessions/new?draft=${crypto.randomUUID()}${taskId ? `&task=${encodeURIComponent(taskId)}` : ''}`;
-    addRoute(href);
+  function navigateLayout(href: string) {
+    agentsClosed = false;
+    if (href === `/workspaces/${projectId}/sessions`) href = active?.href || emptyWorkspaceHref();
     navigate(href);
   }
+  function emptyWorkspaceHref() {
+    return `/workspaces/${projectId}/sessions?view=empty&branch=${encodeURIComponent(workingBranch)}${selectedWorktree ? `&worktree=${encodeURIComponent(selectedWorktree.id)}` : ''}`;
+  }
+  function newChat(worktreeId: string | null = selectedWorktree?.id || null) {
+    navigate(
+      `/workspaces/${projectId}/sessions/new?draft=${crypto.randomUUID()}${worktreeId ? `&worktree=${encodeURIComponent(worktreeId)}` : ''}`,
+    );
+  }
+  async function selectWorktree(worktree?: WorkspaceTask) {
+    const version = ++routeVersion;
+    contextError = '';
+    rightMode = 'explorer';
+    try {
+      if (!(await switchBranch(worktree?.branch || 'main', version, true))) return false;
+      if (worktree) cacheTasks([worktree]);
+      navigate(tabs.find((tab) => tab.id === activeId)?.href || emptyWorkspaceHref());
+      return true;
+    } catch (error) {
+      contextError = explain(error);
+      return false;
+    }
+  }
+  function newWorktreeChat(worktree?: WorkspaceTask) {
+    newChat(worktree?.id || null);
+  }
+
   function cacheTasks(items: WorkspaceTask[]) {
     knownTasks = { ...knownTasks, ...Object.fromEntries(items.map((task) => [task.id, task])) };
     for (const task of items) query.setQueryData(['workspace-task', projectId, task.id], task);
   }
   async function readTask(id: string) {
-    if (!taskApi) throw new Error('Tasks are unavailable');
+    if (!taskApi) throw new Error('The conversation’s saved files are unavailable');
     const task = await query.fetchQuery({
       queryKey: ['workspace-task', projectId, id],
       queryFn: () => taskApi.get(projectId, id),
@@ -111,6 +180,18 @@
     cacheTasks([task]);
     return task;
   }
+  const branchTabs = new SvelteMap<string, { tabs: WorkspaceTab[]; activeId: string }>();
+  let tabsBranch = $state('main');
+  const mountedTabs = $derived([
+    ...new Map(
+      [
+        ...[...branchTabs.entries()]
+          .filter(([branch]) => branch !== tabsBranch)
+          .flatMap(([, saved]) => saved.tabs),
+        ...tabs,
+      ].map((tab) => [tab.id, tab]),
+    ).values(),
+  ]);
   async function switchBranch(branch: string, version: number, routeDriven = false) {
     while (pendingBranch) {
       try {
@@ -121,43 +202,37 @@
     }
     if (version !== routeVersion) return false;
     if (branch === workingBranch) return true;
+    branchTabs.set(workingBranch, { tabs: [...tabs], activeId });
     contextSwitching = routeDriven;
     pendingBranch = files?.selectWorkspaceBranch(branch) || Promise.resolve(false);
     try {
       const selected = await pendingBranch;
       await tick();
+      if (selected) {
+        const saved = branchTabs.get(branch);
+        tabs = saved?.tabs || [];
+        activeId = saved?.activeId || '';
+        tabsBranch = branch;
+      }
       return selected && version === routeVersion;
     } finally {
       pendingBranch = undefined;
       contextSwitching = false;
     }
   }
-  async function selectTask(task?: WorkspaceTask) {
-    const version = ++routeVersion;
-    contextError = '';
-    try {
-      if (!(await switchBranch(task?.branch || 'main', version))) return false;
-      if (task) cacheTasks([task]);
-      rightMode = 'explorer';
-      mobilePanel = undefined;
-      return true;
-    } catch (error) {
-      contextError = explain(error);
-      return false;
-    }
-  }
-  async function newTaskChat(task?: WorkspaceTask) {
-    if (await selectTask(task)) newChat(task?.id || null);
-  }
-  function openSession(session: AgentSession) {
-    query.setQueryData(['session', session.id], session);
-    const href = `/workspaces/${projectId}/sessions/${session.id}`;
+  function openSession(id: string) {
+    const href = `/workspaces/${projectId}/sessions/${id}`;
     if (page.url.pathname + page.url.search === href) void applyRoute(href, filesEnabled);
     else navigate(href);
   }
   function addRoute(href: string) {
     const tab = workspaceRouteTab(projectId, href);
     if (!tab) return;
+    if (isWorkspaceLayoutPage(href)) {
+      layoutHref = href;
+      return;
+    }
+    layoutHref = '';
     const existing = tabs.find((item) => item.id === tab.id);
     if (existing) {
       if (existing.href !== tab.href)
@@ -170,6 +245,7 @@
       try {
         const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
         tabs = restoreWorkspaceTabs(projectId, JSON.stringify(saved.tabs));
+        activeId = tabs.find((tab) => tab.href === saved.activeHref)?.id || tabs.at(-1)?.id || '';
         agentsClosed = saved.agentsClosed === true;
         rightClosed = saved.rightClosed === true;
         if (typeof saved.agentWidth === 'number')
@@ -204,17 +280,26 @@
   async function applyRoute(href: string, repositoryReady: boolean) {
     const version = ++routeVersion;
     const url = new URL(href, 'http://workspace.local');
+    if (!url.pathname.endsWith('/files')) files?.cancelWorkspaceFileLoad();
     contextError = '';
     try {
       if (url.pathname === `/workspaces/${projectId}` || url.pathname === `/projects/${projectId}`)
         return;
+      const emptyView =
+        url.pathname === `/workspaces/${projectId}/sessions` &&
+        url.searchParams.get('view') === 'empty';
       const routeTab = workspaceRouteTab(projectId, href);
       let targetBranch: string | undefined;
-      if (routeTab?.kind === 'chat') {
+      if (emptyView) {
+        const worktreeId = url.searchParams.get('worktree');
+        targetBranch = worktreeId
+          ? (await readTask(worktreeId)).branch
+          : url.searchParams.get('branch') || 'main';
+      } else if (routeTab?.kind === 'chat') {
         const sessionId = url.pathname.split('/')[4];
         const taskId =
           sessionId === 'new'
-            ? url.searchParams.get('task')
+            ? url.searchParams.get('worktree')
             : (
                 await query.fetchQuery({
                   queryKey: ['session', sessionId],
@@ -235,6 +320,11 @@
           return;
         }
       }
+      if (emptyView) {
+        layoutHref = '';
+        activeId = '';
+        return;
+      }
       if (url.pathname.endsWith('/files')) {
         const view = url.searchParams.get('view');
         const id = url.searchParams.get('tab');
@@ -242,17 +332,21 @@
           openFileView(view, false);
           if (view === 'history' && repositoryReady) void files?.loadWorkspaceHistory();
         } else if (id && fileItems.some((item) => item.id === id)) {
+          layoutHref = '';
           files?.selectWorkspaceFile(id);
           activeId = `file:${id}`;
         } else if (url.searchParams.get('file') && repositoryReady) {
           const name = url.searchParams.get('file')!;
           const existing = fileItems.find((item) => item.path === name);
           if (existing) {
+            layoutHref = '';
             files?.selectWorkspaceFile(existing.id);
             activeId = `file:${existing.id}`;
           } else void files?.openWorkspaceFile(name);
-        } else if (currentFileId) activeId = `file:${currentFileId}`;
-        else addRoute(href);
+        } else if (currentFileId) {
+          layoutHref = '';
+          activeId = `file:${currentFileId}`;
+        } else addRoute(href);
       } else addRoute(href);
     } catch (error) {
       if (version !== routeVersion) return;
@@ -262,6 +356,7 @@
   }
   $effect(() => {
     const saved = {
+      activeHref: active?.href,
       tabs: tabs
         .filter((tab) => tab.kind !== 'file' && tab.kind !== 'diff')
         .map((tab) => ({ href: tab.href })),
@@ -283,6 +378,25 @@
     const staleDiff = (tab: WorkspaceTab) =>
       tab.kind === 'diff' &&
       new URL(tab.href, 'http://workspace.local').searchParams.get('branch') !== workingBranch;
+    const replaced = tabs.find(
+      (tab) =>
+        tab.kind === 'file' && tab.preview && !items.some((item) => `file:${item.id}` === tab.id),
+    );
+    const replacement =
+      replaced &&
+      items.find((item) => item.preview && !tabs.some((tab) => tab.id === `file:${item.id}`));
+    if (replaced && replacement && !contextSwitching) {
+      const next = {
+        ...replaced,
+        id: `file:${replacement.id}`,
+        label: replacement.label,
+        dirty: replacement.dirty,
+        preview: replacement.preview,
+        href: fileHref(replacement),
+      };
+      tabs = tabs.map((tab) => (tab.id === replaced.id ? next : tab));
+      if (activeId === replaced.id) activeId = next.id;
+    }
     const lostActive =
       (activeId.startsWith('file:') && !items.some((item) => `file:${item.id}` === activeId)) ||
       Boolean(active && staleDiff(active));
@@ -293,7 +407,15 @@
       .filter((tab) => tab.kind !== 'file' || items.some((item) => `file:${item.id}` === tab.id))
       .map((tab) => {
         const file = items.find((item) => `file:${item.id}` === tab.id);
-        return file ? { ...tab, label: file.label, dirty: file.dirty, href: fileHref(file) } : tab;
+        return file
+          ? {
+              ...tab,
+              label: file.label,
+              dirty: file.dirty,
+              preview: file.preview,
+              href: fileHref(file),
+            }
+          : tab;
       });
     const currentTab = tabs.find((tab) => tab.id === activeId);
     if (
@@ -323,7 +445,18 @@
     const href = fileHref(file);
     tabs = tabs.filter((tab) => tab.id !== 'files:');
     if (!tabs.some((tab) => tab.id === tabId))
-      tabs = [...tabs, { id: tabId, kind: 'file', label: file.label, dirty: file.dirty, href }];
+      tabs = [
+        ...tabs,
+        {
+          id: tabId,
+          kind: 'file',
+          label: file.label,
+          dirty: file.dirty,
+          preview: file.preview,
+          href,
+        },
+      ];
+    layoutHref = '';
     activeId = tabId;
     if (page.url.pathname + page.url.search !== href) navigate(href);
   }
@@ -336,12 +469,14 @@
         { id, kind: 'diff', label: view === 'history' ? 'File history' : 'Merge review', href },
       ];
     else tabs = tabs.map((tab) => (tab.id === id ? { ...tab, href } : tab));
+    layoutHref = '';
     activeId = id;
     if (changeUrl && page.url.pathname + page.url.search !== href) navigate(href);
   }
   function selectTab(id: string) {
     const tab = tabs.find((item) => item.id === id);
     if (!tab) return;
+    files?.cancelWorkspaceFileLoad();
     if (tab.kind === 'file' && !files?.selectWorkspaceFile(id.slice(5))) return;
     if (tab.kind === 'file') activeId = id;
     if (page.url.pathname + page.url.search === tab.href) void applyRoute(tab.href, filesEnabled);
@@ -349,6 +484,22 @@
   }
   function updateTab(id: string, state: { label?: string; dirty: boolean }) {
     untrack(() => {
+      for (const [branch, saved] of branchTabs) {
+        if (branch === tabsBranch) continue;
+        const cached = saved.tabs.find((item) => item.id === id);
+        if (
+          cached &&
+          (cached.dirty !== state.dirty || (state.label && cached.label !== state.label))
+        )
+          branchTabs.set(branch, {
+            ...saved,
+            tabs: saved.tabs.map((item) =>
+              item.id === id
+                ? { ...item, label: state.label || item.label, dirty: state.dirty }
+                : item,
+            ),
+          });
+      }
       const tab = tabs.find((item) => item.id === id);
       if (tab && (tab.dirty !== state.dirty || (state.label && state.label !== tab.label)))
         tabs = tabs.map((item) =>
@@ -357,10 +508,22 @@
     });
   }
   function created(oldId: string, id: string) {
+    if (!tabs.some((tab) => tab.id === oldId)) {
+      const replacement = workspaceRouteTab(projectId, `/workspaces/${projectId}/sessions/${id}`);
+      if (replacement)
+        for (const [branch, saved] of branchTabs) {
+          if (saved.tabs.some((tab) => tab.id === oldId))
+            branchTabs.set(branch, {
+              tabs: saved.tabs.map((tab) => (tab.id === oldId ? replacement : tab)),
+              activeId: saved.activeId === oldId ? replacement.id : saved.activeId,
+            });
+        }
+      return;
+    }
     tabs = tabs.filter((tab) => tab.id !== oldId);
     navigate(`/workspaces/${projectId}/sessions/${id}`);
   }
-  async function closeTab(id: string) {
+  function closeTab(id: string) {
     const tab = tabs.find((item) => item.id === id);
     if (!tab) return;
     if (tab.kind === 'file') {
@@ -373,18 +536,13 @@
     const index = tabs.findIndex((item) => item.id === id);
     tabs = tabs.filter((item) => item.id !== id);
     if (activeId === id) {
+      activeId = '';
       const next = tabs[Math.min(index, tabs.length - 1)];
       if (next) selectTab(next.id);
-      else {
-        // Unmount even when the fallback is another New chat with the same route key.
-        await tick();
-        if (tabs.length) return;
-        const href = `/workspaces/${projectId}/${canChat ? 'sessions/new' : 'overview'}`;
-        addRoute(href);
-        navigate(href);
-      }
+      else navigate(emptyWorkspaceHref());
     }
   }
+
   function reorder(ids: string[]) {
     tabs = ids.flatMap((id) => {
       const tab = tabs.find((item) => item.id === id);
@@ -392,9 +550,23 @@
     });
   }
   function inspect() {
+    if (!workspaceView && !selectionPanel) {
+      agentsClosed = false;
+      if (matchMedia('(max-width:760px)').matches) mobilePanel = 'agents';
+      return;
+    }
     rightMode = 'details';
     rightClosed = false;
     if (matchMedia('(max-width:760px)').matches) mobilePanel = 'tools';
+  }
+  function hasUnsavedDrafts() {
+    return (
+      tabs.some((tab) => tab.dirty) ||
+      [...branchTabs.entries()].some(
+        ([branch, saved]) => branch !== workingBranch && saved.tabs.some((tab) => tab.dirty),
+      ) ||
+      files?.hasUnsavedWorkspaceFiles()
+    );
   }
   beforeNavigate(({ to, cancel }) => {
     if (
@@ -404,10 +576,7 @@
       )
     )
       return;
-    if (
-      tabs.some((tab) => tab.dirty) &&
-      !confirm('Leave this workspace and discard unsaved drafts?')
-    )
+    if (hasUnsavedDrafts() && !confirm('Leave this workspace and discard unsaved drafts?'))
       cancel();
   });
   function resize(event: PointerEvent) {
@@ -429,7 +598,7 @@
   onpointermove={resize}
   onpointerup={() => (drag = undefined)}
   onbeforeunload={(event) => {
-    if (tabs.some((tab) => tab.dirty)) event.preventDefault();
+    if (hasUnsavedDrafts()) event.preventDefault();
   }}
 />
 <WorkspaceFiles
@@ -439,7 +608,7 @@
   bind:busy={filesBusy}
   bind:branch={workingBranch}
   {branchLabels}
-  active={active?.kind === 'file'}
+  active={workspaceView && active?.kind === 'file'}
   toolsView={rightMode === 'source-control' ? 'source-control' : 'explorer'}
   view={fileView}
   onFileOpen={openFile}
@@ -452,46 +621,41 @@
       <div
         class="workspace-body"
         class:resizing={Boolean(drag)}
-        style={`--agent-width:${!agentsClosed ? agentWidth : 0}px;--agent-handle:${!agentsClosed ? 5 : 0}px;--tools-width:${rightClosed ? 0 : rightWidth}px;--tools-handle:${rightClosed ? 0 : 5}px;--rail-width:56px`}
+        style={`--agent-width:${!agentsClosed ? agentWidth : 0}px;--agent-handle:${!agentsClosed ? 1 : 0}px;--tools-width:${toolsVisible ? rightWidth : 0}px;--tools-handle:${toolsVisible ? 1 : 0}px;--rail-width:56px`}
       >
         <div class="workspace-rail">
           <WorkspaceNavigationRail
+            {auth}
             {projectId}
-            {section}
+            section={['settings', 'agent-connect'].includes(section) ? section : railSection}
             canManage={project.current_user_role === 'OWNER'}
             showBrand={agentsClosed}
-            onNavigate={navigate}
+            onNavigate={navigateLayout}
           />
         </div>
-        {#if !agentsClosed}<aside class="workspace-agents" aria-label="Task management">
-            <header class="workspace-identity">
-              {@render identity()}
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Collapse tasks"
-                onclick={() => (agentsClosed = true)}><PanelLeftClose size={15} /></Button
-              >
-            </header>
-            <WorkspaceTasks
-              {projectId}
-              activeTaskId={selectedTask?.id}
-              activeSessionId={section === 'sessions' ? entity : undefined}
-              repositoryEnabled={filesEnabled}
-              canCreate={canWrite}
-              canReadChats={canWrite}
-              {canChat}
-              onSelectTask={selectTask}
-              onNewChat={newTaskChat}
-              onOpenSession={openSession}
-              onTasksChange={cacheTasks}
-            />
+        {#if !agentsClosed}<aside class="workspace-agents" aria-label={`${leftPanelTitle} panel`}>
+            <div class="conversation-panel" hidden={!workspaceView}>
+              <WorkspaceWorktrees
+                {projectId}
+                activeSessionId={section === 'sessions' ? entity : undefined}
+                canReadChats={canWrite}
+                {canChat}
+                onNewChat={newWorktreeChat}
+                activeWorktreeId={selectedWorktree?.id}
+                repositoryEnabled={filesEnabled}
+                canCreate={canWrite}
+                onSelectWorktree={selectWorktree}
+                onWorktreesChange={cacheTasks}
+                onOpenSession={openSession}
+              />
+            </div>
+            {#if !workspaceView}<div class="layout-panel">{@render layoutPanel()}</div>{/if}
           </aside>
           <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
           <div
             class="splitter agents-splitter"
             role="separator"
-            aria-label="Resize tasks"
+            aria-label="Resize left panel"
             aria-orientation="vertical"
             aria-valuemin="220"
             aria-valuemax="360"
@@ -513,45 +677,76 @@
                 onclick={() => (mobilePanel = 'navigation')}
                 class="mobile-toggle"><Menu size={16} /></Button
               >
-              <span class="compact-workspace-name" title={project.name}>{project.name}</span>
+              {#if showLayoutHeading}<span class="compact-workspace-name" title={project.name}
+                  >{project.name}</span
+                >{/if}
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label={agentsClosed ? 'Show tasks' : 'Hide tasks'}
+                aria-label={agentsClosed ? 'Show left panel' : 'Hide left panel'}
                 onclick={() => {
                   if (matchMedia('(max-width:760px)').matches) mobilePanel = 'agents';
                   else agentsClosed = false;
                 }}><PanelLeftOpen size={16} /></Button
               >
             </div>
-            <WorkspaceTabStrip
-              {tabs}
-              {activeId}
-              onselect={selectTab}
-              onclose={closeTab}
-              onreorder={reorder}
-              onnewchat={canChat && !selectedTask?.archived_at ? () => newChat() : undefined}
-            />
-            <div class="tabbar-controls tools-toggle" class:desktop-hidden={!rightClosed}>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={rightClosed ? 'Show tools' : 'Hide tools'}
-                onclick={() => {
-                  if (matchMedia('(max-width:760px)').matches) mobilePanel = 'tools';
-                  else rightClosed = false;
-                }}><PanelRightOpen size={16} /></Button
+            {#if workspaceView}<WorkspaceTabStrip
+                {tabs}
+                {activeId}
+                onselect={selectTab}
+                onclose={closeTab}
+                onreorder={reorder}
+                onpin={(id) => {
+                  if (id.startsWith('file:')) files?.pinWorkspaceFile(id.slice(5));
+                }}
+                onnewchat={canChat && !selectedWorktree?.archived_at ? () => newChat() : undefined}
+              />{:else if showLayoutHeading}<div class="layout-heading">
+                {layoutLabels[section]}
+              </div>{/if}
+            {#if workspaceView}<div
+                class="tabbar-controls tools-toggle"
+                class:desktop-hidden={!rightClosed}
               >
-            </div>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={rightClosed ? 'Show tools' : 'Hide tools'}
+                  onclick={() => {
+                    if (matchMedia('(max-width:760px)').matches) mobilePanel = 'tools';
+                    else rightClosed = false;
+                  }}><PanelRightOpen size={16} /></Button
+                >
+              </div>
+            {/if}
           </div>
           {#if contextError}<div class="context-error" role="alert">{contextError}</div>{/if}
           <main id="main" class="workspace-main" tabindex="-1">
-            {#each tabs.filter((tab) => tab.kind !== 'file' && tab.kind !== 'diff' && tab.id !== 'files:') as tab (tab.id)}
-              <div class="workspace-page" hidden={tab.id !== activeId}>
+            {#if layoutHref}<div class="workspace-page">
+                <WorkspacePage
+                  {project}
+                  href={layoutHref}
+                  active={true}
+                  onState={() => {}}
+                  onCreated={() => {}}
+                  onInspect={inspect}
+                  bind:selectedResearch
+                  bind:researchCreationOpen
+                  bind:researchCountLabel
+                  bind:selectedActivity
+                  bind:mapData
+                  bind:mapObjectId
+                  bind:mapPanelTab
+                />
+              </div>{/if}
+            {#if workspaceView && !active}<div class="workbench-empty">
+                Open a conversation or file to get started.
+              </div>{/if}
+            {#each mountedTabs.filter((tab) => tab.kind !== 'file' && tab.kind !== 'diff' && tab.id !== 'files:') as tab (tab.id)}
+              <div class="workspace-page" hidden={!workspaceView || tab.id !== activeId}>
                 <WorkspacePage
                   {project}
                   href={tab.href}
-                  active={tab.id === activeId}
+                  active={workspaceView && tab.id === activeId}
                   onState={(state) => updateTab(tab.id, state)}
                   onCreated={(id) => created(tab.id, id)}
                   onInspect={inspect}
@@ -565,13 +760,14 @@
             {/each}
             <div
               class="workspace-file-page"
-              hidden={active?.kind !== 'file' && active?.kind !== 'diff' && active?.id !== 'files:'}
+              hidden={!workspaceView ||
+                (active?.kind !== 'file' && active?.kind !== 'diff' && active?.id !== 'files:')}
             >
               {@render editor()}
             </div>
           </main>
         </section>
-        {#if !rightClosed}
+        {#if toolsVisible}
           <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
           <div
             class="splitter tools-splitter"
@@ -588,21 +784,7 @@
             }}
             onkeydown={(event) => resizeKey(event, 'tools')}
           ></div>
-          <aside class="workspace-tools" aria-label="Workspace tools">
-            <header class="panel-heading">
-              <span
-                >{rightMode === 'explorer'
-                  ? 'Explorer'
-                  : rightMode === 'source-control'
-                    ? 'Source control'
-                    : 'Details'}</span
-              ><Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Collapse tools"
-                onclick={() => (rightClosed = true)}><PanelRightClose size={15} /></Button
-              >
-            </header>
+          <aside class="workspace-tools" aria-label={selectionPanel?.label ?? 'Workspace tools'}>
             {@render tools('desktop', navigator)}
           </aside>
         {/if}
@@ -620,46 +802,47 @@
       >
         <Sheet.Title class="sr-only"
           >{mobilePanel === 'tools'
-            ? 'Workspace tools'
+            ? (selectionPanel?.label ?? 'Workspace tools')
             : mobilePanel === 'agents'
-              ? 'Tasks'
+              ? leftPanelTitle
               : 'Navigation'}</Sheet.Title
         >
         <div class="mobile-panel">
-          <header class="panel-heading" class:workspace-identity={mobilePanel !== 'tools'}>
-            {#if mobilePanel !== 'tools'}{@render identity()}{:else}<span
-                >{mobilePanel === 'tools'
-                  ? 'Tools'
-                  : mobilePanel === 'agents'
-                    ? 'Tasks'
-                    : 'Navigation'}</span
-              >{/if}
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Close drawer"
-              onclick={() => (mobilePanel = undefined)}><X size={16} /></Button
-            >
-          </header>
+          {#if mobilePanel !== 'tools'}
+            <header class="panel-heading" class:left-panel-controls={mobilePanel === 'agents'}>
+              {#if mobilePanel === 'navigation'}<span>Navigation</span>{/if}
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Close drawer"
+                onclick={() => (mobilePanel = undefined)}><X size={14} /></Button
+              >
+            </header>
+          {/if}
           {#if mobilePanel === 'navigation'}<WorkspaceNavigationRail
+              {auth}
               {projectId}
-              {section}
+              section={['settings', 'agent-connect'].includes(section) ? section : railSection}
               canManage={project.current_user_role === 'OWNER'}
               expanded
-              onNavigate={navigate}
+              showBrand={false}
+              onNavigate={navigateLayout}
             />
-          {:else if mobilePanel === 'agents'}<WorkspaceTasks
+          {:else if mobilePanel === 'agents' && !workspaceView}<div class="layout-panel">
+              {@render layoutPanel()}
+            </div>
+          {:else if mobilePanel === 'agents'}<WorkspaceWorktrees
               {projectId}
-              activeTaskId={selectedTask?.id}
               activeSessionId={section === 'sessions' ? entity : undefined}
-              repositoryEnabled={filesEnabled}
-              canCreate={canWrite}
               canReadChats={canWrite}
               {canChat}
-              onSelectTask={selectTask}
-              onNewChat={newTaskChat}
+              onNewChat={newWorktreeChat}
+              activeWorktreeId={selectedWorktree?.id}
+              repositoryEnabled={filesEnabled}
+              canCreate={canWrite}
+              onSelectWorktree={selectWorktree}
+              onWorktreesChange={cacheTasks}
               onOpenSession={openSession}
-              onTasksChange={cacheTasks}
             />
           {:else if mobilePanel === 'tools'}{@render tools('mobile', navigator)}{/if}
         </div>
@@ -667,63 +850,230 @@
     >
   {/snippet}
 </WorkspaceFiles>
-{#snippet identity()}
-  <div class="identity-text">
-    <a class="workspace-brand" href="/workspaces" aria-label="Polycolab workspaces">
-      <img src="/brand/polycolab-mark.png" alt="" />
-      <BrandWordmark />
-    </a>
-    <span class="workspace-name" title={project.name}>{project.name}</span>
+{#snippet layoutPanel()}
+  <WorkspacePanelHeader title={leftPanelTitle} />
+  <div class="layout-panel-content">
+    {#if projectLayout}
+      <nav class="project-links" aria-label="Project pages">
+        {#each [['overview', 'Overview'], ['agent-connect', 'Agent connect'], ...(project.current_user_role === 'OWNER' ? [['settings', 'Settings']] : [])] as [id, label] (id)}
+          <a
+            href={`/workspaces/${projectId}/${id}`}
+            aria-current={section === id ? 'page' : undefined}
+            onclick={(event) => {
+              if (
+                event.button !== 0 ||
+                event.metaKey ||
+                event.ctrlKey ||
+                event.shiftKey ||
+                event.altKey
+              )
+                return;
+              event.preventDefault();
+              navigate(`/workspaces/${projectId}/${id}`);
+            }}>{label}</a
+          >
+        {/each}
+      </nav>
+    {/if}
+    {#if section === 'research'}
+      <div class="research-controls">
+        {#if researchCountLabel}<p>{researchCountLabel}</p>{/if}
+        {#if canWrite}<Button
+            variant="outline"
+            aria-haspopup="dialog"
+            onclick={async () => {
+              mobilePanel = undefined;
+              await tick();
+              researchCreationOpen = true;
+            }}>Create object</Button
+          >{/if}
+      </div>
+    {:else if selectionPanel}
+      <p class="selection-guidance">{selectionPanel.guidance}</p>
+    {:else if section !== 'overview'}
+      <WorkspaceSectionPanel
+        {project}
+        {section}
+        bind:selected={selectedActivity}
+        bind:selectedResearch
+      />
+    {/if}
   </div>
 {/snippet}
 {#snippet tools(placement: 'desktop' | 'mobile', navigator?: Snippet)}
-  <div class="tool-switcher" role="tablist" aria-label="Workspace tools">
-    {#each [['explorer', 'Explorer', FolderOpen], ['source-control', 'Source control', GitBranch], ['details', 'Details', Info]] as const as [id, label, Icon] (id)}
-      <button
-        role="tab"
-        aria-selected={rightMode === id}
-        title={label as string}
-        onclick={() => (rightMode = id as typeof rightMode)}
-        ><Icon size={15} /><span>{label}</span></button
-      >
-    {/each}
-  </div>
+  {@const closeLabel =
+    placement === 'mobile' ? 'Close drawer' : selectionPanel ? 'Close details' : 'Collapse tools'}
+  <Tooltip.Provider delayDuration={250}>
+    <header class="tools-header">
+      {#if selectionPanel}<span class="details-heading">Details</span>{:else}<div
+          class="tool-switcher"
+          role="tablist"
+          aria-label="Workspace tools"
+        >
+          {#each [['explorer', 'Explorer', FolderOpen], ['source-control', 'Source control', GitBranch], ['details', section === 'objects' ? 'Details' : 'Agent history', section === 'objects' ? Info : History]] as const as [id, label, Icon] (id)}
+            <Tooltip.Root>
+              <Tooltip.Trigger>
+                {#snippet child({ props })}
+                  <button
+                    {...props}
+                    role="tab"
+                    aria-label={label}
+                    aria-selected={rightMode === id}
+                    disabled={filesBusy}
+                    onclick={() => (rightMode = id)}><Icon size={14} aria-hidden="true" /></button
+                  >
+                {/snippet}
+              </Tooltip.Trigger>
+              <Tooltip.Content class="text-[11px] px-2 py-1">{label}</Tooltip.Content>
+            </Tooltip.Root>
+          {/each}
+        </div>{/if}
+      <Tooltip.Root>
+        <Tooltip.Trigger>
+          {#snippet child({ props })}
+            <Button
+              {...props}
+              variant="ghost"
+              size="icon-sm"
+              aria-label={closeLabel}
+              onclick={() => {
+                if (placement === 'desktop') rightClosed = true;
+                else mobilePanel = undefined;
+              }}
+              >{#if placement === 'desktop'}<PanelRightClose size={14} />{:else}<X
+                  size={14}
+                />{/if}</Button
+            >
+          {/snippet}
+        </Tooltip.Trigger>
+        <Tooltip.Content class="text-[11px] px-2 py-1">
+          {closeLabel}
+        </Tooltip.Content>
+      </Tooltip.Root>
+    </header>
+  </Tooltip.Provider>
   <div class="tool-content">
-    {#if rightMode !== 'details'}{#if navigator}{@render navigator()}{:else}<p class="tool-empty">
+    {#if selectionPanel}<div class="selection-details">
+        <WorkspaceSectionPanel
+          {project}
+          {section}
+          bind:selected={selectedActivity}
+          bind:selectedResearch
+          {mapData}
+          bind:mapObjectId
+          bind:mapPanelTab
+        />
+      </div>
+    {:else if rightMode !== 'details'}{#if navigator}{@render navigator()}{:else}<p
+          class="tool-empty"
+        >
           {filesEnabled ? 'Loading files…' : 'File storage is unavailable for this workspace.'}
         </p>{/if}
     {:else if section === 'sessions'}<div data-chat-panel-host={placement}></div>
       {#if entity === 'new' || !entity}<p class="tool-empty">
-          Choose an agent and customize the conversation in the chat composer.
+          Start a conversation to see its agent run history.
         </p>{/if}
-    {:else if section === 'map'}<WorkspaceMapPanel
-        {projectId}
-        canReview={canWrite}
-        data={mapData}
-        bind:objectId={mapObjectId}
-        bind:activeTab={mapPanelTab}
-      />
     {:else if section === 'objects' && entity}{#key entity}<WorkspaceObjectPanel
           {projectId}
           objectId={entity}
           publicRead={false}
           bind:activeTab={objectPanelTab}
         />{/key}
-    {:else}<WorkspaceSectionPanel
-        {project}
-        {section}
-        bind:selected={selectedActivity}
-        bind:selectedResearch
-      />{/if}
+    {:else}<p class="tool-empty">Open a conversation to see its agent run history.</p>{/if}
   </div>
 {/snippet}
 
 <style>
+  .research-controls {
+    display: grid;
+    gap: 12px;
+  }
+  .research-controls p {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 12px;
+  }
+  .selection-guidance {
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .selection-details {
+    padding: 12px;
+  }
+  .details-heading {
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .workbench-empty {
+    display: grid;
+    place-items: center;
+    height: 100%;
+    padding: 24px;
+    color: var(--muted-foreground);
+    font-size: 13px;
+    text-align: center;
+  }
+  .conversation-panel {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  }
+  .conversation-panel[hidden] {
+    display: none;
+  }
+  .layout-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 0 12px 12px;
+  }
+  .layout-panel-content {
+    min-width: 0;
+  }
+  .layout-heading {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    height: var(--workspace-nav-height);
+    box-sizing: border-box;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 16px;
+  }
+  .project-links {
+    display: grid;
+    gap: 4px;
+    margin-bottom: 24px;
+  }
+  .project-links a {
+    padding: 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--muted-foreground);
+    text-decoration: none;
+  }
+  .project-links a:hover,
+  .project-links a[aria-current='page'] {
+    color: var(--brand-strong);
+    background: var(--brand-soft);
+  }
+
   .context-error {
     padding: 10px 16px;
     color: var(--destructive);
     background: var(--accent-soft);
     font-size: 12px;
+  }
+  .workspace-shell,
+  .mobile-panel {
+    --workspace-nav-height: 32px;
   }
   .workspace-shell {
     display: flex;
@@ -732,40 +1082,6 @@
     overflow: hidden;
     background: var(--background);
   }
-  .workspace-identity {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    flex-shrink: 0;
-    gap: 8px;
-    padding: 17px 12px 15px;
-    border-bottom: 1px solid var(--border);
-    background: var(--sidebar);
-  }
-  .identity-text {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    min-width: 0;
-  }
-  .workspace-brand {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    color: var(--foreground);
-    font-size: 19px;
-    text-decoration: none;
-  }
-  .workspace-brand img {
-    width: 25px;
-    height: 25px;
-  }
-  .workspace-name {
-    color: var(--brand-strong);
-    font-size: 12px;
-    font-weight: 500;
-  }
-  .workspace-name,
   .compact-workspace-name {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -781,10 +1097,12 @@
     flex: 1;
   }
   .tabbar-controls {
+    height: var(--workspace-nav-height);
+    box-sizing: border-box;
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 0 5px;
+    padding: 0 12px;
     border-bottom: 1px solid var(--border);
   }
   .compact-workspace-name {
@@ -818,7 +1136,6 @@
     min-height: 0;
     min-width: 0;
     background: var(--sidebar);
-    border-right: 1px solid var(--border);
   }
   .workspace-center {
     grid-column: 4;
@@ -854,19 +1171,25 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
-    border-left: 1px solid var(--border);
-    background: color-mix(in srgb, var(--research-accent) 3%, var(--background));
+    background: var(--sidebar);
   }
   .panel-heading {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    min-height: 38px;
-    padding: 0 9px;
+    height: var(--workspace-nav-height);
+    min-height: var(--workspace-nav-height);
+    box-sizing: border-box;
+    padding: 0 12px;
     border-bottom: 1px solid var(--border);
     font-size: 12px;
-    font-weight: 550;
+    font-weight: 600;
+    line-height: 16px;
+    background: var(--sidebar);
     flex-shrink: 0;
+  }
+  .left-panel-controls {
+    justify-content: flex-end;
   }
   .splitter {
     cursor: col-resize;
@@ -879,31 +1202,53 @@
     background: var(--primary);
     outline: 0;
   }
+  .agents-splitter,
+  .tools-splitter {
+    position: relative;
+    z-index: 1;
+    background: var(--border);
+  }
+  .agents-splitter::before,
+  .tools-splitter::before {
+    content: '';
+    position: absolute;
+    inset: 0 -3px;
+  }
   .agents-splitter {
     grid-column: 3;
   }
   .tools-splitter {
     grid-column: 5;
   }
-  .tool-switcher {
+  .tools-header {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: var(--workspace-nav-height);
+    box-sizing: border-box;
+    padding: 0 12px;
     border-bottom: 1px solid var(--border);
+    background: var(--sidebar);
     flex-shrink: 0;
   }
+  .tool-switcher {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
   .tool-switcher button {
-    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 5px;
-    font-size: 10px;
-    padding: 10px 3px;
-    border-bottom: 2px solid transparent;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border-radius: 4px;
+    color: var(--muted-foreground);
   }
   .tool-switcher button[aria-selected='true'] {
-    color: var(--accent-strong);
-    background: var(--accent-soft);
-    border-bottom-color: var(--research-accent);
+    color: var(--sidebar-accent-foreground);
+    background: var(--sidebar-accent);
   }
   .tool-switcher button:focus-visible {
     outline: 2px solid var(--ring);
@@ -931,6 +1276,20 @@
   }
   :global(.mobile-toggle) {
     display: none;
+  }
+  .tabbar-controls :global(button),
+  .tools-header > :global(button),
+  .panel-heading :global(button) {
+    width: 20px;
+    height: 20px;
+    min-height: 0;
+    padding: 0;
+  }
+  .tabbar-controls :global(button svg),
+  .tools-header > :global(button svg),
+  .panel-heading :global(button svg) {
+    width: 14px;
+    height: 14px;
   }
   @media (max-width: 1050px) and (min-width: 761px) {
     .workspace-body {
@@ -964,7 +1323,7 @@
       grid-column: 1 / -1;
     }
     .tabbar-controls {
-      min-height: 40px;
+      min-height: var(--workspace-nav-height);
       min-width: 0;
       display: flex;
       grid-row: 1;

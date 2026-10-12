@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { MessageSquarePlus, Search, RefreshCw, Square, RotateCcw } from '@lucide/svelte';
+  import { MessageSquarePlus, Square, RotateCcw } from '@lucide/svelte';
   import type { AgentSession } from '../lib/agent-sessions-api';
   import { workspace, explain } from '../svelte-lib/context';
 
@@ -8,15 +8,18 @@
     activeSessionId,
     onOpenSession,
     onNewChat,
+    canChat = true,
+    canReadChats = true,
   }: {
     projectId: string;
     activeSessionId?: string;
     onOpenSession: (id: string) => void;
     onNewChat: () => void;
+    canChat?: boolean;
+    canReadChats?: boolean;
   } = $props();
   const { agents, query } = workspace();
   let sessions = $state<AgentSession[]>([]);
-  let search = $state('');
   let cursor = $state<string>();
   let loading = $state(true);
   let error = $state('');
@@ -40,20 +43,14 @@
       ? 'Cancelling'
       : (session.latest_run?.status ?? session.status).toLowerCase().replaceAll('_', ' ');
   const visible = $derived(
-    sessions
-      .filter((session) =>
-        `${title(session)} ${session.agent_display_name} ${status(session)}`
-          .toLowerCase()
-          .includes(search.trim().toLowerCase()),
-      )
-      .sort(
-        (a, b) =>
-          Number(b.id === activeSessionId) - Number(a.id === activeSessionId) ||
-          Date.parse(b.updated_at) - Date.parse(a.updated_at),
-      ),
+    [...sessions].sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at)),
   );
 
   async function refresh(id: string, version: number, more = false) {
+    if (!canReadChats) {
+      loading = false;
+      return;
+    }
     if (fetching) return;
     fetching = true;
     if (more) loading = true;
@@ -92,15 +89,19 @@
   }
   $effect(() => {
     const id = projectId;
+    const readable = canReadChats;
     const version = ++generation;
     sessions = [];
     cursor = undefined;
-    search = '';
     error = '';
     actionError = undefined;
     loadedPages = 1;
     loading = true;
     fetching = false;
+    if (!readable) {
+      loading = false;
+      return;
+    }
     void refresh(id, version);
     const timer = setInterval(() => void refresh(id, version), 5000);
     return () => {
@@ -127,31 +128,20 @@
   }
 </script>
 
-<aside class="workspace-agents" aria-label="Workspace agents">
+<aside class="workspace-agents" aria-label="Conversations">
   <div class="agent-actions">
-    <button class="new-chat" onclick={onNewChat}><MessageSquarePlus size={16} />New chat</button>
-    <button
-      class="icon-button"
-      aria-label="Refresh agent sessions"
-      onclick={() => refresh(projectId, generation)}
-      disabled={loading}><RefreshCw size={15} /></button
-    >
+    <h2>Conversations</h2>
+    {#if canChat}<button class="new-chat" aria-label="New conversation" onclick={onNewChat}
+        ><MessageSquarePlus size={16} /></button
+      >{/if}
   </div>
-  <label class="search"
-    ><Search size={14} /><input
-      aria-label="Search agent sessions"
-      placeholder="Search chats…"
-      bind:value={search}
-    /></label
-  >
-  <p class="scope">Your chats in this workspace</p>
   {#if error}<div class="panel-error" role="alert">
       {error}<button onclick={() => refresh(projectId, generation)}>Retry</button>
     </div>{/if}
   <div class="session-list" aria-busy={loading}>
     {#if loading && !sessions.length}<p class="empty" role="status">Loading chats…</p>
     {:else if !visible.length}<p class="empty">
-        {search ? 'No matching chats.' : 'No chats yet.'}
+        {canReadChats ? 'No conversations yet.' : 'Conversations are unavailable for your role.'}
       </p>{/if}
     {#each visible as session (session.id)}
       <div class="session" class:selected={session.id === activeSessionId}>
@@ -177,7 +167,7 @@
             onclick={() => cancel(session)}
             ><Square size={11} />{cancelling === session.id ? 'Cancelling…' : 'Cancel'}</button
           >
-        {:else if resumable(session)}<button
+        {:else if canChat && resumable(session)}<button
             class="run-action"
             aria-label={`Resume run for ${title(session)}`}
             title="Open this chat to choose a gateway and resume the run"
@@ -205,6 +195,7 @@
     width: 100%;
     min-width: 0;
     height: 100%;
+    min-height: 0;
     padding: 16px 12px;
     color: var(--foreground);
     background: var(--sidebar, var(--background));
@@ -215,8 +206,11 @@
     align-items: center;
     gap: 8px;
   }
-  .agent-actions .new-chat {
+  h2 {
     flex: 1;
+    margin: 0;
+    font-size: 12px;
+    font-weight: 550;
   }
   button {
     cursor: pointer;
@@ -225,51 +219,17 @@
     opacity: 0.5;
     cursor: default;
   }
-  button:focus-visible,
-  input:focus-visible {
+  button:focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
-  }
-  .icon-button {
-    padding: 5px;
-    border: 0;
-    background: transparent;
-    color: var(--muted-foreground);
   }
   .new-chat {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 9px;
-    border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border));
-    border-radius: 8px;
-    background: var(--brand-soft);
-    color: var(--brand-strong);
-    font-size: 13px;
-    font-weight: 500;
-  }
-  .search {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 7px;
-    padding: 8px;
-    border: 1px solid var(--border);
-    border-radius: 7px;
-    color: var(--muted-foreground);
-  }
-  .search input {
-    width: 100%;
-    min-width: 0;
-    font-size: 12px;
+    padding: 5px;
     border: 0;
+    border-radius: 5px;
     background: transparent;
-    color: var(--foreground);
-  }
-  .scope {
-    margin: 0;
-    font-size: 11px;
     color: var(--muted-foreground);
   }
   .session-list {

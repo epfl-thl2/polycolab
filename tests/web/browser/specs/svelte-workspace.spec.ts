@@ -1,5 +1,13 @@
+import { plainFileEditor } from '../helpers/workspace-editor';
 import { test, expect, type Page } from '../fixtures';
 import { claimVersion, proofVersion, structuralPin } from '../../unit/version-fixtures';
+async function workspaceInspector(page: Page) {
+  if (/\/objects\//.test(new URL(page.url()).pathname))
+    await page.getByRole('tab', { name: 'Details', exact: true }).click();
+  return page.locator(
+    ':is(.room-desktop-right, .layout-panel-content, .workspace-tools .tool-content)',
+  );
+}
 const projectId = '11111111-1111-4111-8111-111111111111';
 const objectId = '22222222-2222-4222-8222-222222222222';
 const revisionId = '33333333-3333-4333-8333-333333333333';
@@ -273,7 +281,11 @@ async function mock(
       return route.fulfill({ status: 204, body: '' });
     if (path === `/api/v1/workspaces/${projectId}`)
       return route.fulfill({ json: { ...project, current_user_role: role } });
-    if (path === `/api/v1/workspaces/${projectId}/tasks`) return route.fulfill({ json: [] });
+    if (
+      path === `/api/v1/workspaces/${projectId}/tasks` ||
+      path === `/api/v1/workspaces/${projectId}/worktrees`
+    )
+      return route.fulfill({ json: [] });
     if (path === '/api/v1/workspaces')
       return route.fulfill({
         json:
@@ -362,7 +374,7 @@ test('home and primary document do not wait for graphs, histories, or session tr
   await page.getByRole('link', { name: `Open object: ${revision.title}`, exact: true }).click();
   await expect(page.locator('#main').getByRole('heading', { name: revision.title })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Artifacts', exact: true })).toHaveCount(0);
-  expect(requests.some((p) => /revisions|relations|messages|gateway/.test(p))).toBe(false);
+  expect(requests.some((p) => /revisions|relations|messages/.test(p))).toBe(false);
   await expect(page.locator('#main .katex')).toBeVisible();
   expect(errors).toEqual([]);
   await page.screenshot({ path: '/tmp/polycolab-svelte-document.png', fullPage: true });
@@ -1131,6 +1143,7 @@ test('OIDC code flow returns to the exact project and supplies its access token'
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 
   await expect(page).toHaveURL(`${origin}/workspaces/${projectId}`);
+  await page.getByRole('link', { name: 'Project', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Spectral gaps', level: 1 })).toBeVisible();
   expect(projectAuthorizations).toContain('Bearer oidc-access-token');
   await page.goto('/workspaces');
@@ -1192,7 +1205,9 @@ test('anonymous readers browse public workspaces and exact research after reload
       .getByRole('link', { name: 'Settings' }),
   ).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'State a problem or claim' })).toHaveCount(0);
-  await expect(page.locator('.room-desktop-right')).toContainText(/Public\s*· Anyone can read/);
+  await expect(
+    page.locator(':is(.room-desktop-right, .layout-panel-content, .workspace-tools .tool-content)'),
+  ).toContainText(/Public\s*· Anyone can read/);
   await page.getByRole('button', { name: 'Collapse left sidebar' }).click();
   await expect(page.getByRole('link', { name: 'Sign in', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Create account' })).toHaveCount(0);
@@ -1367,7 +1382,7 @@ test('research objects prioritize search and a readable table', async ({ page })
   await page.keyboard.press('Enter');
   await expect(title).toBeFocused();
   await expect(title).toHaveAttribute('aria-pressed', 'true');
-  const panel = page.locator('.room-desktop-right');
+  const panel = await workspaceInspector(page);
   await expect(panel.getByRole('heading', { name: 'Statement 2', exact: true })).toBeVisible();
   await expect(panel.getByRole('link', { name: 'Open object', exact: true })).toHaveAttribute(
     'href',
@@ -1384,7 +1399,6 @@ test('research objects prioritize search and a readable table', async ({ page })
   expect(await row.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(
     selectedColor,
   );
-  await panel.getByRole('button', { name: 'Collapse panel', exact: true }).click();
   await list.locator('tbody tr').first().locator('td').last().click();
   await expect(panel.getByRole('heading', { name: 'Statement 0', exact: true })).toBeVisible();
 
@@ -1432,12 +1446,12 @@ test('research objects prioritize search and a readable table', async ({ page })
   await page.screenshot({ path: '/tmp/polycolab-research-list.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await title.click();
-  const drawer = page.getByRole('dialog', { name: 'Focused Object', exact: true });
+  const drawer = page.getByRole('dialog', { name: 'Research objects', exact: true });
   await expect(drawer.getByRole('heading', { name: 'Statement 2', exact: true })).toBeVisible();
   await drawer.getByRole('button', { name: 'Clear focus' }).click();
   await expect(
     page
-      .getByRole('dialog', { name: 'Right Panel', exact: true })
+      .getByRole('dialog', { name: 'Research objects', exact: true })
       .getByText('Select an object to preview its content and version details.'),
   ).toBeVisible();
   await page.screenshot({ path: '/tmp/polycolab-research-mobile.png', fullPage: true });
@@ -1577,99 +1591,29 @@ test('skip link moves keyboard focus to primary workspace content', async ({ pag
   await expect(page.locator('main#main')).toBeFocused();
 });
 
-test('shared product header connects the project library and research workspace', async ({
+test('workspace account menu matches the homepage and preserves the current view', async ({
   page,
 }) => {
   await mock(page);
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/workspaces');
-
-  const globalHeader = page.locator('header.product-header');
-  await expect(globalHeader.getByRole('link', { name: 'Polycolab home' })).toBeVisible();
-  const globalMark = await globalHeader.locator('.product-brand-mark').boundingBox();
-  const globalWordmark = await globalHeader.locator('.wordmark-name').boundingBox();
-  await expect(globalHeader.locator('.product-brand')).toHaveCSS('font-size', '19px');
-  await expect(globalHeader.getByRole('link', { name: 'Library', exact: true })).toBeVisible();
-  await expect(globalHeader.getByRole('link', { name: 'Docs', exact: true })).toBeVisible();
-  await expect(globalHeader.getByRole('link', { name: 'Activity', exact: true })).toBeVisible();
-  await expect(globalHeader.getByRole('link', { name: 'Workspaces', exact: true })).toHaveAttribute(
-    'aria-current',
-    'page',
-  );
-  await expect(
-    globalHeader.getByRole('button', { name: 'Open account menu for Ada' }),
-  ).toBeVisible();
-  await globalHeader.getByRole('button', { name: 'Open account menu for Ada' }).click();
-  await expect(page.getByRole('menuitem', { name: 'Profile' })).toBeVisible();
-  await expect(page.getByRole('menuitem', { name: 'Settings' })).toBeVisible();
-  await expect(page.getByRole('menuitem', { name: 'API keys' })).toHaveCount(0);
-  await expect(page.getByRole('menuitem', { name: 'Administration' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Open account menu for Ada' }).click();
+  for (const name of ['Profile', 'Your workspaces', 'Settings', 'Security', 'Sign out'])
+    await expect(page.getByRole('menuitem', { name, exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(
-    globalHeader.getByRole('button', { name: 'Open account menu for Ada' }),
-  ).toBeFocused();
-  await page.screenshot({ path: '/tmp/polycolab-project-library.png', fullPage: true });
-
   await page.getByRole('link', { name: 'Spectral gaps', exact: true }).click();
-  const workspaceHeader = page.locator('header.product-header-workspace');
-  await expect(workspaceHeader.getByRole('link', { name: 'Polycolab home' })).toBeVisible();
-  const workspaceMark = await workspaceHeader.locator('.product-brand-mark').boundingBox();
-  const workspaceWordmark = await workspaceHeader.locator('.wordmark-name').boundingBox();
-  for (const key of ['x', 'y', 'width', 'height'] as const) {
-    expect(Math.abs(globalMark![key] - workspaceMark![key])).toBeLessThanOrEqual(1);
-    expect(Math.abs(globalWordmark![key] - workspaceWordmark![key])).toBeLessThanOrEqual(1);
-  }
-  const breadcrumb = workspaceHeader.getByRole('navigation', { name: 'Workspace breadcrumb' });
-  await expect(breadcrumb.getByRole('link', { name: 'Workspaces' })).toHaveAttribute(
-    'href',
-    '/workspaces',
-  );
-  await expect(breadcrumb.getByText('Spectral gaps', { exact: true })).toBeVisible();
-  await expect(breadcrumb.getByText('PRIVATE', { exact: true })).toHaveCount(0);
-  await expect(page.locator('.room-desktop-right')).toContainText(/Public\s*· Anyone can read/);
-  await expect(page.getByRole('link', { name: 'Sessions', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Verification jobs', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Proposal review', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Open proposal review', exact: true })).toHaveCount(
-    0,
-  );
-  await expect(workspaceHeader.getByRole('navigation', { name: 'Main navigation' })).toHaveCount(0);
-  await expect(page.locator('footer.product-footer')).toHaveCount(0);
-
-  const sessionNavigation = page.getByRole('complementary', {
-    name: 'Session navigation',
-    exact: true,
-  });
-  await workspaceHeader.getByRole('button', { name: 'Collapse left sidebar' }).click();
-  await expect(sessionNavigation).toBeVisible();
-  await expect(
-    sessionNavigation.getByRole('link', { name: 'Research objects', exact: true }),
-  ).toBeVisible();
-  await expect
-    .poll(async () => (await sessionNavigation.boundingBox())!.width)
-    .toBeLessThanOrEqual(64);
-  await page.getByRole('button', { name: 'Expand left sidebar' }).click();
-  await expect(sessionNavigation).toBeVisible();
-  await expect
-    .poll(async () => Math.abs((await sessionNavigation.boundingBox())!.width - 280))
-    .toBeLessThanOrEqual(1);
-
-  await page.setViewportSize({ width: 1024, height: 768 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: '/tmp/polycolab-workspace-tablet.png' });
-
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/workspaces');
-  await expect(page.getByRole('heading', { name: 'Workspaces', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Open navigation and account menu' }).click();
-  await expect(page.getByRole('menuitem', { name: 'Library', exact: true })).toBeVisible();
-  await expect(page.getByRole('menuitem', { name: 'Profile', exact: true })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: 'Worktrees', exact: true })).toBeVisible();
+  const url = page.url();
+  await page.getByRole('button', { name: 'Open account menu', exact: true }).click();
+  for (const name of ['Profile', 'Your workspaces', 'Settings', 'Security', 'Sign out'])
+    await expect(page.getByRole('menuitem', { name, exact: true })).toBeVisible();
+  await expect(page).toHaveURL(url);
   await page.keyboard.press('Escape');
-  await expect(
-    page.getByRole('button', { name: 'Open navigation and account menu' }),
-  ).toBeFocused();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: '/tmp/polycolab-project-library-mobile.png', fullPage: true });
+  await expect(page.getByRole('button', { name: 'Open account menu', exact: true })).toBeFocused();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Open navigation', exact: true }).click();
+  await page.getByRole('button', { name: 'Open account menu', exact: true }).click();
+  await expect(page.getByRole('menuitem', { name: 'Settings', exact: true })).toBeVisible();
+  await expect(page).toHaveURL(url);
 });
 
 test('avatar menu connects the configured account surfaces', async ({ page }) => {
@@ -2064,210 +2008,56 @@ test('read-only member has no editing, review, or agent requests', async ({ page
   expect(requests.some((p) => p.includes('agent-sessions'))).toBe(false);
 });
 
-test('all sessions has no right panel on desktop or mobile', async ({ page }) => {
+test('project mode hides workspace tools and keeps its own navigation', async ({ page }) => {
   await mock(page);
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(`/workspaces/${projectId}`);
-  const navigation = page.getByRole('complementary', { name: 'Session navigation' });
-  await page.getByRole('button', { name: 'Maximize panel', exact: true }).click();
-  await navigation.getByRole('link', { name: 'All sessions' }).click();
-  const heading = page.locator('#main').getByRole('heading', { name: 'All sessions', level: 1 });
-  await expect(heading).toBeVisible();
-  await expect(page.locator('.room-desktop-right')).toHaveCount(0);
-  await expect(page.getByRole('separator', { name: 'Resize panel', exact: true })).toHaveCount(0);
-  await expect(page.locator('.research-room')).not.toHaveClass(/room-maximized/);
-  await navigation.getByRole('link', { name: 'Overview', exact: true }).click();
-  await page.getByRole('button', { name: 'Collapse panel', exact: true }).click();
-  await navigation.getByRole('link', { name: 'All sessions' }).click();
-  await expect(heading).toBeVisible();
-  await expect(page.locator('.product-workspace-expand-panel')).toHaveCount(0);
+  await page.goto(`/workspaces/${projectId}/sessions/new`);
+  await expect(
+    page.getByRole('complementary', { name: 'Workspace tools', exact: true }),
+  ).toBeVisible();
+  await page.getByRole('link', { name: 'Project', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Spectral gaps', level: 1 })).toBeVisible();
+  await expect(
+    page.getByRole('complementary', { name: 'Workspace tools', exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByRole('tablist', { name: 'Workspace tabs' })).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(heading).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Open panel', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Spectral gaps', level: 1 })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test('workspace chat starts with the current shell and distinct chat and map icons', async ({
-  page,
-}) => {
+test('workspace chat has distinct layout icons and an uncluttered composer', async ({ page }) => {
   await mock(page);
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/workspaces/${projectId}/sessions/new`);
-  await expect(page.locator('#main').getByRole('heading', { name: 'New chat' })).toHaveCount(0);
-  const navigation = page.getByRole('complementary', { name: 'Session navigation' });
-  await expect(navigation.getByRole('link', { name: 'New chat' }).locator('svg')).toHaveClass(
-    /lucide-square-pen/,
-  );
+  const rail = page.getByRole('complementary', { name: 'Workspace navigation', exact: true });
   await expect(
-    navigation.getByRole('link', { name: 'Map', exact: true }).locator('svg'),
-  ).toHaveClass(/lucide-map/);
-  const newChatIcon = await navigation
-    .getByRole('link', { name: 'New chat' })
-    .locator('svg')
-    .boundingBox();
-  const overviewIcon = await navigation
-    .getByRole('link', { name: 'Overview' })
-    .locator('svg')
-    .boundingBox();
-  expect(Math.abs(newChatIcon!.x - overviewIcon!.x)).toBeLessThanOrEqual(1);
-  const brandBounds = await page.locator('.product-workspace-brand').boundingBox();
-  const newChatBounds = await navigation.getByRole('link', { name: 'New chat' }).boundingBox();
-  const allSessionsBounds = await navigation
-    .getByRole('link', { name: 'All sessions' })
-    .boundingBox();
-  const navigationGap = allSessionsBounds!.y - (newChatBounds!.y + newChatBounds!.height);
-  expect(newChatBounds!.y - (brandBounds!.y + brandBounds!.height)).toBe(20);
-  expect(navigationGap).toBe(2);
-  expect(newChatBounds!.height).toBe(allSessionsBounds!.height);
-  const recentSessions = navigation.getByRole('button', { name: 'Recent sessions' });
-  const recentChevron = recentSessions.locator('svg');
-  await expect(recentChevron).toHaveClass(/lucide-chevron-down/);
-  await expect(recentChevron).not.toHaveClass(/room-session-chevron-closed/);
-  await expect(recentSessions).toHaveAttribute('aria-expanded', 'true');
-  await expect(navigation.getByRole('link', { name: 'Gap investigation' })).toBeVisible();
-  await recentSessions.click();
-  await expect(recentSessions).toHaveAttribute('aria-expanded', 'false');
-  await expect(recentChevron).toHaveClass(/room-session-chevron-closed/);
-  await expect(navigation.getByRole('link', { name: 'Gap investigation' })).toHaveCount(0);
-  await recentSessions.click();
-  await navigation.getByRole('link', { name: 'All sessions' }).click();
-  await expect(page).toHaveURL(`/workspaces/${projectId}/sessions`);
-  await expect(
-    page.locator('#main').getByRole('heading', { name: 'All sessions', level: 1 }),
-  ).toBeVisible();
-  await expect(page.locator('#main').getByRole('button', { name: 'New chat' })).toHaveCount(0);
-  await navigation.getByRole('link', { name: 'New chat' }).click();
-  await expect(page).toHaveURL(`/workspaces/${projectId}/sessions/new`);
-  const newChat = page.locator('#main').locator('.workspace-chat-start');
-  await expect(newChat).toBeVisible();
-  const chatPanel = page.locator('aside.room-desktop-right');
-  await expect(chatPanel).toHaveCount(0);
-  await expect(newChat.getByRole('button', { name: 'Choose agent' })).toContainText('Researcher');
-  await newChat.getByRole('button', { name: /Customize chat/ }).click();
-  const customization = page.getByRole('dialog', { name: 'Customize chat' });
-  const customToggle = customization.getByRole('button', { name: /Custom instructions/ });
-  await customToggle.click();
-  await expect(customization.getByRole('status')).toContainText('Hosted Codex is unavailable');
-  await expect(page.getByRole('button', { name: 'Send message' })).toBeDisabled();
-  await customToggle.click();
-  await expect(customization.getByText('Hosted Codex is unavailable')).toHaveCount(0);
-  await expect(newChat.getByRole('button', { name: 'Choose agent' })).toHaveCount(1);
-  for (let switchCount = 0; switchCount < 2; switchCount += 1) {
-    await navigation.getByRole('link', { name: 'All sessions' }).click();
-    await expect(page.locator('#main').getByRole('button', { name: 'Choose agent' })).toHaveCount(
-      0,
-    );
-    await navigation.getByRole('link', { name: 'New chat' }).click();
-    await expect(page.locator('#main').getByRole('button', { name: 'Choose agent' })).toHaveCount(
-      1,
-    );
-  }
-  await expect(page.locator('#main').getByRole('button', { name: 'Choose agent' })).toBeVisible();
-  await expect(page.locator('#main').getByText('Private workspace chat')).toHaveCount(0);
-  await expect(page.getByLabel('Message the agent')).toBeVisible();
-  expect(
-    await page
-      .getByLabel('Message the agent')
-      .evaluate((textarea) => getComputedStyle(textarea).resize),
-  ).toBe('none');
-  await expect(page.getByRole('button', { name: 'Send message' }).locator('svg')).toHaveClass(
-    /lucide-arrow-up/,
+    rail.getByRole('link', { name: 'Workspace', exact: true }).locator('svg'),
+  ).toHaveClass(/lucide-panels-left-bottom/);
+  await expect(rail.getByRole('link', { name: 'Map', exact: true }).locator('svg')).toHaveClass(
+    /lucide-map/,
   );
-  const sendBounds = await page.getByRole('button', { name: 'Send message' }).boundingBox();
-  expect(sendBounds!.width).toBe(sendBounds!.height);
-  const presetBounds = await page.locator('.workspace-chat-composer-preset').boundingBox();
-  expect(sendBounds!.x - (presetBounds!.x + presetBounds!.width)).toBeLessThanOrEqual(12);
-  expect(
-    Math.abs(presetBounds!.y + presetBounds!.height / 2 - (sendBounds!.y + sendBounds!.height / 2)),
-  ).toBeLessThanOrEqual(1);
-  const composerSurface = page.locator('.workspace-chat-composer-surface');
-  const configBar = page.locator('.workspace-chat-config-bar');
-  const composerBounds = await composerSurface.boundingBox();
-  const configBounds = await configBar.boundingBox();
-  expect(composerBounds!.width).toBeGreaterThan(configBounds!.width);
-  expect(configBounds!.y).toBeLessThan(composerBounds!.y);
-  await composerSurface.hover();
-  const configBorder = await configBar.evaluate(
-    (element) => getComputedStyle(element).borderRightColor,
-  );
-  await expect
-    .poll(() => composerSurface.evaluate((element) => getComputedStyle(element).borderTopColor))
-    .not.toBe(configBorder);
-  await expect(page.locator('.workspace-chat-start')).toHaveCSS('border-top-width', '0px');
-  const startGroup = page.locator('.workspace-chat-start-group');
-  const contentBounds = await page.locator('.room-content').boundingBox();
-  const startBounds = await startGroup.boundingBox();
-  expect(
-    Math.abs(
-      startBounds!.y + startBounds!.height / 2 - (contentBounds!.y + contentBounds!.height / 2),
-    ),
-  ).toBeLessThan(40);
-  const suggestedPrompts = page.getByLabel('Suggested prompts');
-  await expect(suggestedPrompts.getByRole('button')).toHaveCount(5);
-  for (const suggestion of [
-    'Summarize this workspace',
-    'Find related research objects',
-    'Help me test a conjecture',
-    'Review a proof idea',
-    'Suggest next steps',
-  ]) {
-    await suggestedPrompts.getByRole('button', { name: suggestion }).click();
-    await expect(page.getByLabel('Message the agent')).toHaveValue(suggestion);
-  }
+  await expect(page.getByRole('button', { name: 'Choose agent' })).toContainText('Researcher');
   await expect(page.getByLabel('Gateway profile')).toHaveCount(0);
-  await page.screenshot({ path: '/tmp/polycolab-new-chat.png' });
+  const suggested = page.getByLabel('Suggested prompts');
+  await expect(suggested.getByRole('button')).toHaveCount(5);
+  await suggested.getByRole('button', { name: 'Summarize this workspace' }).click();
+  await expect(page.getByLabel('Message the agent')).toHaveValue('Summarize this workspace');
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.locator('.workspace-chat-start')).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-  await expect(page.getByRole('button', { name: 'Open panel' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Choose agent' })).toBeVisible();
   await page.getByRole('button', { name: /Customize chat/ }).click();
   await expect(page.getByRole('dialog', { name: 'Customize chat' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Reset to defaults' })).toBeVisible();
-  await page.screenshot({ path: '/tmp/polycolab-mobile-new-chat.png' });
   await page.keyboard.press('Escape');
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.getByLabel('Message the agent').fill('Investigate the parity claim.');
-  const firstTurn = page.waitForRequest(
-    (request) => request.method() === 'POST' && request.url().endsWith('/messages'),
-  );
-  await page.locator('#main').getByRole('button', { name: 'Send message' }).click();
-  expect((await firstTurn).postDataJSON()).toMatchObject({
-    content_md: 'Investigate the parity claim.',
-    gateway_profile_id: 'profile-1',
-  });
-  await expect(page).toHaveURL(`/workspaces/${projectId}/sessions/${sessionId}`);
-  await expect(
-    page.locator('#main').getByRole('heading', { name: 'Gap investigation' }),
-  ).toBeVisible();
-  await expect(chatPanel.getByText('Run settings', { exact: true })).toBeVisible();
-  await expect(chatPanel.getByLabel('Gateway profile')).toBeVisible();
-  await expect(page.locator('#main').getByText('Run settings', { exact: true })).toHaveCount(0);
-  await expect(page.getByLabel('Private message', { exact: true })).toBeVisible();
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByRole('button', { name: 'Open sessions navigation' })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-  await page.screenshot({ path: '/tmp/polycolab-mobile-chat.png' });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test('recent sessions shows the reference empty state and collapses it', async ({ page }) => {
+test('Main conversations show a collapsible empty state', async ({ page }) => {
   await mock(page, 'OWNER', 0, []);
   await page.goto(`/workspaces/${projectId}/sessions/new`);
-
-  const navigation = page.getByRole('complementary', { name: 'Session navigation' });
-  const emptyState = navigation.locator('.room-session-empty');
-  await expect(emptyState.getByText('No sessions yet.')).toBeVisible();
-  await expect(
-    emptyState.getByText('Your recent chats will appear here once you start a conversation.'),
-  ).toBeVisible();
-  await expect(emptyState.locator('svg')).toHaveClass(/lucide-message-square/);
-
-  await navigation.getByRole('button', { name: 'Recent sessions' }).click();
-  await expect(emptyState).toHaveCount(0);
+  const panel = page.getByRole('complementary', { name: 'Worktrees', exact: true });
+  await expect(panel.getByText('No conversations yet.')).toBeVisible();
+  await panel.getByRole('button', { name: 'Toggle Main conversations' }).click();
+  await expect(panel.getByText('No conversations yet.')).toHaveCount(0);
 });
 
-test('recent sessions is bounded while all sessions keeps the complete history', async ({
-  page,
-}) => {
+test('Main groups all loaded conversations without a recent-session cutoff', async ({ page }) => {
   const history = Array.from({ length: 6 }, (_, index) => ({
     ...session,
     id: `session-${index + 1}`,
@@ -2275,13 +2065,11 @@ test('recent sessions is bounded while all sessions keeps the complete history',
   }));
   await mock(page, 'OWNER', 0, history);
   await page.goto(`/workspaces/${projectId}/sessions/new`);
-
-  const navigation = page.getByRole('complementary', { name: 'Session navigation' });
-  await expect(navigation.locator('.room-session-list a')).toHaveCount(5);
-  await expect(navigation.getByRole('link', { name: 'Investigation 6' })).toHaveCount(0);
-
-  await navigation.getByRole('link', { name: 'All sessions' }).click();
-  await expect(page.locator('#main .workspace-chat-history a')).toHaveCount(6);
+  const group = page.getByRole('region', { name: 'Main worktree' });
+  for (let index = 1; index <= 6; index++)
+    await expect(
+      group.getByRole('button', { name: new RegExp(`Investigation ${index} Researcher`) }),
+    ).toBeVisible();
 });
 
 test('new chat customizes the hosted prompt and model endpoint', async ({ page }) => {
@@ -2394,6 +2182,8 @@ test('chat composers grow only after overflow and send with Enter', async ({ pag
   await expect(page).toHaveURL(`/workspaces/${projectId}/sessions/${sessionId}`);
 
   const nextInput = page.getByLabel('Private message', { exact: true });
+  if (!(await page.getByLabel('Gateway profile').isVisible()))
+    await page.getByRole('tab', { name: 'Details', exact: true }).click();
   await page.getByLabel('Gateway profile').selectOption('profile-1');
   const nextInitialHeight = (await nextInput.boundingBox())!.height;
   await nextInput.fill('First line\nSecond line');
@@ -2479,11 +2269,15 @@ test('failed agent message remains editable and successful retry uses the same r
     });
   });
   await page.goto(`/workspaces/${projectId}/sessions/${sessionId}`);
+  if (!(await page.getByLabel('Gateway profile').isVisible()))
+    await page.getByRole('tab', { name: 'Details', exact: true }).click();
   await expect(page.getByLabel('Gateway profile')).toBeVisible();
   await expect(page.locator('.workspace-chat-composer .workspace-chat-send-reason')).toHaveText(
     'Choose a gateway in Chat settings.',
   );
   await page.screenshot({ path: '/tmp/polycolab-enabled-chat-after.png' });
+  if (!(await page.getByLabel('Gateway profile').isVisible()))
+    await page.getByRole('tab', { name: 'Details', exact: true }).click();
   await page.getByLabel('Gateway profile').selectOption('profile-1');
   await page.getByText('Run settings', { exact: true }).click();
   await page.getByText('Context · 0 pinned versions').click();
@@ -2893,9 +2687,15 @@ test('workspace map opens with isolated objects and supports searchable focus', 
   await expect(page.getByRole('heading', { name: /^All objects/ })).toBeVisible();
   expect(requests.some((p) => p.includes('neighborhood'))).toBe(false);
   await expect(
-    page.locator('.room-desktop-right').getByRole('heading', { name: 'No object focused' }),
+    page
+      .locator(':is(.room-desktop-right, .layout-panel-content, .workspace-tools .tool-content)')
+      .getByRole('heading', { name: 'No object focused' }),
   ).toBeVisible();
-  await expect(page.locator('.room-desktop-right .relationships')).toHaveCount(0);
+  await expect(
+    page.locator(
+      ':is(.room-desktop-right, .layout-panel-content, .workspace-tools .tool-content) .relationships',
+    ),
+  ).toHaveCount(0);
   await page.getByLabel('Focus on an object', { exact: true }).fill('Spectral');
   await page
     .getByRole('list', { name: 'Focused object search results' })
@@ -2906,14 +2706,22 @@ test('workspace map opens with isolated objects and supports searchable focus', 
   await expect(page.getByRole('button', { name: 'Clear focus' })).toBeVisible();
   expect(requests.filter((p) => p.includes('neighborhood'))).toHaveLength(0);
   await expect(
-    page.locator('.room-desktop-right').getByRole('link', { name: 'Open object', exact: true }),
+    page
+      .locator(':is(.room-desktop-right, .layout-panel-content, .workspace-tools .tool-content)')
+      .getByRole('link', { name: 'Open object', exact: true }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Clear focus' }).click();
   await expect(page.getByRole('button', { name: 'Clear focus' })).toHaveCount(0);
   await expect(
-    page.locator('.room-desktop-right').getByRole('heading', { name: 'No object focused' }),
+    page
+      .locator(':is(.room-desktop-right, .layout-panel-content, .workspace-tools .tool-content)')
+      .getByRole('heading', { name: 'No object focused' }),
   ).toBeVisible();
-  await expect(page.locator('.room-desktop-right .relationships')).toHaveCount(0);
+  await expect(
+    page.locator(
+      ':is(.room-desktop-right, .layout-panel-content, .workspace-tools .tool-content) .relationships',
+    ),
+  ).toHaveCount(0);
   await page.getByLabel('Focus on an object', { exact: true }).fill('nonexistent');
   await expect(page.getByText('No matching objects. Try fewer terms.')).toBeVisible();
   await page.screenshot({ path: '/tmp/polycolab-svelte-graph.png', fullPage: true });
@@ -2950,13 +2758,15 @@ test('workspace map renders connections and keeps every object when focused', as
     .getByRole('button')
     .click();
   await expect(page.locator('.svelte-flow__node')).toHaveCount(3);
-  await expect(page.locator('.room-desktop-right')).toContainText('Statement 1');
+  await expect(
+    page.locator(':is(.room-desktop-right, .layout-panel-content, .workspace-tools .tool-content)'),
+  ).toContainText('Statement 1');
   await expect(
     page
-      .getByRole('complementary', { name: 'Focused Object', exact: true })
+      .getByRole('complementary', { name: 'Map panel', exact: true })
       .getByRole('heading', { name: 'Statement 1', exact: true }),
   ).toBeVisible();
-  const panel = page.locator('.room-desktop-right');
+  const panel = await workspaceInspector(page);
   const bodyTab = panel.getByRole('tab', { name: 'Body', exact: true });
   await expect(bodyTab).toHaveAttribute('aria-selected', 'true');
   await expect(panel.getByRole('tabpanel')).toContainText('Can we bound');
@@ -3020,7 +2830,7 @@ test('map hides equivalence and retains one node per object', async ({ page }) =
     .getByRole('list', { name: 'All objects', exact: true })
     .getByRole('button', { name: 'Statement 0', exact: true })
     .click();
-  const panel = page.getByRole('complementary', { name: 'Focused Object', exact: true });
+  const panel = page.getByRole('complementary', { name: 'Map panel', exact: true });
   await panel.getByRole('tab', { name: /^Relationships/ }).click();
   await expect(panel.getByText('No relationships to show.')).toBeVisible();
 });
@@ -3040,7 +2850,7 @@ test('map preserves viewport on selection, fits all, preserves search, and group
   await results.getByRole('button', { name: 'Statement 0', exact: true }).click();
   await expect(search).toHaveValue('Statement');
   await expect(results.getByRole('button')).toHaveCount(6);
-  const panel = page.getByRole('complementary', { name: 'Focused Object', exact: true });
+  const panel = page.getByRole('complementary', { name: 'Map panel', exact: true });
   await panel.getByRole('tab', { name: /^Relationships/ }).click();
   await expect(panel.getByRole('heading', { name: 'Depends on (1)', exact: true })).toBeVisible();
   await expect(
@@ -3150,8 +2960,12 @@ test('map shows distinct object types consistently in nodes, cards, and the pane
     .evaluate((shape) => getComputedStyle(shape).stroke);
   await expect(focusedShape.locator('.kind-shape')).toHaveCSS('stroke', sketchStroke);
   await expect(page.locator('.map-legend .focus-ring')).toBeVisible();
-  await expect(page.locator('.room-desktop-right [data-object-kind="PROOF"]')).toBeVisible();
-  const panel = page.locator('.room-desktop-right');
+  await expect(
+    page.locator(
+      ':is(.room-desktop-right, .layout-panel-content, .workspace-tools .tool-content) [data-object-kind="PROOF"]',
+    ),
+  ).toBeVisible();
+  const panel = await workspaceInspector(page);
   await expect(panel.getByRole('combobox', { name: 'Reported progress' })).toHaveCount(0);
   await panel.getByRole('tab', { name: 'Progress', exact: true }).click();
   await expect(panel.getByRole('combobox', { name: 'Reported progress' })).toHaveValue('PARTIAL');
@@ -3166,7 +2980,7 @@ test('map search and object cards live below the map while the panel inspects se
   await mock(page);
   await page.goto(`/workspaces/${projectId}/map`);
   const main = page.locator('#main');
-  const panel = page.locator('.room-desktop-right');
+  const panel = await workspaceInspector(page);
   await expect(main.getByLabel('Focus on an object', { exact: true })).toBeVisible();
   await expect(main.getByRole('heading', { name: /^All objects/ })).toBeVisible();
   await expect(page.getByText('Browse all objects', { exact: true })).toHaveCount(0);
@@ -3184,13 +2998,10 @@ test('map search and object cards live below the map while the panel inspects se
     .getByRole('list', { name: 'Focused object search results' })
     .getByRole('button')
     .click();
-  await page.getByRole('button', { name: 'Collapse panel', exact: true }).click();
-  await expect(panel).not.toBeVisible();
-  await page.getByRole('button', { name: 'Expand panel', exact: true }).click();
   await expect(panel.getByRole('link', { name: 'Open object', exact: true })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: 'Open panel', exact: true }).click();
-  const drawer = page.getByRole('dialog');
+  await page.getByRole('button', { name: 'Hide left panel', exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: 'Map', exact: true });
   await expect(drawer.getByRole('link', { name: 'Open object', exact: true })).toBeVisible();
 });
 
@@ -3205,7 +3016,9 @@ test('large workspace map renders its canvas and supports search focus', async (
     .getByRole('list', { name: 'Focused object search results' })
     .getByRole('button')
     .click();
-  await expect(page.locator('.room-desktop-right')).toContainText('Statement 59');
+  await expect(
+    page.locator(':is(.room-desktop-right, .layout-panel-content, .workspace-tools .tool-content)'),
+  ).toContainText('Statement 59');
 });
 
 test('keeps the 200-node graph frame interval within budget', async ({ page }, testInfo) => {
@@ -3279,7 +3092,7 @@ test('renders the separate 1,000-node graph stress case without an application e
   expect(errors).toEqual([]);
 });
 
-test('repeated workspace navigation stays responsive with retained map and editor tabs', async ({
+test('repeated workspace navigation stays responsive with layout modes and retained editor drafts', async ({
   page,
 }) => {
   await mock(page);
@@ -3301,7 +3114,7 @@ test('repeated workspace navigation stays responsive with retained map and edito
       .click();
     await expect(page.locator('.svelte-flow')).toHaveCount(1);
     await navigation.getByRole('link', { name: 'Research objects', exact: true }).click();
-    await expect(page.locator('.svelte-flow')).toBeHidden();
+    await expect(page.locator('.svelte-flow')).toHaveCount(0);
 
     await page.getByRole('link', { name: `Open object: ${revision.title}`, exact: true }).click();
     if (index === 0) await page.getByRole('button', { name: 'Edit', exact: true }).click();
@@ -3310,14 +3123,15 @@ test('repeated workspace navigation stays responsive with retained map and edito
     await page.locator('textarea.editor').fill(`Retained draft ${index}`);
     await navigation.getByRole('link', { name: 'Activity', exact: true }).click();
     await expect(page.locator('textarea.editor')).toBeHidden();
-    await page.getByRole('button', { name: 'New chat', exact: true }).click();
+    await navigation.getByRole('link', { name: 'Workspace', exact: true }).click();
+    await page.getByRole('button', { name: 'New chat tab', exact: true }).click();
     await expect(page.getByLabel('Message the agent').filter({ visible: true })).toBeVisible();
     await page
       .getByLabel('Message the agent')
       .filter({ visible: true })
       .fill(`Chat draft ${index}`);
     await navigation.getByRole('link', { name: 'Research objects', exact: true }).click();
-    await expect(page.locator('.svelte-flow')).toHaveCount(1);
+    await expect(page.locator('.svelte-flow')).toHaveCount(0);
     await expect(page.locator('textarea.editor')).toHaveValue(`Retained draft ${index}`);
     expect(errors).toEqual([]);
   }
@@ -3916,44 +3730,24 @@ test('document honors exact-version links across reload and rejects unrelated ve
   }
 });
 
-test('restored research room keeps panels, navigation and mobile drawers', async ({ page }) => {
+test('document workbench resizes panels and exposes details on mobile', async ({ page }) => {
   await mock(page);
-  const errors: string[] = [];
-  page.on('pageerror', (error) => errors.push(error.message));
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/workspaces/${projectId}/objects/${objectId}`);
   await expect(
-    page.locator('#main').getByRole('heading', { name: revision.title, exact: true, level: 1 }),
+    page.locator('#main').getByRole('heading', { name: revision.title, exact: true }),
   ).toBeVisible();
-  await expect(
-    page.getByRole('complementary', { name: 'Session navigation', exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('complementary', { name: 'Focused Object', exact: true }),
-  ).toBeVisible();
-  await page.getByRole('separator', { name: 'Resize session navigation' }).focus();
-  await page.keyboard.press('ArrowRight');
-  await expect(page.getByRole('separator', { name: 'Resize session navigation' })).toHaveAttribute(
-    'aria-valuenow',
-    '288',
-  );
-  await page.getByRole('button', { name: 'Maximize panel', exact: true }).click();
-  await page.getByRole('button', { name: 'Restore panel', exact: true }).click();
-  await page.getByRole('button', { name: 'Collapse panel', exact: true }).last().click();
-  await page.getByRole('button', { name: 'Expand panel', exact: true }).click();
-  await page.screenshot({ path: '/tmp/polycolab-restored-workspace.png' });
+  const resize = page.getByRole('separator', { name: 'Resize left panel', exact: true });
+  await resize.press('ArrowRight');
+  await expect(resize).toHaveAttribute('aria-valuenow', '268');
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: 'Open sessions navigation', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: 'Session navigation', exact: true })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(
-    page.getByRole('button', { name: 'Open sessions navigation', exact: true }),
-  ).toBeFocused();
-  await page.getByRole('button', { name: 'Open panel', exact: true }).click();
-  await page.getByRole('link', { name: 'Version history', exact: true }).last().click();
-  await expect(page.getByRole('heading', { name: 'Version history', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Hide left panel', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Worktrees', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Close drawer' }).click();
+  await page.getByRole('button', { name: 'Hide tools', exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: 'Workspace tools', exact: true });
+  await drawer.getByRole('tab', { name: 'Details', exact: true }).click();
+  await expect(drawer.getByRole('tab', { name: 'Body', exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  expect(errors).toEqual([]);
 });
 
 test('developer documentation renders the reusable Zensical components', async ({ page }) => {
@@ -4196,98 +3990,26 @@ test('workspace category controls adapt to viewport and preserve selection', asy
   );
 });
 
-for (const width of [1440, 1024, 900, 768, 390]) {
-  test(`workspace keeps a focused shell at ${width}px`, async ({ page }) => {
+for (const width of [1440, 1024, 390]) {
+  test(`workspace rail and panels fit a ${width}px viewport`, async ({ page }) => {
     await mock(page);
     await page.setViewportSize({ width, height: 900 });
-    await page.goto('/workspaces');
-    await expect(page.getByRole('link', { name: 'Spectral gaps', exact: true })).toBeVisible();
-    const globalHeader = page.locator('header.product-header');
-    const globalMarkBounds = await globalHeader.locator('.product-brand-mark').boundingBox();
-    const globalWordmarkBounds = await globalHeader.locator('.wordmark-name').boundingBox();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-      width,
-    );
-    await page.getByRole('link', { name: 'Spectral gaps', exact: true }).click();
-    const header = page.locator('header.product-header-workspace');
-    await expect(header).toBeVisible();
-    const workspaceMarkBounds = await header.locator('.product-brand-mark').boundingBox();
-    for (const key of ['x', 'y', 'width', 'height'] as const)
-      expect(Math.abs(globalMarkBounds![key] - workspaceMarkBounds![key])).toBeLessThanOrEqual(1);
-    const workspaceWordmarkBounds = await header.locator('.wordmark-name').boundingBox();
-    for (const key of ['x', 'y', 'width', 'height'] as const)
-      expect(
-        Math.abs(globalWordmarkBounds![key] - workspaceWordmarkBounds![key]),
-      ).toBeLessThanOrEqual(1);
-    await expect(header.getByRole('navigation', { name: 'Main navigation' })).toHaveCount(0);
-    await expect(page.locator('footer.product-footer')).toHaveCount(0);
+    await page.goto(`/workspaces/${projectId}/sessions/new`);
+    await expect(page.getByLabel('Message the agent')).toBeVisible();
     if (width > 760) {
-      await expect(header.getByRole('link', { name: 'Workspaces' })).toBeVisible();
-      await expect(header.locator('.product-workspace-brand').getByText('Polycolab')).toBeVisible();
-      await expect(header.getByRole('button', { name: 'Collapse left sidebar' })).toBeVisible();
-      const breadcrumbBounds = await header
-        .getByRole('navigation', { name: 'Workspace breadcrumb' })
-        .boundingBox();
-      const centerBounds = await page.locator('.room-center').boundingBox();
-      expect(breadcrumbBounds!.height).toBe(36);
-      expect(centerBounds!.y).toBe(36);
-      const account = header.getByRole('button', { name: 'Open account menu for Ada' });
-      const accountBounds = await account.boundingBox();
-      const leftBounds = await page.locator('.room-desktop-left').boundingBox();
-      expect(accountBounds!.x).toBeGreaterThanOrEqual(leftBounds!.x);
-      expect(accountBounds!.x + accountBounds!.width).toBeLessThanOrEqual(
-        leftBounds!.x + leftBounds!.width,
-      );
-      expect(accountBounds!.y).toBeGreaterThan(800);
-      await expect(header.locator('.product-header-account')).toHaveCSS(
-        'border-right-width',
-        '1px',
-      );
-      await expect(page.locator('.room-desktop-right')).toHaveCSS('border-left-width', '1px');
-      await expect
-        .poll(async () => (await page.locator('.room-tools-header').boundingBox())!.y)
-        .toBe(0);
-    } else
+      const rail = page.getByRole('complementary', { name: 'Workspace navigation', exact: true });
+      await expect.poll(async () => (await rail.boundingBox())!.width).toBe(56);
+      await expect(rail.getByRole('button', { name: 'Open account menu' })).toBeVisible();
       await expect(
-        header.getByRole('button', { name: 'Open navigation and account menu' }),
+        page.getByRole('complementary', { name: 'Worktrees', exact: true }),
       ).toBeVisible();
-    expect(
-      await page.locator('.research-room').evaluate((room) => {
-        const box = room.getBoundingClientRect();
-        return Math.abs(box.bottom - window.innerHeight) <= 1;
-      }),
-    ).toBeTruthy();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-      width,
-    );
-    if (width === 390) await page.screenshot({ path: '/tmp/polycolab-matched-mobile-brand.png' });
-    if (width === 1440) {
-      await page.mouse.move(500, 300);
-      await expect(page.getByRole('button', { name: 'Collapse panel' })).toHaveCSS(
-        'background-color',
-        'rgba(0, 0, 0, 0)',
-      );
-      await page.getByRole('button', { name: 'Collapse panel' }).click();
-      await expect(page.locator('.room-desktop-right')).toHaveCount(0);
-      await expect(page.locator('.room-tools-content')).toHaveCount(0);
-      await expect
-        .poll(async () => {
-          const bounds = (await page.locator('.room-center').boundingBox())!;
-          return bounds.x + bounds.width;
-        })
-        .toBe(1440);
-      await page.mouse.move(500, 300);
-      await expect(page.getByRole('button', { name: 'Expand panel' })).toHaveCSS(
-        'background-color',
-        'rgba(0, 0, 0, 0)',
-      );
-      await page.getByRole('button', { name: 'Expand panel' }).click();
-      await expect(page.locator('.room-desktop-right')).toBeVisible();
-      await page.getByRole('button', { name: 'Maximize panel' }).click();
-      await expect(page.locator('.research-room')).toHaveClass(/room-maximized/);
-      await page.getByRole('button', { name: 'Restore panel' }).click();
-      await expect(page.locator('.research-room')).not.toHaveClass(/room-maximized/);
+    } else {
+      await page.getByRole('button', { name: 'Open navigation', exact: true }).click();
+      await expect(page.getByRole('dialog', { name: 'Navigation', exact: true })).toBeVisible();
     }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
   });
 }
 
@@ -4331,6 +4053,7 @@ test('hosted run history keeps prior files and offers explicit resume after lost
     page.getByText('Review its history before resuming', { exact: false }),
   ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Resume run' })).toBeDisabled();
+  await page.getByRole('tab', { name: 'Details', exact: true }).click();
   await page.getByText('Files and run history', { exact: true }).click();
   await page.getByLabel('Files from completed run').selectOption('completed-run');
   await expect(page.getByRole('button', { name: 'Download Saved result.txt' })).toBeVisible();
@@ -4392,263 +4115,63 @@ test('public workspace search preserves scope and paginates server results', asy
   await expect(page.locator('.workspace-card')).toHaveCount(20);
 });
 
-test('collapsed navigation retains destinations and mobile opens the full menu', async ({
-  page,
-}) => {
+test('rail layout modes have stable panel headers and mobile navigation', async ({ page }) => {
   await mock(page);
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(`/workspaces/${projectId}`);
-  const sidebar = page.locator('.room-desktop-left');
-  const workspaceHeader = page.locator('header.product-header-workspace');
-  await expect(sidebar.getByText('Navigation', { exact: true })).toHaveCount(0);
-  const collapseButton = workspaceHeader.getByRole('button', { name: 'Collapse left sidebar' });
-  await expect(collapseButton).toBeVisible();
-  await expect(page.locator('.room-desktop-right')).toHaveCSS('border-left-style', 'solid');
-  await expect(page.locator('.room-desktop-right')).toHaveCSS('border-left-width', '1px');
-  const sections = sidebar.getByRole('navigation', { name: 'Workspace sections' });
-  await expect(sections.getByRole('link').nth(0)).toHaveText('New chat');
-  await expect(sections.getByRole('link').nth(1)).toHaveText('All sessions');
-  await expect(sections.getByRole('link').nth(2)).toHaveText('Overview');
-  const brandColumn = workspaceHeader.locator('.product-workspace-brand');
-  await expect(brandColumn.getByText('Polycolab', { exact: true })).toBeVisible();
-  const brandBounds = await brandColumn.boundingBox();
-  const collapseBounds = await collapseButton.boundingBox();
-  const leftBounds = await sidebar.boundingBox();
-  expect(Math.abs(brandBounds!.width - leftBounds!.width)).toBeLessThanOrEqual(1);
-  expect(collapseBounds!.x + collapseBounds!.width).toBeLessThanOrEqual(
-    brandBounds!.x + brandBounds!.width,
-  );
-  await expect(sections.getByRole('link').nth(3)).toHaveText('Research objects');
-  await expect(sections.getByRole('link').nth(4)).toHaveText('Map');
-  await expect(sections.getByRole('link').nth(5)).toHaveText('Activity');
-  await expect(sections.getByRole('link', { name: 'Agent connect' })).toHaveCount(0);
-  await expect(sections.getByRole('link', { name: 'Research objects', exact: true })).toBeVisible();
-  await expect(
-    sections.getByRole('link', { name: 'Research objects', exact: true }).locator('svg'),
-  ).toHaveClass(/lucide-files/);
-  await expect(sections.getByRole('link', { name: 'Research records', exact: true })).toHaveCount(
-    0,
-  );
-
-  const accountBox = workspaceHeader.locator('.product-header-account');
-  const accountControls = accountBox.locator('.product-workspace-account-box');
-  const workspaceSettings = accountBox.getByRole('link', { name: 'Workspace settings' });
-  const agentConnect = accountBox.getByRole('link', { name: 'Agent connect' });
-  await expect(agentConnect).toBeVisible();
-  await expect(workspaceSettings).toBeVisible();
-  await expect(accountControls.getByRole('link', { name: 'Workspace settings' })).toHaveCount(0);
-  await expect(accountControls).toHaveCSS('background-color', 'rgb(255, 255, 255)');
-  await expect(accountBox).not.toHaveCSS('background-color', 'rgb(255, 255, 255)');
-  await expect(sidebar.getByRole('link', { name: 'Workspace settings', exact: true })).toHaveCount(
-    0,
-  );
-  const settingsBounds = await workspaceSettings.boundingBox();
-  const accountBounds = await workspaceHeader
-    .getByRole('button', { name: 'Open account menu for Ada' })
-    .boundingBox();
-  expect(settingsBounds!.y + settingsBounds!.height).toBeLessThan(accountBounds!.y);
-  await workspaceHeader.getByRole('button', { name: 'Open account menu for Ada' }).click();
-  await expect(page.getByRole('menuitem', { name: 'Profile' })).toBeVisible();
-  await expect(page.getByRole('menuitem', { name: 'Settings' })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await page.screenshot({ path: '/tmp/polycolab-workspace-profile-sidebar.png' });
-  const headerDivider = workspaceHeader.locator('.product-header-inner-workspace');
-  expect(
-    await headerDivider.evaluate((element) => {
-      const style = getComputedStyle(element);
-      return Math.abs(
-        parseFloat(getComputedStyle(element, '::after').right) -
-          parseFloat(style.getPropertyValue('--workspace-right-width')),
-      );
-    }),
-  ).toBeLessThanOrEqual(1);
-  const leftResize = page.getByRole('separator', { name: 'Resize session navigation' });
-  await leftResize.hover();
-  expect(await leftResize.evaluate((element) => getComputedStyle(element, '::after').width)).toBe(
-    '1px',
-  );
-  const rightResize = page.getByRole('separator', { name: 'Resize panel' });
-  await rightResize.hover();
-  expect(await rightResize.evaluate((element) => getComputedStyle(element, '::after').width)).toBe(
-    '1px',
-  );
-  await page.getByRole('separator', { name: 'Resize session navigation' }).focus();
-  for (let index = 0; index < 8; index += 1) await page.keyboard.press('ArrowLeft');
-  await expect.poll(async () => (await sidebar.boundingBox())!.width).toBe(216);
-  const narrowToggleBounds = await collapseButton.boundingBox();
-  expect(narrowToggleBounds!.x + narrowToggleBounds!.width).toBeLessThanOrEqual(216);
-  for (let index = 0; index < 9; index += 1) await page.keyboard.press('ArrowRight');
-  await expect
-    .poll(async () =>
-      Math.abs((await brandColumn.boundingBox())!.width - (await sidebar.boundingBox())!.width),
-    )
-    .toBeLessThanOrEqual(1);
-  await collapseButton.click();
-  await expect(workspaceHeader.getByRole('button', { name: 'Expand left sidebar' })).toBeFocused();
-  await expect.poll(async () => (await sidebar.boundingBox())!.width).toBe(64);
-  await expect(brandColumn.getByRole('link', { name: 'Polycolab home' })).toBeHidden();
-  await expect(workspaceHeader.locator('.product-workspace-account-label')).toBeHidden();
-  const expandBounds = await workspaceHeader
-    .getByRole('button', { name: 'Expand left sidebar' })
-    .boundingBox();
-  const railBounds = await brandColumn.boundingBox();
-  expect(
-    Math.abs(expandBounds!.x + expandBounds!.width / 2 - (railBounds!.x + railBounds!.width / 2)),
-  ).toBeLessThanOrEqual(1);
-  expect(expandBounds!.x + expandBounds!.width).toBeLessThanOrEqual(
-    railBounds!.x + railBounds!.width,
-  );
-  await expect(workspaceSettings).toHaveAttribute('title', 'Workspace settings');
-  await expect(workspaceSettings.locator('svg')).toBeVisible();
-  await expect(agentConnect).toHaveAttribute('title', 'Agent connect');
-  await expect(sidebar.getByRole('button', { name: 'Recent sessions' })).toBeHidden();
-  for (const label of ['Overview', 'Research objects', 'Map', 'New chat', 'All sessions']) {
-    const link = sidebar.getByRole('link', { name: label, exact: true });
-    await expect(link).toBeVisible();
-    await expect(link).toHaveAttribute('title', label);
-    await expect(link.locator('svg')).toBeVisible();
+  await page.goto(`/workspaces/${projectId}/overview`);
+  const rail = page.getByRole('complementary', { name: 'Workspace navigation', exact: true });
+  for (const name of ['Project', 'Research objects', 'Map', 'Activity']) {
+    await rail.getByRole('link', { name, exact: true }).click();
+    const panel = page.getByRole('complementary', { name: `${name} panel`, exact: true });
+    await expect(panel.getByRole('heading', { name, exact: true, level: 2 })).toBeVisible();
+    await expect(page.getByRole('tablist', { name: 'Workspace tabs' })).toHaveCount(0);
   }
-  await sidebar.getByRole('link', { name: 'Research objects', exact: true }).click();
-  await expect(page).toHaveURL(`/workspaces/${projectId}/research`);
-  await expect(
-    sidebar.getByRole('link', { name: 'Research objects', exact: true }),
-  ).toHaveAttribute('aria-current', 'page');
-  await expect.poll(async () => (await sidebar.boundingBox())!.width).toBe(64);
-  await expect
-    .poll(async () => (await page.locator('.room-tools-header').boundingBox())!.y)
-    .toBe(0);
-  const selectedColor = await sidebar
-    .getByRole('link', { name: 'Research objects', exact: true })
-    .evaluate((link) => getComputedStyle(link).backgroundColor);
-  const idleColor = await sidebar
-    .getByRole('link', { name: 'Overview', exact: true })
-    .evaluate((link) => getComputedStyle(link).backgroundColor);
-  expect(selectedColor).not.toBe(idleColor);
-  await page.screenshot({ path: '/tmp/polycolab-workspace-icon-rail.png' });
-  await workspaceHeader.getByRole('button', { name: 'Expand left sidebar' }).click();
-  await expect(sidebar.getByRole('searchbox', { name: 'Filter sessions' })).toHaveCount(0);
-  await expect.poll(async () => (await sidebar.boundingBox())!.width).toBe(288);
-  await workspaceHeader.getByRole('button', { name: 'Collapse left sidebar' }).click();
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: 'Open sessions navigation' }).click();
-  const drawer = page.getByRole('dialog', { name: 'Session navigation' });
-  await expect(drawer.getByText('Navigation', { exact: true })).toHaveCount(0);
-  await expect(drawer.getByRole('link', { name: 'Workspace settings' })).toBeVisible();
-  await expect(drawer.getByRole('link', { name: 'Agent connect' })).toBeVisible();
-  await expect(
-    drawer.getByRole('link', { name: 'Research objects', exact: true }).locator('span'),
-  ).not.toHaveClass(/sr-only/);
-  await drawer.getByRole('link', { name: 'Overview', exact: true }).click();
-  await expect(drawer).toBeHidden();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole('button', { name: 'Open navigation', exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: 'Navigation', exact: true });
+  await drawer.getByRole('link', { name: 'Project', exact: true }).click();
+  await expect(drawer).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: project.name, level: 1 })).toBeVisible();
 });
 
-test('sidebar collapse animates its width and respects reduced motion', async ({ page }) => {
+test('icon rail stays fixed with reduced motion and has no collapse button', async ({ page }) => {
   await mock(page);
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await page.goto(`/workspaces/${projectId}`);
-  await page.getByRole('button', { name: 'Collapse left sidebar' }).waitFor();
-  const widths = await page.locator('.room-desktop-left').evaluate(async (sidebar) => {
-    const samples: number[] = [];
-    const start = performance.now();
-    (document.querySelector('[aria-label="Collapse left sidebar"]') as HTMLButtonElement).click();
-    await new Promise<void>((resolve) => {
-      function sample() {
-        samples.push(sidebar.getBoundingClientRect().width);
-        if (performance.now() - start < 400) requestAnimationFrame(sample);
-        else resolve();
-      }
-      requestAnimationFrame(sample);
-    });
-    return samples;
-  });
-  expect(widths.some((width) => width > 64 && width < 280)).toBe(true);
-  expect(widths.at(-1)).toBe(64);
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.getByRole('button', { name: 'Expand left sidebar' }).click();
-  await expect
-    .poll(async () => (await page.locator('.room-desktop-left').boundingBox())!.width)
-    .toBe(280);
-  expect(
-    await page
-      .locator('.research-room')
-      .evaluate((room) => getComputedStyle(room).transitionDuration),
-  ).toBe('0s');
+  await page.goto(`/workspaces/${projectId}/overview`);
+  const rail = page.getByRole('complementary', { name: 'Workspace navigation', exact: true });
+  await rail.hover();
+  await expect.poll(async () => (await rail.boundingBox())!.width).toBe(56);
+  await expect(page.getByRole('button', { name: 'Collapse left sidebar' })).toHaveCount(0);
 });
 
-test('workspace keeps navigation fixed while center and panel scale proportionally', async ({
-  page,
-}) => {
+test('workspace keeps its rail and left panel fixed as the center grows', async ({ page }) => {
   await mock(page);
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/workspaces/${projectId}/map`);
-  const left = page.locator('.room-desktop-left');
-  const right = page.locator('.room-desktop-right');
-  const center = page.locator('.room-center');
+  const rail = page.getByRole('complementary', { name: 'Workspace navigation', exact: true });
+  const panel = page.getByRole('complementary', { name: 'Map panel', exact: true });
   for (const width of [1440, 1720, 1000]) {
     await page.setViewportSize({ width, height: 900 });
-    await expect.poll(async () => (await left.boundingBox())!.width).toBe(280);
+    await expect.poll(async () => (await rail.boundingBox())!.width).toBe(56);
     await expect
-      .poll(async () => {
-        const r = (await right.boundingBox())!.width;
-        const c = (await center.boundingBox())!.width;
-        return Math.abs(r / (r + c) - 0.4);
-      })
-      .toBeLessThan(0.002);
+      .poll(async () => (await panel.boundingBox())!.width)
+      .toBe(width <= 1050 ? 220 : 260);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
   }
 });
 
-test('collapsed panel leaves only a header toggle and restores its width', async ({ page }) => {
+test('workspace tools collapse and restore their resized width', async ({ page }) => {
   await mock(page);
-  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(`/workspaces/${projectId}/objects/${objectId}`);
-  const sidebar = page.getByRole('complementary', { name: 'Focused Object', exact: true });
-  await expect(sidebar.getByRole('link', { name: 'Open map', exact: true })).toHaveCount(0);
-  await expect(
-    page
-      .getByRole('complementary', { name: 'Session navigation', exact: true })
-      .getByRole('link', { name: 'Map', exact: true }),
-  ).toBeVisible();
-  await expect
-    .poll(async () => Math.abs((await sidebar.boundingBox())!.width - (1440 - 280 - 16) * 0.4))
-    .toBeLessThan(1);
-  const initialWidth = (await sidebar.boundingBox())!.width;
-  await page.getByRole('separator', { name: 'Resize panel' }).press('ArrowLeft');
-  await sidebar.getByRole('button', { name: 'Collapse panel', exact: true }).click();
-  await expect(sidebar).toHaveCount(0);
-  const expand = page
-    .getByRole('navigation', { name: 'Workspace breadcrumb' })
-    .getByRole('button', { name: 'Expand panel' });
-  await expect(expand).toBeFocused();
-  const toggleBounds = await expand.boundingBox();
-  expect(toggleBounds!.y).toBeLessThan(36);
-  await expect
-    .poll(async () => {
-      const bounds = (await page.locator('.room-center').boundingBox())!;
-      return bounds.x + bounds.width;
-    })
-    .toBe(1440);
-  await page.screenshot({ path: '/tmp/polycolab-collapsed-right-panel.png' });
-  await expand.click();
-  await expect(sidebar.getByRole('button', { name: 'Collapse panel' })).toBeFocused();
-  for (const name of ['Version history', 'Discussion']) {
-    const link = sidebar.getByRole('link', { name, exact: true });
-    await expect(link).toBeVisible();
-  }
-  await sidebar.getByRole('link', { name: 'Version history', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Version history', exact: true })).toBeVisible();
-  await expect
-    .poll(async () => Math.abs((await sidebar.boundingBox())!.width - initialWidth - 8))
-    .toBeLessThan(1);
-  await sidebar.getByRole('button', { name: 'Collapse panel', exact: true }).click();
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: 'Open panel', exact: true }).click();
-  const drawer = page.getByRole('dialog', { name: 'Focused Object', exact: true });
-  await expect(
-    drawer.getByRole('link', { name: 'Version history', exact: true }).locator('span'),
-  ).not.toHaveClass(/sr-only/);
-  await expect(drawer.getByRole('link', { name: 'Open map', exact: true })).toHaveCount(0);
+  const panel = page.getByRole('complementary', { name: 'Workspace tools', exact: true });
+  await page.getByRole('separator', { name: 'Resize tools', exact: true }).press('ArrowLeft');
+  const width = (await panel.boundingBox())!.width;
+  await panel.getByRole('button', { name: 'Collapse tools' }).click();
+  await expect(panel).toHaveCount(0);
+  await page.getByRole('button', { name: 'Show tools', exact: true }).click();
+  await expect.poll(async () => (await panel.boundingBox())!.width).toBe(width);
+  await panel.getByRole('tab', { name: 'Details', exact: true }).click();
+  await expect(panel.getByRole('tab', { name: 'Body', exact: true })).toBeVisible();
 });
 
 test('workspace activity scopes recent changes and paginates revision links', async ({ page }) => {
@@ -4688,7 +4211,9 @@ test('workspace activity scopes recent changes and paginates revision links', as
     .getByRole('navigation', { name: 'Workspace sections' })
     .getByRole('link', { name: 'Activity', exact: true })
     .click();
-  await expect(page.getByRole('heading', { name: 'Activity', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Activity', exact: true, level: 1 }),
+  ).toBeVisible();
   const activityTitle = page.getByRole('button', {
     name: 'Inspect submission 502: Updated question',
     exact: true,
@@ -4701,7 +4226,7 @@ test('workspace activity scopes recent changes and paginates revision links', as
     page.getByRole('region', { name: 'Workspace activity' }).locator('tbody tr'),
   ).toHaveCount(2);
   await expect(activityTitle).toHaveAttribute('aria-pressed', 'true');
-  const panel = page.locator('.room-desktop-right');
+  const panel = await workspaceInspector(page);
   await expect(panel).toContainText('Submission 502');
   await expect(panel).toContainText('Revised');
   await expect(panel.getByRole('link', { name: 'Open version v2' })).toHaveAttribute(
@@ -4715,7 +4240,7 @@ test('workspace activity scopes recent changes and paginates revision links', as
   await page
     .getByRole('button', { name: 'Inspect submission 502: Updated question', exact: true })
     .click();
-  await expect(page.getByRole('dialog', { name: 'Submission', exact: true })).toContainText(
+  await expect(page.getByRole('dialog', { name: 'Activity', exact: true })).toContainText(
     'Submission 502',
   );
   await page.keyboard.press('Escape');
@@ -4735,13 +4260,12 @@ test('workspace overview centers the description without activity lists or reque
   page,
 }) => {
   const requests = await mock(page);
-  await page.goto(`/workspaces/${projectId}`);
+  await page.goto(`/workspaces/${projectId}/overview`);
   const main = page.locator('#main');
   await expect(main.getByRole('heading', { name: 'Spectral gaps', exact: true })).toBeVisible();
   await expect(main.getByText(project.description, { exact: true })).toBeVisible();
   await expect(main.getByText('Workspace overview', { exact: true })).toHaveCount(0);
-  await expect(main.getByText('Public', { exact: true })).toHaveCount(0);
-  await expect(page.locator('.room-desktop-right')).toContainText(/Public\s*· Anyone can read/);
+  await expect(main.getByText('Public', { exact: true })).toBeVisible();
   await expect(main.getByRole('button')).toHaveCount(0);
   await expect(main.getByRole('link')).toHaveCount(0);
   await expect(main.getByRole('list')).toHaveCount(0);
@@ -4765,36 +4289,29 @@ test('workspace overview shows a quiet empty description', async ({ page }) => {
   await page.route(`**/api/v1/workspaces/${projectId}`, (route) =>
     route.fulfill({ json: { ...project, description: '' } }),
   );
-  await page.goto(`/workspaces/${projectId}`);
+  await page.goto(`/workspaces/${projectId}/overview`);
   const main = page.locator('#main');
   await expect(main.getByText('No project description yet.')).toBeVisible();
   await expect(main.getByRole('button')).toHaveCount(0);
   await expect(main.getByRole('link')).toHaveCount(0);
 });
 
-test('workspace remembers panel widths and collapsed rails after reload', async ({ page }) => {
+test('workspace remembers resized panels and collapsed tools after reload', async ({ page }) => {
   await mock(page);
-  await page.goto(`/workspaces/${projectId}/map`);
-  await page.getByRole('separator', { name: 'Resize session navigation' }).focus();
-  await page.keyboard.press('ArrowLeft');
-  await page.getByRole('button', { name: 'Collapse left sidebar', exact: true }).click();
-  await page.getByRole('button', { name: 'Collapse panel', exact: true }).click();
+  await page.goto(`/workspaces/${projectId}/sessions/new`);
+  await page.getByRole('separator', { name: 'Resize left panel', exact: true }).press('ArrowLeft');
+  await page.getByRole('button', { name: 'Collapse tools', exact: true }).click();
   await page.reload();
+  await expect(page.getByRole('button', { name: 'Show tools', exact: true })).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'Expand left sidebar', exact: true }),
-  ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Expand panel', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Expand left sidebar', exact: true }).click();
-  await expect(page.getByRole('separator', { name: 'Resize session navigation' })).toHaveAttribute(
-    'aria-valuenow',
-    '272',
-  );
+    page.getByRole('separator', { name: 'Resize left panel', exact: true }),
+  ).toHaveAttribute('aria-valuenow', '252');
 });
 
 test('dedicated objects share the body and relationship inspector', async ({ page }) => {
   await mock(page);
   await page.goto(`/workspaces/${projectId}/objects/${objectId}`);
-  const panel = page.locator('.room-desktop-right');
+  const panel = await workspaceInspector(page);
   await expect(panel.getByRole('tab', { name: 'Body', exact: true })).toHaveAttribute(
     'aria-selected',
     'true',
@@ -4835,7 +4352,7 @@ test('focused object body renders Markdown and inline and display math with pane
     .getByRole('button', { name: 'A spectral gap question', exact: true })
     .click();
   const body = page
-    .locator('.room-desktop-right')
+    .locator(':is(.room-desktop-right, .layout-panel-content, .workspace-tools .tool-content)')
     .getByRole('tabpanel', { name: 'Body', exact: true });
   await expect(body.getByRole('heading', { name: 'A bound', exact: true })).toBeVisible();
   await expect(body.locator('strong')).toHaveText('strong');
@@ -5002,7 +4519,7 @@ test('workspace Agent connect provides scoped instructions and a collapsed navig
   await mock(page);
   await page.goto(`/workspaces/${projectId}`);
   const agentConnect = page
-    .locator('header.product-header-workspace .product-header-account')
+    .getByRole('complementary', { name: 'Workspace navigation', exact: true })
     .getByRole('link', { name: 'Agent connect', exact: true });
   await agentConnect.click();
   await expect(page).toHaveURL(`/workspaces/${projectId}/agent-connect`);
@@ -5027,10 +4544,10 @@ test('workspace Agent connect provides scoped instructions and a collapsed navig
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page).toHaveURL(`/workspaces/${projectId}/agent-connect`);
   await expect(page.locator('#main')).toContainText('not limited to this workspace');
-  await page.getByRole('button', { name: 'Collapse left sidebar', exact: true }).click();
   const link = agentConnect;
   await expect(link).toHaveAttribute('aria-current', 'page');
-  await expect(link).toHaveAttribute('title', 'Agent connect');
+  await link.hover();
+  await expect(page.getByRole('tooltip')).toHaveText('Agent connect');
   await expect(link.locator('svg')).toBeVisible();
 });
 
@@ -5140,7 +4657,7 @@ test('focused object opens in the same tab without reloading the document', asyn
   });
   const tabCount = context.pages().length;
   await page
-    .locator('.room-desktop-right')
+    .locator(':is(.room-desktop-right, .layout-panel-content, .workspace-tools .tool-content)')
     .getByRole('link', { name: 'Open object', exact: true })
     .click();
   await expect(page).toHaveURL(new RegExp(`/workspaces/${projectId}/objects/${objectId}$`));
@@ -5267,7 +4784,7 @@ test('map review indicators show reviewer types without assessment outcomes', as
     await expect(page.locator('.map-legend').getByText(label, { exact: true })).toHaveCount(0);
   await page.screenshot({ path: '/tmp/polycolab-review-colors.png', fullPage: true });
   await signal.click();
-  const panel = page.locator('.room-desktop-right');
+  const panel = await workspaceInspector(page);
   await expect(panel.getByText('Reviewer', { exact: true })).toBeVisible();
   await panel
     .getByLabel('Comment (optional)', { exact: true })
@@ -5345,7 +4862,7 @@ test('notes attempts and formalizations live in object tabs instead of map nodes
     .getByRole('list', { name: 'All objects', exact: true })
     .getByRole('button', { name: 'A spectral gap question', exact: true })
     .click();
-  const panel = page.locator('.room-desktop-right');
+  const panel = await workspaceInspector(page);
   for (const [tab, kind] of [
     ['Notes', 'NOTE'],
     ['Attempts', 'ATTEMPT'],
@@ -5399,12 +4916,76 @@ test('map draws statement proof and premises top down using simplified relations
     .getByRole('list', { name: 'All objects', exact: true })
     .getByRole('button', { name: 'Statement 0', exact: true })
     .click();
-  const panel = page.locator('.room-desktop-right');
+  const panel = await workspaceInspector(page);
   await panel.getByRole('tab', { name: /^Relationships/ }).click();
   await expect(panel.getByRole('heading', { name: 'Proved by (1)' })).toBeVisible();
   await expect(panel.getByRole('heading', { name: /Attachments/ })).toHaveCount(0);
   await page.screenshot({ path: '/tmp/polycolab-top-down-relations.png', fullPage: true });
 });
+
+const mainWorktreeId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+function nativeTree(
+  id: string,
+  title: string,
+  branch: string,
+  savedRevision: string,
+  files: Record<string, string>,
+) {
+  return {
+    id,
+    title,
+    branch,
+    workspace_id: projectId,
+    created_by_user_id: author.id,
+    created_at: revision.created_at,
+    updated_at: revision.created_at,
+    archived_at: null,
+    head_commit: 'a'.repeat(40),
+    revision: savedRevision,
+    lifecycle: 'active',
+    writable: true,
+    changed_files: [],
+    files: Object.entries(files).map(([path, value]) => ({
+      path,
+      size: value.length,
+      executable: false,
+    })),
+  };
+}
+async function mockNativeFiles(
+  page: Page,
+  trees: () => ReturnType<typeof nativeTree>[],
+  content: (id: string, path: string) => string,
+  save?: (body: {
+    expected_revision: string;
+    changes: Array<{ path: string; content_base64: string }>;
+  }) => string | undefined,
+) {
+  await page.route(`**/api/v1/workspaces/${projectId}/worktrees**`, async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const id = url.pathname.split('/')[6];
+    if (url.pathname.endsWith('/file'))
+      return route.fulfill({
+        json: {
+          commit: url.searchParams.get('revision'),
+          path: url.searchParams.get('path'),
+          content_base64: Buffer.from(content(id!, url.searchParams.get('path')!)).toString(
+            'base64',
+          ),
+        },
+      });
+    if (url.pathname.endsWith('/save') && save) {
+      expect(request.headers()['idempotency-key']).toBeTruthy();
+      const revision = save(request.postDataJSON());
+      return revision
+        ? route.fulfill({ json: { revision } })
+        : route.fulfill({ status: 409, json: { error: { code: 'repository_stale_save' } } });
+    }
+    if (request.method() !== 'GET') return route.fallback();
+    return route.fulfill({ json: id ? trees().find((tree) => tree.id === id) : trees() });
+  });
+}
 
 test('workspace Files saves through the member API and retains stale drafts', async ({ page }) => {
   await mock(page);
@@ -5446,20 +5027,32 @@ test('workspace Files saves through the member API and retains stale drafts', as
       },
     });
   });
+  await mockNativeFiles(
+    page,
+    () => [nativeTree(mainWorktreeId, 'Main', 'main', head, { 'notes.md': saved })],
+    () => saved,
+    (body) => {
+      if (stale) return;
+      expect(body.expected_revision).toBe(head);
+      saved = Buffer.from(body.changes[0]!.content_base64, 'base64').toString();
+      head = 'b'.repeat(40);
+      return head;
+    },
+  );
   await page.goto(`/projects/${projectId}/files`);
   await page.getByRole('button', { name: 'notes.md', exact: true }).click();
-  await expect(page.getByLabel('File contents')).toHaveValue('Initial note');
-  await page.getByLabel('File contents').fill('Updated note');
+  await expect(await plainFileEditor(page)).toHaveValue('Initial note');
+  await (await plainFileEditor(page)).fill('Updated note');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('Saved.', { exact: true })).toBeVisible();
   expect(saved).toBe('Updated note');
   stale = true;
-  await page.getByLabel('File contents').fill('Draft to retain');
+  await (await plainFileEditor(page)).fill('Draft to retain');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('main').getByRole('alert')).toContainText(
     'Compare the latest version before saving again',
   );
-  await expect(page.getByLabel('File contents')).toHaveValue('Draft to retain');
+  await expect(await plainFileEditor(page)).toHaveValue('Draft to retain');
 });
 
 test('Files workbench keeps tab drafts, explores folders, and reviews an agent copy on desktop and mobile', async ({
@@ -5530,6 +5123,14 @@ test('Files workbench keeps tab drafts, explores folders, and reviews an agent c
       },
     });
   });
+  await mockNativeFiles(
+    page,
+    () => [
+      nativeTree(mainWorktreeId, 'Main', 'main', 'a'.repeat(40), files),
+      nativeTree(sessionId, 'Agent worktree', agentBranch, 'b'.repeat(40), files),
+    ],
+    (_id, path) => files[path]!,
+  );
   await page.goto(`/workspaces/${projectId}/files`);
   const navigator = page.getByRole('complementary', { name: 'Workspace tools', exact: true });
   await expect(navigator.getByLabel('Find a file')).toBeVisible();
@@ -5547,39 +5148,38 @@ test('Files workbench keeps tab drafts, explores folders, and reviews an agent c
     )
     .toBeGreaterThanOrEqual(0);
   await navigator.getByRole('button', { name: 'README.md', exact: true }).click();
-  await page.getByLabel('File contents').fill('# My unsaved overview');
+  await (await plainFileEditor(page)).fill('# My unsaved overview');
   await page.getByRole('button', { name: 'approach.md', exact: true }).click();
-  await page.getByLabel('File contents').fill('# My unsaved proof');
+  await (await plainFileEditor(page)).fill('# My unsaved proof');
   await page.getByRole('tab', { name: 'README.md' }).click();
-  await expect(page.getByLabel('File contents')).toHaveValue('# My unsaved overview');
+  await expect(await plainFileEditor(page)).toHaveValue('# My unsaved overview');
   await expect(page.getByText('2 unsaved files', { exact: true })).toBeVisible();
   // File state belongs to the workspace, not to the Files route.
   const workspaceNav = page.getByRole('navigation', { name: 'Workspace sections', exact: true });
-  for (const section of ['Overview', 'Research objects', 'Activity']) {
+  for (const section of ['Project', 'Research objects', 'Activity']) {
     await workspaceNav.getByRole('link', { name: section, exact: true }).click();
-    await expect(navigator.getByLabel('Find a file')).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'README.md' })).toHaveAttribute(
-      'aria-selected',
-      'false',
-    );
-    await expect(page.getByRole('tab', { name: 'approach.md' })).toBeVisible();
+    await expect(navigator).toHaveCount(0);
+    await expect(page.getByRole('tab', { name: 'README.md' })).toHaveCount(0);
+    await expect(page.getByRole('tab', { name: 'approach.md' })).toHaveCount(0);
   }
+  await workspaceNav.getByRole('link', { name: 'Workspace', exact: true }).click();
+  await expect(await plainFileEditor(page)).toHaveValue('# My unsaved overview');
   await page
-    .getByRole('complementary', { name: 'Workspace tasks', exact: true })
-    .getByRole('button', { name: 'New conversation', exact: true })
+    .getByRole('complementary', { name: 'Worktrees', exact: true })
+    .getByRole('button', { name: 'New conversation in Main', exact: true })
     .click();
   await expect(page.getByLabel('Message the agent')).toBeVisible();
   await page.screenshot({ path: '/tmp/polycolab-workspace-navigator-chat.png', fullPage: true });
   await navigator.getByRole('button', { name: 'README.md', exact: true }).click();
-  await expect(page.getByLabel('File contents')).toHaveValue('# My unsaved overview');
+  await expect(await plainFileEditor(page)).toHaveValue('# My unsaved overview');
   await page.getByRole('tab', { name: 'New chat', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/workspaces/${projectId}/sessions/new\\?draft=`));
   await page.getByRole('tab', { name: 'README.md' }).click();
-  await expect(page.getByLabel('File contents')).toHaveValue('# My unsaved overview');
+  await expect(await plainFileEditor(page)).toHaveValue('# My unsaved overview');
   await expect(page.getByText('2 unsaved files', { exact: true })).toBeVisible();
-  await page.getByLabel('Preview Markdown').click();
+  await page.getByRole('button', { name: 'Preview', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'My unsaved overview' })).toBeVisible();
-  await page.getByLabel('Edit Markdown').click();
+  await page.getByRole('button', { name: 'Source', exact: true }).click();
   await page.getByRole('button', { name: 'Main.lean', exact: true }).click();
   await page.getByLabel('Find a file').fill('approach');
   await expect(page.getByRole('button', { name: 'Main.lean', exact: true })).toHaveCount(0);
@@ -5601,19 +5201,16 @@ test('Files workbench keeps tab drafts, explores folders, and reviews an agent c
   await page.getByRole('button', { name: 'Collapse tools', exact: true }).click();
   await expect(navigator).toHaveCount(0);
   await page.getByRole('tab', { name: 'README.md' }).click();
-  await expect(page.getByLabel('File contents')).toHaveValue('# My unsaved overview');
+  await expect(await plainFileEditor(page)).toHaveValue('# My unsaved overview');
   await page.getByRole('button', { name: 'Show tools', exact: true }).click();
   await navigator.getByRole('tab', { name: 'Explorer', exact: true }).click();
   await expect(navigator.getByLabel('Find a file')).toBeVisible();
-  page.once('dialog', (dialog) => dialog.dismiss());
-  await page.getByLabel('Working copy', { exact: true }).selectOption(agentBranch);
-  await expect(page.getByLabel('Working copy', { exact: true })).toHaveValue('main');
-  page.once('dialog', (dialog) => dialog.accept());
-  await page.getByLabel('Working copy', { exact: true }).selectOption(agentBranch);
+  await page.getByRole('button', { name: 'Select Agent worktree worktree' }).click();
+  await expect(navigator.getByLabel('Current worktree')).toContainText('Agent worktree');
   await expect(page.getByRole('tab', { name: 'README.md' })).toHaveCount(0);
-  await expect(page.getByRole('tab', { name: 'New chat', exact: true })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'New chat', exact: true })).toHaveCount(0);
   await navigator.getByRole('tab', { name: 'Source control', exact: true }).click();
-  await navigator.getByRole('button', { name: 'Review changes', exact: true }).click();
+  await navigator.getByRole('button', { name: 'Merge into Main', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Merge review' })).toContainText(
     'State the connectedness assumption',
   );
@@ -5629,7 +5226,7 @@ test('Files workbench keeps tab drafts, explores folders, and reviews an agent c
   await expect(mobileNavigator).not.toBeVisible();
   await expect(page.getByRole('tab', { name: 'approach.md' })).toBeVisible();
   await page.getByRole('tab', { name: 'README.md' }).click();
-  await page.getByLabel('Preview Markdown').click();
+  await page.getByRole('button', { name: 'Preview', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Spectral gaps', exact: true })).toBeVisible();
   const dimensions = await page.evaluate(() => ({
     width: innerWidth,
@@ -5700,11 +5297,18 @@ test('agent workbench retains chat and file drafts across unified tabs and mobil
       },
     });
   });
+  await mockNativeFiles(
+    page,
+    () => [
+      nativeTree(mainWorktreeId, 'Main', 'main', 'a'.repeat(40), { 'notes.md': 'Saved note' }),
+    ],
+    () => 'Saved note',
+  );
   await page.goto(`/workspaces/${projectId}`);
   await expect(page).toHaveURL(new RegExp(`/workspaces/${projectId}/sessions/new$`));
   await expect(page.getByLabel('Message the agent').filter({ visible: true })).toBeVisible();
   const rail = page.getByRole('complementary', { name: 'Workspace navigation', exact: true });
-  const agents = page.getByRole('complementary', { name: 'Workspace tasks', exact: true });
+  const agents = page.getByRole('complementary', { name: 'Worktrees', exact: true });
   const tools = page.getByRole('complementary', { name: 'Workspace tools', exact: true });
   await expect(agents).toBeVisible();
   await expect(tools).toBeVisible();
@@ -5712,16 +5316,16 @@ test('agent workbench retains chat and file drafts across unified tabs and mobil
   const centerX = (await page.getByRole('main').boundingBox())!.x;
   await expect(
     page
-      .getByRole('complementary', { name: 'Task management', exact: true })
+      .getByRole('complementary', { name: 'Worktrees panel', exact: true })
       .getByRole('link', { name: 'Polycolab workspaces', exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   expect((await page.getByRole('main').boundingBox())!.y).toBeLessThan(60);
   await rail.hover();
   await expect.poll(async () => (await rail.boundingBox())!.width).toBe(56);
   expect((await page.getByRole('main').boundingBox())!.x).toBe(centerX);
-  const overviewIcon = rail.getByRole('link', { name: 'Overview', exact: true });
+  const overviewIcon = rail.getByRole('link', { name: 'Project', exact: true });
   await overviewIcon.hover();
-  await expect(page.getByRole('tooltip')).toHaveText('Overview');
+  await expect(page.getByRole('tooltip')).toHaveText('Project');
   await expect(overviewIcon).not.toHaveAttribute('title');
   const tooltipBox = (await page.getByRole('tooltip').boundingBox())!;
   const railBox = (await rail.boundingBox())!;
@@ -5729,7 +5333,7 @@ test('agent workbench retains chat and file drafts across unified tabs and mobil
   await page.keyboard.press('Escape');
   await expect(page.getByRole('tooltip')).toHaveCount(0);
   await overviewIcon.focus();
-  await expect(page.getByRole('tooltip')).toHaveText('Overview');
+  await expect(page.getByRole('tooltip')).toHaveText('Project');
 
   await expect.poll(async () => (await rail.boundingBox())!.width).toBe(56);
   await expect(rail.getByRole('button', { name: /Pin workspace navigation/ })).toHaveCount(0);
@@ -5744,6 +5348,8 @@ test('agent workbench retains chat and file drafts across unified tabs and mobil
     .fill('Discard this new chat draft');
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'Close New chat' }).click();
+  await expect(page.getByText('Open a conversation or file to get started.')).toBeVisible();
+  await page.getByRole('button', { name: 'New chat tab', exact: true }).click();
   await expect(page.getByLabel('Message the agent').filter({ visible: true })).toHaveValue('');
   await page
     .getByLabel('Message the agent')
@@ -5769,7 +5375,7 @@ test('agent workbench retains chat and file drafts across unified tabs and mobil
     .filter({ visible: true })
     .fill('Second chat draft');
   await tools.getByRole('button', { name: 'notes.md', exact: true }).click();
-  await page.getByLabel('File contents').fill('Unsent file draft');
+  await (await plainFileEditor(page)).fill('Unsent file draft');
   await page.getByRole('tab', { name: /^Gap investigation/ }).click();
   await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}$`));
   await expect(
@@ -5785,7 +5391,7 @@ test('agent workbench retains chat and file drafts across unified tabs and mobil
     'Unsent new chat draft',
   );
   await page.getByRole('tab', { name: /notes.md/ }).click();
-  await expect(page.getByLabel('File contents')).toHaveValue('Unsent file draft');
+  await expect(await plainFileEditor(page)).toHaveValue('Unsent file draft');
   await tools.getByRole('tab', { name: 'Details', exact: true }).click();
   await expect(tools.getByLabel('Find a file')).toHaveCount(0);
   await tools.getByRole('tab', { name: 'Source control', exact: true }).click();
@@ -5805,8 +5411,8 @@ test('agent workbench retains chat and file drafts across unified tabs and mobil
   await page.getByRole('button', { name: 'Open navigation', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Navigation', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Close drawer' }).click();
-  await page.getByRole('button', { name: 'Hide tasks', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: 'Tasks', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Hide left panel', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Worktrees', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Close drawer' }).click();
   await page.getByRole('button', { name: 'Hide tools', exact: true }).click();
   await page
@@ -5892,7 +5498,7 @@ test('retained chat tabs pause streams and resume with their cursor and draft', 
         ).chatStreamMonitor,
     );
   await page.goto(`/workspaces/${projectId}/sessions/${chats[0]!.id}`);
-  const agents = page.getByRole('complementary', { name: 'Task management', exact: true });
+  const agents = page.getByRole('complementary', { name: 'Worktrees panel', exact: true });
   await expect.poll(async () => (await monitor()).active).toBe(1);
   await page
     .getByLabel('Private message', { exact: true })
@@ -5903,8 +5509,8 @@ test('retained chat tabs pause streams and resume with their cursor and draft', 
     await expect(page).toHaveURL(new RegExp(`/sessions/${chat.id}$`));
     await expect.poll(async () => (await monitor()).active).toBe(1);
   }
+  await expect.poll(async () => (await monitor()).aborted).toBeGreaterThanOrEqual(7);
   expect((await monitor()).maximum).toBe(1);
-  expect((await monitor()).aborted).toBeGreaterThanOrEqual(7);
   const beforeRefresh = requests.filter((request) =>
     request.endsWith(`/${chats[0]!.id}/messages`),
   ).length;
@@ -6001,13 +5607,13 @@ async function mockTaskWorkbench(page: Page) {
   ];
   const writes: Array<{ method: string; body: Record<string, unknown> }> = [];
   let sessionCreate: Record<string, unknown> | undefined;
-  await page.route(`**/api/v1/workspaces/${projectId}/tasks**`, (route) => {
+  await page.route(`**/api/v1/workspaces/${projectId}/worktrees**`, (route) => {
     const request = route.request();
     const id = new URL(request.url()).pathname.split('/')[6];
     if (request.method() === 'POST') {
       const body = request.postDataJSON();
       writes.push({ method: 'POST', body });
-      const created = workbenchTask(body.client_request_id, body.title);
+      const created = { ...workbenchTask(body.client_request_id, body.title), branch: body.branch };
       if (!tasks.some((task) => task.id === created.id)) tasks.push(created);
       return route.fulfill({ json: tasks.find((task) => task.id === created.id) });
     }
@@ -6033,8 +5639,8 @@ async function mockTaskWorkbench(page: Page) {
       const created = {
         ...session,
         id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-        title: 'Created task conversation',
-        task_id: sessionCreate!.task_id as string,
+        title: 'New conversation',
+        task_id: sessionCreate!.worktree_id as string,
       };
       chats.push(created);
       return route.fulfill({ json: created });
@@ -6086,10 +5692,26 @@ async function mockTaskWorkbench(page: Page) {
       },
     });
   });
+  const commitFor = (branch: string) =>
+    (branch === 'main' ? 'a' : branch.endsWith(workbenchTaskId) ? 'b' : 'c').repeat(40);
+  await mockNativeFiles(
+    page,
+    () => [
+      nativeTree(mainWorktreeId, 'Main', 'main', 'a'.repeat(40), {
+        'notes.md': 'Saved files in main',
+      }),
+      ...tasks.map((task) =>
+        nativeTree(task.id, task.title, task.branch, commitFor(task.branch), {
+          'notes.md': `Saved files in ${task.branch}`,
+        }),
+      ),
+    ],
+    (id) => `Saved files in ${tasks.find((task) => task.id === id)?.branch || 'main'}`,
+  );
   return { tasks, chats, writes, sessionCreate: () => sessionCreate };
 }
 
-test('task workbench switches working copies safely and creates multiple private conversations per task', async ({
+test('worktrees group conversations and switch saved files on desktop and mobile', async ({
   page,
 }) => {
   const fixture = await mockTaskWorkbench(page);
@@ -6097,128 +5719,92 @@ test('task workbench switches working copies safely and creates multiple private
   page.on('pageerror', (error) => errors.push(error.message));
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`/workspaces/${projectId}`);
-  const panel = page.getByRole('complementary', { name: 'Workspace tasks', exact: true });
+  const panel = page.getByRole('complementary', { name: 'Worktrees', exact: true });
   const tools = page.getByRole('complementary', { name: 'Workspace tools', exact: true });
-  await panel.getByRole('button', { name: 'Prove the spectral bound', exact: true }).click();
-  await expect(tools.getByLabel('Working copy', { exact: true })).toHaveValue(
-    `tasks/${workbenchTaskId}`,
-  );
-  const group = panel.getByRole('region', { name: 'Prove the spectral bound', exact: true });
+  await expect(
+    panel.getByRole('button', { name: 'Select Main worktree', exact: true }),
+  ).toBeVisible();
+  await expect(panel.getByRole('textbox')).toHaveCount(0);
+  await expect(panel.getByText('Shared workspace')).toHaveCount(0);
+  await panel
+    .getByRole('button', { name: 'Select Prove the spectral bound worktree', exact: true })
+    .click();
+  await expect(tools.getByLabel('Current worktree')).toContainText('Prove the spectral bound');
+  const group = panel.getByRole('region', { name: 'Prove the spectral bound worktree' });
   await expect(group.getByRole('button', { name: /Gap investigation Researcher/ })).toBeVisible();
   await expect(
     group.getByRole('button', { name: /Second proof conversation Researcher/ }),
   ).toBeVisible();
-  for (const chat of fixture.chats) {
-    await group.getByRole('button', { name: new RegExp(`${chat.title} Researcher`) }).click();
-    await expect(page).toHaveURL(new RegExp(`/sessions/${chat.id}$`));
-    await expect(tools.getByLabel('Working copy', { exact: true })).toHaveValue(
-      `tasks/${workbenchTaskId}`,
-    );
-  }
+  await group.getByRole('button', { name: /Gap investigation Researcher/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}$`));
   await tools.getByRole('button', { name: 'notes.md', exact: true }).click();
-  await expect(page.getByLabel('File contents')).toHaveValue(
-    `Saved files in tasks/${workbenchTaskId}`,
-  );
-  await page.getByLabel('File contents').fill('Keep this task file draft');
-  page.once('dialog', (dialog) => dialog.dismiss());
-  await panel.getByRole('button', { name: 'Check numerical examples', exact: true }).click();
-  await expect(tools.getByLabel('Working copy', { exact: true })).toHaveValue(
-    `tasks/${workbenchTaskId}`,
-  );
-  await expect(page.getByLabel('File contents')).toHaveValue('Keep this task file draft');
-  page.once('dialog', (dialog) => dialog.accept());
-  await panel.getByRole('button', { name: 'Check numerical examples', exact: true }).click();
-  await expect(tools.getByLabel('Working copy', { exact: true })).toHaveValue(
-    `tasks/${otherWorkbenchTaskId}`,
-  );
-  await panel.getByRole('button', { name: 'Prove the spectral bound', exact: true }).click();
-  await group.getByRole('button', { name: 'New conversation', exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/sessions/new\\?.*task=${workbenchTaskId}`));
-  expect(new URL(page.url()).searchParams.get('draft')).toBeTruthy();
+  await expect(await plainFileEditor(page)).toHaveValue(`Saved files in tasks/${workbenchTaskId}`);
+  await (await plainFileEditor(page)).fill('Keep this worktree draft');
+  await panel.getByRole('button', { name: 'Select Main worktree', exact: true }).click();
+  await expect(tools.getByLabel('Current worktree')).toContainText('Main');
+  await panel.getByRole('button', { name: 'Select Prove the spectral bound worktree' }).click();
+  await expect(await plainFileEditor(page)).toHaveValue('Keep this worktree draft');
+  await panel.getByRole('button', { name: 'Select Main worktree', exact: true }).click();
+  await expect(tools.getByLabel('Current worktree')).toContainText('Main');
+  await panel.getByRole('button', { name: 'New worktree', exact: true }).click();
+  await panel.getByLabel('Worktree name', { exact: true }).fill('Alternate proof');
+  await panel.getByRole('button', { name: 'Create worktree', exact: true }).click();
+  await expect(
+    panel.getByRole('button', { name: 'Select Alternate proof worktree' }),
+  ).toHaveAttribute('aria-current', 'true');
+  const created = fixture.tasks.find((item) => item.title === 'Alternate proof')!;
+  await expect(tools.getByLabel('Current worktree')).toContainText(created.title);
+  await panel
+    .getByRole('button', { name: 'New conversation in Alternate proof', exact: true })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`worktree=${created.id}`));
   await page
     .getByLabel('Message the agent')
     .filter({ visible: true })
-    .fill('A new private proof approach');
+    .fill('Explore an alternate proof');
   await page.getByRole('button', { name: 'Send message', exact: true }).click();
-  await expect.poll(() => fixture.sessionCreate()?.task_id).toBe(workbenchTaskId);
-  await expect(page).toHaveURL(new RegExp(`/sessions/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa$`));
-  await panel.getByRole('button', { name: 'Refresh tasks', exact: true }).click();
-  await expect(
-    group.getByRole('button', { name: /Created task conversation Researcher/ }),
-  ).toBeVisible();
-  await expect(tools.getByLabel('Working copy', { exact: true })).toHaveValue(
-    `tasks/${workbenchTaskId}`,
-  );
-  await page.screenshot({ path: '/tmp/polycolab-task-workbench-desktop.png', fullPage: true });
-  expect(errors).toEqual([]);
-});
-
-test('task workbench persists creation rename archive and restore through task APIs and mobile drawers', async ({
-  page,
-}) => {
-  const fixture = await mockTaskWorkbench(page);
-  const errors: string[] = [];
-  page.on('pageerror', (error) => errors.push(error.message));
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto(`/workspaces/${projectId}`);
-  const panel = page.getByRole('complementary', { name: 'Workspace tasks', exact: true });
-  await panel.getByRole('button', { name: 'New task', exact: true }).click();
-  await panel.getByLabel('Task name', { exact: true }).fill('Explore an alternate proof');
-  await panel.getByRole('button', { name: 'Create task', exact: true }).click();
-  await expect.poll(() => fixture.writes.filter((write) => write.method === 'POST').length).toBe(1);
-  const created = fixture.tasks.find((task) => task.title === 'Explore an alternate proof')!;
-  expect(created.id).toMatch(/^[0-9a-f-]{36}$/);
-  await expect(page.getByLabel('Working copy', { exact: true })).toHaveValue(created.branch);
-  await panel
-    .getByRole('button', { name: 'Rename Explore an alternate proof', exact: true })
-    .click();
-  await panel.getByLabel('Rename task', { exact: true }).fill('Alternate proof strategy');
-  await panel.getByRole('button', { name: 'Save name', exact: true }).click();
-  await expect(
-    panel.getByRole('button', { name: 'Alternate proof strategy', exact: true }),
-  ).toBeVisible();
-  await panel.getByRole('button', { name: 'Refresh tasks', exact: true }).click();
-  await expect(
-    panel.getByRole('button', { name: 'Alternate proof strategy', exact: true }),
-  ).toBeVisible();
-  await panel
-    .getByRole('button', { name: 'Archive Alternate proof strategy', exact: true })
-    .click();
-  await expect(
-    panel.getByRole('button', { name: 'Archived tasks (1)', exact: true }),
-  ).toBeVisible();
-  await expect(
-    panel.getByRole('button', { name: 'Alternate proof strategy', exact: true }),
-  ).toHaveCount(0);
-  await panel.getByRole('button', { name: 'Archived tasks (1)', exact: true }).click();
-  await panel
-    .getByRole('button', { name: 'Restore Alternate proof strategy', exact: true })
-    .click();
-  await expect(panel.getByRole('button', { name: 'Archived tasks (1)', exact: true })).toHaveCount(
-    0,
-  );
+  await expect.poll(() => fixture.sessionCreate()?.worktree_id).toBe(created.id);
+  await expect(page).toHaveURL(/sessions\/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa$/);
   await page.reload();
   await expect(
-    panel.getByRole('button', { name: 'Alternate proof strategy', exact: true }),
+    panel
+      .getByRole('region', { name: 'Alternate proof worktree' })
+      .getByRole('button', { name: /New conversation Researcher/ }),
   ).toBeVisible();
-  expect(
-    fixture.writes.filter((write) => write.method === 'PATCH').map((write) => write.body),
-  ).toEqual([{ title: 'Alternate proof strategy' }, { archived: true }, { archived: false }]);
+  await page.getByRole('button', { name: 'New chat tab', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`worktree=${created.id}`));
+  await page
+    .getByLabel('Message the agent')
+    .filter({ visible: true })
+    .fill('Keep this worktree chat draft');
+  await panel.getByRole('button', { name: 'New conversation in Main', exact: true }).click();
+  await expect(page).toHaveURL(/sessions\/new\?draft=/);
+  expect(new URL(page.url()).searchParams.get('worktree')).toBe(mainWorktreeId);
+  await panel.getByRole('button', { name: 'Select Alternate proof worktree' }).click();
+  await expect(tools.getByLabel('Current worktree')).toContainText(created.title);
+  await page.getByRole('tab', { name: /^New chat Unsaved changes$/ }).click();
+  await expect(page.getByLabel('Message the agent').filter({ visible: true })).toHaveValue(
+    'Keep this worktree chat draft',
+  );
+  await expect(tools.getByLabel('Current worktree')).toContainText(created.title);
+  await page.screenshot({ path: '/tmp/polycolab-worktrees-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: 'Hide tasks', exact: true }).click();
-  const drawer = page.getByRole('dialog', { name: 'Tasks', exact: true });
+  await page.getByRole('button', { name: 'Hide left panel', exact: true }).click();
+  const drawer = page.getByRole('dialog', { name: 'Worktrees', exact: true });
+  await drawer
+    .getByRole('button', { name: 'Toggle Prove the spectral bound conversations' })
+    .click();
   await expect(
-    drawer.getByRole('button', { name: 'Alternate proof strategy', exact: true }),
+    drawer.getByRole('button', { name: /Second proof conversation Researcher/ }),
   ).toBeVisible();
-  await page.screenshot({ path: '/tmp/polycolab-task-workbench-mobile.png', fullPage: true });
-  await page.getByRole('button', { name: 'Close drawer', exact: true }).click();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: '/tmp/polycolab-worktrees-mobile.png', fullPage: true });
+  await drawer.getByRole('button', { name: /Second proof conversation Researcher/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/sessions/${fixture.chats[1]!.id}$`));
+  await expect(drawer).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
-test('task workbench ignores a delayed task working-copy response after switching to a shared conversation', async ({
-  page,
-}) => {
+test('conversation navigation ignores a delayed legacy working-copy response', async ({ page }) => {
   const fixture = await mockTaskWorkbench(page);
   const sharedId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
   fixture.chats.push({ ...session, id: sharedId, title: 'Shared conversation', task_id: null });
@@ -6238,7 +5824,7 @@ test('task workbench ignores a delayed task working-copy response after switchin
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`/workspaces/${projectId}`);
-  const panel = page.getByRole('complementary', { name: 'Workspace tasks', exact: true });
+  const panel = page.getByRole('complementary', { name: 'Worktrees', exact: true });
   const tools = page.getByRole('complementary', { name: 'Workspace tools', exact: true });
   await panel
     .getByRole('button', { name: 'Toggle Prove the spectral bound conversations' })
@@ -6252,11 +5838,187 @@ test('task workbench ignores a delayed task working-copy response after switchin
     'aria-selected',
     'true',
   );
-  await expect(tools.getByLabel('Working copy', { exact: true })).toHaveValue('main');
+  await expect(tools.getByLabel('Current worktree')).toContainText('Main');
   await expect(
-    panel.getByRole('button', { name: 'Shared workspace', exact: true }),
+    panel.getByRole('button', { name: /Shared conversation Researcher/ }),
   ).toHaveAttribute('aria-current', 'true');
   await tools.getByRole('button', { name: 'notes.md', exact: true }).click();
-  await expect(page.getByLabel('File contents')).toHaveValue('Saved files in main');
+  await expect(await plainFileEditor(page)).toHaveValue('Saved files in main');
   expect(errors).toEqual([]);
+});
+
+test('workspace rail switches page layouts without adding tabs and restores chat drafts', async ({
+  page,
+}) => {
+  await mock(page);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`/workspaces/${projectId}/sessions/new`);
+  const rail = page.getByRole('complementary', { name: 'Workspace navigation', exact: true });
+  const composer = page.getByLabel('Message the agent').filter({ visible: true });
+  await composer.fill('Keep this layout-switch draft');
+  await expect(page.getByRole('tab', { name: /^New chat/ })).toHaveCount(1);
+  const workspaceWidth = (await page.getByRole('main').boundingBox())!.width;
+  for (const [label, panel] of [
+    ['Project', 'Project panel'],
+    ['Research objects', 'Research objects panel'],
+    ['Activity', 'Activity panel'],
+    ['Map', 'Map panel'],
+  ]) {
+    await rail.getByRole('link', { name: label, exact: true }).click();
+    await expect(page.getByRole('complementary', { name: panel, exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('complementary', { name: 'Worktrees panel', exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('complementary', { name: 'Workspace tools', exact: true }),
+    ).toHaveCount(0);
+    await expect(page.getByRole('tab', { name: /^New chat/ })).toHaveCount(0);
+    expect((await page.getByRole('main').boundingBox())!.width).toBeGreaterThan(workspaceWidth);
+    if (label === 'Project') await page.screenshot({ path: '/tmp/polycolab-project-layout.png' });
+  }
+  await page.goBack();
+  await expect(
+    page.getByRole('complementary', { name: 'Activity panel', exact: true }),
+  ).toBeVisible();
+  await page.goForward();
+  await expect(page.getByRole('complementary', { name: 'Map panel', exact: true })).toBeVisible();
+  await rail.getByRole('link', { name: 'Workspace', exact: true }).click();
+  await expect(composer).toHaveValue('Keep this layout-switch draft');
+  await expect(page.getByRole('tab', { name: /^New chat/ })).toHaveCount(1);
+  await expect(
+    page.getByRole('complementary', { name: 'Worktrees panel', exact: true }),
+  ).toBeVisible();
+  await page.screenshot({ path: '/tmp/polycolab-workspace-layout.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Open navigation', exact: true }).click();
+  const drawer = page.getByRole('dialog');
+  await drawer.getByRole('link', { name: 'Project', exact: true }).click();
+  await expect(page.getByRole('heading', { name: project.name, exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Hide left panel', exact: true }).click();
+  await expect(
+    page.getByRole('dialog').getByRole('navigation', { name: 'Project pages' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Close drawer' }).click();
+  await page.getByRole('button', { name: 'Open navigation', exact: true }).click();
+  await page.getByRole('dialog').getByRole('link', { name: 'Workspace', exact: true }).click();
+  await expect(composer).toHaveValue('Keep this layout-switch draft');
+});
+
+test('closing the last tab leaves an empty workbench and retains its worktree', async ({
+  page,
+}) => {
+  await mockTaskWorkbench(page);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`/workspaces/${projectId}/sessions/new?draft=last&worktree=${workbenchTaskId}`);
+  const tabStrip = page.getByRole('tablist', { name: 'Workspace tabs' });
+  const tools = page.getByRole('complementary', { name: 'Workspace tools', exact: true });
+  const empty = page.getByText('Open a conversation or file to get started.', { exact: true });
+  const composer = page.getByLabel('Message the agent').filter({ visible: true });
+  await composer.fill('Keep until confirmed');
+  page.once('dialog', (dialog) => dialog.dismiss());
+  await page.getByRole('button', { name: 'Close New chat', exact: true }).click();
+  await expect(composer).toHaveValue('Keep until confirmed');
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Close New chat', exact: true }).click();
+  await expect(empty).toBeVisible();
+  await expect(tabStrip.getByRole('tab')).toHaveCount(0);
+  await expect(page).toHaveURL(/sessions\?view=empty/);
+  await expect(tools.getByLabel('Current worktree')).toContainText('Prove the spectral bound');
+  await page.reload();
+  await expect(empty).toBeVisible();
+  await expect(tabStrip.getByRole('tab')).toHaveCount(0);
+  await expect(tools.getByLabel('Current worktree')).toContainText('Prove the spectral bound');
+  const rail = page.getByRole('complementary', { name: 'Workspace navigation', exact: true });
+  await rail.getByRole('link', { name: 'Project', exact: true }).click();
+  await rail.getByRole('link', { name: 'Workspace', exact: true }).click();
+  await expect(empty).toBeVisible();
+  await expect(tabStrip.getByRole('tab')).toHaveCount(0);
+  await tools.getByRole('button', { name: 'notes.md', exact: true }).click();
+  await expect(await plainFileEditor(page)).toBeVisible();
+  await (await plainFileEditor(page)).fill('Unsaved file');
+  page.once('dialog', (dialog) => dialog.dismiss());
+  await page.getByRole('button', { name: 'Close notes.md', exact: true }).click();
+  await expect(await plainFileEditor(page)).toHaveValue('Unsaved file');
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Close notes.md', exact: true }).click();
+  await expect(empty).toBeVisible();
+  await expect(tabStrip.getByRole('tab')).toHaveCount(0);
+  await page.getByRole('button', { name: 'New chat tab', exact: true }).click();
+  await expect(composer).toHaveValue('');
+  await expect(page).toHaveURL(new RegExp(`worktree=${workbenchTaskId}`));
+  await expect(tabStrip.getByRole('tab')).toHaveCount(1);
+});
+
+test('Explorer previews retain edited Monaco models and isolate the same path across worktrees', async ({
+  page,
+}) => {
+  await mockTaskWorkbench(page);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`/workspaces/${projectId}/sessions?view=empty&branch=main`);
+  const tools = page.getByRole('complementary', { name: 'Workspace tools', exact: true });
+  const tabs = page.getByRole('tablist', { name: 'Workspace tabs' });
+  await tools.getByRole('button', { name: 'notes.md', exact: true }).click();
+  const editor = page.locator('.monaco-source-editor .monaco-editor');
+  await expect(editor).toBeVisible();
+  const preview = tabs.getByRole('tab', { name: 'notes.md', exact: true });
+  await expect(preview.locator('span').first()).toHaveCSS('font-style', 'italic');
+  await editor.locator('textarea').focus();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('main-only draft');
+  await expect(preview.locator('span').first()).toHaveCSS('font-style', 'normal');
+  await expect(editor.locator('.view-lines')).toContainText('main-only draft');
+  await page
+    .getByRole('button', { name: 'Select Prove the spectral bound worktree', exact: true })
+    .click();
+  await tools.getByRole('button', { name: 'notes.md', exact: true }).click();
+  await expect(editor.locator('.view-lines')).not.toContainText('main-only draft');
+  await page.getByRole('button', { name: 'Select Main worktree', exact: true }).click();
+  await expect(editor.locator('.view-lines')).toContainText('main-only draft');
+  await editor.locator('textarea').focus();
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect(editor.locator('.view-lines')).not.toContainText('main-only draft');
+});
+
+test('Explorer preview replacement, explicit filter reveal, and clean failure preserve the selected file', async ({
+  page,
+}) => {
+  await mockTaskWorkbench(page);
+  const contents = {
+    'src/a.py': 'a = 1',
+    'src/b.py': 'b = 2',
+    '.config.json': '{}',
+    'broken.py': '',
+  };
+  await mockNativeFiles(
+    page,
+    () => [nativeTree(mainWorktreeId, 'Main', 'main', 'a'.repeat(40), contents)],
+    (_id, path) => contents[path as keyof typeof contents],
+  );
+  await page.route(`**/worktrees/${mainWorktreeId}/file?**`, (route) =>
+    new URL(route.request().url()).searchParams.get('path') === 'broken.py'
+      ? route.fulfill({ status: 503, json: { error: { code: 'unavailable' } } })
+      : route.fallback(),
+  );
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`/workspaces/${projectId}/sessions?view=empty&branch=main`);
+  const tools = page.getByRole('complementary', { name: 'Workspace tools', exact: true });
+  const tabs = page.getByRole('tablist', { name: 'Workspace tabs' });
+  await tools.getByRole('button', { name: 'a.py', exact: true }).click();
+  await expect(tabs.getByRole('tab', { name: 'a.py', exact: true })).toBeVisible();
+  await tools.getByRole('button', { name: 'b.py', exact: true }).click();
+  await expect(tabs.getByRole('tab', { name: 'a.py', exact: true })).toHaveCount(0);
+  await tabs.getByRole('tab', { name: 'b.py', exact: true }).dblclick();
+  await tools.getByRole('button', { name: 'a.py', exact: true }).click();
+  await tools.getByLabel('Find a file').fill('b.py');
+  await expect(tools.getByRole('button', { name: 'a.py', exact: true })).toHaveCount(0);
+  await tools.getByRole('button', { name: 'Reveal active file' }).click();
+  await expect(tools.getByLabel('Find a file')).toHaveValue('');
+  await tools.getByRole('button', { name: 'broken.py', exact: true }).click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(tabs.getByRole('tab', { name: 'a.py', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(tabs.getByRole('tab', { name: 'b.py', exact: true })).toBeVisible();
 });

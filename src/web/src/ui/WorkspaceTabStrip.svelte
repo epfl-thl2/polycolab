@@ -17,6 +17,7 @@
     onclose,
     onreorder,
     onnewchat,
+    onpin,
   }: {
     tabs: WorkspaceTab[];
     activeId: string;
@@ -24,6 +25,7 @@
     onclose: (id: string) => void;
     onreorder: (ids: string[]) => void;
     onnewchat?: () => void;
+    onpin?: (id: string) => void;
   } = $props();
   let dragged = $state('');
   async function key(event: KeyboardEvent, index: number) {
@@ -66,15 +68,22 @@
               : tab.kind === 'diff'
                 ? GitCompare
                 : LayoutDashboard}
-      <div class="workspace-tab" class:active={activeId === tab.id}>
+      <div
+        class="workspace-tab"
+        class:active={activeId === tab.id}
+        class:preview={Boolean(tab.preview)}
+      >
         <button
           role="tab"
           id={`workspace-tab-${tab.id}`}
           aria-selected={activeId === tab.id}
           tabindex={activeId === tab.id ? 0 : -1}
-          title={tab.label}
+          title={tab.preview
+            ? `${tab.label} — Preview; double-click or press Enter to keep open`
+            : tab.label}
           draggable="true"
           ondragstart={(event) => {
+            onpin?.(tab.id);
             dragged = tab.id;
             event.dataTransfer?.setData('text/x-workspace-tab', tab.id);
           }}
@@ -91,9 +100,15 @@
             dragged = '';
           }}
           onclick={() => onselect(tab.id)}
+          ondblclick={() => onpin?.(tab.id)}
           onkeydown={(event) => {
-            if (event.altKey && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+            if (event.key === 'Enter' && tab.preview) {
               event.preventDefault();
+              onpin?.(tab.id);
+              onselect(tab.id);
+            } else if (event.altKey && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+              event.preventDefault();
+              onpin?.(tab.id);
               move(tab.id, event.key === 'ArrowLeft' ? -1 : 1);
             } else void key(event, index);
           }}
@@ -102,7 +117,7 @@
             ></i>{/if}
         </button>
         <button class="close" aria-label={`Close ${tab.label}`} onclick={() => onclose(tab.id)}
-          ><X size={12} /></button
+          ><X size={14} /></button
         >
       </div>
     {/each}
@@ -111,14 +126,16 @@
       class="new-chat"
       aria-label="New chat tab"
       title="New chat"
-      onclick={onnewchat}><Plus size={16} /></button
+      onclick={onnewchat}><Plus size={14} /></button
     >{/if}
 </div>
 
 <style>
   .workspace-tab-strip {
     display: flex;
-    min-height: 39px;
+    height: var(--workspace-nav-height, 32px);
+    min-height: var(--workspace-nav-height, 32px);
+    box-sizing: border-box;
     flex-shrink: 0;
     border-bottom: 1px solid var(--border);
     background: var(--sidebar);
@@ -133,22 +150,32 @@
   .workspace-tab {
     display: flex;
     flex-shrink: 0;
+    min-width: 200px;
     max-width: 230px;
     border-right: 1px solid var(--border);
-    border-top: 2px solid transparent;
+    border-top: 1px solid transparent;
   }
   .workspace-tab.active {
     border-top-color: var(--primary);
-    background: var(--background);
+    background: var(--brand-soft);
     color: var(--brand-strong);
+  }
+  .workspace-tab button {
+    background: transparent;
+    color: inherit;
   }
   button[role='tab'] {
     display: flex;
-    gap: 7px;
+    flex: 1;
+    gap: 5px;
     align-items: center;
-    padding: 9px 8px 9px 12px;
+    padding: 0 8px 0 12px;
     font-size: 12px;
+    line-height: 16px;
     min-width: 0;
+  }
+  .preview button[role='tab'] span {
+    font-style: italic;
   }
   button[role='tab'] span {
     overflow: hidden;
@@ -160,7 +187,7 @@
     color: var(--muted-foreground);
   }
   .workspace-tab.active button :global(svg) {
-    color: var(--primary);
+    color: inherit;
   }
   i {
     width: 6px;
@@ -170,14 +197,27 @@
     flex-shrink: 0;
   }
   .close {
-    padding: 5px;
-    margin-right: 5px;
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    padding: 0 3px;
+    margin-right: 2px;
+    opacity: 0;
+  }
+  .workspace-tab.active .close,
+  .workspace-tab:hover .close,
+  .workspace-tab:focus-within .close {
+    opacity: 1;
   }
   .new-chat {
-    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    padding: 0;
     flex-shrink: 0;
   }
-  button:hover {
+  .new-chat:hover {
     background: var(--brand-soft);
   }
   button:focus-visible {

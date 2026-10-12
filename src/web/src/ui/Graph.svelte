@@ -39,6 +39,7 @@
     initialFocusId,
     ondata = () => {},
     onreview = () => {},
+    onfocus = () => {},
   }: {
     projectId: string;
     publicRead?: boolean;
@@ -46,6 +47,7 @@
     initialFocusId?: string;
     ondata?: (data: WorkspaceMap | undefined) => void;
     onreview?: (objectId: string) => void;
+    onfocus?: (objectId: string) => void;
   } = $props();
   let graphWidth = $state(0);
   let graphHeight = $state(0);
@@ -192,6 +194,7 @@
 
   function focus(id: string) {
     objectId = id;
+    onfocus(id);
   }
 </script>
 
@@ -307,6 +310,7 @@
     bind:this={objectBrowser}
     data={$graph.data!.diagram}
     bind:objectId
+    onfocus={focus}
   />
 {/if}
 

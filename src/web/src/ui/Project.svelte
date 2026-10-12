@@ -363,13 +363,11 @@
                     {canWrite}
                   />{/key}{/await}
             {:else if section === 'overview' || section === 'research'}
-              {#if section === 'overview'}
-                <header class="room-overview-heading">
-                  <div class="discovery-title"><h1>{$project.data.name}</h1></div>
-                </header>
-              {/if}
               {#if section === 'overview'}<WorkspaceOverview
+                  name={$project.data.name}
                   description={$project.data.description}
+                  visibility={$project.data.visibility}
+                  role={$project.data.current_user_role}
                 />
               {:else}
                 {#await import('./ResearchList.svelte')}<LoadingState>

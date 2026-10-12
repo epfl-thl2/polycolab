@@ -4,7 +4,25 @@ export type WorkspaceTab = {
   label: string;
   href: string;
   dirty?: boolean;
+  preview?: boolean;
 };
+
+export function isWorkspaceLayoutPage(href: string): boolean {
+  const segments = new URL(href, 'http://workspace.local').pathname.split('/');
+  return (
+    !segments[4] &&
+    [
+      'overview',
+      'research',
+      'map',
+      'activity',
+      'settings',
+      'agent-connect',
+      'records',
+      'references',
+    ].includes(segments[3] || 'overview')
+  );
+}
 
 export function workspaceRouteTab(projectId: string, href: string): WorkspaceTab | undefined {
   let url: URL;
@@ -18,6 +36,7 @@ export function workspaceRouteTab(projectId: string, href: string): WorkspaceTab
   if (!['workspaces', 'projects'].includes(segments[1]) || segments[2] !== projectId) return;
   const section = segments[3] || 'overview';
   const entity = segments[4];
+  if (section === 'sessions' && !entity && url.searchParams.get('view') === 'empty') return;
   if (segments.length > 5) return;
   if (entity && !['objects', 'sessions', 'records', 'proposals', 'verification'].includes(section))
     return;
@@ -64,7 +83,8 @@ export function restoreWorkspaceTabs(projectId: string, raw: string | null): Wor
     return value.slice(0, 30).flatMap((item) => {
       if (!item || typeof item.href !== 'string') return [];
       const tab = workspaceRouteTab(projectId, item.href);
-      if (!tab || tab.id === 'files:' || seen.has(tab.id)) return [];
+      if (!tab || tab.id === 'files:' || isWorkspaceLayoutPage(tab.href) || seen.has(tab.id))
+        return [];
       seen.add(tab.id);
       return [tab];
     });

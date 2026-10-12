@@ -25,6 +25,9 @@
     canWrite,
     publicRead = false,
     overview = false,
+    showControls = true,
+    showCreation = $bindable(false),
+    countLabel = $bindable(''),
     selected = $bindable(),
     oninspect = () => {},
   }: {
@@ -32,11 +35,13 @@
     canWrite: boolean;
     publicRead?: boolean;
     overview?: boolean;
+    showControls?: boolean;
+    showCreation?: boolean;
+    countLabel?: string;
     selected?: { version: ObjectVersion; searchResult: boolean };
     oninspect?: () => void;
   } = $props();
   const { api, records, query } = workspace();
-  let showCreation = $state(false);
   let searchDraft = $state('');
   let appliedSearch = $state('');
   const objects = createInfiniteQuery(
@@ -79,6 +84,12 @@
           version: object.current_object_version,
         })),
   );
+  $effect(() => {
+    const loaded = appliedSearch ? $searchResults.data : $objects.data;
+    countLabel = loaded
+      ? `${rows.length} ${appliedSearch ? 'matching ' : ''}${rows.length === 1 ? 'object' : 'objects'}`
+      : '';
+  });
   function applySearch(event: SubmitEvent) {
     event.preventDefault();
     selected = undefined;
@@ -286,24 +297,14 @@
 </script>
 
 <Dialog.Root bind:open={showCreation}>
-  <div class="heading research-heading">
-    <div>
-      <h1>Research objects</h1>
-      {#if !overview && (appliedSearch ? $searchResults.data : $objects.data)}<p class="muted">
-          {rows.length}
-          {appliedSearch
-            ? rows.length === 1
-              ? 'matching object'
-              : 'matching objects'
-            : rows.length === 1
-              ? 'object'
-              : 'objects'}
-        </p>{/if}
-    </div>
-    {#if canWrite}<Dialog.Trigger class={buttonVariants({ variant: 'outline' })}
-        >Create object</Dialog.Trigger
-      >{/if}
-  </div>
+  {#if showControls}<div class="heading research-heading">
+      <div>
+        {#if !overview && countLabel}<p class="muted">{countLabel}</p>{/if}
+      </div>
+      {#if canWrite}<Dialog.Trigger class={buttonVariants({ variant: 'outline' })}
+          >Create object</Dialog.Trigger
+        >{/if}
+    </div>{/if}
 
   <form class="research-search" role="search" onsubmit={applySearch}>
     <Input
@@ -654,17 +655,12 @@
   .research-search {
     --muted: var(--polycolab-groseille-soft);
   }
-  .research-heading h1 {
-    font-size: 20px;
-    font-weight: 600;
-    margin: 0;
-  }
   .research-heading {
     align-items: center;
     margin-bottom: 18px;
   }
   .research-heading p {
-    margin: 4px 0 0;
+    margin: 0;
     font-size: 12px;
   }
   .research-search {

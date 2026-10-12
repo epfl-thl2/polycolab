@@ -9,7 +9,8 @@
   import { createQuery } from '@tanstack/svelte-query';
   import { toStore } from 'svelte/store';
   import { workspace, explain } from '../svelte-lib/context';
-  import { loadWorkspaceMap } from '../lib/workspace-map';
+  import { loadWorkspaceMap, type WorkspaceMap } from '../lib/workspace-map';
+  import { canWriteResearch } from '../lib/access';
   import Markdown from './Markdown.svelte';
   import WorkspaceObjectHeading from './WorkspaceObjectHeading.svelte';
   let {
@@ -17,13 +18,22 @@
     section,
     selected = $bindable(),
     selectedResearch = $bindable(),
+    mapData,
+    mapObjectId = $bindable(''),
+    mapPanelTab = $bindable('body'),
   }: {
     project: Project;
     section: string;
     selected?: Activity;
     selectedResearch?: { version: ObjectVersion; searchResult: boolean };
+    mapData?: WorkspaceMap;
+    mapObjectId?: string;
+    mapPanelTab?: string;
   } = $props();
   const { api } = workspace();
+  const canReview = $derived(
+    canWriteResearch(project.current_user_role, Boolean(project.archived_at)),
+  );
   let activeTab = $state('body');
   const previewMap = createQuery(
     toStore(() => ({
@@ -69,11 +79,18 @@
 </script>
 
 <div class="workspace-inspector-surface" class:research-preview={section === 'research'}>
-  {#if section === 'research' && selectedResearch}
+  {#if section === 'map'}
+    <WorkspaceMapPanel
+      projectId={project.id}
+      {canReview}
+      data={mapData}
+      bind:objectId={mapObjectId}
+      bind:activeTab={mapPanelTab}
+    />
+  {:else if section === 'research' && selectedResearch}
     {@const version = selectedResearch.version}
     <WorkspaceMapPanel
-      canReview={project.current_user_role === 'OWNER' ||
-        project.current_user_role === 'CONTRIBUTOR'}
+      {canReview}
       projectId={project.id}
       objectId={version.object_id}
       focusedObject={{ id: version.object_id, kind: version.kind, current_object_version: version }}

@@ -13,6 +13,8 @@
     onCreated,
     onInspect,
     selectedResearch = $bindable(),
+    researchCreationOpen = $bindable(false),
+    researchCountLabel = $bindable(''),
     selectedActivity = $bindable(),
     mapData = $bindable(),
     mapObjectId = $bindable(''),
@@ -25,6 +27,8 @@
     onCreated: (id: string) => void;
     onInspect: () => void;
     selectedResearch?: { version: ObjectVersion; searchResult: boolean };
+    researchCreationOpen?: boolean;
+    researchCountLabel?: string;
     selectedActivity?: Activity;
     mapData?: WorkspaceMap;
     mapObjectId?: string;
@@ -34,6 +38,9 @@
   const routeUrl = $derived(new URL(href, 'http://workspace.local'));
   const section = $derived(routeUrl.pathname.split('/')[3] || 'overview');
   const selectedId = $derived(routeUrl.pathname.split('/')[4]);
+  $effect(() => {
+    if (section === 'map') mapObjectId = routeUrl.searchParams.get('object') ?? '';
+  });
   const canWrite = $derived(
     canWriteResearch(project.current_user_role, Boolean(project.archived_at)),
   );
@@ -53,12 +60,12 @@
         {onState}
       />{/key}{/await}
 {:else if section === 'overview' || section === 'research'}
-  {#if section === 'overview'}
-    <header class="room-overview-heading">
-      <div class="discovery-title"><h1>{project.name}</h1></div>
-    </header>
-  {/if}
-  {#if section === 'overview'}<WorkspaceOverview description={project.description} />
+  {#if section === 'overview'}<WorkspaceOverview
+      name={project.name}
+      description={project.description}
+      visibility={project.visibility}
+      role={project.current_user_role}
+    />
   {:else}
     {#await import('./ResearchList.svelte')}<LoadingState>
         Loading research…
@@ -67,6 +74,9 @@
         {canWrite}
         publicRead={!member}
         bind:selected={selectedResearch}
+        showControls={false}
+        bind:showCreation={researchCreationOpen}
+        bind:countLabel={researchCountLabel}
         oninspect={onInspect}
       />{/await}{/if}
 {:else if section === 'records'}
@@ -100,6 +110,9 @@
       publicRead={!member}
       bind:objectId={mapObjectId}
       initialFocusId={routeUrl.searchParams.get('object') ?? undefined}
+      onfocus={(id) => {
+        if (id) onInspect();
+      }}
       onreview={(id) => {
         mapObjectId = id;
         if (mapPanelTab !== 'reviews') mapPanelTab = 'reviews';
@@ -115,7 +128,9 @@
       </LoadingState>{:then module}{#key selectedId}<module.default
           {projectId}
           sessionId={selectedId === 'new' ? undefined : selectedId}
-          taskId={selectedId === 'new' ? routeUrl.searchParams.get('task') || undefined : undefined}
+          worktreeId={selectedId === 'new'
+            ? routeUrl.searchParams.get('worktree') || undefined
+            : undefined}
           view={selectedId ? 'chat' : 'list'}
           isVisible={active}
           {onState}

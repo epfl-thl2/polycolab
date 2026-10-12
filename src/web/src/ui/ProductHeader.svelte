@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AccountMenu from './AccountMenu.svelte';
   import BrandWordmark from './BrandWordmark.svelte';
   import PlannedBadge from './PlannedBadge.svelte';
   import * as Alert from '../lib/components/ui/alert';
@@ -7,7 +8,6 @@
   import * as Avatar from '../lib/components/ui/avatar';
   import * as DropdownMenu from '../lib/components/ui/dropdown-menu';
   import {
-    LogOut,
     Menu,
     UserRound,
     Settings,
@@ -90,7 +90,6 @@
   });
   const destination = $derived(currentPath ?? initialPath);
   const returnTo = $derived(destination === '/' ? '/workspaces' : destination);
-  const username = $derived(auth.account?.username ?? auth.user?.profile.preferred_username);
   const workspaceMode = $derived(Boolean(projectName));
   const workspacesHref = $derived(auth.signedIn ? '/workspaces' : '/workspaces?scope=public');
   const initials = $derived(
@@ -314,7 +313,7 @@
               align={workspaceMode ? 'start' : 'end'}
               preventScroll={false}
             >
-              {@render accountMenu()}
+              <AccountMenu {auth} {active} {destination} onSignOut={() => void signOut()} />
             </DropdownMenu.Content>
           </DropdownMenu.Root>
         {:else}
@@ -382,7 +381,7 @@
             </DropdownMenu.Group>
           {:else if auth.signedIn}
             <DropdownMenu.Separator />
-            {@render accountMenu()}
+            <AccountMenu {auth} {active} {destination} onSignOut={() => void signOut()} />
           {:else}
             <DropdownMenu.Separator />
             {@render menuLink(accountHref('signin', returnTo), 'Sign in')}
@@ -425,44 +424,5 @@
           <PlannedBadge />{/if}</a
       >
     {/snippet}
-  </DropdownMenu.Item>
-{/snippet}
-
-{#snippet accountMenu()}
-  <DropdownMenu.Group>
-    <DropdownMenu.GroupHeading class="product-menu-identity">
-      <Avatar.Root class="size-7" aria-hidden="true"
-        ><Avatar.Fallback class="text-xs">{initials}</Avatar.Fallback></Avatar.Root
-      >
-      <span
-        ><strong>{auth.label}</strong><small>{username ? `@${username}` : 'Signed in'}</small></span
-      >
-    </DropdownMenu.GroupHeading>
-    <DropdownMenu.Separator />
-    {@render menuLink('/profile', 'Profile', active === 'profile')}
-    {@render menuLink('/workspaces', 'Your workspaces', active === 'workspaces')}
-  </DropdownMenu.Group>
-  <DropdownMenu.Separator />
-  <DropdownMenu.Group>
-    <DropdownMenu.GroupHeading>Account</DropdownMenu.GroupHeading>
-    {@render menuLink(
-      '/settings',
-      'Settings',
-      active === 'settings' && destination !== '/settings/security',
-    )}
-    {@render menuLink('/settings/security', 'Security', destination === '/settings/security')}
-  </DropdownMenu.Group>
-  <DropdownMenu.Separator />
-  <DropdownMenu.Group>
-    <DropdownMenu.GroupHeading>Resources</DropdownMenu.GroupHeading>
-    {@render menuLink('/docs/getting-started/', 'Getting started')}
-    {@render menuLink('/moderation', 'Moderation', active === 'moderation')}
-  </DropdownMenu.Group>
-  <DropdownMenu.Separator />
-  <DropdownMenu.Item
-    class="product-menu-item min-h-9 gap-2 px-2 cursor-pointer"
-    onSelect={() => void signOut()}
-  >
-    <LogOut size={15} aria-hidden="true" /> Sign out
   </DropdownMenu.Item>
 {/snippet}

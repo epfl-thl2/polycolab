@@ -101,12 +101,6 @@ describe('restored workspace tabs', () => {
     );
     expect(restored).toEqual([
       {
-        id: 'research:',
-        kind: 'page',
-        label: 'Research objects',
-        href: '/workspaces/workspace/research?q=first',
-      },
-      {
         id: 'objects:object',
         kind: 'object',
         label: 'Research object',

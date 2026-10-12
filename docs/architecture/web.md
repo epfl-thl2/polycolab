@@ -112,29 +112,38 @@ Directory pages show at most 20 cards with Previous/Next controls.
 Changing scope, query or category resets pagination.
 Member categories and role/member-count metadata remain scoped to membership.
 Member workspaces use `WorkspaceWorkbench`; visitors retain the public workspace
-shell in `Project`. The member shell has four areas: a fixed-width icon navigation rail with accessible labels and shared styled tooltips
-on hover or keyboard focus, a task
-panel on the left, unified content tabs in the middle, and a right panel switching
-between Explorer, Source control, and Details. Task and tool panels resize with
-pointer or keyboard controls and can collapse. Narrow screens expose navigation,
-tasks, and tools in drawers. The member shell has no full-width product header:
-the shared brand wordmark and plain-text workspace name sit above the left task
-panel. Collapsed panels reopen from the tab bar; a compact mobile toolbar opens
-the drawers. Workspace chrome uses the shared Groseille sidebar/selection colors
-and Canard tool/agent-status accents, with a white editing surface.
+shell in `Project`. The member shell uses a fixed-width icon rail with accessible
+labels and shared tooltips on hover or keyboard focus. The rail chooses a page
+layout rather than creating a content tab. Project opens the overview with project
+navigation and details on the left. Research objects, Map, and Activity share the
+selection-panel layout: controls and guidance on the left, content in the center,
+and selection details on the right. The shell uses one selection-panel configuration,
+open/close handler, header, and content container for all three modes.
+`WorkspaceSectionPanel` renders their mode-specific details.
+Workspace restores the worktree panel, unified content tabs, and a right panel that
+switches between Explorer, Source control, and Details. Open chats, research
+objects, and file drafts remain mounted while another layout is selected.
+Left and right panels resize with pointer or keyboard controls and can collapse.
+Narrow screens expose navigation and the selected layout's panel in drawers.
+The member shell has no full-width product header: the shared brand wordmark and
+workspace name sit above the left panel. Collapsed panels reopen from the main
+view's toolbar. Workspace chrome uses the shared Groseille sidebar/selection
+colors and Canard tool/agent-status accents, with a white editing surface.
 
 Workspace cards, section navigation and panel controls use the shared 16px Lucide outline style, with distinct icons for each section.
 
 Map follows Overview.
 One Research navigation item covers objects and their saved revisions.
-The former Research records destination is removed from navigation.
+Research record and References are hidden from project navigation. Existing direct
+routes and saved data remain available.
 
 Research objects prioritizes in-page search and a compact semantic table.
 The columns show object titles, type, version (formatted as v1), last updated date, and a four-character object ID prefix.
 Workspace Activity uses the same single-line density with submission number, contributor, type, change, version, and relative time.
 Both use 7px vertical cell padding, 13px titles, and 12px metadata, with internal horizontal scrolling when needed.
 
-Row clicks or keyboard-activated title buttons open the right preview panel (a drawer on mobile).
+Research object row clicks or keyboard-activated title buttons open the selection preview in the right panel (a drawer on mobile).
+Activity selections also open details in the right panel (a drawer on mobile).
 Contributor links remain independent.
 Each Research objects row also has a Focus on map icon linking to `/map?object=<id>`.
 After the map loads, this link selects the object and frames its local neighborhood.
@@ -163,18 +172,36 @@ Create object opens one modal form with these controls:
   User-facing copy refers to research, objects, and revisions rather than records.
 
 Member workspace root routes open New chat when the current member can write and
-agent execution is enabled; otherwise they open Overview. The task panel lists
-Shared workspace first, named tasks with nested private conversations, and a separate collapsed archived section. Task names and saved
-working copies are member-shared; conversation titles and activity come only
-from the current user’s loaded sessions. Contributors can create, rename, archive,
-and restore tasks. Task selection changes Explorer to its saved branch, protecting
-unsaved file edits. Opening a conversation selects its task’s working copy.
+agent execution is enabled; otherwise they open Overview. The left panel lists Main
+and named worktrees, with the current user's conversations nested underneath.
+Left-panel titles follow the selected rail mode: Project stays Project when
+opening Overview, Agent connect, or Settings. Main content titles follow the
+selected page. Left-panel views share a 13px semibold header, a 28px minimum header height,
+12px outer padding, and a 12px gap before content. The left panel omits the product wordmark and workspace name; project identity is
+available in Overview. Overview shows the project name, description, and a compact
+visibility/access line and no sidebar details card. Overview, Agent connect,
+Settings, Research objects, Map, and Activity omit the main-panel title bar;
+mobile navigation controls remain available. Research objects and Activity also omit duplicate page titles above their content controls.
+In Research objects, the left panel holds the loaded object count (or matching search count) and Create object action.
+Selecting a result opens its exact revision details in the right panel, or the tools drawer on mobile; the left panel stays on the list controls.
+Search stays above the main results table, and creation opens the existing modal with its draft and permission checks.
+New worktree creates a saved branch from Main; selecting a worktree switches
+Explorer and protects unsaved file edits. The panel has no search or refresh
+controls. Archived worktrees can be inspected and restored. Saved worktrees reuse
+the existing task metadata and API bindings; these are branch-backed working
+contexts, not persistent Git linked-worktree directories on the API host.
 Session list/detail responses expose only the latest run ID, status,
 and cancellation-request timestamp; session lists batch those summaries.
 
-The unified tab strip opens chats, files, research objects, pages, and diff views.
-The tab-strip plus creates a conversation in the selected task; each task also
-offers New conversation. These actions create independent draft tabs;
+The unified tab strip opens chats, files, research objects, individual research
+records, reviews, and diff views. Layout pages do not enter the tab strip, including
+when restoring tabs saved by an older browser version. Closing the last content
+tab leaves an empty center panel and retains the selected worktree; it does not
+create a new chat or open Overview. The empty state survives reload and rail
+navigation, and the tab-strip plus still opens a chat explicitly.
+The tab-strip plus creates a conversation in the selected worktree. Each worktree
+row also has a New conversation action. Main conversations have no task binding;
+named worktrees use their existing saved-branch binding. These actions create independent draft tabs;
 a draft query identifier keeps each composer distinct until it creates a session.
 `WorkspacePage` keeps opened route components mounted behind inactive tabs;
 `WorkspaceFiles` owns the shared file editor state. Chat drafts and object edits
@@ -204,7 +231,7 @@ The anchored Customize popover presents a prototype-only context scope and respo
 Context scope and response style remain presentation state and are not submitted to the API.
 The workspace uses shared heading sizes, 14px navigation/body text, 16px research prose and standard buttons.
 The overview leads with the workspace name and description.
-Visibility appears only in the right panel.
+Members see visibility in the Project layout’s left panel; visitors see it in the right panel.
 The main overview presents the project description as readable Markdown, with an explicit empty state.
 
 The main overview contains no action buttons or editing links.
@@ -212,7 +239,7 @@ Navigation and Settings remain in the sidebars.
 It contains no recent-object or activity lists and makes no activity request.
 Changes remain in Activity.
 Research creation stays on the research list.
-Its right panel shows visibility, access, and archive status.
+The project details panel shows visibility, access, and archive status.
 
 Other sections provide relevant guidance and links.
 Activity shows the selected submission’s contributor, readable action, local timestamp, excerpt, and exact revision link.
@@ -519,11 +546,26 @@ Accessible neutral, status, and dark-surface extensions supplement the six offic
 The application theme continues to own typography and spacing, including a locally bundled Inter variable font.
 Production controls use shadcn-svelte components in `src/web/src/lib/components/ui/`.
 
-`src/web/components.json` configures its registry.
+`src/web/components.json` selects the Lyra registry style: square control corners, compact text, and thin focus rings.
+The application retains its shared color tokens and Inter font.
+Tooltips retain their compact content and positioning, and vertical separators retain explicit full-height sizing.
 `design-system.css` supplies their Tailwind utilities to SvelteKit.
 Zensical's native components map their color variables to the shared tokens without loading the application design system.
 Production forms, buttons, field labels, alerts, selection controls, menus, and modal surfaces use the shared registry components.
 Specialized editor, graph, and pane-resizing behavior remains in the research components.
+
+The web package pins the shadcn-svelte CLI as an exact development dependency, with its resolution in `pnpm-lock.yaml`.
+From the repository root, use the installed CLI to add a component:
+
+```sh
+pnpm --filter @polycolab/web exec shadcn-svelte add <component>
+```
+
+The CLI reads the existing `components.json`; the application already has its initial configuration.
+Component source is maintained locally, while behavior dependencies such as Bits UI receive package updates.
+To refresh a component, preserve local changes in Git, run the same command with `--overwrite`, and review the diff to reconcile customizations.
+The CLI version identifies the generator, not a fixed snapshot of the configured registry or the source of existing components.
+See the [upstream CLI guide](https://www.shadcn-svelte.com/docs/cli) for supported commands.
 
 ### Global public search
 
@@ -745,25 +787,26 @@ Previous results are not carried between public and member scopes.
 
 The member workbench's right panel switches between Explorer, Source control,
 and Details. Explorer supplies filename filtering and collapsible folders;
-Source control supplies working-copy actions, saved agent branches, commit
-history, and merge review. Files open in the same middle tab strip as chats,
+Source control lists saved uncommitted changes and supplies full-diff commit review,
+discard, history, and merge actions. Files open in the same middle tab strip as chats,
 research objects, and pages. History and merge review open diff tabs.
 
 `WorkspaceFiles` remains mounted for the member workspace, supplies editor and
 navigator snippets to `WorkspaceWorkbench`, and owns separate in-memory file
 drafts. Switching content tabs or collapsing tools preserves those drafts.
-Dirty closes, working-copy changes, and workspace exit ask before discarding.
+Worktree switches retain drafts and tabs separately. Dirty closes and workspace
+exit ask before discarding.
 Cmd/Ctrl+S saves the active file; Markdown preview and the enhanced source editor
 remain available. No autosave or browser storage persists file content.
 
-Shared workspace and named task copies are selected explicitly. Multiple private
-conversations can use one task branch; task activity serializes agent runs across
-those conversations. Saved branches remain inspectable without exposing private
-conversation content. Merge and
-update actions retain expected-head checks and active-run restrictions. These
-are saved working copies, rather than live sandbox views. Narrow screens use a
-right-hand tools drawer and return to content after opening a file. Nonmembers
-retain their existing public context panel and cannot access repository content.
+Main and named worktrees appear in the left panel. Conversations within a worktree
+share its files and retain run serialization, while conversation content remains
+private. Save persists uncommitted files; explicit commit review uses a saved-state
+revision and confirms exclusion of any unsaved drafts. Merge and update actions
+require clean source and target worktrees. The API owns persistent linked Git
+checkouts; agent sandboxes remain disposable. Narrow screens use a right-hand
+tools drawer and return to content after opening a file. Nonmembers retain their
+public context panel and cannot access repository content.
 
 Focused helper tests cover restored tab validation, query preservation, route
 identity, and bounded local storage restoration. Session API/store tests cover

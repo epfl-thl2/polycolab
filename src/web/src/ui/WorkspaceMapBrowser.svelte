@@ -12,11 +12,13 @@
     objectId = $bindable(''),
     summaries = [],
     onreview = () => {},
+    onfocus = () => {},
   }: {
     data: WorkspaceMap;
     objectId?: string;
     summaries?: ReviewSummary[];
     onreview?: (id: string) => void;
+    onfocus?: (id: string) => void;
   } = $props();
   let searchInput = $state<HTMLInputElement | null>(null);
   export function focusSearch() {
@@ -31,6 +33,7 @@
   const matches = $derived(query.trim() ? searchMapObjects(data.objects, query) : data.objects);
   function focus(id: string) {
     objectId = id;
+    onfocus(id);
   }
 </script>
 

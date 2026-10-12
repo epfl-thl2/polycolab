@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { onMount, untrack, type Snippet } from 'svelte';
+  import { onMount, onDestroy, tick, untrack, type Snippet } from 'svelte';
   import { SvelteMap } from 'svelte/reactivity';
+  import { WorkspaceEditorSessions } from '../lib/workspace-editor-session';
+  import { createExplorerView, type ExplorerViewState } from '../lib/file-explorer';
   import { beforeNavigate } from '$app/navigation';
   import { workspace, explain } from '../svelte-lib/context';
   import {
@@ -14,9 +16,13 @@
     type RepositoryMerge,
   } from '../lib/repository-api';
   import { Button } from '../lib/components/ui/button';
+  import * as DropdownMenu from '../lib/components/ui/dropdown-menu';
+  import * as Tooltip from '../lib/components/ui/tooltip';
   import { Input } from '../lib/components/ui/input';
   import { Textarea } from '../lib/components/ui/textarea';
   import MonacoSourceEditor from './MonacoSourceEditor.svelte';
+  import WorkspaceEditorHeader from './WorkspaceEditorHeader.svelte';
+  import WorkspaceFileChanges from './WorkspaceFileChanges.svelte';
   import FileExplorer from './FileExplorer.svelte';
   import Markdown from './Markdown.svelte';
   import FileDiff from './FileDiff.svelte';
@@ -28,15 +34,11 @@
     Upload,
     Plus,
     X,
-    Save,
     Download,
-    Trash2,
-    ChevronRight,
     Check,
     LockKeyhole,
-    Eye,
-    Code2,
     GitMerge,
+    Ellipsis,
   } from '@lucide/svelte';
 
   type OpenFile = {
@@ -48,12 +50,66 @@
     base: string;
     binary: boolean;
     enhanced: boolean;
+    preview?: boolean;
   };
   let tabs = $state<OpenFile[]>([]);
   let activeId = $state('');
   let sidebar = $state<'files' | 'agents'>('files');
+  const explorerViews = new SvelteMap<string, ExplorerViewState>();
+  let explorerView = $state<ExplorerViewState>(createExplorerView());
+  const editorSessions = new WorkspaceEditorSessions();
+  const editorKey = (id: string, selectedBranch = branch) =>
+    `${projectId}/${encodeURIComponent(selectedBranch)}/${id}`;
+  const currentEditorKey = $derived(editorKey(activeId));
+  let loadingFile = $state(false);
+  let pendingOpen: { name: string; permanent: boolean; token: number } | undefined;
+  export function cancelWorkspaceFileLoad() {
+    if (!loadingFile) return;
+    sequence++;
+    pendingOpen = undefined;
+    loadingFile = false;
+    busy = false;
+  }
+  onDestroy(() => {
+    sequence++;
+    editorSessions.dispose();
+  });
+  export function pinWorkspaceFile(id: string) {
+    if (!tabs.some((tab) => tab.id === id && tab.preview)) return;
+    tabs = tabs.map((tab) => (tab.id === id && tab.preview ? { ...tab, preview: false } : tab));
+  }
+  function retainPlainView(node: HTMLTextAreaElement, key: string) {
+    const entry = editorSessions.entry(key);
+    let alive = true;
+    const restoreView = () => {
+      if (!alive || !entry.plain) return;
+      const saved = entry.plain;
+      node.setSelectionRange(saved.start, saved.end, saved.direction);
+      node.scrollTop = saved.top;
+      node.scrollLeft = saved.left;
+      if (node.previousElementSibling) node.previousElementSibling.scrollTop = saved.top;
+    };
+    void tick().then(restoreView);
+    return {
+      destroy() {
+        alive = false;
+        entry.plain = {
+          start: node.selectionStart,
+          end: node.selectionEnd,
+          direction: node.selectionDirection,
+          top: node.scrollTop,
+          left: node.scrollLeft,
+        };
+      },
+    };
+  }
   let historyOpen = $state(false);
-  let previewText = $state(false);
+  let editorMode = $state<'source' | 'preview' | 'changes'>('source');
+  let wordWrap = $state(true);
+  let headContent = $state('');
+  let changesLoading = $state(false);
+  let changesError = $state('');
+  let changesRetry = $state(0);
   let renameOpen = $state(false);
   let uploadInput = $state<HTMLInputElement>();
   const dirtyTab = (tab: OpenFile) =>
@@ -64,13 +120,23 @@
   const fileLabel = (name: string) => name.split('/').at(-1) || 'Untitled';
   const branchLabel = (name: string) =>
     name === 'main'
-      ? 'Shared workspace'
+      ? 'Main'
       : branchLabels[name] || `Working copy · ${name.split('/').at(-1)?.slice(0, 8)}`;
   function stash() {
     if (!activeId || !editing) return;
     tabs = tabs.map((tab) =>
       tab.id === activeId
-        ? { id: activeId, path, originalPath, content, original, base, binary, enhanced }
+        ? {
+            ...tab,
+            path,
+            originalPath,
+            content,
+            original,
+            base,
+            binary,
+            enhanced,
+            preview: tab.preview && !dirty,
+          }
         : tab,
     );
   }
@@ -79,11 +145,12 @@
     ({ path, originalPath, content, original, base, binary, enhanced } = tab);
     editing = true;
     latest = undefined;
-    previewText = false;
+    editorMode = 'source';
     renameOpen = !tab.originalPath;
     notice = '';
   }
   async function activate(tab: OpenFile) {
+    cancelWorkspaceFileLoad();
     if (busy) return;
     onFileOpen?.(tab.id);
     if (tab.id === activeId) return;
@@ -97,6 +164,7 @@
       await open(tab.originalPath, false);
   }
   function closeTab(id: string) {
+    cancelWorkspaceFileLoad();
     if (busy) return;
     stash();
     const tab = tabs.find((item) => item.id === id);
@@ -104,6 +172,7 @@
       return;
     const index = tabs.findIndex((item) => item.id === id);
     tabs = tabs.filter((item) => item.id !== id);
+    editorSessions.release(editorKey(id));
     if (id === activeId) {
       const next = tabs[Math.min(index, tabs.length - 1)];
       if (next) restore(next);
@@ -148,7 +217,7 @@
     toolsView?: 'explorer' | 'source-control';
     view?: 'file' | 'history' | 'merge';
     onTabsChange?: (
-      tabs: { id: string; label: string; path: string; dirty: boolean }[],
+      tabs: { id: string; label: string; path: string; dirty: boolean; preview?: boolean }[],
       activeId: string,
     ) => void;
     onOpenView?: (view: 'history' | 'merge') => void;
@@ -160,11 +229,24 @@
       label: fileLabel(tab.id === activeId ? path : tab.path),
       path: tab.id === activeId ? path : tab.path,
       dirty: tab.id === activeId ? dirty : dirtyTab(tab),
+      preview: tab.preview && !(tab.id === activeId ? dirty : dirtyTab(tab)),
     }));
     const selected = activeId;
     untrack(() => onTabsChange?.(items, selected));
   });
+  $effect(() => {
+    if (dirty) untrack(() => pinWorkspaceFile(activeId));
+  });
+  export function hasUnsavedWorkspaceFiles() {
+    return Boolean(
+      unsavedCount ||
+      [...branchDrafts.entries()].some(
+        ([name, saved]) => name !== branch && saved.tabs.some(dirtyTab),
+      ),
+    );
+  }
   export function selectWorkspaceFile(id: string) {
+    cancelWorkspaceFileLoad();
     if (busy) return false;
     const tab = tabs.find((item) => item.id === id);
     if (tab) void activate(tab);
@@ -175,14 +257,27 @@
     return !tabs.some((item) => item.id === id);
   }
   export async function openWorkspaceFile(name: string) {
-    await open(name);
-    onFileOpen?.(activeId);
+    const id = await open(name);
+    if (id) onFileOpen?.(id);
   }
   export async function selectWorkspaceBranch(name: string) {
     return selectBranch(name, true);
   }
   const api = workspace().repository;
+  const branchDrafts = new SvelteMap<string, { tabs: OpenFile[]; activeId: string }>();
+  let commitMessage = $state('');
+  let commitReview = $state<{ revision: string; diff: string }>();
   let repoState = $state<RepositoryState>();
+  const explorerPaths = $derived.by(() => {
+    const ignored = new Set(repoState?.ignored_files ?? []);
+    return (repoState?.files ?? [])
+      .map((file) => file.path)
+      .filter(
+        (name) =>
+          (explorerView.showDotfiles || !name.split('/').some((part) => part.startsWith('.'))) &&
+          (explorerView.showIgnoredFiles || !ignored.has(name)),
+      );
+  });
   $effect(() => {
     if (enabled !== Boolean(repoState?.enabled)) enabled = Boolean(repoState?.enabled);
   });
@@ -193,7 +288,7 @@
   let base = $state('');
   let editing = $state(false);
   let binary = $state(false);
-  let enhanced = $state(false);
+  let enhanced = $state(true);
   let error = $state('');
   let notice = $state('');
   let latest = $state<string>();
@@ -226,9 +321,51 @@
             ? 'JSON'
             : 'TEXT',
   );
-  const agentBranches = $derived(
-    Object.keys(repoState?.branches ?? {}).filter((name) => name !== 'main'),
+  const headCommit = $derived(repoState?.head_commit);
+  const addedFile = $derived(
+    !originalPath ||
+      Boolean(
+        repoState?.changed_files?.some(
+          (file) => file.path === originalPath && file.status === 'added',
+        ),
+      ),
   );
+  $effect(() => {
+    const name = originalPath;
+    const head = headCommit;
+    const isNew = addedFile;
+    const selected = currentEditorKey;
+    const retry = changesRetry;
+    if (editorMode !== 'changes' || binary) return;
+    // Each request belongs to the selected file and HEAD, including retries.
+    void selected;
+    void retry;
+    let canceled = false;
+    changesError = '';
+    headContent = '';
+    changesLoading = !isNew;
+    if (isNew) return;
+    if (!api || !head) {
+      changesLoading = false;
+      changesError = 'The committed version of this file is unavailable.';
+      return;
+    }
+    void api
+      .file(projectId, head, name)
+      .then((file) => {
+        if (canceled) return;
+        headContent = decodeFile(file.content_base64);
+      })
+      .catch((cause) => {
+        if (!canceled) changesError = `Could not load the committed file. ${explain(cause)}`;
+      })
+      .finally(() => {
+        if (!canceled) changesLoading = false;
+      });
+    return () => {
+      canceled = true;
+    };
+  });
   const lineCount = $derived(content.split('\n').length);
   const changed = $derived(Boolean(base && repoState?.commit && base !== repoState.commit));
 
@@ -245,9 +382,6 @@
       return;
     if (unsavedCount && !confirm('Leave without saving your file changes?')) cancel();
   });
-  function canLeave() {
-    return !unsavedCount || confirm('Discard unsaved file changes in all open tabs?');
-  }
   function key(body: unknown) {
     const serialized = JSON.stringify(body);
     let value = receipts.get(serialized);
@@ -260,14 +394,16 @@
   async function refresh() {
     if (!api || busy) return;
     const selectedBranch = branch;
+    const version = sequence;
     try {
       const next = await api.state(projectId, selectedBranch);
-      if (selectedBranch !== branch) return;
+      if (selectedBranch !== branch || version !== sequence || busy) return;
       repoState = next;
       if (base !== next.commit && editing && !dirty && originalPath) {
         if ((next.files ?? []).some((file) => file.path === originalPath))
           await open(originalPath, false);
         else {
+          editorSessions.release(editorKey(activeId));
           tabs = tabs.filter((tab) => tab.id !== activeId);
           activeId = '';
           editing = false;
@@ -288,72 +424,114 @@
       sequence++;
     };
   });
-  async function open(name: string, guard = true) {
-    if (!api || !repoState?.commit) return;
+  async function open(name: string, guard = true, mode: 'preview' | 'permanent' = 'permanent') {
+    if (!api || !repoState?.commit || (busy && !loadingFile)) return;
+    if (pendingOpen?.name === name) {
+      if (mode === 'permanent') pendingOpen.permanent = true;
+      return;
+    }
     if (guard) {
       const existing = tabs.find((tab) => tab.originalPath === name);
       if (existing) {
+        cancelWorkspaceFileLoad();
+        if (mode === 'permanent') pinWorkspaceFile(existing.id);
         await activate(existing);
-        return;
+        return existing.id;
       }
       stash();
     }
     const token = ++sequence;
+    const request = { name, permanent: mode === 'permanent', token };
+    pendingOpen = request;
     const commit = repoState.commit;
+    const requestedBranch = branch;
     busy = true;
+    loadingFile = true;
     error = '';
-    latest = undefined;
-    enhanced = false;
     try {
       const file = await api.file(projectId, commit, name);
-      if (token !== sequence || (!guard && dirty)) return;
-      binary = false;
+      if (token !== sequence || branch !== requestedBranch || (!guard && dirty)) return;
+      let nextContent = '';
+      let nextBinary = false;
       try {
-        content = decodeFile(file.content_base64);
-        if (content.includes('\0')) binary = true;
+        nextContent = decodeFile(file.content_base64);
+        nextBinary = nextContent.includes('\0');
       } catch {
-        content = '';
-        binary = true;
+        nextBinary = true;
       }
-      original = content;
-      path = name;
-      originalPath = name;
-      base = commit;
-      editing = true;
-      previewText = false;
-      renameOpen = false;
       if (guard) {
-        activeId = crypto.randomUUID();
-        tabs = [
-          ...tabs,
-          { id: activeId, path, originalPath, content, original, base, binary, enhanced },
-        ];
-      } else stash();
+        stash();
+        const replacement = !request.permanent
+          ? tabs.find((tab) => tab.preview && !dirtyTab(tab))
+          : undefined;
+        const next: OpenFile = {
+          id: crypto.randomUUID(),
+          path: name,
+          originalPath: name,
+          content: nextContent,
+          original: nextContent,
+          base: commit,
+          binary: nextBinary,
+          enhanced: true,
+          preview: !request.permanent,
+        };
+        tabs = replacement
+          ? tabs.map((tab) => (tab.id === replacement.id ? next : tab))
+          : [...tabs, next];
+        restore(next);
+        if (replacement) editorSessions.release(editorKey(replacement.id));
+      } else {
+        content = nextContent;
+        original = nextContent;
+        base = commit;
+        binary = nextBinary;
+        stash();
+      }
+      latest = undefined;
+      return activeId;
     } catch (cause) {
-      error = explain(cause);
+      if (token === sequence) error = explain(cause);
     } finally {
-      if (token === sequence) busy = false;
+      if (token === sequence) {
+        busy = false;
+        loadingFile = false;
+        pendingOpen = undefined;
+      }
     }
+  }
+  async function openExplorerFile(name: string, mode: 'preview' | 'permanent' = 'preview') {
+    const id = await open(name, true, mode);
+    if (id) onFileOpen?.(id);
   }
   async function selectBranch(value: string, propagateError = false) {
     if (value === branch) return true;
-    if (!api || busy || !canLeave()) return false;
+    if (!api || (busy && !loadingFile)) return false;
     const token = ++sequence;
+    loadingFile = false;
+    pendingOpen = undefined;
     busy = true;
     error = '';
     try {
       const next = await api.state(projectId, value);
       if (token !== sequence || !next.enabled) return false;
+      stash();
+      branchDrafts.set(branch, { tabs: [...tabs], activeId });
+      explorerViews.set(branch, explorerView);
+      explorerView = explorerViews.get(value) || createExplorerView();
       branch = value;
       repoState = next;
-      tabs = [];
-      activeId = '';
+      const saved = branchDrafts.get(value);
+      tabs = saved?.tabs || [];
+      activeId = saved?.activeId || '';
+      commitReview = undefined;
       historyOpen = false;
       editing = false;
       history = [];
       preview = undefined;
       diff = '';
       diffCommit = '';
+      const selected = tabs.find((tab) => tab.id === activeId);
+      if (selected) restore(selected);
       return true;
     } catch (cause) {
       error = explain(cause);
@@ -374,10 +552,10 @@
     base = repoState.commit;
     editing = true;
     binary = false;
-    enhanced = false;
+    enhanced = true;
     latest = undefined;
     renameOpen = true;
-    previewText = false;
+    editorMode = 'source';
     activeId = crypto.randomUUID();
     tabs = [
       ...tabs,
@@ -441,6 +619,7 @@
       return;
     if (await saveChanges([{ path: originalPath, content_base64: null }])) {
       const deletedId = activeId;
+      editorSessions.release(editorKey(deletedId));
       tabs = tabs.filter((tab) => tab.id !== deletedId);
       if (tabs[0]) restore(tabs[0]);
       else {
@@ -529,6 +708,74 @@
   export async function loadWorkspaceHistory() {
     if (!historyOpen) await showHistory();
   }
+  async function reviewSaved() {
+    if (!api || !repoState?.worktree_id || !repoState.commit) return;
+    try {
+      const revision = repoState.commit;
+      commitReview = {
+        revision,
+        diff: await api.changes(projectId, repoState.worktree_id, revision),
+      };
+    } catch (cause) {
+      error = explain(cause);
+    }
+  }
+  async function commitSaved() {
+    if (!api || !repoState?.worktree_id || !commitReview || !commitMessage.trim()) return;
+    if (
+      unsavedCount &&
+      !confirm('Commit only saved changes? Your unsaved editor drafts will remain uncommitted.')
+    )
+      return;
+    busy = true;
+    const body = { revision: commitReview.revision, message: commitMessage.trim() };
+    try {
+      const saved = await api.commit(
+        projectId,
+        repoState.worktree_id,
+        body.revision,
+        body.message,
+        key(body),
+      );
+      // Committing changes history, not file contents; these drafts still have the same base.
+      tabs = tabs.map((tab) =>
+        tab.base === body.revision ? { ...tab, base: saved.revision } : tab,
+      );
+      if (base === body.revision) base = saved.revision;
+      stash();
+      commitReview = undefined;
+      commitMessage = '';
+      notice = 'Saved changes committed.';
+    } catch (cause) {
+      error = explain(cause);
+    } finally {
+      busy = false;
+      await refresh();
+    }
+  }
+  async function discardSaved() {
+    if (
+      !api ||
+      !repoState?.worktree_id ||
+      !repoState.commit ||
+      !confirm(
+        'Discard all saved uncommitted changes in this shared worktree? Unsaved editor drafts will be retained.',
+      )
+    )
+      return;
+    busy = true;
+    const body = { discard: repoState.commit };
+    try {
+      await api.discard(projectId, repoState.worktree_id, repoState.commit, key(body));
+      commitReview = undefined;
+      notice = 'Saved changes discarded.';
+    } catch (cause) {
+      error = explain(cause);
+    } finally {
+      busy = false;
+      await refresh();
+    }
+  }
   async function showHistory() {
     historyOpen = onOpenView ? true : !historyOpen;
     if (historyOpen) onOpenView?.('history');
@@ -542,7 +789,7 @@
   async function showDiff(commit: string) {
     if (!api || !repoState?.commit) return;
     try {
-      diff = await api.diff(projectId, commit, repoState.commit);
+      diff = await api.diff(projectId, commit, repoState.head_commit || repoState.commit);
       diffCommit = commit;
     } catch (cause) {
       error = explain(cause);
@@ -590,6 +837,8 @@
       source: mergeSource,
       expected_target: preview.target_commit,
       expected_source: preview.source_commit,
+      expected_target_revision: preview.target_revision,
+      expected_source_revision: preview.source_revision,
       resolutions: preview.conflicts.length
         ? Object.entries(resolutions).map(([name, value]) => ({
             path: name,
@@ -621,7 +870,7 @@
 <svelte:window
   onkeydown={shortcut}
   onbeforeunload={(event) => {
-    if (unsavedCount) event.preventDefault();
+    if (hasUnsavedWorkspaceFiles()) event.preventDefault();
   }}
 />
 {#if repoState?.enabled}
@@ -630,7 +879,7 @@
     type="file"
     aria-label="Upload file"
     bind:this={uploadInput}
-    disabled={!repoState.writable || busy}
+    disabled={!repoState?.writable || busy}
     onchange={upload}
   />
 {/if}
@@ -650,65 +899,126 @@
 {#snippet navigator()}
   {#if repoState?.enabled}
     <div class="explorer" aria-label="Workspace explorer">
-      <div class="explorer-heading">
-        <label class="copy-picker"
-          ><GitBranch size={14} aria-hidden="true" /><span class="sr-only">Working copy</span
-          ><select
-            value={branch}
-            aria-label="Working copy"
-            disabled={busy}
-            onchange={async (event) => {
-              const select = event.currentTarget;
-              await selectBranch(select.value);
-              select.value = branch;
-            }}
-          >
-            {#each Object.keys(repoState?.branches ?? { main: '' }) as name (name)}<option
-                value={name}>{branchLabel(name)}</option
-              >{/each}
-          </select></label
-        >
+      <Tooltip.Provider delayDuration={250}>
+        <div class="explorer-heading">
+          {#if !onTabsChange}
+            <label class="copy-picker"
+              ><GitBranch size={14} aria-hidden="true" /><span class="sr-only">Working copy</span
+              ><select
+                value={branch}
+                aria-label="Working copy"
+                disabled={busy}
+                onchange={async (event) => {
+                  const select = event.currentTarget;
+                  await selectBranch(select.value);
+                  select.value = branch;
+                }}
+              >
+                {#each Object.keys(repoState?.branches ?? { main: '' }) as name (name)}<option
+                    value={name}>{branchLabel(name)}</option
+                  >{/each}
+              </select></label
+            >
+          {/if}
 
-        <div class="icon-actions">
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            title="New file"
-            aria-label="New file"
-            disabled={!repoState.writable || busy}
-            onclick={() => {
-              create();
-              onFileOpen?.();
-            }}><Plus size={15} /></Button
-          >
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            title="Upload file"
-            aria-label="Upload a file"
-            disabled={!repoState.writable || busy}
-            onclick={() => uploadInput?.click()}><Upload size={14} /></Button
-          >
+          <div class="icon-actions">
+            <Tooltip.Root>
+              <Tooltip.Trigger>
+                {#snippet child({ props })}
+                  <Button
+                    {...props}
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label="New file"
+                    disabled={!repoState?.writable || busy}
+                    onclick={() => {
+                      create();
+                      onFileOpen?.();
+                    }}><Plus size={15} /></Button
+                  >
+                {/snippet}
+              </Tooltip.Trigger>
+              <Tooltip.Content class="text-[11px] px-2 py-1">New file</Tooltip.Content>
+            </Tooltip.Root>
+            <Tooltip.Root>
+              <Tooltip.Trigger>
+                {#snippet child({ props })}
+                  <Button
+                    {...props}
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label="Upload a file"
+                    disabled={!repoState?.writable || busy}
+                    onclick={() => uploadInput?.click()}><Upload size={14} /></Button
+                  >
+                {/snippet}
+              </Tooltip.Trigger>
+              <Tooltip.Content class="text-[11px] px-2 py-1">Upload file</Tooltip.Content>
+            </Tooltip.Root>
+          </div>
+          <DropdownMenu.Root>
+            <Tooltip.Root>
+              <Tooltip.Trigger>
+                {#snippet child({ props })}
+                  <DropdownMenu.Trigger
+                    {...props}
+                    class="explorer-more"
+                    aria-label="Explorer more actions"
+                    ><Ellipsis size={14} aria-hidden="true" /></DropdownMenu.Trigger
+                  >
+                {/snippet}
+              </Tooltip.Trigger>
+              <Tooltip.Content class="text-[11px] px-2 py-1">More actions</Tooltip.Content>
+            </Tooltip.Root>
+            <DropdownMenu.Content align="end" class="w-40">
+              <DropdownMenu.CheckboxItem
+                class="explorer-view-option text-[11px] py-1 pl-6 pr-1.5 whitespace-nowrap"
+                bind:checked={explorerView.showDotfiles}
+              >
+                Show Dotfiles
+              </DropdownMenu.CheckboxItem>
+              <DropdownMenu.CheckboxItem
+                class="explorer-view-option text-[11px] py-1 pl-6 pr-1.5 whitespace-nowrap"
+                bind:checked={explorerView.showIgnoredFiles}
+              >
+                Show Git Ignored Files
+              </DropdownMenu.CheckboxItem>
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
         </div>
-      </div>
+      </Tooltip.Provider>
       {#if !toolsView}<div class="explorer-views" aria-label="Explorer views">
           <button aria-pressed={sidebar === 'files'} onclick={() => (sidebar = 'files')}
             ><FolderOpen size={14} /> Files</button
           >
           <button aria-pressed={sidebar === 'agents'} onclick={() => (sidebar = 'agents')}
-            ><GitBranch size={14} /> Working copies <span>{agentBranches.length}</span></button
+            ><GitBranch size={14} /> Source control
+            <span>{repoState.changed_files?.length || 0}</span></button
           >
         </div>
       {/if}
       {#if toolsView === 'explorer' || (!toolsView && sidebar === 'files')}
         <FileExplorer
-          paths={(repoState.files ?? []).map((file) => file.path)}
-          selected={editing ? originalPath : ''}
-          disabled={busy}
-          onopen={async (name) => {
-            await open(name);
-            onFileOpen?.(activeId);
+          paths={explorerPaths}
+          hasHiddenFiles={explorerPaths.length < (repoState.files?.length ?? 0)}
+          selected={active &&
+          view === 'file' &&
+          editing &&
+          (repoState.files ?? []).some((file) => file.path === originalPath)
+            ? originalPath
+            : ''}
+          bind:viewState={explorerView}
+          changes={repoState.changed_files ?? []}
+          disabled={busy && !loadingFile}
+          onreveal={() => {
+            explorerView.showDotfiles ||= originalPath
+              .split('/')
+              .some((part) => part.startsWith('.'));
+            explorerView.showIgnoredFiles ||= (repoState?.ignored_files ?? []).includes(
+              originalPath,
+            );
           }}
+          onopen={openExplorerFile}
         />
       {:else}
         <div class="agent-copies">
@@ -719,35 +1029,50 @@
             <Button
               size="sm"
               disabled={!repoState.writable || busy || Boolean(unsavedCount)}
-              onclick={() => review()}>Review changes</Button
+              onclick={() => review()}>Merge into Main</Button
             >
             <Button
               variant="outline"
               size="sm"
               disabled={!repoState.writable || busy || Boolean(unsavedCount)}
-              onclick={() => review(true)}>Update from shared files</Button
+              onclick={() => review(true)}>Update from Main</Button
             >
           {/if}
-          <p>Saved task files. Open a working copy to inspect its files and review changes.</p>
-          <button
-            class:chosen={branch === 'main'}
-            disabled={busy}
-            onclick={() => selectBranch('main')}
-            ><FolderOpen size={15} /><span
-              >Shared workspace<small>The team's saved workspace</small></span
-            ></button
-          >
-          {#each agentBranches as name (name)}<button
-              class:chosen={branch === name}
-              disabled={busy}
-              onclick={() => selectBranch(name)}
-              ><GitBranch size={15} /><span
-                >{branchLabel(name)}<small>{repoState.branches?.[name]?.slice(0, 8)}</small></span
-              ></button
+          <p>
+            {repoState.changed_files?.length || 0} saved uncommitted changes{unsavedCount
+              ? ` · ${unsavedCount} unsaved drafts`
+              : ''}
+          </p>
+          {#each repoState.changed_files || [] as file (file.path)}<button
+              onclick={() => file.status !== 'deleted' && open(file.path)}
+              ><span>{file.path}<small>{file.status}</small></span></button
             >{/each}
-          {#if !agentBranches.length}<p>
-              No task copies yet. Create a task in the left panel to start a working copy.
-            </p>{/if}
+          <Button
+            size="sm"
+            disabled={!repoState.writable || busy || !repoState.changed_files?.length}
+            onclick={reviewSaved}>Review &amp; commit</Button
+          >
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!repoState.writable || busy || !repoState.changed_files?.length}
+            onclick={discardSaved}>Discard changes</Button
+          >
+          {#if commitReview}
+            <p>All saved changes in this shared worktree will be committed.</p>
+            <pre class="commit-diff">{commitReview.diff}</pre>
+            <label
+              >Commit message<Input aria-label="Commit message" bind:value={commitMessage} /></label
+            >
+            <Button
+              size="sm"
+              disabled={busy || !commitMessage.trim() || commitReview.revision !== repoState.commit}
+              onclick={commitSaved}>Commit changes</Button
+            >
+            {#if commitReview.revision !== repoState.commit}<p>
+                Saved files changed. Review again before committing.
+              </p>{/if}
+          {/if}
         </div>
       {/if}
       <div class="explorer-footer">
@@ -764,17 +1089,26 @@
       {#each tabs as tab (tab.id)}
         {@const name = tab.id === activeId ? path : tab.path}
         {@const modified = tab.id === activeId ? dirty : dirtyTab(tab)}
-        <div class="editor-tab" class:active={active && tab.id === activeId}>
+        <div
+          class="editor-tab"
+          class:active={active && tab.id === activeId}
+          class:preview={Boolean(tab.preview)}
+        >
           <button
             role="tab"
             aria-selected={active && tab.id === activeId}
             aria-controls="file-editor"
             id={`file-tab-${tab.id}`}
-            disabled={busy}
+            disabled={busy && !loadingFile}
             title={name || 'Untitled'}
             onclick={() => activate(tab)}
+            ondblclick={() => pinWorkspaceFile(tab.id)}
             onkeydown={(event) => {
-              if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+              if (event.key === 'Enter' && tab.preview) {
+                event.preventDefault();
+                pinWorkspaceFile(tab.id);
+                void activate(tab);
+              } else if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
                 event.preventDefault();
                 const index = tabs.findIndex((item) => item.id === tab.id);
                 const next =
@@ -797,7 +1131,7 @@
           >
           <button
             class="close-tab"
-            disabled={busy}
+            disabled={busy && !loadingFile}
             aria-label={`Close ${fileLabel(name)}`}
             onclick={() => closeTab(tab.id)}><X size={12} /></button
           >
@@ -850,17 +1184,15 @@
     {:else}
       {#if view === 'file'}<div class="editor-column">
           {#if branch !== 'main'}<div class="branch-banner">
-              <GitBranch size={15} aria-hidden="true" /><span
-                >You're viewing a saved task working copy.</span
-              ><Button
+              <GitBranch size={15} aria-hidden="true" /><span>{branchLabel(branch)}</span><Button
                 size="sm"
                 disabled={!repoState.writable || busy || Boolean(unsavedCount)}
-                onclick={() => review()}><GitMerge size={14} />Review changes</Button
+                onclick={() => review()}><GitMerge size={14} />Merge into Main</Button
               ><Button
                 size="sm"
                 variant="ghost"
                 disabled={!repoState.writable || busy || Boolean(unsavedCount)}
-                onclick={() => review(true)}>Update from shared files</Button
+                onclick={() => review(true)}>Update from Main</Button
               >
             </div>{/if}
           {#if !repoState.writable}<div class="message readonly">
@@ -869,65 +1201,26 @@
               >
             </div>{/if}
           {#if editing}
-            <div class="editor-toolbar">
-              <div class="breadcrumbs" title={path}>
-                {#each (path || 'Untitled').split('/') as part, index (index)}{#if index}<ChevronRight
-                      size={12}
-                      aria-hidden="true"
-                    />{/if}<span>{part}</span>{/each}
-              </div>
-              <div class="editor-actions">
-                {#if /\.(md|markdown)$/.test(path) && !binary}<Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={previewText ? 'Edit Markdown' : 'Preview Markdown'}
-                    title={previewText ? 'Edit Markdown' : 'Preview Markdown'}
-                    aria-pressed={previewText}
-                    onclick={() => (previewText = !previewText)}
-                    >{#if previewText}<Code2 size={15} />{:else}<Eye size={15} />{/if}</Button
-                  >{/if}
-                <Button
-                  size="sm"
-                  disabled={!repoState.writable || busy || binary || !path || !dirty}
-                  onclick={save}><Save size={14} aria-hidden="true" />Save</Button
-                >
-                <details class="file-menu">
-                  <summary aria-label="File actions" title="File actions">•••</summary>
-                  <div>
-                    <Button
-                      variant="ghost"
-                      disabled={!repoState.writable || busy || binary}
-                      onclick={() => (renameOpen = !renameOpen)}>Rename file</Button
-                    >
-                    <Button variant="ghost" disabled={busy || !originalPath} onclick={download}
-                      ><Download size={14} />Download</Button
-                    >
-                    {#if !binary}<Button
-                        variant="ghost"
-                        disabled={busy || !repoState.writable}
-                        onclick={() => {
-                          enhanced = !enhanced;
-                          previewText = false;
-                        }}>{enhanced ? 'Use text editor' : 'Use enhanced editor'}</Button
-                      >{/if}
-                    <Button
-                      variant="ghost"
-                      disabled={!repoState.writable || busy || !originalPath}
-                      onclick={remove}><Trash2 size={14} />Delete file</Button
-                    >
-                  </div>
-                </details>
-              </div>
-            </div>
-            {#if renameOpen}<div class="file-name-form">
-                <label for="workspace-file-path">File path</label><Input
-                  id="workspace-file-path"
-                  aria-label="File path"
-                  placeholder="e.g. proofs/Main.lean"
-                  bind:value={path}
-                  disabled={!repoState.writable || busy || binary}
-                /><small>Use / to create folders. Save to apply.</small>
-              </div>{/if}
+            <WorkspaceEditorHeader
+              bind:path
+              bind:mode={editorMode}
+              bind:renaming={renameOpen}
+              bind:wordWrap
+              bind:enhanced
+              {binary}
+              writable={repoState.writable}
+              {busy}
+              {dirty}
+              saved={Boolean(originalPath)}
+              onsave={save}
+              onrename={() => {
+                pinWorkspaceFile(activeId);
+                renameOpen = true;
+              }}
+              ondownload={download}
+              ondelete={remove}
+              onerror={(message) => (error = message)}
+            />
             {#if changed}<div class="stale-banner">
                 <div>
                   <strong>Newer changes are available</strong>
@@ -954,40 +1247,79 @@
                     ><Download size={14} />Download file</Button
                   >
                 </div>
-              {:else if previewText}<div class="markdown-preview"><Markdown {content} /></div>
-              {:else if enhanced && repoState.writable && !busy}{#key `${activeId}:${base}`}<MonacoSourceEditor
+              {:else if editorMode === 'changes'}
+                {#if changesLoading}<p class="changes-message" role="status">Loading changes…</p>
+                {:else if changesError}<div class="changes-message" role="alert">
+                    {changesError}<Button variant="ghost" size="sm" onclick={() => changesRetry++}
+                      >Retry</Button
+                    >
+                  </div>
+                {:else}{#key currentEditorKey}<WorkspaceFileChanges
+                      original={headContent}
+                      modified={content}
+                      {wordWrap}
+                      language={{
+                        LEAN: 'lean4',
+                        PYTHON: 'python',
+                        TEXT: 'plaintext',
+                        MARKDOWN: 'markdown',
+                        JSON: 'json',
+                      }[language]}
+                    />{/key}{/if}
+              {:else if editorMode === 'preview'}<div class="markdown-preview">
+                  <Markdown {content} />
+                </div>
+              {:else if enhanced}{#key currentEditorKey}<MonacoSourceEditor
                     bind:value={content}
                     {language}
-                  />{/key}
-              {:else}<div class="source-editor">
-                  <div class="line-gutter" aria-hidden="true">
-                    {#each [...Array(Math.min(lineCount, 5000)).keys()] as index (index)}<div>
-                        {index + 1}
-                      </div>{/each}
-                  </div>
-                  <textarea
-                    aria-label="File contents"
-                    bind:value={content}
-                    disabled={!repoState.writable || busy}
-                    spellcheck="false"
-                    wrap="off"
-                    onscroll={(event) => {
-                      const gutter = event.currentTarget.previousElementSibling;
-                      if (gutter) gutter.scrollTop = event.currentTarget.scrollTop;
+                    {wordWrap}
+                    sessions={editorSessions}
+                    sessionKey={currentEditorKey}
+                    active={active && view === 'file'}
+                    readOnly={!repoState.writable || busy}
+                    onEdit={() => pinWorkspaceFile(activeId)}
+                    onError={() => {
+                      enhanced = false;
+                      notice =
+                        'The code editor could not load. Your file is available in the text editor.';
                     }}
-                    onkeydown={(event) => {
-                      if (event.key === 'Tab' && !event.shiftKey) {
-                        event.preventDefault();
-                        const target = event.currentTarget;
-                        const start = target.selectionStart;
-                        content =
-                          content.slice(0, start) + '  ' + content.slice(target.selectionEnd);
-                        requestAnimationFrame(() => {
-                          target.selectionStart = target.selectionEnd = start + 2;
-                        });
-                      }
-                    }}></textarea>
-                </div>{/if}
+                  />{/key}
+              {:else}{#key currentEditorKey}<div class="source-editor">
+                    <div class="line-gutter" class:wrapped={wordWrap} aria-hidden="true">
+                      {#each [...Array(Math.min(lineCount, 5000)).keys()] as index (index)}<div>
+                          {index + 1}
+                        </div>{/each}
+                    </div>
+                    <textarea
+                      use:retainPlainView={currentEditorKey}
+                      oninput={() => pinWorkspaceFile(activeId)}
+                      aria-label="File contents"
+                      bind:value={content}
+                      readonly={!repoState?.writable || busy}
+                      spellcheck="false"
+                      wrap={wordWrap ? 'soft' : 'off'}
+                      onscroll={(event) => {
+                        const gutter = event.currentTarget.previousElementSibling;
+                        if (gutter) gutter.scrollTop = event.currentTarget.scrollTop;
+                      }}
+                      onkeydown={(event) => {
+                        if (
+                          event.key === 'Tab' &&
+                          !event.shiftKey &&
+                          repoState?.writable &&
+                          !busy
+                        ) {
+                          event.preventDefault();
+                          const target = event.currentTarget;
+                          const start = target.selectionStart;
+                          content =
+                            content.slice(0, start) + '  ' + content.slice(target.selectionEnd);
+                          requestAnimationFrame(() => {
+                            target.selectionStart = target.selectionEnd = start + 2;
+                          });
+                        }
+                      }}></textarea>
+                  </div>{/key}{/if}
             </div>
             {#if latest !== undefined}<section
                 class="compare-panel"
@@ -1011,11 +1343,11 @@
               <h2>Your research, in files</h2>
               <p>Open a file from the explorer, or start with a note, proof, or computation.</p>
               <div class="empty-actions">
-                <Button disabled={!repoState.writable || busy} onclick={create}
+                <Button disabled={!repoState?.writable || busy} onclick={create}
                   ><Plus size={14} />Create a file</Button
                 ><Button
                   variant="outline"
-                  disabled={!repoState.writable || busy}
+                  disabled={!repoState?.writable || busy}
                   onclick={() => uploadInput?.click()}><Upload size={14} />Upload</Button
                 >
               </div>
@@ -1067,7 +1399,7 @@
           </div>
         </section>{/if}
       {#if view === 'merge' && !preview}<p class="message readonly">
-          Select a task working copy in Source control to review its changes.
+          Select a working copy in Source control to review its changes.
         </p>{/if}
       {#if preview && (view === 'merge' || !onOpenView)}
         <section class="merge-panel" aria-label="Merge review">
@@ -1154,6 +1486,12 @@
 {/snippet}
 
 <style>
+  .commit-diff {
+    max-height: 320px;
+    overflow: auto;
+    font-size: 11px;
+    white-space: pre;
+  }
   .review-surface .history-panel,
   .review-surface .merge-panel {
     flex: 1;
@@ -1177,7 +1515,6 @@
     color: var(--foreground);
   }
   .icon-actions,
-  .editor-actions,
   .copy-picker {
     display: flex;
     align-items: center;
@@ -1220,22 +1557,45 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    background: color-mix(in srgb, var(--research-accent) 3%, var(--background));
+    background: var(--sidebar);
     overflow: auto;
   }
   .explorer-heading {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.65rem;
-    gap: 0.35rem;
-    min-height: 42px;
+    padding: 2px 8px;
+    gap: 4px;
+    min-height: 28px;
   }
   .icon-actions {
     gap: 0;
   }
   .icon-actions :global(button) {
     min-height: 24px;
+  }
+  :global(.explorer-more) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    color: var(--muted-foreground);
+  }
+  :global(.explorer-view-option [data-slot='dropdown-menu-checkbox-item-indicator']) {
+    left: 4px;
+    right: auto;
+  }
+  :global(.explorer-more:hover),
+  :global(.explorer-more[data-state='open']) {
+    background: var(--sidebar-accent);
+    color: var(--sidebar-accent-foreground);
+  }
+  :global(.explorer-more:focus-visible) {
+    outline: 2px solid var(--ring);
+    outline-offset: -2px;
   }
   .editor-surface > :global(.monaco-source-editor) {
     width: 100%;
@@ -1269,8 +1629,8 @@
   }
   .explorer-footer {
     margin-top: auto;
-    padding: 0.65rem 0.8rem;
-    font-size: 0.65rem;
+    padding: 6px 8px;
+    font-size: 10px;
     color: var(--muted-foreground);
     display: flex;
     justify-content: space-between;
@@ -1306,6 +1666,9 @@
     flex-shrink: 0;
     border-right: 1px solid var(--border);
     border-top: 2px solid transparent;
+  }
+  .editor-tab.preview button[role='tab'] {
+    font-style: italic;
   }
   .editor-tab.active {
     background: var(--background);
@@ -1343,86 +1706,13 @@
     background: var(--primary);
     flex-shrink: 0;
   }
-  .editor-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.45rem 0.8rem;
-    border-bottom: 1px solid var(--border);
-    gap: 0.5rem;
-  }
-  .breadcrumbs {
-    display: flex;
-    gap: 0.2rem;
-    align-items: center;
-    font-size: 0.72rem;
-    color: var(--muted-foreground);
-    overflow: hidden;
-  }
-  .breadcrumbs span {
-    white-space: nowrap;
-  }
-  .breadcrumbs span:last-child {
-    color: var(--foreground);
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .editor-actions {
-    flex-shrink: 0;
-    gap: 0.2rem;
-  }
-  .file-menu {
-    margin: 0;
-    position: relative;
-  }
-  .file-menu summary {
-    margin: 0;
-    list-style: none;
-    cursor: pointer;
-    padding: 0.2rem 0.45rem;
-    border-radius: 4px;
+  .changes-message {
+    padding: 12px;
+    font-size: 12px;
     color: var(--muted-foreground);
   }
-  .file-menu summary::-webkit-details-marker {
+  .line-gutter.wrapped {
     display: none;
-  }
-  .file-menu > div {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    z-index: 5;
-    background: var(--background);
-    padding: 0.35rem;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: var(--shadow-raised);
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .file-menu :global(button) {
-    justify-content: flex-start;
-  }
-  .file-name-form {
-    padding: 0.6rem 0.8rem;
-    background: var(--muted);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    align-items: center;
-  }
-  .file-name-form label {
-    font-size: 0.75rem;
-    font-weight: 500;
-  }
-  .file-name-form :global(input) {
-    flex: 1;
-    min-width: 150px;
-  }
-  .file-name-form small {
-    width: 100%;
-    color: var(--muted-foreground);
-    font-size: 0.7rem;
   }
   .editor-surface {
     display: flex;
@@ -1449,8 +1739,8 @@
   }
   .line-gutter {
     text-align: right;
-    min-width: 48px;
-    padding-inline: 0.5rem 0.85rem;
+    min-width: 36px;
+    padding-inline: 4px 8px;
     color: var(--muted-foreground);
     background: var(--background);
     overflow: hidden;
@@ -1579,11 +1869,12 @@
     flex: 1;
   }
   .agent-copies {
-    padding: 0.6rem;
+    padding: 8px;
+    font-size: 11px;
   }
   .agent-copies p {
-    font-size: 0.75rem;
-    line-height: 1.6;
+    font-size: 11px;
+    line-height: 1.4;
     color: var(--muted-foreground);
     padding: 0.2rem 0.3rem 0.7rem;
   }
@@ -1593,14 +1884,11 @@
     width: 100%;
     gap: 0.6rem;
     text-align: left;
-    padding: 0.65rem 0.5rem;
-    border-radius: 6px;
-    font-size: 0.77rem;
+    padding: 4px 6px;
+    border-radius: 4px;
+    font-size: 11px;
   }
-  .agent-copies button.chosen {
-    background: var(--background);
-    box-shadow: 0 0 0 1px var(--border);
-  }
+
   .agent-copies small {
     display: block;
     color: var(--muted-foreground);

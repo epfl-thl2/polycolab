@@ -35,10 +35,7 @@
 </script>
 
 <header class="activity-heading">
-  <div>
-    <h1>Activity</h1>
-    <p class="muted">Changes in this workspace · Last 30 days</p>
-  </div>
+  <p class="muted">Changes in this workspace · Last 30 days</p>
   <Button variant="ghost" disabled={$activity.isFetching} onclick={() => $activity.refetch()}
     >Refresh</Button
   >
@@ -135,12 +132,9 @@
   .activity-heading {
     display: flex;
     justify-content: space-between;
-    align-items: start;
+    align-items: center;
     gap: 12px;
     margin-bottom: 16px;
-  }
-  h1 {
-    margin: 0 0 6px;
   }
   p {
     margin: 0;

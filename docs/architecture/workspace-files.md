@@ -1,167 +1,167 @@
-# Workspace files
+# Workspace files and Git worktrees
 
-Implemented: member file API, browser editor, history, stale-save protection,
-merge review, durable Git/SQL receipts, hosted bundle transport and guest checkout
-helpers. Native Linux microsandbox acceptance remains a deployment gate.
+Each project has one managed bare Git repository at
+`<WORKSPACE_REPOSITORY_DIRECTORY>/<project UUID>.git`. Native linked checkouts live
+alongside it at `<project UUID>.worktrees/<worktree UUID>`. These directories share
+one persistent server filesystem; Docker keeps them in the repository volume.
+Git owns branches, commits, indexes, and file contents. SQL owns membership,
+worktree names, creator attribution, lifecycle, private conversations, run bindings,
+and operation receipts. Repository content is member-only even for public projects.
 
-## Storage and ownership
+## Worktrees and collaboration
 
-Each workspace has one bare Git repository, `<workspace UUID>.git`, under the
-API-owned `WORKSPACE_REPOSITORY_DIRECTORY`. The setting is optional; without it
-file endpoints report disabled. Docker Compose mounts a persistent named volume;
-Docker-free development selects `.local/repositories`. The API image includes
-Git (2.38 or newer is required for merge-tree). No Git HTTP/SSH endpoint is exposed. The initial deployment requires a single
-API host and a local POSIX filesystem with working `flock` and atomic ref updates.
-API processes on that host share the same repository directory and locks.
+The browser presents Project → Worktrees → Conversations. Main and named worktrees
+are shared by project members; owners and contributors can edit, and readers can
+inspect. Conversations remain creator-private. Worktrees have no ownership groups.
+Creating a worktree asks for a name, a unique branch name, and a starting branch
+(default Main). One managed linked checkout is allowed per branch. The service
+uses Git's worktree inventory to verify availability; missing checkouts are shown
+as unavailable rather than healthy metadata entries.
 
-SQL retains accounts, memberships, research records, sessions, runs, repository
-registration, mutation receipts, and input/output commit IDs. Git owns working
-file content and history. Garage retains artifact bytes. No existing research
-record is migrated, mirrored, published, or automatically updated by a file save.
-Tasks are durable workspace metadata with a title, creator, archive state, and one
-saved working-copy branch. Creating a task forks the current shared head into
-`tasks/<task UUID>` immediately and does not require agent execution. The API
-requires file storage and uses `client_request_id` as the retry identity. Task
-metadata is member-visible; its nested chats remain creator-private. Task list,
-get, create, and update routes live at `/api/v1/workspaces/{id}/tasks`.
-Archiving rejects queued or active task runs and preserves the saved branch.
-Archived task branches remain readable and reject new writes or conversations.
+Save persists an uncommitted file snapshot without advancing the branch's HEAD.
+Source control lists added, modified, and deleted saved files. Review & commit
+shows the full shared diff and requires a commit message. Commit changes commits
+all saved changes. Unsaved editor drafts are excluded only after explicit
+confirmation. Discard changes restores the saved files to HEAD after confirmation.
+Update from Main and merge review require both working directories to be clean.
+The existing three-way merge and explicit conflict-resolution workflow is retained.
 
-Repository content is always members-only, including in public workspaces.
-Read-only members can inspect saved files and branches. Contributors and owners
-can save; workspace archive and membership checks are enforced on the server.
-Chat ownership and privacy are unchanged. Git author strings from guests are
-untrusted display metadata; authenticated SQL receipts record the saving actor.
+The editor keeps drafts and tabs in memory per worktree. A single click in Explorer
+opens a replaceable preview tab with an italic title. Double-clicking, pressing
+Enter, editing, renaming, or dragging its tab keeps it open. New files and direct
+file links open permanent tabs. A failed file read preserves the current tab.
+Switching worktrees restores their files and draft editors. Closing the last content tab leaves an
+empty view. Closing a dirty editor asks before discarding it. Cmd/Ctrl+S saves
+only the active file. Drafts are not durable autosaves. Polling reports stale
+revisions without replacing dirty drafts. Local storage contains layout and route
+preferences, never draft file contents or private conversation text.
 
-## Collaboration
+Monaco is the default text editor, with a plain-text fallback in File actions.
+The compact editor header contains the file path and icon view controls. Clicking
+the path copies it; Rename edits the path inline, with Save applying the rename.
+Edit/Source, Markdown Preview, and Changes share one view selector. Changes compares
+Git HEAD with the current editor text, including unsaved edits, without writing
+files. Leaving Changes restores the source editor state. File actions contains
+word wrap, editor fallback, copy path, rename, download, and delete. Saves remain
+explicit through the Save icon or Cmd/Ctrl+S.
+Models are keyed by project, worktree, and stable open-file ID. Cursor, selection,
+scroll, and undo history survive tab and layout switches, Markdown preview,
+renames, and saves within the workspace session. Plain-text editors retain their
+selection and scroll position. Clean external updates are undoable edits; dirty
+drafts retain the stale-revision warning. Closing or replacing a tab releases its
+model; leaving the workspace releases all models. Reloading starts a new session.
 
-Humans edit shared `main` or a named task copy in the workspace’s tabbed editor,
-then **Save**.
-Member workspaces use four areas: a thin page-navigation rail at the far left,
-tasks with nested private conversations on the left, unified content tabs in the middle, and
-switchable Explorer, Source control, and Details tools on the right. The workspace
-root opens New chat when writing and agent execution are available, otherwise
-Overview. Explorer provides collapsible folders and filename filtering. Files,
-chats, research objects, pages, and diff views share one tab strip; there is no
-nested file-workbench frame.
+Explorer's more-actions menu toggles dotfiles and Git-ignored files, both hidden
+by default. Dotfile filtering includes dot-prefixed directories. The API reports
+ignored saved paths using the linked checkout's Git ignore rules and HEAD index;
+tracked files remain visible even when an ignore pattern matches. These filters
+only affect Explorer visibility, not saved snapshots or Source control.
 
-`WorkspaceFiles` remains mounted and keeps independent in-memory drafts while
-switching files or workspace sections. Closing a dirty tab or leaving the
-workspace asks before discarding work. Cmd/Ctrl+S saves the active file. Markdown
-can be previewed beside the editing workflow, and the enhanced source editor
-remains available from File actions. Paths create folders on save; Git does not
-store empty directories. Saved versions are immutable.
-Every save identifies its expected commit and retry key. A stale save returns a
-conflict without overwriting newer work; the browser retains the draft, compares
-the latest file, and lets its author explicitly choose the new base. Polling every
-five seconds refreshes clean editors and reports changes alongside dirty drafts.
-Drafts are browser memory, not durable autosaves. Local storage retains layout
-preferences and validated route-tab URLs per account/workspace, excluding file
-content and file/diff tabs. Source control opens history and merge review as diff
-tabs. Task names label saved working copies; branch identity remains secondary.
-Selecting a task or opening one of its conversations selects that branch. The
-center plus creates a new conversation in the selected task. Shared workspace
-contains conversations without a task. Archived tasks have a separate collapsed
-section. Other members’ private titles, conversation counts, and run activity are
-not included in the panel.
-Switching copies asks before discarding any tab drafts. Collapsing the right
-panel preserves open editors and their drafts. Narrow screens open the navigator
-in the workspace’s right-hand drawer; choosing a file returns to the editor.
+Explorer remembers its filter, collapsed folders, scroll, and visibility options
+per worktree for the session. Selecting a file reveals its ancestors without
+moving keyboard focus. Manual folder collapse remains until the selected file
+changes. Hidden active files offer an explicit Reveal active file action that
+clears the filename filter and enables the required visibility options. Saved Git
+changes use A/M file badges and aggregate A/M/D folder badges; deleted files do not
+create Explorer rows. These markers are separate from unsaved tab indicators.
 
-A session owner opts into workspace files before queueing a run. Its
-`sessions/<session UUID>` branch starts at shared `main`. All workspace members
-can inspect saved session branches. While a session has an active run, human
-writes to that branch are blocked. Otherwise writers can edit it, update it from
-shared files, or review its diff and merge into `main`. Merge checks both expected
-heads, uses Git's three-way merge, and requires a complete resolution for every
-conflicting file. Binary conflicts offer whole-file choices. Stale previews must
-be refreshed. No CRDT, live cursors, automatic agent-to-main merge, or external
-repository synchronization is included.
+Removing a worktree preserves its branch, history, metadata, and conversations.
+Dirty removal requires confirmation; Main cannot be removed. Restore recreates a
+removed checkout at its branch head. Restoring an unexpectedly missing active
+checkout recovers its last saved snapshot, including uncommitted changes.
+Queued or active agent runs block human writes and removal, including on Main.
 
-## Hosted workflow
+## HTTP and compatibility
 
-Repository-enabled sessions require the hosted Codex execution capability.
-Public-destination research runs cannot carry private workspace files. At claim,
-the API pins the task working-copy head and branch in SQL; legacy untasked
-sessions continue to pin their own branch. Conversations on one task share that
-working copy. Claims serialize task runs across chats, and any claimed, running,
-or cancelling sibling blocks another claim regardless of timestamps. Human
-writes and task archive use the task lock and reject queued or active runs. A controller with private protocol 3 receives
-a bounded bundle and metadata, and the guest makes a fresh clone at `/workspace`.
-Codex state lives outside that checkout. The controller holds no SQL credentials
-and the guest holds no service or provider credentials.
+`/api/v1/workspaces/{id}/worktrees` provides list, create, and get operations.
+Worktree-scoped routes provide file reads, diff, save, commit, discard, remove,
+and restore. State includes `head_commit`, independent saved `revision`, lifecycle,
+files, changed files, and current writability. File mutations require the expected
+saved revision and an idempotency key. Stale writes fail without overwriting files.
 
-Agents can run local subprocess workflows and Git worktrees inside the existing
-sandbox. Integrate their changes into the primary working-copy branch before finishing;
-only that branch is exported. This does not introduce a multi-agent scheduler or
-enable Codex native subagent orchestration, which remains disabled by the existing
-hosted bridge. On orderly success, the helper commits unignored changes, exports a
-bundle, and the API validates and saves the branch before permitting completion.
-The next run gets a fresh clone of that saved head. The session UI shows input and
-saved output commits. Cancelled, timed-out, or crashed runs guarantee only commits
-already acknowledged by the API; a local `git commit` is not a durable service save.
+Conversation requests accept `worktree_id`; `task_id` remains a compatibility
+alias, and conflicting values are rejected. The physical `workspace_tasks` table
+and legacy metadata routes remain compatible. Existing task IDs and session
+branches are preserved. New conversations without an explicit binding use Main
+once the project has been materialized. Legacy history reads remain available;
+the auto-commit `/repository/changes` endpoint rejects migrated repositories with
+`repository_upgrade_required_use_worktrees`.
 
-The private import endpoint fences run status, deadline, cancellation, current
-membership, worker identity, and lease generation. A branch save is idempotent per
-run. Completion is refused until the saved output binding exists. Inputs remain
-pinned even if another session or human advances `main`.
+## Persistence and recovery
 
-## Limits and validation
+A saved revision is an internal Git snapshot under
+`refs/polycolab/worktrees/<worktree UUID>`, separate from branch history. It records
+the saved file tree and its human branch head. SQL prepares the idempotency receipt
+before applying a change. After a final authorization check, a fsynced journal
+records the accepted operation. Recovery under the repository lock finishes its
+ref updates and reconstructs the complete checkout before reads or writes resume.
+Files and directories are fsynced before acknowledgement. SQL receipt completion
+can be recovered from the snapshot ref if the process stops after Git succeeds.
+A prepared SQL receipt alone never authorizes replay of an unapplied write.
 
-The default per-repository disk quota is 64 MiB, configurable from 1 MiB to 1 GiB.
-History counts toward this limit; deleting a tracked file does not remove its
-historical bytes. Bundle transfers and individual Git outputs are capped at
-16 MiB. Total run inputs, including artifacts and repository metadata, share the
-16 MiB input ceiling. Trees are limited to 4,096 regular files and 16 MiB of content;
-an imported branch may add at most 256 commits per run. The browser upload ceiling
-is 700 KB to fit base64 JSON within the 1 MiB core request limit.
+The API uses a single-host repository lock plus optimistic revision checks.
+Canonical directories are service-owned. User code never executes there, and
+shared Git metadata is never mounted into an agent sandbox. External Git imports,
+branch switching in place, detached checkouts, terminals, and persistent dependency
+environments are outside this implementation.
 
-Reject traversal paths, `.git` components, control characters, symlinks, submodules,
-non-regular entries and rewrites of the run's starting history. Imported bundles
-are inspected in a temporary bare repository before objects enter canonical
-storage. Git runs without hooks, user/global configuration, arbitrary protocols,
-or a shell, with process time, output, memory (Linux), and file-size limits.
-Repository locks serialize saves and merges; ref updates also compare the old
-commit. Large datasets, build trees, and generated outputs belong in artifact
-storage. Put temporary files and dependencies in `.gitignore`.
+## Hosted runs
 
-## Recovery, backup, and rollout
+Private runtime protocol 4 pins the worktree ID, human HEAD, and saved revision.
+Runs on the same worktree serialize across private conversations. A disposable
+sandbox receives a bounded bundle, checks out the pinned branch head, and restores
+the saved overlay as uncommitted files. The controller has no SQL credentials and
+the guest has no service or provider credentials.
 
-Apply PostgreSQL migrations through `20261008_workspace_tasks` or the matching
-SQLite migrations. The task migration creates a generic member-visible task for
-each existing repository-enabled session, retains its `sessions/<UUID>` branch,
-and leaves private conversation titles unchanged. Untasked sessions and shared
-`main` are preserved. Existing run bindings snapshot their original branch.
-No Git branch rename, content copying, or migration-time Git access occurs. The API prepares and commits a SQL mutation receipt before advancing a
-Git ref. It then finalizes the receipt. On subsequent repository access, a pending
-receipt whose commit is already reachable is acknowledged; recovery never applies
-an uncommitted write on behalf of a revoked user. Retrying the same request and key
-returns its saved commit. Prepared receipts may reference unreachable objects;
-do not run `git gc --prune=now`, rewrite refs, or remove repository directories as
-routine maintenance.
+On successful execution, a guest transport checkpoint captures the resulting
+file tree. The service validates the bundle in an isolated repository and imports
+that tree into the canonical saved state. Guest commits do not advance the human
+branch. Completion requires the service's save acknowledgement. Failed or cancelled
+runs guarantee only the last acknowledged state; unsent sandbox changes are not
+guaranteed. Lease generation, cancellation, deadline, membership, and pinned
+revision checks fence imports. Public-destination runs cannot carry private files.
+Older controllers cannot claim protocol 4 work.
 
-Back up SQL and the complete repository directory as one stopped-write set:
+## Limits
 
-1. Stop new admissions, drain or cancel running agents, and stop every API writer.
-2. Take the SQL backup and copy/snapshot the repository volume, including refs,
-   objects and configuration. Preserve private filesystem permissions. Back up
-   Garage using its existing artifact procedure.
-3. Record the schema revision and application/image version with this backup set,
-   then resume the service.
-4. Restore both SQL and repositories into an isolated deployment. Run
-   `git --git-dir=<repository> fsck --full`, verify saved session heads and SQL
-   input/output commit IDs, then read history and perform an expected-head save.
-   Check pending receipts through the API before reopening normal writes.
+The default quota is 64 MiB per project, configurable from 1 MiB to 1 GiB. It counts
+repository objects, checkout files, and recovery metadata. Retained history and
+snapshots count even after files are deleted. Trees contain at most 4,096 regular
+files and 16 MiB of content. Git output and bundle transfers are bounded at 16 MiB;
+imports may introduce at most 256 guest commits. Browser uploads are limited to
+700 KB to fit base64 within the core request limit.
 
-An SQL-only backup no longer restores workspace files. Do not pair backups from
-different write points or recreate missing registered repositories as empty ones.
-For rollback, drain controllers, retain SQL and repository data, and disable file
-configuration/UI access. Do not downgrade the new tables. Rebuild the curated
-image and controller together for protocol 3; older controllers cannot claim new
-hosted work. Existing sessions without repository opt-in keep their prior behavior.
+Paths reject traversal, `.git` components, control characters, symlinks, submodules,
+and non-regular files. Git runs without hooks, global/user configuration, arbitrary
+protocols, or a shell. Process, output, and file-size limits remain enforced.
+Generated build output and large datasets belong in artifact storage. Guest
+`.gitignore` rules control which new files are included in transport checkpoints.
 
-Local automated checks cover save/retry/conflict handling, private access, quotas,
-path validation, SQL interruption recovery, clone/checkpoint/restore, linked
-worktree integration, hosted lease/cancellation fencing, merge, and browser draft
-retention. A real Linux pinned-image checkout/save/restart/cleanup acceptance run
-is still required before enabling hosted repository use in production.
+## Migration, backup, and rollout
+
+SQL revisions are `20261011_native_worktrees` (PostgreSQL) and
+`local_20261011_native_worktrees` (SQLite). They add rollout and run-binding fields;
+they perform no filesystem operations. With admissions and API writes stopped,
+drain runs, then back up SQL and the **complete repository directory** together,
+including bare repositories, linked checkouts, and recovery journals.
+
+Materialize each existing project using a project writer's user ID:
+
+```sh
+uv run --directory src/backend python -m polycolab.operations.materialize_worktrees \
+  --workspace PROJECT_UUID --user WRITER_UUID
+```
+
+The command is resumable, retains existing IDs and branches, gives discovered
+branches generic member-visible names, leaves archived records removed, and
+verifies active checkouts. Existing private conversation titles are never copied
+into worktree names. A fresh empty repository provisions Main on first worktree
+access; populated legacy repositories require the materialization command.
+Deploy the new API, browser, controller, and guest image together. Verify Git
+inventory, saved snapshots, and a save/commit cycle before reopening writes.
+
+Restore SQL and repository storage from the same stopped-write backup. Do not
+recreate a missing registered repository as an empty one, prune internal refs,
+or run immediate object garbage collection: prepared receipts may still refer to
+unreachable objects. Rollback requires restoring the coordinated backup or
+keeping the new storage disabled; downgrading the schema is unsupported.
