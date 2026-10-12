@@ -69,9 +69,8 @@ def state(
     with instance.open() as git:
         commit = git.head(branch_name(branch))
         writable = workspace_policy.can(tx, workspace_id, user.id, WorkspaceAction.CREATE_RESEARCH)
-        if branch != "main" and (
-            instance.store.branch_active(workspace_id, branch)
-            or instance.store.branch_archived(workspace_id, branch)
+        if instance.store.branch_active(workspace_id, branch) or instance.store.branch_archived(
+            workspace_id, branch
         ):
             writable = False
         return RepositoryState(
@@ -172,6 +171,8 @@ def merge(
         source=body.source,
         expected_target=body.expected_target,
         expected_source=body.expected_source,
+        expected_target_revision=body.expected_target_revision,
+        expected_source_revision=body.expected_source_revision,
         key=key,
         payload=body.model_dump(),
         resolutions=decode_changes([(c.path, c.content_base64) for c in body.resolutions])
@@ -211,15 +212,28 @@ def enable_session(
     return RepositorySessionState(enabled=True, branch=branch)
 
 
-@router.get("/runs/{run_id}", response_model=RepositoryRunState, operation_id="getRunRepository")
+@router.get(
+    "/runs/{run_id}",
+    response_model=RepositoryRunState,
+    response_model_exclude_unset=True,
+    operation_id="getRunRepository",
+)
 def run_state(
     workspace_id: UUID, run_id: UUID, request: Request, db: DbSession, user: CurrentUser
 ) -> RepositoryRunState:
     instance = service(request, db, workspace_id, user.id)
     binding = instance.store.run(run_id)
     if binding is None:
-        return RepositoryRunState()
+        return RepositoryRunState(input_commit=None, output_commit=None)
     instance.store.session(workspace_id, binding.session_id)
+    if binding.input_revision:
+        return RepositoryRunState(
+            input_commit=binding.input_commit,
+            output_commit=binding.input_commit if binding.output_commit else None,
+            input_revision=binding.input_revision,
+            output_revision=binding.output_commit,
+            worktree_id=binding.worktree_id,
+        )
     return RepositoryRunState(
         input_commit=binding.input_commit, output_commit=binding.output_commit
     )

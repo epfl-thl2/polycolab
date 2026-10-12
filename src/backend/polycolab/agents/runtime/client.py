@@ -155,7 +155,7 @@ class RuntimeClient:
                 "engine": "codex",
                 "incarnation": self.incarnation,
                 "slot_id": slot_id,
-                "protocol_version": 3,
+                "protocol_version": 4,
             },
         )
         if value is None:

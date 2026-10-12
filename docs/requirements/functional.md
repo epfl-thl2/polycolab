@@ -22,21 +22,24 @@ them. These files stay members-only even when workspace research is public.
 Working files supplement SQL research records; saving or merging files does not
 publish research or revise a research object.
 
-Humans edit shared files or named task working copies with explicit saves. A stale
+Humans edit real Git worktrees. Save persists uncommitted files without advancing
+HEAD; Commit changes records all saved changes after diff review and a required
+message. Discard changes requires confirmation. A stale
 save must preserve the browser draft and require comparison with the newer
-version. Contributors and owners can create, rename, archive, and restore tasks.
-Tasks can exist without a conversation; multiple private conversations can share
-one task working copy. Task metadata and saved files are member-shared, while
-conversations remain private to their existing owners. Migration must preserve
-existing saved branches without exposing private conversation titles.
+version. The browser organizes work by Main and named worktrees, with private
+conversations nested under each. Contributors and owners can create a worktree
+from a selected branch (Main by default) without starting a conversation. Selecting a worktree switches its saved
+files into Explorer; new conversations belong to the selected worktree. Existing
+saved branches and conversations remain accessible. Conversation titles and
+content remain private to their existing owners.
 
-Hosted runs receive a fresh checkout pinned to the task’s saved commit and save
-their primary checkout before completing. Runs sharing a task execute serially.
-Humans cannot modify its branch while task work is queued or executing, and tasks
-with active work cannot be archived. Archived tasks remain inspectable but must
-be restored before new work. Humans review and merge task changes, resolving
-conflicting files explicitly. Creating file-only tasks does not require agent
-execution to be enabled.
+Hosted runs receive a disposable checkout pinned to HEAD and the saved revision.
+Successful outputs remain uncommitted for human review. Runs sharing any worktree,
+including Main, execute serially. Queued and active runs block human writes.
+Removing a worktree retains its branch, metadata, and private conversations; dirty
+removal requires confirmation, and Main cannot be removed. Missing checkouts must
+be shown as unavailable. Restoring an active missing checkout retains saved work.
+Humans review and merge changes, resolving conflicting files explicitly.
 
 The initial implementation uses bounded source files and small inputs. Large
 outputs remain artifacts. Character-by-character coediting, presence, external

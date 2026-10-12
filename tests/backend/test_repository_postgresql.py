@@ -123,3 +123,71 @@ def test_workspace_tasks_postgresql(
                 assert len([result for result in results if result is not None]) == 1
     finally:
         app.state.engine.dispose()
+
+
+@pytest.mark.parametrize("scenario", ["files", "agent", "migration", "concurrency"])
+def test_native_worktrees_postgresql(
+    pg_schema: tuple[Engine, Config, str],
+    identity_verifier: MappingIdentityVerifier,
+    tmp_path: Path,
+    scenario: str,
+) -> None:
+    from uuid import UUID
+
+    import test_native_worktrees as native
+
+    from polycolab.workspaces.git_storage import GitRepository
+
+    _, config, url = pg_schema
+    command.upgrade(config, "head")
+    app = create_app(
+        Settings(
+            database_url=url,
+            web_dist_dir="/missing-web-dist",
+            feature_agent_execution_enabled=True,
+            workspace_repository_directory=tmp_path / "repos",
+        ),
+        identity_verifier,
+    )
+    try:
+        with TestClient(app) as client:
+            if scenario == "agent":
+                hosted.test_native_agent_sees_saved_overlay_and_leaves_human_review(
+                    client, tmp_path
+                )
+                return
+            workspace_id = str(create_workspace(client)["id"])
+            fixture = (client, workspace_id, GitRepository(tmp_path / "repos", UUID(workspace_id)))
+            if scenario == "files":
+                native.test_save_commit_discard_and_remove(fixture)
+            elif scenario == "migration":
+                native.test_native_migration_retains_old_ids_and_is_resumable(fixture)
+            else:
+                from concurrent.futures import ThreadPoolExecutor
+                from threading import Barrier
+
+                root = f"/api/v1/workspaces/{workspace_id}/worktrees"
+                main = client.get(root, headers=headers("owner")).json()[0]
+                barrier = Barrier(2)
+
+                def save(key: str) -> int:
+                    barrier.wait(timeout=5)
+                    response = client.post(
+                        root + "/" + main["id"] + "/save",
+                        headers={**headers("owner"), "Idempotency-Key": key},
+                        json={
+                            "expected_revision": main["revision"],
+                            "changes": [{"path": key, "content_base64": "eA=="}],
+                        },
+                    )
+                    return int(response.status_code)
+
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    results = list(pool.map(save, ["first", "second"]))
+                assert sorted(results) == [200, 409]
+                state = client.get(root + "/" + main["id"], headers=headers("owner")).json()
+                assert state["head_commit"] == main["head_commit"]
+                assert len(state["files"]) == 1
+
+    finally:
+        app.state.engine.dispose()

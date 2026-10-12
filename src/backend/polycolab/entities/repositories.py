@@ -42,6 +42,8 @@ class RepositoryRun:
     input_commit: str
     output_commit: str | None
     branch: str | None = None
+    input_revision: str | None = None
+    worktree_id: UUID | None = None
 
 
 @dataclass(frozen=True)

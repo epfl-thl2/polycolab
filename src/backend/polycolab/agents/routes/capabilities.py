@@ -32,7 +32,7 @@ def hosted_ready(session: Session, settings: Settings) -> bool:
                 == settings.runtime_codex_image.rsplit("@sha256:", 1)[-1],
                 SqlHostedExecutor.expires_at > utc_now(),
                 SqlHostedExecutor.capacity > 0,
-                SqlHostedExecutor.protocol_version == 3,
+                SqlHostedExecutor.protocol_version == 4,
             )
             .limit(1)
         )

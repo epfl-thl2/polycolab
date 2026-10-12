@@ -13,6 +13,7 @@ from polycolab.entities.time import utc_now
 class SqlWorkspaceRepository(Base):
     __tablename__ = "workspace_repositories"
     workspace_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), primary_key=True)
+    native_worktrees: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
@@ -49,5 +50,9 @@ class SqlRepositoryRun(Base):
     run_id: Mapped[UUID] = mapped_column(ForeignKey("agent_runs.id"), primary_key=True)
     session_id: Mapped[UUID] = mapped_column(ForeignKey("repository_sessions.session_id"))
     branch: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    input_revision: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    worktree_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("workspace_tasks.id"), nullable=True
+    )
     input_commit: Mapped[str] = mapped_column(String(40))
     output_commit: Mapped[str | None] = mapped_column(String(40), nullable=True)

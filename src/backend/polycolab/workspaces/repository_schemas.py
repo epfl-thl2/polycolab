@@ -1,5 +1,7 @@
 """Browser contracts for member-only working files."""
 
+from uuid import UUID
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from polycolab.workspaces.git_storage import branch_name, oid, path_name
@@ -24,6 +26,8 @@ class RepositorySave(RepositoryModel):
 
 
 class RepositoryMerge(RepositoryModel):
+    expected_target_revision: str | None = None
+    expected_source_revision: str | None = None
     target: str = "main"
     source: str
     expected_target: str
@@ -73,6 +77,8 @@ class RepositoryConflictFile(RepositoryModel):
 
 
 class RepositoryMergePreview(RepositoryModel):
+    target_revision: str | None = None
+    source_revision: str | None = None
     target_commit: str
     source_commit: str
     diff: str
@@ -85,5 +91,8 @@ class RepositorySessionState(RepositoryModel):
 
 
 class RepositoryRunState(RepositoryModel):
+    worktree_id: UUID | None = None
+    input_revision: str | None = None
+    output_revision: str | None = None
     input_commit: str | None = None
     output_commit: str | None = None

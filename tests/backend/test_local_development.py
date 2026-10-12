@@ -70,7 +70,7 @@ def test_local_upgrade_backs_up_and_rolls_back_failure(
     next_revision = migrations / "versions/next.py"
     next_revision.write_text("""from alembic import op
 revision = "local_next"
-down_revision = "local_20261008_workspace_tasks"
+down_revision = "local_20261011_native_worktrees"
 def upgrade():
     op.execute("CREATE TABLE migration_marker (value TEXT)")
     op.execute("INSERT INTO migration_marker VALUES ('upgraded')")
@@ -80,7 +80,7 @@ def upgrade():
     assert backup is not None and backup.is_file()
     with sqlite3.connect(backup) as db:
         assert db.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "local_20261008_workspace_tasks",
+            "local_20261011_native_worktrees",
         )
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT value FROM migration_marker").fetchone() == ("upgraded",)
@@ -347,7 +347,7 @@ def test_local_upgrade_from_either_merged_branch(tmp_path: Path, previous: str) 
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT value FROM user_marker").fetchone() == ("retained",)
         assert db.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "local_20261008_workspace_tasks",
+            "local_20261011_native_worktrees",
         )
         assert "encrypted_secret" in {
             row[1] for row in db.execute("PRAGMA table_info(external_agent_credentials)")

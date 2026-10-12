@@ -5,8 +5,10 @@ from polycolab.workspaces.routes.references import router as references_router
 from polycolab.workspaces.routes.repository import router as repository_router
 from polycolab.workspaces.routes.tasks import router as tasks_router
 from polycolab.workspaces.routes.workspace import router as workspace_router
+from polycolab.workspaces.routes.worktrees import router as worktrees_router
 
 router = APIRouter()
+router.include_router(worktrees_router)
 router.include_router(tasks_router)
 router.include_router(repository_router)
 router.include_router(workspace_router)

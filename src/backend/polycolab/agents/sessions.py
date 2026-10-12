@@ -188,6 +188,12 @@ def create_agent_session(
 ) -> SqlAgentSession:
     """Create a shared project session pinned to a platform v1 agent definition."""
 
+    if task_id is None:
+        task_id = session.scalar(
+            select(SqlWorkspaceTask.id).where(
+                SqlWorkspaceTask.workspace_id == project_id, SqlWorkspaceTask.branch == "main"
+            )
+        )
     if task_id is not None:
         task = session.scalar(
             select(SqlWorkspaceTask)

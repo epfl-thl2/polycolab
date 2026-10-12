@@ -41,7 +41,8 @@ def checkout(run_id: UUID, request: Request, payload: Annotated[LeaseRequest, Qu
                 raise RepositoryError("repository_not_in_run", 403)
             db.commit()
             data = git.bundle(
-                binding.branch or f"sessions/{binding.session_id}", commit=binding.input_commit
+                binding.branch or f"sessions/{binding.session_id}",
+                commit=binding.input_revision or binding.input_commit,
             )
             _lease_or_conflict(
                 db, run_id, payload, request.app.state.settings.runtime_lease_seconds

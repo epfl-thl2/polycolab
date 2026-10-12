@@ -63,7 +63,7 @@ class RuntimeRequest(BaseModel):
     engine: Literal["builtin", "codex"] = "builtin"
     incarnation: str | None = Field(default=None, max_length=36)
     slot_id: int | None = Field(default=None, ge=0, le=63)
-    protocol_version: int = 3
+    protocol_version: int = 4
 
 
 class LeaseRequest(RuntimeRequest):
@@ -202,6 +202,8 @@ def _finish_claim_failure(session: Session, run: SqlAgentRun, worker_id: str, co
 @router.post("/claims", response_model=None)
 def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str, object]:
     _authorize_worker(request)
+    if payload.engine == "codex" and payload.protocol_version != 4:
+        raise RuntimeApiConflict("executor_protocol_mismatch")
     settings = request.app.state.settings
     session = request.app.state.session_factory()
     try:
@@ -228,7 +230,7 @@ def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str
                 if (
                     executor is None
                     or payload.incarnation != executor.incarnation
-                    or payload.protocol_version != 3
+                    or payload.protocol_version != 4
                     or payload.slot_id is None
                     or utc(executor.expires_at) <= utc_now()
                     or executor.image_digest

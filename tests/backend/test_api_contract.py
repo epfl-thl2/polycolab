@@ -69,6 +69,15 @@ def test_research_version_contract_has_no_legacy_revision_fields() -> None:
     document = json.loads(serialized_openapi())
     # These are independent note/summary histories, not research object versions.
     independent_histories = {
+        "RepositoryRunState": {"input_revision", "output_revision"},
+        "RepositoryMerge": {"expected_target_revision", "expected_source_revision"},
+        "RepositoryMergePreview": {"target_revision", "source_revision"},
+        "WorktreeCommit": {"expected_revision"},
+        "WorktreeRead": {"revision"},
+        "WorktreeRemove": {"expected_revision"},
+        "WorktreeRevision": {"expected_revision"},
+        "WorktreeSave": {"expected_revision"},
+        "WorktreeSaved": {"revision"},
         "HumanNoteRead": {"current_revision"},
         "HumanNoteRevisionRead": {"base_revision_id"},
         "HumanNoteWrite": {"base_revision_id"},

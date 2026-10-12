@@ -66,6 +66,10 @@ def checkout(
     git(workspace, "config", "user.email", "agent@polycolab.invalid")
     if git(workspace, "rev-parse", "HEAD") != commit:
         raise ValueError("repository_input_mismatch")
+    if value.get("revision"):
+        # Restore the saved overlay while keeping HEAD and the index at the human commit.
+        git(workspace, "read-tree", "--reset", "-u", value["revision"])
+        git(workspace, "reset", "--mixed", commit)
     return value
 
 

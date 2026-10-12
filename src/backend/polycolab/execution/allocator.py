@@ -244,7 +244,7 @@ def claim(
                 if (
                     executor is None
                     or executor.incarnation != incarnation
-                    or executor.protocol_version != 3
+                    or executor.protocol_version != 4
                     or utc(executor.expires_at) <= utc_now()
                     or executor.image_digest != image_digest
                     or slot_id is None

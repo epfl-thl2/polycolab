@@ -251,6 +251,16 @@ REFERENCE_TAGS = {
 }
 
 OPERATION_SECTIONS = {
+    "listWorktrees": "workspaces",
+    "createWorktree": "workspaces",
+    "getWorktree": "workspaces",
+    "getWorktreeFile": "workspaces",
+    "diffWorktree": "workspaces",
+    "saveWorktree": "workspaces",
+    "commitWorktree": "workspaces",
+    "discardWorktree": "workspaces",
+    "removeWorktree": "workspaces",
+    "restoreWorktree": "workspaces",
     "listWorkspaceTasks": "workspaces",
     "getWorkspaceTask": "workspaces",
     "createWorkspaceTask": "workspaces",

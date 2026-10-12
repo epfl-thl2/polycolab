@@ -3,7 +3,7 @@
 from datetime import UTC
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from polycolab.db.errors import persistence_boundary
@@ -58,6 +58,53 @@ def snapshot(row: SqlRepositoryMutation) -> RepositoryReceipt:
 class SqlRepositoryStore:
     def __init__(self, session: Session):
         self.db = session
+
+    @persistence_boundary
+    def workspace_active(self, workspace_id: UUID) -> bool:
+        return (
+            self.db.scalar(
+                select(SqlAgentRun.id)
+                .where(
+                    SqlAgentRun.project_id == workspace_id,
+                    SqlAgentRun.status.in_(["QUEUED", "CLAIMED", "RUNNING", "CANCELLING"]),
+                )
+                .limit(1)
+            )
+            is not None
+        )
+
+    @persistence_boundary
+    def native(self, workspace_id: UUID) -> bool:
+        row = self.db.get(SqlWorkspaceRepository, workspace_id)
+        return bool(row and row.native_worktrees)
+
+    @persistence_boundary
+    def activate_native(self, workspace_id: UUID) -> None:
+        row = self.db.get(SqlWorkspaceRepository, workspace_id)
+        assert row is not None
+        for task in self.tasks(workspace_id, True):
+            if task.branch.startswith("sessions/"):
+                self.db.execute(
+                    update(SqlAgentSession)
+                    .where(
+                        SqlAgentSession.project_id == workspace_id,
+                        SqlAgentSession.id == UUID(task.branch[9:]),
+                        SqlAgentSession.task_id.is_(None),
+                    )
+                    .values(task_id=task.id)
+                )
+        main_id = self.db.scalar(
+            select(SqlWorkspaceTask.id).where(
+                SqlWorkspaceTask.workspace_id == workspace_id, SqlWorkspaceTask.branch == "main"
+            )
+        )
+        self.db.execute(
+            update(SqlAgentSession)
+            .where(SqlAgentSession.project_id == workspace_id, SqlAgentSession.task_id.is_(None))
+            .values(task_id=main_id)
+        )
+        row.native_worktrees = True
+        self.db.flush()
 
     @persistence_boundary
     def registered(self, workspace_id: UUID) -> bool:
@@ -163,16 +210,31 @@ class SqlRepositoryStore:
                 row.input_commit,
                 row.output_commit,
                 row.branch or f"sessions/{row.session_id}",
+                row.input_revision,
+                row.worktree_id,
             )
             if row
             else None
         )
 
     @persistence_boundary
-    def pin_run(self, run_id: UUID, session_id: UUID, commit: str, branch: str) -> None:
+    def pin_run(
+        self,
+        run_id: UUID,
+        session_id: UUID,
+        commit: str,
+        branch: str,
+        revision: str | None = None,
+        worktree_id: UUID | None = None,
+    ) -> None:
         self.db.add(
             SqlRepositoryRun(
-                run_id=run_id, session_id=session_id, input_commit=commit, branch=branch
+                run_id=run_id,
+                session_id=session_id,
+                input_commit=commit,
+                branch=branch,
+                input_revision=revision,
+                worktree_id=worktree_id,
             )
         )
         self.db.flush()

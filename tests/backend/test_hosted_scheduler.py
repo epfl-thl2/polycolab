@@ -134,7 +134,7 @@ def test_executor_identity_and_quarantine_fence(hosted_client: TestClient) -> No
             incarnation="current",
             image="0" * 64,
             states={0: "AVAILABLE", 1: "QUARANTINED"},
-            protocol=3,
+            protocol=4,
         )
 
         def attempt(incarnation: str, slot_id: int) -> SqlAgentRun | None:
@@ -162,7 +162,7 @@ def test_executor_identity_and_quarantine_fence(hosted_client: TestClient) -> No
             incarnation="current",
             image="0" * 64,
             states={0: "QUARANTINED", 1: "QUARANTINED"},
-            protocol=3,
+            protocol=4,
         )
         from polycolab.execution.hosts import release_elapsed
 

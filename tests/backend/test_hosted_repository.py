@@ -19,7 +19,12 @@ from polycolab.execution import guest_repository
 
 
 def repository_claim(
-    client: TestClient, tmp_path: Path, *, disabled: bool = False, task_copy: bool = False
+    client: TestClient,
+    tmp_path: Path,
+    *,
+    disabled: bool = False,
+    task_copy: bool = False,
+    native_copy: bool = False,
 ) -> tuple[Any, str, dict[str, Any], str]:
     app, run_id = _queue_run(client)
     app.state.settings.workspace_repository_directory = tmp_path / "repositories"
@@ -46,6 +51,39 @@ def repository_claim(
             db.commit()
     enabled = client.put(f"{url}/sessions/{session_id}", headers=OWNER)
     assert enabled.status_code == 200, enabled.text
+    if native_copy:
+        from uuid import UUID
+
+        from polycolab.db.stores.repositories import SqlRepositoryStore
+        from polycolab.db.transaction import SqlAlchemyTransaction
+        from polycolab.workspaces.git_storage import GitRepository
+        from polycolab.workspaces.worktree_service import WorktreeService
+
+        with app.state.session_factory() as db:
+            previous = db.get(SqlAgentRun, run_id)
+            instance = WorktreeService(
+                SqlAlchemyTransaction(db),
+                SqlRepositoryStore(db),
+                GitRepository(tmp_path / "repositories", previous.project_id),
+                previous.project_id,
+                previous.requested_by_user_id,
+            )
+            with instance.open():
+                instance.materialize()
+                main = instance.task_for_branch("main")
+                db.get(SqlAgentSession, session_id).task_id = main.id
+                db.commit()
+        trees_url = url.removesuffix("/repository") + "/worktrees"
+        tree = client.get(f"{trees_url}/{main.id}", headers=OWNER).json()
+        seeded = client.post(
+            f"{trees_url}/{main.id}/save",
+            headers={**OWNER, "Idempotency-Key": "seed"},
+            json={
+                "expected_revision": tree["revision"],
+                "changes": [{"path": "human.txt", "content_base64": "aHVtYW4="}],
+            },
+        )
+        assert seeded.status_code == 200, seeded.text
     with app.state.session_factory() as db:
         from polycolab.agents.sessions import append_user_message_and_queue_run
 
@@ -65,6 +103,14 @@ def repository_claim(
     app.state.settings.runtime_codex_image = None
     if disabled:
         app.state.settings.workspace_repository_directory = None
+    if native_copy:
+        old_controller = client.post(
+            "/internal/v1/runtime/claims",
+            headers=WORKER,
+            json={"worker_id": "hosted", "engine": "codex", "protocol_version": 3},
+        )
+        assert old_controller.status_code == 409, old_controller.text
+        assert "executor_protocol_mismatch" in old_controller.text
     response = client.post(
         "/internal/v1/runtime/claims",
         headers=WORKER,
@@ -164,3 +210,50 @@ def test_repository_session_fails_closed_when_storage_disabled(
         run = db.get(SqlAgentRun, UUID(run_id))
         assert run.status == AgentRunStatus.FAILED
         assert run.failure_code == "context_unavailable"
+
+
+def test_native_agent_sees_saved_overlay_and_leaves_human_review(
+    client: TestClient, tmp_path: Path
+) -> None:
+    _, run_id, claim, url = repository_claim(client, tmp_path, native_copy=True)
+    binding = claim["repository"]
+    assert binding["branch"] == "main"
+    lease = {"worker_id": "hosted", "lease_generation": claim["lease_generation"]}
+    internal = f"/internal/hosted/runs/{run_id}/repository"
+    tree_url = url.removesuffix("/repository") + "/worktrees/" + binding["worktree_id"]
+    assert not client.get(tree_url, headers=OWNER).json()["writable"]
+    blocked = client.post(
+        tree_url + "/discard",
+        headers={**OWNER, "Idempotency-Key": "blocked"},
+        json={"expected_revision": binding["revision"]},
+    )
+    assert blocked.status_code == 409
+    inputs, outputs, workspace = tmp_path / "inputs", tmp_path / "outputs", tmp_path / "workspace"
+    inputs.mkdir()
+    outputs.mkdir()
+    (inputs / "workspace.bundle").write_bytes(
+        client.get(internal, headers=WORKER, params=lease).content
+    )
+    (inputs / "workspace.json").write_text(json.dumps(binding))
+    metadata = guest_repository.checkout(inputs, workspace)
+    assert metadata is not None
+    assert (workspace / "human.txt").read_text() == "human"
+    assert guest_repository.git(workspace, "rev-parse", "HEAD") == binding["commit"]
+    assert guest_repository.git(workspace, "status", "--porcelain")
+    (workspace / "agent.txt").write_text("agent")
+    guest_commit = guest_repository.checkpoint(metadata, workspace, outputs)
+    saved = client.post(
+        internal, headers=WORKER, params=lease, content=(outputs / "workspace.bundle").read_bytes()
+    )
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["commit"] != guest_commit
+    state = client.get(tree_url, headers=OWNER).json()
+    assert state["head_commit"] == binding["commit"]
+    assert {file["path"] for file in state["changed_files"]} == {"human.txt", "agent.txt"}
+    finish = client.post(
+        f"/internal/v1/runtime/runs/{run_id}/finish",
+        headers=WORKER,
+        json={**lease, "status": "COMPLETED", "final_message_md": "Ready for review"},
+    )
+    assert finish.status_code == 204, finish.text
+    assert client.get(tree_url, headers=OWNER).json()["writable"]

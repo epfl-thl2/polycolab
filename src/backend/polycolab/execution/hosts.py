@@ -23,7 +23,7 @@ def advertise(
     states: dict[int, str],
     protocol: int,
 ) -> None:
-    if protocol != 3 or not states or set(states) != set(range(len(states))):
+    if protocol != 4 or not states or set(states) != set(range(len(states))):
         raise HostConflict("executor_protocol_mismatch")
     _serialize(session)
     row = session.get(SqlHostedExecutor, worker_id)

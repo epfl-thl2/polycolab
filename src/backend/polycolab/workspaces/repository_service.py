@@ -8,13 +8,17 @@ import json
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
+
+if TYPE_CHECKING:
+    from polycolab.workspaces.worktree_service import WorktreeService
 
 from polycolab.access.authorization import WorkspaceAction, workspace_policy
 from polycolab.entities.repositories import RepositoryError, RepositoryReceipt, WorkspaceTask
 from polycolab.entities.time import utc_now
 from polycolab.transaction import Transaction
-from polycolab.workspaces.git_storage import GitRepository, branch_name
+from polycolab.workspaces.git_storage import GitRepository
 from polycolab.workspaces.repository_store import RepositoryStore
 
 
@@ -47,11 +51,7 @@ class RepositoryService:
         )
         if write:
             self.store.lock_branch(self.workspace_id, branch)
-        if (
-            write
-            and branch_name(branch) != "main"
-            and self.store.branch_active(self.workspace_id, branch)
-        ):
+        if write and self.store.branch_active(self.workspace_id, branch):
             raise RepositoryError("task_active")
         if write and self.store.branch_archived(self.workspace_id, branch):
             raise RepositoryError("task_archived")
@@ -63,7 +63,16 @@ class RepositoryService:
         self.transaction.commit()
         with self.git.locked(initialize=not registered):
             self.store.register(self.workspace_id)
+            from polycolab.workspaces.worktree_storage import WorktreeStorage
+
+            files = WorktreeStorage(self.git)
+            files.recover()
+            tasks = {task.branch: task for task in self.store.tasks(self.workspace_id, True)}
             for receipt in self.store.pending(self.workspace_id):
+                task = tasks.get(receipt.branch)
+                if task and files.exists(task.id) and files.contains(task.id, receipt.new_commit):
+                    self.store.complete(receipt.id)
+                    continue
                 if self.git.contains(receipt.branch, receipt.new_commit):
                     self.store.complete(receipt.id)
             self.transaction.commit()
@@ -136,6 +145,8 @@ class RepositoryService:
         payload: object,
     ) -> str:
         with self.open():
+            if self.store.native(self.workspace_id):
+                raise RepositoryError("repository_upgrade_required_use_worktrees")
             return self.mutate(
                 branch=branch,
                 expected=expected,
@@ -151,6 +162,8 @@ class RepositoryService:
 
     def preview(self, target: str, source: str) -> dict[str, object]:
         with self.open():
+            if self.store.native(self.workspace_id):
+                self.require_clean_branches(target, source)
             current, incoming = self.git.head(target), self.git.head(source)
             _, paths = self.git.merge(current, incoming)
             base = self.git.git("merge-base", current, incoming).decode().strip()
@@ -163,7 +176,15 @@ class RepositoryService:
                     else None
                 )
 
+            revisions = {}
+            if self.store.native(self.workspace_id):
+                native = self.native_service()
+                revisions = {
+                    "target_revision": native.files.revision(native.task_for_branch(target).id),
+                    "source_revision": native.files.revision(native.task_for_branch(source).id),
+                }
             return {
+                **revisions,
                 "target_commit": current,
                 "source_commit": incoming,
                 "diff": self.git.diff(current, incoming),
@@ -188,6 +209,8 @@ class RepositoryService:
         resolutions: dict[str, bytes | None] | None,
         key: str,
         payload: object,
+        expected_target_revision: str | None = None,
+        expected_source_revision: str | None = None,
     ) -> str:
         with self.open():
 
@@ -215,6 +238,29 @@ class RepositoryService:
                     "Merge workspace changes",
                     str(self.user_id),
                 )
+
+            if self.store.native(self.workspace_id):
+                native = self.native_service()
+                task = native.task_for_branch(target)
+                if not expected_target_revision or not expected_source_revision:
+                    raise RepositoryError("worktree_revision_required")
+
+                def prepare_native() -> tuple[str, str]:
+                    self.require_clean_branches(target, source)
+                    if (
+                        native.files.revision(native.task_for_branch(source).id)
+                        != expected_source_revision
+                    ):
+                        raise RepositoryError("worktree_stale_revision")
+                    if self.git.head(target) != expected_target:
+                        raise RepositoryError("repository_stale_merge")
+                    commit = prepare()
+                    return self.git.git("rev-parse", f"{commit}^{{tree}}").decode().strip(), commit
+
+                revision = native.mutate_worktree(
+                    task, expected_target_revision, key, payload, prepare_native
+                )
+                return native.files.snapshot_head(revision)
 
             return self.mutate(
                 branch=target, expected=expected_target, key=key, payload=payload, prepare=prepare
@@ -256,11 +302,25 @@ class RepositoryService:
             branch = session.branch or f"sessions/{session_id}"
             if binding is None:
                 self.store.enable_session(self.workspace_id, session_id, self.git.head(branch))
-                self.store.pin_run(run_id, session_id, self.git.head(branch), branch)
+                revision = None
+                worktree_id = None
+                if self.store.native(self.workspace_id):
+                    native = self.native_service()
+                    task = native.task_for_branch(branch)
+                    revision = native.require_available(task)
+                    worktree_id = task.id
+                self.store.pin_run(
+                    run_id, session_id, self.git.head(branch), branch, revision, worktree_id
+                )
                 self.transaction.commit()
                 binding = self.store.run(run_id)
             assert binding is not None
-            return {"branch": branch, "commit": binding.input_commit}
+            result = {"branch": branch, "commit": binding.input_commit}
+            if binding.input_revision:
+                result["revision"] = binding.input_revision
+            if binding.worktree_id:
+                result["worktree_id"] = str(binding.worktree_id)
+            return result
 
     def export_run(self, run_id: UUID, data: bytes, authority: Callable[[], None]) -> str:
         with self.open():
@@ -269,6 +329,26 @@ class RepositoryService:
                 raise RepositoryError("repository_not_in_run", 403)
             self.transaction.commit()
             branch = binding.branch or f"sessions/{binding.session_id}"
+            if binding.input_revision and binding.worktree_id:
+                native = self.native_service()
+                task = self.store.task(self.workspace_id, binding.worktree_id)
+
+                def prepare_native() -> tuple[str, str]:
+                    imported = self.git.import_bundle(data, branch, binding.input_commit)
+                    tree = self.git.git("rev-parse", f"{imported}^{{tree}}").decode().strip()
+                    return tree, binding.input_commit
+
+                revision = native.mutate_worktree(
+                    task,
+                    binding.input_revision,
+                    f"run-{run_id}",
+                    {"sha256": hashlib.sha256(data).hexdigest()},
+                    prepare_native,
+                    authority,
+                )
+                self.store.finish_run(run_id, revision)
+                self.transaction.commit()
+                return revision
             commit = self.mutate(
                 branch=branch,
                 expected=binding.input_commit,
@@ -282,6 +362,8 @@ class RepositoryService:
             return commit
 
     def create_task(self, task_id: UUID, title: str) -> WorkspaceTask:
+        if self.store.native(self.workspace_id):
+            return self.native_service().create_worktree(task_id, title, f"tasks/{task_id}", "main")
         with self.open():
             self.authorize(True)
             try:
@@ -311,6 +393,13 @@ class RepositoryService:
             return task
 
     def update_task(self, task_id: UUID, title: str | None, archived: bool | None) -> WorkspaceTask:
+        if self.store.native(self.workspace_id):
+            task = self.store.task(self.workspace_id, task_id)
+            return self.native_service().lifecycle(
+                task_id,
+                removed=archived if archived is not None else task.archived_at is not None,
+                title=title,
+            )
         with self.open():
             self.authorize(True)
             task = self.store.task(self.workspace_id, task_id, lock=True)
@@ -319,3 +408,20 @@ class RepositoryService:
             updated = self.store.update_task(task_id, title, archived)
             self.transaction.commit()
             return updated
+
+    def native_service(self) -> WorktreeService:
+        from polycolab.workspaces.worktree_service import WorktreeService
+
+        return WorktreeService(
+            self.transaction, self.store, self.git, self.workspace_id, self.user_id
+        )
+
+    def require_clean_branches(self, *branches: str) -> None:
+        native = self.native_service()
+        for branch in branches:
+            task = native.task_for_branch(branch)
+            native.require_available(task)
+            if not native.files.clean(task.id, branch):
+                raise RepositoryError("worktree_merge_requires_clean_files")
+            if self.store.branch_active(self.workspace_id, branch):
+                raise RepositoryError("task_active")

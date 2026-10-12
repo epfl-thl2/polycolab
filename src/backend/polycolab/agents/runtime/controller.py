@@ -170,7 +170,8 @@ class AgentController:
                                 "Write downloadable files under /outputs and register each with "
                                 "export_artifact. "
                                 + (
-                                    "On success, /workspace is saved to your session branch. "
+                                    "On success, /workspace files are saved as uncommitted changes "
+                                    "for human review. "
                                     "Keep the checkout on its original branch. Integrate subagent "
                                     "worktrees before finishing. Ignored files are not saved."
                                     if claim.repository is not None

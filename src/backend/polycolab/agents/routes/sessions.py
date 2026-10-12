@@ -197,6 +197,7 @@ def _session_read(
     return AgentSessionRead(
         id=value.id,
         task_id=value.task_id,
+        worktree_id=value.task_id,
         project_id=value.project_id,
         agent_version_id=agent.id,
         agent_kind=agent.agent_kind,

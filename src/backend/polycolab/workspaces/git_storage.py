@@ -34,22 +34,17 @@ def path_name(value: str) -> str:
 
 
 def branch_name(value: str) -> str:
-    if value == "main":
-        return value
-    prefix = (
-        "sessions/"
-        if value.startswith("sessions/")
-        else "tasks/"
-        if value.startswith("tasks/")
-        else None
-    )
-    if prefix:
-        try:
-            if value == f"{prefix}{UUID(value[len(prefix) :])}":
-                return value
-        except ValueError:
-            pass
-    raise RepositoryError("repository_invalid_branch", 422)
+    if (
+        not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]{0,99}", value)
+        or ".." in value
+        or "//" in value
+        or "@{" in value
+        or any(part.startswith(".") or part.endswith((".", ".lock")) for part in value.split("/"))
+        or value.endswith("/")
+        or value == "HEAD"
+    ):
+        raise RepositoryError("repository_invalid_branch", 422)
+    return value
 
 
 def oid(value: str) -> str:
@@ -227,7 +222,12 @@ class GitRepository:
         return self.git("cat-file", "blob", item[1])
 
     def size(self) -> int:
-        return sum(p.stat().st_size for p in self.path.rglob("*") if p.is_file())
+        return sum(
+            p.stat().st_size
+            for root in (self.path, self.root / f"{self.path.stem}.worktrees")
+            for p in root.rglob("*")
+            if p.is_file() and not p.is_symlink()
+        )
 
     def commit_tree(self, tree: str, parents: list[str], message: str, author: str) -> str:
         args = ["commit-tree", oid(tree)]
@@ -364,7 +364,7 @@ class GitRepository:
                     "fetch",
                     "--no-tags",
                     str(bundle),
-                    f"{ref}:{ref}",
+                    f"+{ref}:{ref}",
                 )
                 staging.git("fsck", "--strict", "--no-reflogs", commit)
                 staging.git("merge-base", "--is-ancestor", oid(expected), commit)

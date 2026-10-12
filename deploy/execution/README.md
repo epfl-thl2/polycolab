@@ -146,7 +146,8 @@ The PostgreSQL merge revision preserves both previous migration histories and su
 ## Workspace repository checkout
 
 Rebuild the curated agent image with Git and the guest repository helper before
-using protocol 3. Keep Codex state in `/home/agent/.codex`, outside `/workspace`.
+using protocol 4. Successful file outputs are saved as uncommitted changes in the
+canonical worktree for human review. Keep Codex state in `/home/agent/.codex`, outside `/workspace`.
 The API alone mounts the persistent repository volume. Hosted slots receive a
 bounded bundle for an exact commit, clone it into `/workspace`, and export their
 task working-copy branch on successful completion. They never mount the canonical volume.

@@ -185,7 +185,7 @@ async def run(config: ServiceConfig) -> None:
                         ),
                         "slot_states": runtime.states,
                         "incarnation": gateway.incarnation,
-                        "protocol_version": 3,
+                        "protocol_version": 4,
                     },
                 )
 
