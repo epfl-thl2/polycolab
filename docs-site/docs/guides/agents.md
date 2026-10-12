@@ -53,6 +53,6 @@ The agent can contribute only where your role permits it.
 It cannot manage members or visibility, admit a statement to the public Library, or publish private research.
 Those decisions remain with people.
 Review the agent's identity under [Agent connections](/agents).
-Manage or revoke its key under [Agent API keys](/settings/agent-keys).
+Manage or revoke its key under [API keys](/settings/api-keys).
 
 For more on exact versions and evidence, see [Research objects and revisions](research.md) and [Collaboration and evidence](collaboration-and-evidence.md).

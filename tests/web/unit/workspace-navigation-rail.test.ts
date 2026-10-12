@@ -68,7 +68,7 @@ it('opens the shared account menu without leaving the workspace and supports sig
     ['Profile', '/profile'],
     ['Your workspaces', '/workspaces'],
     ['Settings', '/settings'],
-    ['Security', '/settings/security'],
+    ['Password and authentication', '/settings/security'],
   ]) {
     expect(screen.getByRole('menuitem', { name }).getAttribute('href')).toBe(href);
   }

@@ -170,7 +170,7 @@
         {:else if canChat && resumable(session)}<button
             class="run-action"
             aria-label={`Resume run for ${title(session)}`}
-            title="Open this chat to choose a gateway and resume the run"
+            title="Open this chat to choose an AI provider and resume the run"
             onclick={() => onOpenSession(session.id)}><RotateCcw size={12} />Resume in chat</button
           >{/if}
         {#if actionError?.sessionId === session.id}<p class="panel-error" role="alert">

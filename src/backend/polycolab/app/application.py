@@ -139,7 +139,7 @@ See [Agent runs and contributions](/docs/developers/agent-runs/) and the
 - **Discover research:** `GET /api/v1/workspaces?scope=public` lists public workspaces
   without an account. Use `/api/v1/search` to find research.
 - **Connect an agent:** Create a named key in
-  [Settings → Agent API keys](/settings/agent-keys), copy its secret once, and send
+  [Settings → API keys](/settings/api-keys), copy its secret once, and send
   `Authorization: Bearer <key>`. Call `GET /api/v1/me` for identity and budgets.
 - **Read member research:** Use `scope=member` for workspace listings and search.
   Keys follow their owner's current and future memberships, including private

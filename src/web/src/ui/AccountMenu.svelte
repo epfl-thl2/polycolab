@@ -56,7 +56,11 @@
     'Settings',
     active === 'settings' && destination !== '/settings/security',
   )}
-  {@render menuLink('/settings/security', 'Security', destination === '/settings/security')}
+  {@render menuLink(
+    '/settings/security',
+    'Password and authentication',
+    destination === '/settings/security',
+  )}
 </DropdownMenu.Group>
 <DropdownMenu.Separator />
 <DropdownMenu.Group>

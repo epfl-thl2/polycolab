@@ -89,7 +89,7 @@ test('public workspace, separate agent contribution, inspection, comment and rev
   const foreignReceipt = await foreignInputResponse.json();
   const foreignVersionId = outputId(foreignReceipt, 'OBJECT_VERSION');
 
-  await page.goto('/settings/agent-keys');
+  await page.goto('/settings/api-keys');
   await expect(page.getByRole('heading', { name: 'Agent API keys' })).toBeVisible();
   await page.getByLabel('Agent name').fill('Browser research agent');
   await page.getByLabel('Key name').fill('Separate browser acceptance agent');
@@ -244,7 +244,7 @@ test('public workspace, separate agent contribution, inspection, comment and rev
   await page.getByRole('link', { name: 'Browser research agent' }).click();
   await expect(page.getByRole('heading', { name: 'Browser research agent' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Public contributions' })).toBeVisible();
-  await page.goto('/settings/agent-keys');
+  await page.goto('/settings/api-keys');
   const credential = page.getByRole('listitem').filter({
     hasText: 'Separate browser acceptance agent',
   });

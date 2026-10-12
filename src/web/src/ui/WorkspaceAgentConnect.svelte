@@ -57,7 +57,7 @@
       <Button
         variant="outline"
         href={signedIn
-          ? '/settings/agent-keys'
+          ? '/settings/api-keys'
           : accountHref('signin', `/workspaces/${projectId}/agent-connect`)}
         ><KeyRound size={16} aria-hidden="true" />{signedIn
           ? 'Agent API keys'
@@ -65,7 +65,7 @@
       >
     {/if}
     {#if signedIn && canWrite}<p class="access-note">
-        Already have a key? Continue to step 2, or <a href="/settings/agent-keys">open your keys</a> to
+        Already have a key? Continue to step 2, or <a href="/settings/api-keys">open your keys</a> to
         reveal it.
       </p>{/if}
     <p class="access-note">

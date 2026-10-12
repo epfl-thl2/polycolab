@@ -104,6 +104,7 @@ def test_credential_rewrap_is_bounded_audited_and_compare_and_swap(
         audit = commit_rewrap_candidate(db, snapshot=snapshot, candidate=candidate)
         stored = db.get(SqlGatewayProfile, UUID(created["id"]))
         assert stored is not None
+        assert stored.api_key_preview == created["api_key_preview"]
         assert stored.encryption_key_version == target.key_version
         assert stored.encrypted_credential == snapshot.encrypted.ciphertext
         assert audit.source_key_version == snapshot.encrypted.key_version
@@ -228,6 +229,7 @@ def test_profile_routes_encrypt_never_read_back_validate_rotate_and_delete(
     client: TestClient,
 ) -> None:
     created = create_gateway_profile(client)
+    assert created["api_key_preview"] == "sk-••••alue"
     assert "api_key" not in created
     assert "encrypted_credential" not in created
     assert "wrapped_data_key" not in created
@@ -248,6 +250,7 @@ def test_profile_routes_encrypt_never_read_back_validate_rotate_and_delete(
     )
     assert validated.status_code == 200
     assert provider.calls[0]["api_key"] == "sk-super-secret-value"
+    assert validated.json()["api_key_preview"] == "sk-••••alue"
     assert "sk-super-secret-value" not in validated.text
 
     rotated = client.post(
@@ -256,11 +259,13 @@ def test_profile_routes_encrypt_never_read_back_validate_rotate_and_delete(
         json={"api_key": "sk-rotated-secret"},
     )
     assert rotated.status_code == 200
+    assert rotated.json()["api_key_preview"] == "sk-••••cret"
     assert "sk-rotated-secret" not in rotated.text
     session = app_for(client).state.session_factory()
     try:
         stored = session.get(SqlGatewayProfile, UUID(created["id"]))
         assert stored is not None
+        assert stored.api_key_preview == "sk-••••cret"
         assert stored.credential_version == 2
         assert stored.encrypted_credential != first_ciphertext
     finally:
@@ -591,3 +596,102 @@ def test_model_gateway_applies_key_and_enforces_input_output_cost_and_usage(
                 )
     finally:
         session.close()
+
+
+@pytest.mark.parametrize(
+    ("api_key", "preview"),
+    [
+        ("a", "••••"),
+        ("abcd", "••••"),
+        ("abcde", "••••bcde"),
+        ("abcdefghijk", "••••hijk"),
+        ("abcdefghijkl", "abc••••ijkl"),
+    ],
+)
+def test_provider_preview_is_bounded_and_persisted(
+    client: TestClient, api_key: str, preview: str
+) -> None:
+    response = client.post(
+        "/api/v1/gateway/profiles",
+        headers=headers("owner"),
+        json={
+            "display_name": "Preview model",
+            "base_url": "https://8.8.8.8/v1",
+            "model_id": "research-model",
+            "api_key": api_key,
+        },
+    )
+    assert response.status_code == 201
+    assert response.json()["api_key_preview"] == preview
+    assert api_key not in preview
+    with app_for(client).state.session_factory() as db:
+        stored = db.get(SqlGatewayProfile, UUID(response.json()["id"]))
+        assert stored is not None
+        assert stored.api_key_preview == preview
+    listed = client.get("/api/v1/gateway/profiles", headers=headers("owner")).json()
+    assert listed[0]["api_key_preview"] == preview
+    assert "api_key" not in listed[0]
+
+
+def test_existing_preview_is_null_until_replacement_and_reads_do_not_decrypt(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created = create_gateway_profile(client)
+    with app_for(client).state.session_factory() as db:
+        stored = db.get(SqlGatewayProfile, UUID(created["id"]))
+        assert stored is not None
+        stored.api_key_preview = None
+        db.commit()
+
+    def fail_decrypt(*args: Any, **kwargs: Any) -> None:
+        raise AssertionError("Listing previews must not decrypt credentials")
+
+    monkeypatch.setattr("polycolab.model_gateway.service.decrypt_credential", fail_decrypt)
+    listed = client.get("/api/v1/gateway/profiles", headers=headers("owner"))
+    assert listed.status_code == 200
+    assert listed.json()[0]["api_key_preview"] is None
+    response = client.post(
+        f"/api/v1/gateway/profiles/{created['id']}/rotate",
+        headers=headers("owner"),
+        json={"api_key": "sk-replacement-1234"},
+    )
+    assert response.status_code == 200
+    assert response.json()["api_key_preview"] == "sk-••••1234"
+    assert (
+        client.get("/api/v1/gateway/profiles", headers=headers("owner")).json()[0][
+            "api_key_preview"
+        ]
+        == "sk-••••1234"
+    )
+
+
+def test_failed_replacement_preserves_preview_and_encrypted_key(client: TestClient) -> None:
+    created = create_gateway_profile(client)
+    with app_for(client).state.session_factory() as db:
+        stored = db.get(SqlGatewayProfile, UUID(created["id"]))
+        assert stored is not None
+        original_ciphertext = stored.encrypted_credential
+
+    class FailingWrapper:
+        key_version = "failed-v1"
+
+        def wrap(self, _plaintext_key: bytes, _context: bytes) -> bytes:
+            raise CredentialError("credential_encryption_failed")
+
+        def unwrap(self, _wrapped_key: bytes, _context: bytes) -> bytes:
+            raise AssertionError("not used")
+
+    app_for(client).state.credential_wrapper = FailingWrapper()
+    response = client.post(
+        f"/api/v1/gateway/profiles/{created['id']}/rotate",
+        headers=headers("owner"),
+        json={"api_key": "sk-new-key-1234"},
+    )
+    assert response.status_code == 503
+    assert "sk-new-key-1234" not in response.text
+    with app_for(client).state.session_factory() as db:
+        stored = db.get(SqlGatewayProfile, UUID(created["id"]))
+        assert stored is not None
+        assert stored.api_key_preview == created["api_key_preview"]
+        assert stored.encrypted_credential == original_ciphertext
+        assert stored.credential_version == 1

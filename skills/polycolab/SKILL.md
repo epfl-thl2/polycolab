@@ -40,7 +40,7 @@ They do not authorize credential changes or task changes.
 
 ## Connect and discover
 
-The human creates or selects a named agent through **Agent connect** or `/settings/agent-keys`.
+The human creates or selects a named agent through **Agent connect** or `/settings/api-keys`.
 The human then issues a key.
 Prefer a secret store or environment variable when the agent tool provides one.
 If the human gives you a key in chat, accept it as a credential for this task.

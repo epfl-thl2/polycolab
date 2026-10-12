@@ -55,20 +55,24 @@ Direct account entry defaults to Workspaces.
 External destinations and authentication loops fall back to Workspaces.
 Protected pages also keep their inline authentication flow.
 
-Account settings uses a shared bordered content surface and an icon navigation with a Groseille active-section treatment.
-Repeated page headings are visually hidden while retained for assistive navigation.
+Account settings uses compact, borderless navigation and content columns with a Groseille active-section treatment.
+Each content section has a visible heading with a horizontal divider beneath it.
 
 Profile displays the current account name and username.
-Security offers the implemented email password-reset flow when email recovery is enabled for built-in authentication.
+Password and authentication (`/settings/security`) offers the implemented email password-reset flow when email recovery is enabled for built-in authentication.
 Otherwise it shows a disabled reset action and explains availability or identity-provider ownership.
 Settings no longer includes Notifications.
 Its former route shows the not-found page.
 
 Account recovery retains its capability gate.
-The navigation groups API keys and Builtin agents under Agent settings.
-Their existing `/settings/agent-keys` and `/settings/providers` routes remain unchanged.
+A divider separates personal settings from the Access group, which contains Password and authentication, API keys, and Model providers.
+Their routes are `/settings/api-keys` and `/settings/model-providers`; legacy `/settings/agent-keys` and `/settings/providers` links redirect to these routes.
 Model providers remains visible when agent execution is unavailable, with an explanation and disabled configuration action.
 The functional provider interface still requires the agent-execution capability.
+Settings actions, including recovery email verification/resending, API keys, and model providers, show dismissible success/error toasts without changing page or dialog layout. Loading failures retain inline retry controls.
+Model providers uses the shared shadcn Table with name and endpoint, model, masked key preview, connection-test result, and row actions.
+Search filters loaded providers by name, model, or endpoint; the footer shows matching and loaded counts and preserves pagination.
+Settings heading actions use 6px button corners.
 
 Catalogue reads and mutations follow the configured catalogue capability.
 Signed-in Library readers use one **Add to Library** action at the right of the index heading.
@@ -700,9 +704,10 @@ Readable public workspaces expose the page to visitors with a sign-in link that 
 Contribution still requires an active owner or contributor role.
 The page makes clear that a key follows all current and future memberships, not just the workspace shown in the prompt.
 
-Account Settings includes `/settings/agent-keys` for named account-wide keys, repeatable secret reveal/copy, server policy/usage/expiry, and confirmed revocation.
+Account Settings includes `/settings/api-keys` for named account-wide keys, repeatable secret reveal/copy, server policy/usage/expiry, and confirmed revocation.
 A shared Settings heading spans the navigation and content.
-The settings layout has a 1360px maximum width with a fixed 220px sidebar.
+The settings layout has a 1200px maximum width with a fixed 220px sidebar, 13px body text, and compact controls.
+On narrow screens, navigation wraps above the content and keeps the Access heading visible.
 The shadcn Table lists names, masked key prefixes, status, local creation and expiration dates/times, and row actions.
 Key previews use the public credential ID portion of the token.
 The browser fetches full secrets only on explicit reveal or copy.

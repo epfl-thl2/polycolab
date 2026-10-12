@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import { onMount } from 'svelte';
   import ConfirmAction from './ConfirmAction.svelte';
   import { Confirmation } from '../svelte-lib/confirmation.svelte';
@@ -36,6 +37,7 @@
   let name = $state('');
   let busy = $state(false);
   let error = $state('');
+  let loadError = $state('');
   let notice = $state('');
   let dialogOpen = $state(false);
   let search = $state('');
@@ -129,7 +131,7 @@
 
   async function load(more = false) {
     busy = true;
-    error = '';
+    loadError = '';
     try {
       const [page, identity, agents] = await Promise.all([
         externalAgents.listCredentials(more ? cursor : undefined),
@@ -143,7 +145,7 @@
       policy = identity.agent_key_policy;
       if (embeddedCreate && !dialogOpen) openCreateDialog();
     } catch (cause) {
-      error = explain(cause);
+      loadError = explain(cause);
     } finally {
       busy = false;
     }
@@ -164,6 +166,7 @@
       );
       if (current !== generation) return;
       issued = result;
+      notice = 'API key created.';
       name = '';
       await load();
     } catch (cause) {
@@ -219,8 +222,8 @@
 </script>
 
 {#if embeddedCreate && !dialogOpen}
-  {#if error}<Alert.Root variant="destructive" role="alert"
-      >{error}<Button variant="outline" onclick={() => load()}>Retry</Button><Button
+  {#if loadError}<Alert.Root variant="destructive" role="alert"
+      >{loadError}<Button variant="outline" onclick={() => load()}>Retry</Button><Button
         variant="outline"
         onclick={onDone}>Cancel</Button
       ></Alert.Root
@@ -231,17 +234,23 @@
   aria-labelledby="agent-keys-title"
   hidden={embeddedCreate}
 >
-  <h2 class="sr-only" id="agent-keys-title">API keys</h2>
-  <div class="keys-heading">
-    <p class="muted">Connect external agents to Polycolab.</p>
+  <div class="keys-heading settings-section-heading">
+    <h2 id="agent-keys-title">API keys</h2>
     <Button class="keys-primary" disabled={busy || !policy} onclick={openCreateDialog}
       ><Plus aria-hidden="true" />New API key</Button
     >
   </div>
-  {#if error && !dialogOpen}<Alert.Root variant="destructive" role="alert"
-      >{error}<Button variant="outline" onclick={() => load()}>Retry</Button></Alert.Root
+  {#if loadError && !dialogOpen}<Alert.Root variant="destructive" role="alert"
+      >{loadError}<Button variant="outline" onclick={() => load()}>Retry</Button></Alert.Root
     >{/if}
-  {#if notice && !dialogOpen}<p role="status">{notice}</p>{/if}
+  {#if !dialogOpen}<FeedbackToast
+      message={error || notice}
+      variant={error ? 'error' : 'success'}
+      onDismiss={() => {
+        error = '';
+        notice = '';
+      }}
+    />{/if}
   <div class="keys-table-frame">
     <div class="keys-toolbar">
       <div class="keys-search">
@@ -398,7 +407,7 @@
                 ><div class="keys-empty">
                   <KeyRound aria-hidden="true" />
                   <p>
-                    {error
+                    {loadError
                       ? 'Keys could not be loaded.'
                       : keys.length
                         ? 'No matching keys in the loaded results.'
@@ -417,26 +426,37 @@
       </Table.Body>
     </Table.Root>
     <div class="keys-footer">
-      <span class="muted">{visibleKeys.length} shown · {keys.length} loaded</span>
+      <span class="muted">Showing {visibleKeys.length} out of {keys.length}</span>
       {#if cursor}<Button variant="outline" disabled={busy} onclick={() => load(true)}
           >{busy ? 'Loading…' : 'Load more keys'}</Button
         >{/if}
     </div>
   </div>
-  <details class="keys-help">
-    <summary>Connect your agent</summary>
-    <p>Send the key in the Authorization header. Never put it in a URL.</p>
+  <section class="keys-help" aria-labelledby="connect-agent-title">
+    <h2 id="connect-agent-title">Connect your agent</h2>
+    <ol>
+      <li>Create an API key above and copy it into your agent’s credential settings.</li>
+      <li>
+        Open <strong>Agent connect</strong> in your workspace and copy the instructions into your
+        agent tool. They include the workspace address and the
+        <a href="/SKILL.md">agent instructions</a>.
+      </li>
+      <li>Ask your agent to check its access, then give it a research task.</li>
+    </ol>
+    <p>
+      To check access yourself, set <code>POLYCOLAB_URL</code> to this site’s address and
+      <code>POLYCOLAB_API_KEY</code> to your key, then run:
+    </p>
     <pre><code
         >curl "$POLYCOLAB_URL/api/v1/me" \
   -H "Authorization: Bearer $POLYCOLAB_API_KEY"</code
       ></pre>
     <p>
-      Create research with <code>POST /api/v1/objects</code> and a destination. Include a stable
-      <code>Idempotency-Key</code> for each research write.
+      Send the key in the Authorization header, never in a URL. You can revoke it from the list
+      above when it is no longer needed.
     </p>
-    <a href="/SKILL.md">Agent instructions</a> · <a href="/docs/api/">API reference</a> ·
-    <a href="/agents">Agent profiles</a>
-  </details>
+    <a href="/docs/api/">API reference</a> · <a href="/agents">Agent profiles</a>
+  </section>
 </section>
 
 <Dialog.Root
@@ -465,8 +485,16 @@
           : 'Give an external agent access to your research.'}</Dialog.Description
       >
     </Dialog.Header>
-    {#if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>{/if}
-    {#if notice}<p role="status">{notice}</p>{/if}
+    {#if dialogOpen}
+      <FeedbackToast
+        message={error || notice}
+        variant={error ? 'error' : 'success'}
+        onDismiss={() => {
+          error = '';
+          notice = '';
+        }}
+      />
+    {/if}
     {#if issued}
       <Field.Label
         >API key<Input
@@ -602,10 +630,7 @@
     gap: 12px;
     flex-wrap: wrap;
   }
-  .keys-heading {
-    margin-bottom: 20px;
-  }
-  .keys-heading p {
+  .keys-heading h2 {
     margin: 0;
   }
   .keys-table-frame {
@@ -642,7 +667,7 @@
     padding: 10px 12px;
   }
   .keys-table-frame :global([data-slot='table-cell']) {
-    padding: 14px 12px;
+    padding: 10px 12px;
     font-size: 13px;
   }
   .key-name {
@@ -721,13 +746,22 @@
     margin-top: 24px;
     font-size: 13px;
   }
-  summary {
-    cursor: pointer;
+  .keys-help h2 {
+    margin: 0 0 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 16px;
+    font-weight: 500;
   }
-  .keys-help[open] summary {
-    margin-bottom: 16px;
+  .keys-help ol {
+    list-style: decimal;
+    padding-left: 20px;
+  }
+  .keys-help li + li {
+    margin-top: 8px;
   }
   .keys-help pre {
+    overflow-x: auto;
     margin-block: 12px;
     padding: 12px;
     background: var(--muted);

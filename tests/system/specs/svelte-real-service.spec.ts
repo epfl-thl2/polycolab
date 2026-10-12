@@ -37,7 +37,7 @@ test('Svelte production journey uses local auth, saved research, a real worker a
   const profileId = (await profile.json()).id;
   await page.getByRole('link', { name: 'Sessions', exact: true }).click();
   await page.getByRole('button', { name: 'New session', exact: true }).click();
-  await page.getByLabel('Gateway profile').selectOption(profileId);
+  await page.getByLabel('AI provider').selectOption(profileId);
   await page.getByText('Context · 0 pinned versions', { exact: true }).click();
   await page.getByRole('checkbox', { name: /Pinned source/ }).check();
   await page

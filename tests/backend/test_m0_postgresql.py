@@ -558,3 +558,44 @@ def test_permanent_submission_numbers_backfill_and_concurrent_allocation(
             )
             db.commit()
         db.rollback()
+
+
+def test_provider_preview_upgrade_preserves_existing_credentials(
+    pg_schema: tuple[Engine, Config, str],
+) -> None:
+    engine, config, _ = pg_schema
+    command.upgrade(config, "20261011_native_worktrees")
+    owner_id, profile_id = uuid4(), uuid4()
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO users (id, issuer, subject, created_at, updated_at) "
+                "VALUES (:id, 'test', 'preview-owner', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+            ),
+            {"id": owner_id},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO gateway_profiles "
+                "(id, user_id, display_name, base_url, model_id, wire_api, credential_version, "
+                "encrypted_credential, wrapped_data_key, encryption_key_version, "
+                "created_at, updated_at) VALUES "
+                "(:id, :owner, 'Existing', 'https://example.com/v1', 'model', 'responses', 1, "
+                ":encrypted, :wrapped, 'test-v1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+            ),
+            {
+                "id": profile_id,
+                "owner": owner_id,
+                "encrypted": b"encrypted-fixture",
+                "wrapped": b"wrapped-fixture",
+            },
+        )
+    command.upgrade(config, "head")
+    with engine.connect() as connection:
+        assert connection.execute(
+            text(
+                "SELECT api_key_preview, encrypted_credential, wrapped_data_key "
+                "FROM gateway_profiles WHERE id = :id"
+            ),
+            {"id": profile_id},
+        ).one() == (None, b"encrypted-fixture", b"wrapped-fixture")

@@ -269,14 +269,14 @@
     if (!executionEnabled) return 'Hosted execution is disabled.';
     if (configurationMode === 'custom' && !hostedAvailable) return 'Hosted Codex is unavailable.';
     if (!agentId) return 'Choose a preset below.';
-    if (!profileId) return 'Choose a gateway.';
+    if (!profileId) return 'Choose an AI provider.';
     if (configurationMode === 'custom' && !customSystemPrompt.trim())
       return 'Add a system prompt in Customize.';
     if (!draft.trim()) return 'Write a message to send.';
     return '';
   });
   const newChatVisibleSendReason = $derived(
-    newChatSendReason === 'Choose a gateway.' ? '' : newChatSendReason,
+    newChatSendReason === 'Choose an AI provider.' ? '' : newChatSendReason,
   );
   const sessionSendReason = $derived.by(() => {
     if (busy) return 'Working…';
@@ -285,7 +285,7 @@
     if (!executionEnabled) return 'Hosted execution is disabled.';
     if (!$capabilities.data?.execution_available) return 'Agent execution is unavailable.';
     if (active) return 'Wait for the current run to finish.';
-    if (!profileId) return 'Choose a gateway in Chat settings.';
+    if (!profileId) return 'Choose an AI provider in Chat settings.';
     if (destination === 'PUBLIC' && (useWorkspaceFiles || $sessionRepository.data?.enabled))
       return 'Workspace files are private. Choose a private contribution destination for this session.';
     if (!(destination === 'PUBLIC' ? publicTask.trim() : draft.trim()))
@@ -582,7 +582,7 @@
                         <option value="detailed">Detailed</option>
                       </NativeSelect></Field.Label
                     >
-                    <a href="/settings/providers">Manage gateway profiles</a>
+                    <a href="/settings/model-providers">Manage AI providers</a>
                     <button
                       type="button"
                       class="workspace-chat-custom-toggle"
@@ -861,15 +861,15 @@
     <form class="workspace-chat-composer" onsubmit={send}>
       <div class="workspace-chat-side-controls" use:chatPanelPortal={isVisible}>
         <Field.Label
-          >Gateway profile<NativeSelect required bind:value={profileId}
-            ><option value="">Choose a gateway</option
+          >AI provider<NativeSelect required bind:value={profileId}
+            ><option value="">Choose an AI provider</option
             >{#each $profiles.data?.pages.flatMap((p) => p.items) ?? [] as profile (profile.id)}<option
                 value={profile.id}>{profile.display_name} · {profile.model_id}</option
               >{/each}</NativeSelect
           ></Field.Label
         >{#if $profiles.hasNextPage}<Button type="button" onclick={() => $profiles.fetchNextPage()}
-            >Load more profiles</Button
-          >{/if}<a href="/settings/providers">Manage gateway profiles</a>
+            >Load more providers</Button
+          >{/if}<a href="/settings/model-providers">Manage AI providers</a>
         <details class="workspace-chat-settings">
           <summary>Run settings</summary>
           <details>

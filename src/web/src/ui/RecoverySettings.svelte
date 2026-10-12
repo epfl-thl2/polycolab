@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import { onMount } from 'svelte';
   import { Button } from '../lib/components/ui/button';
   import { Input } from '../lib/components/ui/input';
@@ -52,7 +53,7 @@
 </script>
 
 <section class="settings-content">
-  <h2 class="sr-only">Account recovery</h2>
+  <header class="settings-section-heading"><h2>Account recovery</h2></header>
   <p>Your account is already active. Verify an email address to recover access to it.</p>
   {#if !emailState?.verified_email}<p>No verified recovery email.</p>{/if}
   {#if emailState?.verified_email}<p>Verified: {emailState.verified_email}</p>{/if}
@@ -85,6 +86,12 @@
     >
     <Button type="submit" disabled={busy}>Verify recovery email</Button>
   </form>
-  {#if error}<p role="alert">{error}</p>{/if}
-  {#if notice}<p role="status">{notice}</p>{/if}
+  <FeedbackToast
+    message={error || notice}
+    variant={error ? 'error' : 'success'}
+    onDismiss={() => {
+      error = '';
+      notice = '';
+    }}
+  />
 </section>

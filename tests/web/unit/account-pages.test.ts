@@ -126,7 +126,7 @@ it('shows core settings without capability configuration', () => {
 
   expect(screen.getByRole('heading', { name: 'Profile' })).toBeTruthy();
   const navigation = screen.getByRole('navigation', { name: 'Settings sections' });
-  for (const item of ['Profile', 'Security', 'API keys', 'Builtin agents'])
+  for (const item of ['Profile', 'Password and authentication', 'API keys', 'Model providers'])
     expect(within(navigation).getByRole('link', { name: item })).toBeTruthy();
   for (const item of ['Account recovery'])
     expect(within(navigation).queryByRole('link', { name: item })).toBeNull();
@@ -146,6 +146,11 @@ it('shows a disabled password reset option when email recovery is unavailable', 
     (screen.getByRole('button', { name: 'Reset password' }) as HTMLButtonElement).disabled,
   ).toBe(true);
   expect(screen.getByText(/Password reset is unavailable/)).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Password and authentication' })).toBeTruthy();
+  const access = screen.getByRole('group', { name: 'Access' });
+  const link = within(access).getByRole('link', { name: 'Password and authentication' });
+  expect(link.getAttribute('href')).toBe('/settings/security');
+  expect(link.getAttribute('aria-current')).toBe('page');
 });
 
 it('links password reset to the implemented recovery flow when enabled', () => {
@@ -160,18 +165,18 @@ it('links password reset to the implemented recovery flow when enabled', () => {
   );
 });
 
-it('groups external keys and built-in providers under agent settings', () => {
+it('groups API keys and model providers under Access', () => {
   const auth = new Auth(() => {});
   render(AccountSettings, {
     props: { path: '/settings' },
     context: new Map([[contextKey, { auth, capabilities: { enabled: () => true } }]]),
   });
-  const group = screen.getByRole('group', { name: 'Agent settings' });
+  const group = screen.getByRole('group', { name: 'Access' });
   expect(within(group).getByRole('link', { name: 'API keys' }).getAttribute('href')).toBe(
-    '/settings/agent-keys',
+    '/settings/api-keys',
   );
-  expect(within(group).getByRole('link', { name: 'Builtin agents' }).getAttribute('href')).toBe(
-    '/settings/providers',
+  expect(within(group).getByRole('link', { name: 'Model providers' }).getAttribute('href')).toBe(
+    '/settings/model-providers',
   );
 });
 
@@ -205,7 +210,7 @@ it('creates an account-wide key without a workspace and forgets its secret on na
     createCredential: vi.fn().mockResolvedValue({ id: 'key-1', secret: 'one-time-test-secret' }),
   };
   const view = render(AccountSettings, {
-    props: { path: '/settings/agent-keys' },
+    props: { path: '/settings/api-keys' },
     context: new Map([
       [contextKey, { auth, externalAgents, capabilities: { enabled: () => true } }],
     ]),
@@ -239,19 +244,19 @@ it('creates an account-wide key without a workspace and forgets its secret on na
   );
   await view.rerender({ path: '/settings/security' });
   expect(screen.queryByLabelText('API key')).toBeNull();
-  await view.rerender({ path: '/settings/agent-keys' });
+  await view.rerender({ path: '/settings/api-keys' });
   await waitFor(() => expect(screen.getByRole('heading', { name: 'API keys' })).toBeTruthy());
   expect(screen.queryByLabelText('API key')).toBeNull();
 });
 
 it('keeps model providers accessible when agent execution is unavailable', () => {
-  render(AccountSettings, { props: { path: '/settings/providers' }, context: context() });
-  expect(screen.getByRole('heading', { name: 'Builtin agents' })).toBeTruthy();
+  render(AccountSettings, { props: { path: '/settings/model-providers' }, context: context() });
+  expect(screen.getByRole('heading', { name: 'Model providers' })).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'Built-in agents are unavailable' })).toBeTruthy();
   expect(
     (screen.getByRole('button', { name: 'Add model provider' }) as HTMLButtonElement).disabled,
   ).toBe(true);
-  expect(screen.getByRole('link', { name: 'Builtin agents' }).getAttribute('aria-current')).toBe(
+  expect(screen.getByRole('link', { name: 'Model providers' }).getAttribute('aria-current')).toBe(
     'page',
   );
 });
@@ -270,7 +275,7 @@ it('separates existing agent selection from creating a new agent', async () => {
     createCredential: vi.fn().mockResolvedValue({ id: 'key-existing', secret: 'test-only-secret' }),
   };
   render(AccountSettings, {
-    props: { path: '/settings/agent-keys' },
+    props: { path: '/settings/api-keys' },
     context: new Map([[contextKey, { auth, externalAgents }]]),
   });
   const trigger = screen.getByRole('button', { name: 'New API key' }) as HTMLButtonElement;

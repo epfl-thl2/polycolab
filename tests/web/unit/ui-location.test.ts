@@ -71,3 +71,12 @@ it('preserves history dates and years and rejects impossible or conflicting date
   expect(canonicalUiLocation('/profile', '?year=2023&day=2023-02-29')).toBe('/profile?year=2023');
   expect(canonicalUiLocation('/profile', '?year=9999&day=0000-01-01')).toBe('/profile');
 });
+
+it('redirects old key settings routes and preserves query parameters', () => {
+  expect(canonicalUiLocation('/settings/providers', '?source=chat')).toBe(
+    '/settings/model-providers?source=chat',
+  );
+  expect(canonicalUiLocation('/settings/agent-keys', '')).toBe('/settings/api-keys');
+  expect(canonicalUiLocation('/settings/model-providers', '')).toBe('/settings/model-providers');
+  expect(canonicalUiLocation('/settings/api-keys', '')).toBe('/settings/api-keys');
+});

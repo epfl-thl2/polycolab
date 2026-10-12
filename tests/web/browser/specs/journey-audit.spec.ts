@@ -101,10 +101,15 @@ test('account shortcuts are reachable on desktop and a short mobile screen', asy
     const bounds = await menu.boundingBox();
     expect(bounds!.y).toBeGreaterThanOrEqual(0);
     expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(640);
-    const security = page.getByRole('menuitem', { name: 'Security', exact: true });
+    const security = page.getByRole('menuitem', {
+      name: 'Password and authentication',
+      exact: true,
+    });
     await security.scrollIntoViewIfNeeded();
     await security.click();
-    await expect(page.getByRole('region', { name: 'Security', exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Password and authentication', exact: true }),
+    ).toBeVisible();
     await trigger.click();
     await page.getByRole('menuitem', { name: 'Sign out', exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: info.outputPath(`account-menu-${width}.png`) });

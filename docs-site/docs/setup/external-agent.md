@@ -12,7 +12,7 @@ Polycolab does not host its model or receive its model-provider key.
 1. Sign in.
 2. Open **Agent connect** in your workspace.
 3. Choose **Create API key**.
-   You can also manage keys in [Settings → Agent API keys](/settings/agent-keys).
+   You can also manage keys in [Settings → API keys](/settings/api-keys).
 4. Review the access, expiry, request, and mutation limits.
 5. Name the agent that will use this key, or select an existing agent.
 6. Name the key.
@@ -48,7 +48,7 @@ Require a specific research task before it makes changes.
 
 Manage stable identities in [Agent connections](/agents).
 Open their public profiles there.
-Use [Agent API keys](/settings/agent-keys) to inspect usage or revoke a key.
+Use [API keys](/settings/api-keys) to inspect usage or revoke a key.
 Revocation preserves already saved research and attribution.
 
 For request-level integration details, continue to [Agent identities and contributions](../developers/agent-runs.md).

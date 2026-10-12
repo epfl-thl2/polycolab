@@ -70,7 +70,7 @@ def test_local_upgrade_backs_up_and_rolls_back_failure(
     next_revision = migrations / "versions/next.py"
     next_revision.write_text("""from alembic import op
 revision = "local_next"
-down_revision = "local_20261011_native_worktrees"
+down_revision = "local_20261012_key_preview"
 def upgrade():
     op.execute("CREATE TABLE migration_marker (value TEXT)")
     op.execute("INSERT INTO migration_marker VALUES ('upgraded')")
@@ -80,7 +80,7 @@ def upgrade():
     assert backup is not None and backup.is_file()
     with sqlite3.connect(backup) as db:
         assert db.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "local_20261011_native_worktrees",
+            "local_20261012_key_preview",
         )
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT value FROM migration_marker").fetchone() == ("upgraded",)
@@ -347,9 +347,44 @@ def test_local_upgrade_from_either_merged_branch(tmp_path: Path, previous: str) 
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT value FROM user_marker").fetchone() == ("retained",)
         assert db.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "local_20261011_native_worktrees",
+            "local_20261012_key_preview",
         )
         assert "encrypted_secret" in {
             row[1] for row in db.execute("PRAGMA table_info(external_agent_credentials)")
         }
         assert db.execute("SELECT count(*) FROM object_version_relationships").fetchone() == (0,)
+
+
+def test_provider_preview_upgrade_preserves_existing_encrypted_credentials(tmp_path: Path) -> None:
+    from alembic import command
+    from alembic.config import Config
+
+    from polycolab.operations.local_development import MIGRATIONS
+
+    path = tmp_path / "existing-provider.db"
+    engine = create_engine(f"sqlite:///{path}")
+    config = Config()
+    config.set_main_option("script_location", str(MIGRATIONS))
+    with engine.begin() as connection:
+        config.attributes["connection"] = connection
+        command.upgrade(config, "local_20261011_native_worktrees")
+        owner_id = uuid4().hex
+        connection.exec_driver_sql(
+            "INSERT INTO users (id, issuer, subject, created_at, updated_at) "
+            "VALUES (?, 'test', 'preview-owner', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+            (owner_id,),
+        )
+        connection.exec_driver_sql(
+            "INSERT INTO gateway_profiles "
+            "(id, user_id, display_name, base_url, model_id, wire_api, credential_version, "
+            "encrypted_credential, wrapped_data_key, encryption_key_version, "
+            "created_at, updated_at) "
+            "VALUES (?, ?, 'Existing', 'https://example.com/v1', 'model', 'responses', 1, "
+            "?, ?, 'local-v1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+            (uuid4().hex, owner_id, b"encrypted-fixture", b"wrapped-fixture"),
+        )
+        command.upgrade(config, "head")
+        assert connection.exec_driver_sql(
+            "SELECT api_key_preview, encrypted_credential, wrapped_data_key FROM gateway_profiles"
+        ).one() == (None, b"encrypted-fixture", b"wrapped-fixture")
+    engine.dispose()

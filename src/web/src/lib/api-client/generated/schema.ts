@@ -4474,6 +4474,8 @@ export interface components {
         };
         /** GatewayProfileRead */
         GatewayProfileRead: {
+            /** Api Key Preview */
+            api_key_preview?: string | null;
             /** Base Url */
             base_url: string;
             /**

@@ -1,19 +1,18 @@
 <script lang="ts">
   import AgentApiKeys from './AgentApiKeys.svelte';
   import { UserRound, ShieldCheck, Mail, Bot, KeyRound } from '@lucide/svelte';
-  import { Separator } from '../lib/components/ui/separator';
   import { Button } from '../lib/components/ui/button';
   import { workspace } from '../svelte-lib/context';
   let { path }: { path: string } = $props();
   const { auth, capabilities } = workspace();
   const section = $derived(
-    path === '/settings/agent-keys'
+    path === '/settings/api-keys'
       ? 'agent-keys'
       : path === '/settings/security'
         ? 'security'
         : path === '/settings/recovery'
           ? 'recovery'
-          : path === '/settings/providers'
+          : path === '/settings/model-providers'
             ? 'providers'
             : 'general',
   );
@@ -26,21 +25,25 @@
       <a href="/settings" aria-current={section === 'general' ? 'page' : undefined}
         ><UserRound aria-hidden="true" />Profile</a
       >
-      <a href="/settings/security" aria-current={section === 'security' ? 'page' : undefined}
-        ><ShieldCheck aria-hidden="true" />Security</a
-      >
       {#if capabilities?.enabled('email_recovery')}<a
           href="/settings/recovery"
           aria-current={section === 'recovery' ? 'page' : undefined}
           ><Mail aria-hidden="true" />Account recovery</a
         >{/if}
-      <div class="settings-agent-group" role="group" aria-labelledby="agent-settings-label">
-        <h2 id="agent-settings-label">Agent settings</h2>
-        <a href="/settings/agent-keys" aria-current={section === 'agent-keys' ? 'page' : undefined}>
+      <div class="settings-access-group" role="group" aria-labelledby="settings-access-title">
+        <h2 id="settings-access-title">Access</h2>
+        <a href="/settings/security" aria-current={section === 'security' ? 'page' : undefined}
+          ><ShieldCheck aria-hidden="true" />Password and authentication</a
+        >
+
+        <a href="/settings/api-keys" aria-current={section === 'agent-keys' ? 'page' : undefined}>
           <KeyRound aria-hidden="true" />API keys
         </a>
-        <a href="/settings/providers" aria-current={section === 'providers' ? 'page' : undefined}>
-          <Bot aria-hidden="true" />Builtin agents
+        <a
+          href="/settings/model-providers"
+          aria-current={section === 'providers' ? 'page' : undefined}
+        >
+          <Bot aria-hidden="true" />Model providers
         </a>
       </div>
     </nav>
@@ -54,15 +57,15 @@
         {#await import('./Providers.svelte') then module}<module.default />{/await}
       {:else}
         <section class="settings-content" aria-labelledby="providers-unavailable-title">
-          <h2 class="sr-only" id="providers-unavailable-title">Builtin agents</h2>
-          <p class="muted">Configure models used by the built-in agent.</p>
-          <Separator />
+          <header class="settings-section-heading">
+            <h2 id="providers-unavailable-title">Model providers</h2>
+          </header>
           <div class="settings-profile-action">
             <div>
               <h2>Built-in agents are unavailable</h2>
               <p class="muted">
                 Your deployment administrator needs to enable agent execution before you can
-                configure model providers.
+                configure AI providers.
               </p>
             </div>
             <Button disabled variant="outline">Add model provider</Button>
@@ -73,7 +76,9 @@
       <AgentApiKeys />
     {:else if section === 'security'}
       <section class="settings-content" aria-labelledby="security-title">
-        <h2 class="sr-only" id="security-title">Security</h2>
+        <header class="settings-section-heading">
+          <h2 id="security-title">Password and authentication</h2>
+        </header>
         <div class="settings-sections">
           <section>
             <h2>Reset password</h2>
@@ -95,8 +100,7 @@
       </section>
     {:else}
       <section class="settings-content" aria-labelledby="settings-title">
-        <h2 class="sr-only" id="settings-title">Profile</h2>
-        <p class="muted">Your account details.</p>
+        <header class="settings-section-heading"><h2 id="settings-title">Profile</h2></header>
         <dl class="settings-details">
           <div>
             <dt>Display name</dt>

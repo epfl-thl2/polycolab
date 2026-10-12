@@ -1295,6 +1295,7 @@ test('creates, repeatedly reveals, and revokes account-wide agent API keys', asy
   await mock(page);
   const methods: string[] = [];
   let active = false;
+  let failCreate = true;
   const credential = {
     id: 'credential-a',
     secret_reveal_available: true,
@@ -1316,6 +1317,8 @@ test('creates, repeatedly reveals, and revokes account-wide agent API keys', asy
     if (route.request().url().endsWith('/reveal')) {
       return route.fulfill({ json: { secret: 'recoverable-secret' } });
     }
+    if (method === 'POST' && failCreate)
+      return route.fulfill({ status: 503, json: { error: { code: 'credential_unavailable' } } });
     if (method === 'POST') {
       active = true;
       return route.fulfill({ status: 201, json: { ...credential, secret: 'recoverable-secret' } });
@@ -1327,12 +1330,21 @@ test('creates, repeatedly reveals, and revokes account-wide agent API keys', asy
     return route.fulfill({ json: { items: active ? [credential] : [], next_cursor: null } });
   });
 
-  await page.goto('/settings/agent-keys');
+  await page.goto('/settings/api-keys');
   await expect(page.getByRole('table', { name: 'Your API keys' })).toBeVisible();
   await page.getByRole('button', { name: 'New API key' }).click();
   await page.getByLabel('Polycolab agent name').fill('Lean researcher');
   await page.getByLabel('Key name').fill('Lean helper');
+  const keyInputBounds = await page.getByLabel('Key name').boundingBox();
   await page.getByRole('button', { name: 'Create API key' }).click();
+  await expect(page.getByRole('alert')).toContainText('secure key service is unavailable');
+  expect(await page.getByLabel('Key name').boundingBox()).toEqual(keyInputBounds);
+  await expect(page.getByLabel('Key name')).toHaveValue('Lean helper');
+  await page.getByRole('button', { name: 'Dismiss notification' }).click();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  failCreate = false;
+  await page.getByRole('button', { name: 'Create API key' }).click();
+  await expect(page.getByRole('status')).toHaveText('API key created.');
   await expect(page.getByLabel('API key', { exact: true })).toHaveValue('recoverable-secret');
   await page.keyboard.press('Escape');
   await expect(page.getByLabel('API key', { exact: true })).toHaveCount(0);
@@ -1597,14 +1609,26 @@ test('workspace account menu matches the homepage and preserves the current view
   await mock(page);
   await page.goto('/workspaces');
   await page.getByRole('button', { name: 'Open account menu for Ada' }).click();
-  for (const name of ['Profile', 'Your workspaces', 'Settings', 'Security', 'Sign out'])
+  for (const name of [
+    'Profile',
+    'Your workspaces',
+    'Settings',
+    'Password and authentication',
+    'Sign out',
+  ])
     await expect(page.getByRole('menuitem', { name, exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   await page.getByRole('link', { name: 'Spectral gaps', exact: true }).click();
   await expect(page.getByRole('complementary', { name: 'Worktrees', exact: true })).toBeVisible();
   const url = page.url();
   await page.getByRole('button', { name: 'Open account menu', exact: true }).click();
-  for (const name of ['Profile', 'Your workspaces', 'Settings', 'Security', 'Sign out'])
+  for (const name of [
+    'Profile',
+    'Your workspaces',
+    'Settings',
+    'Password and authentication',
+    'Sign out',
+  ])
     await expect(page.getByRole('menuitem', { name, exact: true })).toBeVisible();
   await expect(page).toHaveURL(url);
   await page.keyboard.press('Escape');
@@ -2036,7 +2060,7 @@ test('workspace chat has distinct layout icons and an uncluttered composer', asy
     /lucide-map/,
   );
   await expect(page.getByRole('button', { name: 'Choose agent' })).toContainText('Researcher');
-  await expect(page.getByLabel('Gateway profile')).toHaveCount(0);
+  await expect(page.getByLabel('AI provider')).toHaveCount(0);
   const suggested = page.getByLabel('Suggested prompts');
   await expect(suggested.getByRole('button')).toHaveCount(5);
   await suggested.getByRole('button', { name: 'Summarize this workspace' }).click();
@@ -2082,7 +2106,7 @@ test('new chat customizes the hosted prompt and model endpoint', async ({ page }
   await page.goto(`/workspaces/${projectId}/sessions/new`);
   const composer = page.locator('#main .workspace-chat-start');
   await expect(composer.getByRole('button', { name: 'Choose agent' })).toContainText('Researcher');
-  await expect(composer.getByLabel('Gateway profile')).toHaveCount(0);
+  await expect(composer.getByLabel('AI provider')).toHaveCount(0);
   await composer.getByRole('button', { name: /Customize chat/ }).click();
   const customization = page.getByRole('dialog', { name: 'Customize chat' });
   const customToggle = customization.getByRole('button', { name: /Custom instructions/ });
@@ -2131,7 +2155,7 @@ test('new chat top bar stays synchronized and resets local settings', async ({ p
   await expect(agentPicker).toContainText('Critic');
   await agentPicker.click();
   await page.getByRole('menuitemradio', { name: /Researcher/ }).click();
-  await expect(composer.getByRole('combobox', { name: 'Gateway profile' })).toHaveCount(0);
+  await expect(composer.getByRole('combobox', { name: 'AI provider' })).toHaveCount(0);
   await composer.getByRole('button', { name: /Customize chat/ }).click();
   const customization = page.getByRole('dialog', { name: 'Customize chat' });
   const context = customization.getByRole('combobox', { name: 'Context scope' });
@@ -2182,9 +2206,9 @@ test('chat composers grow only after overflow and send with Enter', async ({ pag
   await expect(page).toHaveURL(`/workspaces/${projectId}/sessions/${sessionId}`);
 
   const nextInput = page.getByLabel('Private message', { exact: true });
-  if (!(await page.getByLabel('Gateway profile').isVisible()))
+  if (!(await page.getByLabel('AI provider').isVisible()))
     await page.getByRole('tab', { name: 'Details', exact: true }).click();
-  await page.getByLabel('Gateway profile').selectOption('profile-1');
+  await page.getByLabel('AI provider').selectOption('profile-1');
   const nextInitialHeight = (await nextInput.boundingBox())!.height;
   await nextInput.fill('First line\nSecond line');
   await expect.poll(async () => (await nextInput.boundingBox())!.height).toBe(nextInitialHeight);
@@ -2222,8 +2246,8 @@ test('new chat keeps its first message and session when the first send fails', a
   await page.goto(`/workspaces/${projectId}/sessions/new`);
   const reason = page.locator('.workspace-chat-start-footer .workspace-chat-send-reason');
   await expect(reason).toHaveText('Write a message to send.');
-  await expect(page.getByText('Choose a gateway in Customize.')).toHaveCount(0);
-  await expect(page.getByLabel('Gateway profile')).toHaveCount(0);
+  await expect(page.getByText('Choose an AI provider in Customize.')).toHaveCount(0);
+  await expect(page.getByLabel('AI provider')).toHaveCount(0);
   await page.getByLabel('Message the agent').fill('Check the smallest counterexample.');
   const send = page.getByRole('button', { name: 'Send message' });
   await expect(reason).toHaveCount(0);
@@ -2269,16 +2293,16 @@ test('failed agent message remains editable and successful retry uses the same r
     });
   });
   await page.goto(`/workspaces/${projectId}/sessions/${sessionId}`);
-  if (!(await page.getByLabel('Gateway profile').isVisible()))
+  if (!(await page.getByLabel('AI provider').isVisible()))
     await page.getByRole('tab', { name: 'Details', exact: true }).click();
-  await expect(page.getByLabel('Gateway profile')).toBeVisible();
+  await expect(page.getByLabel('AI provider')).toBeVisible();
   await expect(page.locator('.workspace-chat-composer .workspace-chat-send-reason')).toHaveText(
-    'Choose a gateway in Chat settings.',
+    'Choose an AI provider in Chat settings.',
   );
   await page.screenshot({ path: '/tmp/polycolab-enabled-chat-after.png' });
-  if (!(await page.getByLabel('Gateway profile').isVisible()))
+  if (!(await page.getByLabel('AI provider').isVisible()))
     await page.getByRole('tab', { name: 'Details', exact: true }).click();
-  await page.getByLabel('Gateway profile').selectOption('profile-1');
+  await page.getByLabel('AI provider').selectOption('profile-1');
   await page.getByText('Run settings', { exact: true }).click();
   await page.getByText('Context · 0 pinned versions').click();
   await page.getByRole('checkbox').check();
@@ -3254,6 +3278,7 @@ test('provider keys remain write-only across create, validation, rotation, failu
 }) => {
   await mock(page);
   const original = {
+    api_key_preview: null as string | null,
     id: 'profile-1',
     display_name: 'Research model',
     base_url: 'https://example.com/v1',
@@ -3285,6 +3310,7 @@ test('provider keys remain write-only across create, validation, rotation, failu
       });
     if (path === '/api/v1/gateway/profiles' && request.method() === 'POST') {
       const created = {
+        api_key_preview: 'cre••••cret',
         id: 'profile-2',
         display_name: body!.display_name!,
         base_url: body!.base_url!,
@@ -3294,6 +3320,7 @@ test('provider keys remain write-only across create, validation, rotation, failu
       return route.fulfill({ status: 201, json: created });
     }
     const profile = profiles.find((item) => path.includes(item.id));
+    if (path.endsWith('/rotate') && profile) profile.api_key_preview = 'rot••••cret';
     if (path.endsWith('/validate') || path.endsWith('/rotate'))
       return route.fulfill({ json: profile });
     if (request.method() === 'DELETE') {
@@ -3303,40 +3330,81 @@ test('provider keys remain write-only across create, validation, rotation, failu
     return route.fulfill({ status: 404, json: { error: { code: 'not_found' } } });
   });
 
-  await page.goto('/settings/providers');
-  await expect(page.getByRole('heading', { name: 'Builtin agents' })).toBeVisible();
+  await page.goto('/settings/model-providers');
+  await expect(page.getByRole('heading', { name: 'Model providers' })).toBeVisible();
+  await expect(page.getByText('Preview unavailable', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Display name')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Add model provider' }).click();
   await page.getByLabel('Display name').fill('Second model');
-  await page.getByLabel('Base URL').fill('https://second.example/v1');
+  await page.getByLabel('API endpoint').fill('https://second.example/v1');
   await page.getByLabel('Model ID').fill('second-model');
   await page.getByLabel('API key').fill('create-secret');
-  await page.getByRole('button', { name: 'Add profile' }).click();
-  await expect(page.getByRole('status')).toHaveText('Profile created.');
-  await expect(page.getByRole('heading', { name: 'Second model' })).toBeVisible();
-  await expect(page.getByLabel('API key')).toHaveValue('');
+  await page.getByRole('button', { name: 'Save provider' }).click();
+  await expect(page.getByRole('status')).toHaveText('AI provider added.');
+  await expect(page.getByText('Second model', { exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 
-  const second = page.getByRole('listitem').filter({ hasText: 'Second model' });
-  await second.getByRole('button', { name: 'Validate' }).click();
-  await expect(page.getByRole('status')).toHaveText('Profile validated.');
-  await second.getByRole('button', { name: 'Rotate key' }).click();
-  await second.getByLabel('Replacement key').fill('rotation-secret');
-  await second.getByRole('button', { name: 'Save replacement' }).click();
-  await expect(page.getByRole('status')).toHaveText('Key rotated.');
-  await expect(second.getByLabel('Replacement key')).toHaveCount(0);
+  const second = page.getByRole('row').filter({ hasText: 'Second model' });
+  await expect(page.getByRole('table', { name: 'Your model providers' })).toBeVisible();
+  await page.getByLabel('Search loaded model providers').fill('second-model');
+  await expect(second).toBeVisible();
+  await expect(page.getByText('Research model', { exact: true })).toHaveCount(0);
+  await page.getByLabel('Search loaded model providers').fill('no-match');
+  await expect(page.getByText('No matching providers in the loaded results.')).toBeVisible();
+  await page.getByLabel('Search loaded model providers').clear();
+  await expect(second.getByText('cre••••cret', { exact: true })).toBeVisible();
+  await expect(page.locator('body')).not.toContainText('create-secret');
+  await expect(second.getByText('Not tested')).toBeVisible();
+  const tableBounds = await page.getByRole('table', { name: 'Your model providers' }).boundingBox();
+  await page.getByRole('button', { name: 'Dismiss notification' }).click();
+  expect(await page.getByRole('table', { name: 'Your model providers' }).boundingBox()).toEqual(
+    tableBounds,
+  );
+  await second.getByRole('button', { name: 'Actions for Second model' }).click();
+  await page.getByRole('menuitem', { name: 'Test connection' }).click();
+  await expect(page.getByRole('status')).toHaveText('Connection to Second model verified.');
+  await expect(second.getByText('Connection verified')).toBeVisible();
+  await page.screenshot({ path: '/tmp/polycolab-providers-desktop.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(second.getByRole('button', { name: 'Actions for Second model' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await page.screenshot({ path: '/tmp/polycolab-providers-mobile.png' });
+  await second.getByRole('button', { name: 'Actions for Second model' }).click();
+  await page.getByRole('menuitem', { name: 'Replace API key' }).click();
+  await page.getByLabel('Replacement key').fill('rotation-secret');
+  await page.getByRole('button', { name: 'Save replacement' }).click();
+  await expect(page.getByRole('status')).toHaveText('API key replaced.');
+  await expect(page.getByLabel('Replacement key')).toHaveCount(0);
+  await expect(second.getByText('rot••••cret', { exact: true })).toBeVisible();
+  await expect(second.getByText('cre••••cret', { exact: true })).toHaveCount(0);
+  await expect(page.locator('body')).not.toContainText('rotation-secret');
 
+  await expect(second.getByText('Not tested')).toBeVisible();
   failCreate = true;
+  await page.getByRole('button', { name: 'Add model provider' }).click();
   await page.getByLabel('Display name').fill('Unavailable key service');
-  await page.getByLabel('Base URL').fill('https://failure.example/v1');
+  await page.getByLabel('API endpoint').fill('https://failure.example/v1');
   await page.getByLabel('Model ID').fill('failure-model');
   await page.getByLabel('API key').fill('retained-secret');
-  await page.getByRole('button', { name: 'Add profile' }).click();
+  const inputBounds = await page.getByLabel('API key').boundingBox();
+  await page.getByRole('button', { name: 'Save provider' }).click();
   await expect(page.getByRole('alert')).toContainText('secure key service is unavailable');
   await expect(page.getByLabel('API key')).toHaveValue('retained-secret');
+  expect(await page.getByLabel('API key').boundingBox()).toEqual(inputBounds);
+  await page.screenshot({ path: '/tmp/polycolab-provider-error-toast.png' });
   expect(await page.locator('body').textContent()).not.toContain('retained-secret');
 
-  await second.getByRole('button', { name: 'Delete' }).click();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('button', { name: 'Add model provider' }).click();
+  await expect(page.getByLabel('API key')).toHaveValue('');
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await second.getByRole('button', { name: 'Actions for Second model' }).click();
+  await page.getByRole('menuitem', { name: 'Delete provider' }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Confirm', exact: true }).click();
-  await expect(page.getByRole('status')).toHaveText('Profile deleted.');
-  await expect(page.getByRole('heading', { name: 'Second model' })).toHaveCount(0);
+  await expect(page.getByRole('status')).toHaveText('AI provider deleted.');
+  await expect(page.getByText('Second model', { exact: true })).toHaveCount(0);
   expect(writes).toEqual(
     expect.arrayContaining([
       {
@@ -4612,7 +4680,7 @@ test('API keys table filters loaded rows and preserves cursor pagination', async
           },
     });
   });
-  await page.goto('/settings/agent-keys');
+  await page.goto('/settings/api-keys');
   const table = page.getByRole('table', { name: 'Your API keys' });
   await expect(table.getByText('Research helper', { exact: true })).toBeVisible();
   await expect(table.getByRole('columnheader', { name: 'API key', exact: true })).toBeVisible();
@@ -6021,4 +6089,73 @@ test('Explorer preview replacement, explicit filter reveal, and clean failure pr
     'true',
   );
   await expect(tabs.getByRole('tab', { name: 'b.py', exact: true })).toBeVisible();
+});
+
+test('legacy key settings links redirect to the general settings sections', async ({ page }) => {
+  await mock(page);
+  await page.goto('/settings/providers?source=bookmark');
+  await expect(page).toHaveURL('/settings/model-providers?source=bookmark');
+  await expect(page.getByRole('heading', { name: 'Model providers', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Model providers', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await page.goto('/settings/agent-keys');
+  await expect(page).toHaveURL('/settings/api-keys');
+  await expect(page.getByRole('heading', { name: 'API keys', exact: true })).toBeVisible();
+  await expect(
+    page
+      .getByRole('group', { name: 'Access' })
+      .getByRole('link', { name: 'API keys', exact: true }),
+  ).toBeVisible();
+  await page.screenshot({ path: '/tmp/polycolab-settings-api-keys.png' });
+  await expect(page.getByRole('link', { name: 'API keys', exact: true })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await page.getByRole('link', { name: 'Profile', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Profile', exact: true })).toBeVisible();
+  await page.screenshot({ path: '/tmp/polycolab-settings-profile.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole('heading', { name: 'Access', exact: true })).toBeVisible();
+  await page.screenshot({ path: '/tmp/polycolab-settings-profile-mobile.png' });
+});
+
+test('recovery settings actions use dismissible toasts without moving the form', async ({
+  page,
+}) => {
+  await mock(page);
+  let failSave = true;
+  await page.route('**/api/v1/auth/reauthenticate', (route) =>
+    route.fulfill({ json: { accepted: true } }),
+  );
+  await page.route('**/api/v1/account/email**', (route) => {
+    const request = route.request();
+    if (request.method() === 'PUT' && failSave)
+      return route.fulfill({ status: 409, json: { error: { code: 'recovery_conflict' } } });
+    if (request.method() === 'POST') return route.fulfill({ json: { accepted: true } });
+    return route.fulfill({ json: { verified_email: null, pending_email: 'pending@example.com' } });
+  });
+  await page.goto('/settings/recovery');
+  await expect(page.getByText('Pending verification: pending@example.com')).toBeVisible();
+  await page.getByLabel('Recovery email').fill('pending@example.com');
+  await page.getByLabel('Current password').fill('current-password');
+  const before = await page.getByLabel('Recovery email').boundingBox();
+  await page.getByRole('button', { name: 'Verify recovery email' }).click();
+  await expect(page.getByRole('alert')).toHaveText(
+    'This email is already verified for another account.',
+  );
+  expect(await page.getByLabel('Recovery email').boundingBox()).toEqual(before);
+  await page.getByRole('button', { name: 'Dismiss notification' }).click();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  failSave = false;
+  await page.getByLabel('Current password').fill('current-password');
+  await page.getByRole('button', { name: 'Verify recovery email' }).click();
+  await expect(page.getByRole('status')).toHaveText('Check your email for a verification link.');
+  expect(await page.getByLabel('Recovery email').boundingBox()).toEqual(before);
+  await page.getByRole('button', { name: 'Resend verification' }).click();
+  await expect(page.getByRole('status')).toHaveText(
+    'Verification email requested; the earlier link no longer works.',
+  );
+  expect(await page.getByLabel('Recovery email').boundingBox()).toEqual(before);
 });

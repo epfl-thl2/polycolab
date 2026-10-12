@@ -13,7 +13,12 @@ The legacy normalized model endpoint remains for the existing worker.
 
 ## Credential handling
 
-Provider profiles return no API key, ciphertext, wrapped data key, or derived secret after creation.
+Provider profiles never return the full API key, ciphertext, or wrapped data key.
+They return an owner-only `api_key_preview`, saved atomically when a key is created or replaced.
+For keys of at least 12 characters, it contains the first three and last four characters separated by four bullets.
+Keys of 5–11 characters show four bullets and the last four characters; shorter keys show only four bullets.
+Existing profiles retain a null preview until key replacement; reads never decrypt credentials to produce previews.
+Credential rewrapping preserves the preview, and provider deletion clears it.
 Non-local deployments select AWS KMS or OpenBao Transit.
 OpenBao writes use an explicit environment/backend/key/version identity and authenticated context.
 A bounded list of prior Transit versions and an optional exact-version AWS reader support rotation/migration without trial decryption.

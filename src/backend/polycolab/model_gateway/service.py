@@ -121,6 +121,15 @@ def profile_for_user(
     return profile
 
 
+def _api_key_preview(api_key: str) -> str:
+    """Expose only a bounded recognition hint, never an entire short key."""
+    if len(api_key) >= 12:
+        return f"{api_key[:3]}••••{api_key[-4:]}"
+    if len(api_key) >= 5:
+        return f"••••{api_key[-4:]}"
+    return "••••"
+
+
 def create_profile(
     session: Session,
     *,
@@ -141,6 +150,7 @@ def create_profile(
         base_url=validate_base_url(base_url, production=production),
         model_id=model_id,
         wire_api=wire_api,
+        api_key_preview=_api_key_preview(api_key),
         credential_version=1,
         encrypted_credential=b"",
         wrapped_data_key=b"",
@@ -179,6 +189,7 @@ def rotate_profile(
             encrypted.wrapped_key,
         )
         profile.encryption_key_version = encrypted.key_version
+        profile.api_key_preview = _api_key_preview(api_key)
         profile.credential_version += 1
         for grant in session.scalars(
             select(SqlGatewayRunGrant).where(
@@ -197,6 +208,7 @@ def rotate_profile(
 def delete_profile(session: Session, *, profile_id: UUID, user: IdentifiedUser) -> None:
     profile = profile_for_user(session, profile_id=profile_id, user_id=user.id, lock=True)
     profile.deleted_at = utc_now()
+    profile.api_key_preview = None
     profile.encrypted_credential = b""
     profile.wrapped_data_key = b""
     for grant in session.scalars(

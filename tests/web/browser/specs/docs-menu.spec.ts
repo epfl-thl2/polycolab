@@ -70,10 +70,9 @@ for (const mobile of [false, true]) {
     await expect(
       page.getByRole('menuitem', { name: 'Agent connections', exact: true }),
     ).toHaveCount(0);
-    await expect(page.getByRole('menuitem', { name: 'Security', exact: true })).toHaveAttribute(
-      'href',
-      '/settings/security',
-    );
+    await expect(
+      page.getByRole('menuitem', { name: 'Password and authentication', exact: true }),
+    ).toHaveAttribute('href', '/settings/security');
     await page.screenshot({ path: info.outputPath('home-account.png') });
     await trigger.click();
     await expect(trigger).toHaveAttribute('aria-expanded', 'false');

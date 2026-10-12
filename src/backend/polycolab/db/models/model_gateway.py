@@ -22,7 +22,7 @@ from polycolab.entities.time import utc_now
 
 
 class SqlGatewayProfile(Base):
-    """User-owned OpenAI-compatible routing metadata and encrypted secret only."""
+    """User-owned OpenAI-compatible routing metadata, masked key preview, and encrypted secret."""
 
     __tablename__ = "gateway_profiles"
     __table_args__ = (
@@ -37,6 +37,7 @@ class SqlGatewayProfile(Base):
     base_url: Mapped[str] = mapped_column(String(2048))
     model_id: Mapped[str] = mapped_column(String(500))
     wire_api: Mapped[str] = mapped_column(String(32), default="responses")
+    api_key_preview: Mapped[str | None] = mapped_column(String(11), nullable=True)
     credential_version: Mapped[int] = mapped_column(Integer, default=1)
     encrypted_credential: Mapped[bytes] = mapped_column(LargeBinary)
     wrapped_data_key: Mapped[bytes] = mapped_column(LargeBinary)

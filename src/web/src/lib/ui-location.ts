@@ -85,6 +85,8 @@ export function searchQuery(query: string, type: ReturnType<typeof readSearch>['
   return params.toString();
 }
 export function canonicalUiLocation(path: string, search: string) {
+  if (path === '/settings/providers') return '/settings/model-providers' + search;
+  if (path === '/settings/agent-keys') return '/settings/api-keys' + search;
   let query: string;
   if (path === '/' || path === '/search') {
     const state = readSearch(search);

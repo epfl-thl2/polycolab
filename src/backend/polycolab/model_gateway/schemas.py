@@ -24,6 +24,7 @@ class GatewayProfileRotate(RequestModel):
 
 
 class GatewayProfileRead(ApiModel):
+    api_key_preview: str | None = None
     id: UUID
     display_name: str
     base_url: str

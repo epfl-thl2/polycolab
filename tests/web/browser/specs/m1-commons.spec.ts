@@ -253,7 +253,7 @@ test('M1 admission to attempt, private reference, public direct turn, and sugges
   await page.goto(`/workspaces/${projectId}/references`);
   await expect(page.getByText('Pin version 1', { exact: false })).toBeVisible();
   await page.goto(`/workspaces/${projectId}/sessions/${sessionId}`);
-  await page.getByLabel('Gateway profile').selectOption('profile');
+  await page.getByLabel('AI provider').selectOption('profile');
   await page.getByLabel('Private message', { exact: true }).fill('PRIVATE DRAFT NEVER SENT');
   await page.getByText('Run settings', { exact: true }).click();
   await page.getByLabel('Contribution destination').selectOption('PUBLIC');

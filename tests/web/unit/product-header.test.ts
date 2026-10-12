@@ -70,7 +70,7 @@ it('uses clear global destinations and exposes account destinations from the ava
     'Profile',
     'Your workspaces',
     'Settings',
-    'Security',
+    'Password and authentication',
     'Getting started',
     'Moderation',
   ])
