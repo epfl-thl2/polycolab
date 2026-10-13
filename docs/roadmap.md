@@ -21,6 +21,14 @@ The [architecture index](architecture/README.md) describes existing foundations.
 External MCP, Git/filesystem synchronization, literature retrieval, persistent notebooks, GPUs, live coediting, and configurable agent builders remain candidates on this branch.
 They are not prerequisites for the existing browser and shared HTTPS API.
 
+## Document compilation acceptance
+
+Manual TeX Live builds have project/worktree APIs, a container controller, and an
+editor preview. Hosted enablement still requires target-daemon isolation and
+recovery acceptance as described in the [compiler guide](../deploy/latex/README.md).
+Automatic compilation, incremental caches, SyncTeX navigation and external-agent
+build requests remain future work.
+
 ## Design decisions to resolve
 
 - Decide which research kinds appear directly on the map and which appear through inspectors and lists.

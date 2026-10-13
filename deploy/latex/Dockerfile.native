@@ -1,0 +1,18 @@
+# Pin the resulting image ID/digest in LATEX_IMAGE before enabling the worker.
+FROM debian:bookworm-slim
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 perl ca-certificates wget fontconfig xz-utils \
+    && rm -rf /var/lib/apt/lists/*
+# TeX Live's frozen annual archive avoids downloading a moving package set.
+ARG TEXLIVE_REPOSITORY=https://ftp.math.utah.edu/pub/tex/historic/systems/texlive/2025/tlnet-final
+RUN wget --timeout=30 --tries=2 "$TEXLIVE_REPOSITORY/install-tl-unx.tar.gz" -O /tmp/install.tar.gz \
+    && mkdir /tmp/installer && tar -xzf /tmp/install.tar.gz -C /tmp/installer --strip-components=1 \
+    && /tmp/installer/install-tl --no-interaction --scheme=full --no-doc-install --no-src-install \
+       --texdir=/opt/texlive --repository="$TEXLIVE_REPOSITORY" \
+    && ln -s /opt/texlive/bin/*-linux /opt/texlive/bin/current \
+    && /opt/texlive/bin/current/tlmgr info --only-installed > /opt/texlive/package-manifest.txt \
+    && rm -rf /tmp/installer /tmp/install.tar.gz
+ENV PATH="/opt/texlive/bin/current:${PATH}"
+COPY deploy/latex/compile_guest.py /opt/compile_guest.py
+ENTRYPOINT ["python3", "-I", "/opt/compile_guest.py"]

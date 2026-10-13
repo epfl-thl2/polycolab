@@ -165,3 +165,43 @@ recreate a missing registered repository as an empty one, prune internal refs,
 or run immediate object garbage collection: prepared receipts may still refer to
 unreachable objects. Rollback requires restoring the coordinated backup or
 keeping the new storage disabled; downgrading the schema is unsupported.
+
+## LaTeX builds
+
+Manual document compilation is available in Git-mode projects and is scoped to
+project and worktree. Each attempt has
+its own build ID and immutable saved input revision, separate from branch commits.
+The browser can save all current-worktree drafts before submission. Conflicting
+or stale drafts are retained and prevent the compile request. Main-file and engine
+choices stay in the project session. Compilation does not block subsequent saves.
+
+`/api/v1/projects/{project_id}/worktrees/{worktree_id}/latex-builds` supports
+submission, recent history, status, cancellation and private output downloads.
+Both enclosing IDs must match the build. Owners/contributors may submit and cancel;
+current members may view results. External agent credentials are not accepted.
+Project visibility never makes source snapshots, build logs or PDFs public.
+
+FastAPI owns the durable queue and build metadata. A separate credential-only
+controller claims attempts through `/internal/latex` APIs and starts a disposable
+TeX Live container. It has no SQL credential and the compiler receives no service
+credential. The container never mounts canonical repositories or shared Git data.
+The worker uses latexmk with pdfLaTeX or LuaLaTeX, disabled shell escape and disabled
+project RC loading. Package dependencies are baked into the pinned full image.
+
+Build input archives and PDF/log output use the artifact byte-storage adapter with
+build-specific ownership metadata. Generated files never enter Git. Generation,
+lease, deadline and current membership checks fence worker results. Cancellation
+prevents further upload/completion. Physical capacity remains held until confirmed
+container removal or the independent deadline plus the cleanup allowance. Lost
+workers fail the attempt; there is no automatic compile retry.
+
+The editor renders PDF pages with PDF.js, without document scripting or active
+links. It keeps the last successful PDF after failures and marks it stale when
+saved revisions or local drafts change. Logs expose file/line diagnostics without
+rendering log text as HTML. Source/PDF synchronization and automatic compilation
+are not implemented. Outputs expire after the configured retention period (30
+days by default); API maintenance collects expired bytes and terminal input
+archives after an upload grace period. Retry metadata remains durable.
+
+See the [compiler deployment guide](../../deploy/latex/README.md) for setup,
+limits, image selection and the distinction between local and hosted acceptance.

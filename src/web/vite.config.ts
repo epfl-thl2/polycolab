@@ -23,6 +23,7 @@ export default defineConfig(({ mode }) => {
         'monaco-editor',
         'yjs',
         'y-monaco',
+        'pdfjs-dist',
         '@lucide/svelte/icons/x',
         '@lucide/svelte/icons/chevron-down',
         'unified',

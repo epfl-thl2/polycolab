@@ -6294,3 +6294,121 @@ test('saved workbench tabs and dimensions survive the project route cutover', as
     )
     .toBe(true);
 });
+
+test('LaTeX builds save all drafts, retain the PDF after failure, and cancel by worktree', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await mock(page);
+  let savedRevision = 'a'.repeat(40);
+  const files: Record<string, string> = {
+    'main.tex': '\\documentclass{article}\n\\begin{document}Hello\\end{document}',
+    'chapter.tex': 'First chapter',
+  };
+  await page.route(`**/api/v1/projects/${projectId}/repository**`, (route) =>
+    route.fulfill({
+      json: {
+        enabled: true,
+        writable: true,
+        branch: 'main',
+        commit: savedRevision,
+        branches: { main: 'a'.repeat(40) },
+        files: Object.entries(files).map(([path, value]) => ({
+          path,
+          size: value.length,
+          executable: false,
+        })),
+      },
+    }),
+  );
+  await mockNativeFiles(
+    page,
+    () => [nativeTree(mainWorktreeId, 'Main', 'main', savedRevision, files)],
+    (_id, path) => files[path],
+    (body) => {
+      expect(body.expected_revision).toBe(savedRevision);
+      expect(body.changes).toHaveLength(2);
+      for (const change of body.changes)
+        files[change.path] = Buffer.from(change.content_base64, 'base64').toString();
+      savedRevision = 'b'.repeat(40);
+      return savedRevision;
+    },
+  );
+  type Build = {
+    id: string;
+    project_id: string;
+    worktree_id: string;
+    revision: string;
+    main_file: string;
+    engine: string;
+    status: string;
+    created_at: string;
+    expires_at: string;
+    error: string | null;
+    pdf_available: boolean;
+    log_available: boolean;
+  };
+  const builds: Build[] = [];
+  let submissions = 0;
+  const url = `/api/v1/projects/${projectId}/worktrees/${mainWorktreeId}/latex-builds`;
+  await page.route(`**${url}**`, (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (path.endsWith('/outputs/pdf'))
+      return route.fulfill({ contentType: 'application/pdf', body: '%PDF-1.4\n%%EOF' });
+    if (path.endsWith('/outputs/log'))
+      return route.fulfill({
+        contentType: 'text/plain',
+        body: './main.tex:2: Undefined control sequence.',
+      });
+    if (path.endsWith('/cancel')) {
+      expect(path).toBe(`${url}/${builds[0].id}/cancel`);
+      builds[0] = { ...builds[0], status: 'cancelled' };
+      return route.fulfill({ json: builds[0] });
+    }
+    if (request.method() === 'POST') {
+      expect(request.postDataJSON()).toMatchObject({
+        revision: 'b'.repeat(40),
+        main_file: 'main.tex',
+        engine: 'pdflatex',
+      });
+      expect(request.headers()['idempotency-key']).toBeTruthy();
+      submissions++;
+      const build: Build = {
+        id: `${submissions}`,
+        project_id: projectId,
+        worktree_id: mainWorktreeId,
+        revision: savedRevision,
+        main_file: 'main.tex',
+        engine: 'pdflatex',
+        status: submissions === 1 ? 'succeeded' : submissions === 2 ? 'failed' : 'running',
+        created_at: new Date().toISOString(),
+        expires_at: '2099-01-01T00:00:00Z',
+        error: submissions === 2 ? 'latex_compile_failed' : null,
+        pdf_available: submissions === 1,
+        log_available: submissions === 2,
+      };
+      builds.unshift(build);
+      return route.fulfill({ status: 202, json: build });
+    }
+    return route.fulfill({ json: { available: true, builds } });
+  });
+  await page.goto(`/projects/${projectId}/files`);
+  await page.getByRole('button', { name: 'main.tex', exact: true }).click();
+  await (await plainFileEditor(page)).fill('Updated main document');
+  await page.getByRole('button', { name: 'chapter.tex', exact: true }).click();
+  await (await plainFileEditor(page)).fill('Updated chapter');
+  await page.getByRole('button', { name: 'LaTeX / PDF preview', exact: true }).click();
+  await page.getByLabel('Main LaTeX document').selectOption('main.tex');
+  await page.getByRole('button', { name: 'Save all & compile', exact: true }).click();
+  await expect(page.getByRole('link', { name: 'Download PDF' })).toBeVisible();
+  expect(files).toEqual({ 'main.tex': 'Updated main document', 'chapter.tex': 'Updated chapter' });
+  await page.getByRole('button', { name: 'Compile', exact: true }).click();
+  await expect(page.getByRole('button', { name: /main.tex:2/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Download PDF' })).toBeVisible();
+  await page.getByRole('button', { name: /main.tex:2/ }).click();
+  await expect(await plainFileEditor(page)).toHaveValue('Updated main document');
+  await page.getByRole('button', { name: 'Compile', exact: true }).click();
+  await page.getByRole('button', { name: 'Cancel build', exact: true }).click();
+  await expect(page.getByText('Build: cancelled', { exact: true })).toBeVisible();
+});

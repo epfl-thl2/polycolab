@@ -20,6 +20,7 @@
   import { createCommunityApi } from '../lib/community-api';
   import { createResearchStructureApi } from '../lib/research-structure-api';
   import { createPublicationApi } from '../lib/publication-api';
+  import { createDocumentBuildsApi } from '../lib/document-builds-api';
   import { createRepositoryApi } from '../lib/repository-api';
   import { createProjectTasksApi } from '../lib/project-tasks-api';
   import { createArtifactApi } from '../lib/artifact-api';
@@ -61,6 +62,7 @@
     publication: createPublicationApi(options),
     artifacts: createArtifactApi(options),
     repository: createRepositoryApi(options),
+    documentBuilds: createDocumentBuildsApi(options),
     tasks: createProjectTasksApi(options),
     verification: createVerificationApi(options),
     externalAgents,

@@ -1,0 +1,1 @@
+"""Private project document compilation."""

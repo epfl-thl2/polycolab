@@ -53,6 +53,7 @@ from polycolab.app.maintenance import maintenance_lifespan
 from polycolab.app.reference import arrange_reference
 from polycolab.db.session import database_is_ready, make_engine, make_session_factory
 from polycolab.db.transaction import make_transaction_factory
+from polycolab.entities.document_builds import BuildError
 from polycolab.entities.repositories import RepositoryError
 from polycolab.entities.time import utc_now
 from polycolab.execution.limits import (
@@ -651,6 +652,10 @@ def create_app(
         response = error_response(401, "unauthenticated", request)
         response.headers["WWW-Authenticate"] = "Bearer"
         return response
+
+    @app.exception_handler(BuildError)
+    async def document_build_error(request: Request, exception: BuildError) -> JSONResponse:
+        return error_response(exception.status, exception.code, request)
 
     @app.exception_handler(RepositoryError)
     async def repository_exception_handler(
