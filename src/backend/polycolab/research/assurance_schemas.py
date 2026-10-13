@@ -41,7 +41,7 @@ class ObjectVersionCorrespondenceWrite(CatalogueRequest):
 class ObjectVersionEndorsementRead(ApiModel):
     id: UUID
     object_version_id: UUID = Field(validation_alias="revision_id")
-    assessor_id: UUID
+    author_username: str | None = None
     active: bool
     rationale: str
     author_display_name: str | None
@@ -52,7 +52,7 @@ class ObjectVersionCorrespondenceRead(ApiModel):
     id: UUID
     object_version_id: UUID = Field(validation_alias="revision_id")
     statement_object_version_id: UUID = Field(validation_alias="statement_revision_id")
-    assessor_id: UUID
+    author_username: str | None = None
     status: CorrespondenceStatus
     rationale: str
     author_display_name: str | None

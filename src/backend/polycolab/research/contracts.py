@@ -47,7 +47,8 @@ class EndorsementWrite(CatalogueRequest):
 class EndorsementRead(ApiModel):
     id: UUID
     revision_id: UUID
-    assessor_id: UUID
+    assessor_id: UUID | None = Field(default=None, exclude=True)
+    author_username: str | None = None
     active: bool
     rationale: str
     author_display_name: str | None
@@ -66,7 +67,8 @@ class CorrespondenceRead(ApiModel):
     id: UUID
     revision_id: UUID
     statement_revision_id: UUID
-    assessor_id: UUID
+    assessor_id: UUID | None = Field(default=None, exclude=True)
+    author_username: str | None = None
     status: CorrespondenceStatus
     rationale: str
     author_display_name: str | None
@@ -166,9 +168,11 @@ class RecordRead(VersionContentRead):
     attempt: ResearchAttemptStructureRead | None = None
     author_display_name: str | None
     actor_kind: str
-    author_user_id: UUID | None = None
+    author_user_id: UUID | None = Field(default=None, exclude=True)
+    author_username: str | None = None
     agent_id: UUID | None = None
-    sponsor_user_id: UUID | None = None
+    sponsor_user_id: UUID | None = Field(default=None, exclude=True)
+    sponsor_username: str | None = None
     agent_display_name: str | None
     created_at: datetime
 

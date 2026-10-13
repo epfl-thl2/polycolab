@@ -60,34 +60,6 @@ test('Activity URLs preserve filters, aliases and explicit preview through brows
   await expect(page).toHaveURL(/\/activity$/);
 });
 
-test('People profile deep links restore the directory and focus', async ({ page }, info) => {
-  await account(page);
-  await page.goto('/people?preview=examples');
-  await page.getByRole('searchbox').fill('logic');
-  await page.getByRole('button', { name: 'Search people' }).click();
-  const trigger = page.getByRole('button', { name: 'View profile for Noor Example' });
-  await trigger.click();
-  await expect(page).toHaveURL(/profile=example-noor/);
-  await expect(page.getByRole('dialog', { name: 'Noor Example' })).toBeVisible();
-  await page.screenshot({ path: info.outputPath('people-profile-desktop.png'), fullPage: true });
-  await page.keyboard.press('Escape');
-  await expect(page).not.toHaveURL(/profile=/);
-  await expect(trigger).toBeFocused();
-  await expect(page.getByRole('searchbox')).toHaveValue('logic');
-  await page.goBack();
-  await expect(page.getByRole('dialog', { name: 'Noor Example' })).toBeVisible();
-  await page.reload();
-  await expect(page.getByRole('dialog', { name: 'Noor Example' })).toBeVisible();
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: info.outputPath('people-profile-mobile.png'), fullPage: true });
-  await page.goto('/people?q=graph&profile=example-noor&preview=examples');
-  await expect(page.getByRole('dialog', { name: 'Noor Example' })).toBeVisible();
-  await page.goto('/people?profile=missing&preview=examples');
-  await expect(page.getByRole('alert')).toContainText('unavailable');
-  await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Ada Example' })).toBeVisible();
-});
-
 for (const signedIn of [false, true]) {
   test(`navigation fits app, Docs and project headers (${signedIn ? 'member' : 'visitor'})`, async ({
     page,

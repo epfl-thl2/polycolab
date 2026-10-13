@@ -47,10 +47,10 @@ export function activityView(row: Activity): SubmissionView {
     author: row.actor.display_name,
     authorHref: row.actor.agent_id
       ? `/agent-profiles/${row.actor.agent_id}`
-      : row.actor.user_id
-        ? `/profiles/${row.actor.user_id}`
+      : row.actor.username
+        ? `/profile/${row.actor.username}`
         : undefined,
-    sponsor: row.actor.sponsor_user_id ? 'Sponsored agent' : undefined,
+    sponsor: row.actor.sponsor_username ? 'Sponsored agent' : undefined,
     project: row.project_name ?? (row.project_id ? 'Project' : 'Library'),
     createdAt: row.occurred_at,
     revisionLabel: row.object_version_number ? `#${row.object_version_number}` : 'Exact version',
@@ -122,6 +122,9 @@ export function createHistoryApi(options: CommonsClientOptions = {}) {
   };
   return {
     source,
+    currentUser: () => result(client.GET('/api/v1/users/me')),
+    chooseUsername: (username: string) =>
+      result(client.PUT('/api/v1/account/username', { body: { username } })),
     projectActivity: (projectId: string, publicRead: boolean, cursor?: string) =>
       result(
         client.GET('/api/v1/activity', {
@@ -141,7 +144,7 @@ export function createHistoryApi(options: CommonsClientOptions = {}) {
         ? result(
             client.GET('/api/v1/agent-profiles/{agent_id}', { params: { path: { agent_id: id } } }),
           )
-        : result(client.GET('/api/v1/profiles/{user_id}', { params: { path: { user_id: id } } })),
+        : result(client.GET('/api/v1/profile/{username}', { params: { path: { username: id } } })),
     activity: (
       id: string,
       agent = false,
@@ -155,8 +158,8 @@ export function createHistoryApi(options: CommonsClientOptions = {}) {
             }),
           )
         : result(
-            client.GET('/api/v1/profiles/{user_id}/activity', {
-              params: { path: { user_id: id }, query: { cursor, limit: 25, attribution } },
+            client.GET('/api/v1/profile/{username}/activity', {
+              params: { path: { username: id }, query: { cursor, limit: 25, attribution } },
             }),
           ),
   };

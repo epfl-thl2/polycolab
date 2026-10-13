@@ -22,21 +22,6 @@ export function activityQuery(state: ReturnType<typeof readActivity>) {
   if (state.examples) params.set('preview', 'examples');
   return params.toString();
 }
-export function readPeople(search: string) {
-  const params = new URLSearchParams(search);
-  return {
-    query: (params.get('q') ?? '').trim().slice(0, 200),
-    profile: params.get('profile') || undefined,
-    examples: params.get('preview') === 'examples',
-  };
-}
-export function peopleQuery(state: ReturnType<typeof readPeople>) {
-  const params = new URLSearchParams();
-  if (state.query) params.set('q', state.query);
-  if (state.profile) params.set('profile', state.profile);
-  if (state.examples) params.set('preview', 'examples');
-  return params.toString();
-}
 export function readSearch(search: string) {
   const params = new URLSearchParams(search);
   return {
@@ -104,8 +89,10 @@ export function canonicalUiLocation(path: string, search: string) {
     if (path === '/activity/recent') state.view = 'recent';
     path = '/activity';
     query = activityQuery(state);
-  } else if (path === '/people') query = peopleQuery(readPeople(search));
-  else if (path === '/profile') query = profileQuery(readProfile(search));
-  else return path + search;
+  } else if (path === '/profile' || /^\/(?:profile|agent-profiles)\/[^/]+\/?$/.test(path)) {
+    path = path.replace(/\/$/, '');
+    if (path.startsWith('/profile/')) path = path.toLowerCase();
+    query = profileQuery(readProfile(search));
+  } else return path + search;
   return path + (query ? `?${query}` : '');
 }

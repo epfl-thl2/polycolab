@@ -34,7 +34,7 @@ deploy/postgres-data/
 .DS_Store
 
 .omnigent
-src/web/.svelte-kit/
+src/web/.svelte-kit*/
 
 docs-site/.astro/
 docs-site/.cache/

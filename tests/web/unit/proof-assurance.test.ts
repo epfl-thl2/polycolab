@@ -36,7 +36,6 @@ const alternatives: ProofSketchView[] = [
     currentEndorsements: [
       {
         id: 'endorsement-a',
-        assessorId: 'grace-user',
         active: true,
         rationale: 'The informal argument is convincing.',
         author: 'Grace',
@@ -44,7 +43,6 @@ const alternatives: ProofSketchView[] = [
       },
       {
         id: 'endorsement-a-withdrawn',
-        assessorId: 'sofia-user',
         active: false,
         rationale: 'A premise still needs justification.',
         author: 'Sofia',
@@ -55,7 +53,6 @@ const alternatives: ProofSketchView[] = [
     endorsementHistory: [
       {
         id: 'endorsement-a',
-        assessorId: 'grace-user',
         active: true,
         rationale: 'The informal argument is convincing.',
         author: 'Grace',
@@ -93,7 +90,6 @@ const alternatives: ProofSketchView[] = [
     currentCorrespondence: [
       {
         id: 'correspondence-b',
-        assessorId: 'emmy-user',
         statementRevisionId: 'claim-r2',
         statementTitle: 'Earlier tree formulation',
         statementHref: '/commons/records/claim-r2',
@@ -106,7 +102,6 @@ const alternatives: ProofSketchView[] = [
     endorsementHistory: [
       {
         id: 'endorsement-b',
-        assessorId: 'sofia-user',
         active: false,
         rationale: 'Withdrawn after the statement changed.',
         author: 'Sofia',
@@ -116,7 +111,6 @@ const alternatives: ProofSketchView[] = [
     correspondenceHistory: [
       {
         id: 'correspondence-b',
-        assessorId: 'emmy-user',
         statementRevisionId: 'claim-r2',
         statementTitle: 'Earlier tree formulation',
         statementHref: '/commons/records/claim-r2',

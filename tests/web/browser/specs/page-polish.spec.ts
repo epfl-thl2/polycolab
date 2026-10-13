@@ -22,7 +22,6 @@ test('discovery pages share heading geometry, meaningful titles and accessible f
     for (const [path, title] of [
       ['/', 'Home'],
       ['/activity', 'Activity'],
-      ['/people', 'People'],
       ['/chat', 'Chat'],
     ]) {
       await page.goto(path);
@@ -30,7 +29,7 @@ test('discovery pages share heading geometry, meaningful titles and accessible f
       const heading = page.locator('main h1');
       await expect(heading).toBeVisible();
       const box = (await heading.boundingBox())!;
-      if (path === '/people' || path === '/chat') {
+      if (path === '/chat') {
         const description = (await page.locator('.discovery-heading > p').boundingBox())!;
         expect(description.y - box.y - box.height).toBeCloseTo(12, 0);
         if (origin) {
@@ -48,7 +47,7 @@ test('discovery pages share heading geometry, meaningful titles and accessible f
   }
   await page.goto('/?q=spectral');
   await expect(page).toHaveTitle('Results for “spectral” · Polycolab');
-  await page.goto('/people');
+  await page.goto('/chat');
   await page.goBack();
   await expect(page).toHaveTitle('Results for “spectral” · Polycolab');
   await page.goto('/404');

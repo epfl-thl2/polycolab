@@ -192,6 +192,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/account/username": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Choose username
+         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         */
+        put: operations["chooseUsername"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/activity": {
         parameters: {
             query?: never;
@@ -1608,7 +1628,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/profiles/{user_id}": {
+    "/api/v1/profile/{username}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1628,7 +1648,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/profiles/{user_id}/activity": {
+    "/api/v1/profile/{username}/activity": {
         parameters: {
             query?: never;
             header?: never;
@@ -3279,10 +3299,10 @@ export interface components {
              * @enum {string}
              */
             kind: "human" | "agent";
-            /** Sponsor User Id */
-            sponsor_user_id?: string | null;
-            /** User Id */
-            user_id?: string | null;
+            /** Sponsor Username */
+            sponsor_username?: string | null;
+            /** Username */
+            username?: string | null;
         };
         /** AgentCapabilities */
         AgentCapabilities: {
@@ -4785,13 +4805,10 @@ export interface components {
         };
         /** ObjectVersionCorrespondenceRead */
         ObjectVersionCorrespondenceRead: {
-            /**
-             * Assessor Id
-             * Format: uuid
-             */
-            assessor_id: string;
             /** Author Display Name */
             author_display_name: string | null;
+            /** Author Username */
+            author_username?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -4890,13 +4907,10 @@ export interface components {
         ObjectVersionEndorsementRead: {
             /** Active */
             active: boolean;
-            /**
-             * Assessor Id
-             * Format: uuid
-             */
-            assessor_id: string;
             /** Author Display Name */
             author_display_name: string | null;
+            /** Author Username */
+            author_username?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -5755,6 +5769,8 @@ export interface components {
         PublicAuthorRead: {
             /** Display Name */
             display_name: string | null;
+            /** Username */
+            username?: string | null;
         };
         /** PublicCataloguePage */
         PublicCataloguePage: {
@@ -6578,8 +6594,6 @@ export interface components {
             outcome: ("REVIEWED" | "SUPPORTS" | "ISSUES_FOUND" | "INCONCLUSIVE") | null;
             /** Rationale */
             rationale: string;
-            /** Reviewer Id */
-            reviewer_id: string;
             /** Reviewer Name */
             reviewer_name: string;
             /** Scope */
@@ -6792,6 +6806,13 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Username */
+            username?: string | null;
+        };
+        /** UsernameWrite */
+        UsernameWrite: {
+            /** Username */
+            username: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -6857,12 +6878,12 @@ export interface components {
             agent_id: string | null;
             /** Author Display Name */
             author_display_name: string | null;
-            /** Author User Id */
-            author_user_id: string | null;
+            /** Author Username */
+            author_username?: string | null;
             /** Contribution Id */
             contribution_id: string | null;
-            /** Sponsor User Id */
-            sponsor_user_id: string | null;
+            /** Sponsor Username */
+            sponsor_username?: string | null;
         };
         /** VersionCatalogueMetadata */
         VersionCatalogueMetadata: {
@@ -8189,6 +8210,102 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecoveryAccepted"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Request too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Request or mutation budget exhausted */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    chooseUsername: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UsernameWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRead"];
                 };
             };
             /** @description Authentication required */
@@ -15587,7 +15704,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                user_id: string;
+                username: string;
             };
             cookie?: never;
         };
@@ -15685,7 +15802,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                user_id: string;
+                username: string;
             };
             cookie?: never;
         };

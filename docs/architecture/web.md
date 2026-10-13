@@ -360,6 +360,12 @@ OIDC mode disables direct Google/GitHub social routes.
 Configure OIDC deployments with `OIDC_ISSUER`, `OIDC_JWKS_URL`, `OIDC_CLIENT_ID`, and `OIDC_AUDIENCE`.
 The client ID is public browser metadata.
 The browser never receives or stores an OIDC client secret.
+After OIDC sign-in, the browser reads the authenticated `/api/v1/users/me` projection.
+Accounts without a Polycolab username choose one before the original destination opens.
+`PUT /api/v1/account/username` normalizes and claims a unique username once; repeated claims of the same name are idempotent.
+The shared namespace reserves existing built-in login names and serializes claims with registration.
+The provider's `(issuer, subject)` remains the authentication identity; provider display and username claims do not overwrite the chosen Polycolab username.
+Built-in users reuse their existing login names.
 
 The [API contract](api.md#built-in-social-auth-browser-contract) documents direct social authentication in the browser.
 Browser controls use configured provider availability.
@@ -627,29 +633,18 @@ General chat persistence, harness/model selection, tool execution and save/conti
 Execution also requires native acceptance.
 This preview does not enable hosted execution.
 
-### People directory preview
+### Profile access
 
-`/people` is an anonymous-accessible frontend directory preview, accessible by direct URL but omitted from desktop and mobile navigation.
-Its default state says the directory is not connected.
-Explicit example mode supports name/handle/interest search and public-profile/project inspection using fictional profiles and no real account data.
-A side panel becomes full-width on mobile, handles profile loading and errors in place, closes with Escape and restores focus.
-Query, selected profile and explicit example mode persist in the URL through reload and browser history.
-
-`PeopleSource` is a frontend view boundary for later generated-client mapping.
-It supports pagination, retry, and stale-query handling.
-A separate `getProfile(id)` lookup lets a deep link work independently of loaded directory results.
-
-Activity and People share preview notices and **Exit example preview** controls.
-Chat uses the same availability treatment without fictional conversations.
-There is no directory HTTP API yet.
-Profile discoverability, stable attribution, public projection and moderation policy remain backend/product rollout work.
+Researcher profiles are reached through public authorship and sponsorship links or the signed-in account menu.
+`/profile/{username}` opens a human profile; `/profile` opens the current account's profile.
+There is no people directory or user-listing API. `/profiles` and `/people` are unavailable.
 
 ### Page identification and discovery layout
 
 SPA titles identify each page as “Page · Polycolab”.
 Results titles include the current query and update with browser history.
 Documentation retains its own page-specific titles.
-Search, Activity, People and Chat share content width, heading typography, description spacing and mobile padding through discovery-page styles.
+Search, Activity and Chat share content width, heading typography, description spacing and mobile padding through discovery-page styles.
 Each keeps its own result, preview and interaction layouts.
 Library and public/ signed-in project directories also use this heading rhythm.
 
@@ -657,41 +652,53 @@ Project category controls appear below the heading: category buttons above 700px
 Both controls share the same selection when resizing.
 Loaded Library statements, projects and public research details supply their names as browser titles.
 Working discovery pages use shared loading indicators and empty/error panels with retry or search recovery actions.
-Public-directory retry preserves the applied query without a full reload.
 
 Page and panel headings omit decorative eyebrow/kicker labels throughout the Svelte UI.
 Authorship, artifact roles and exact-revision metadata remain as normal content.
 Removing the decorative treatment does not remove those research details.
 
-## Personal profile
+## Researcher profiles
 
-`/profile` presents a researcher identity and public contribution history, without account management, private project or agent-connection shortcuts.
+`/profile/{username}` presents a researcher identity and public contribution history, without account management, private project or agent-connection shortcuts.
+`/agent-profiles/{agent_id}` uses the same component for an agent's public activity and sponsor link.
+Both routes support anonymous reading; unknown profiles and contributors with no visible public work remain unavailable to visitors.
+Owners can inspect their own empty profile.
+`/profile` is the signed-in account-menu shortcut: it resolves the current username through `/api/v1/users/me` and redirects to the canonical researcher URL, preserving valid contribution filters and the fragment.
+Human profile URLs resolve usernames only; internal user UUID lookup paths return 404.
+Signed-out visitors sign in before resolution; lookup failures offer retry.
+The current researcher identity query is scoped to the account and cleared on account changes.
+Public usernames appear on researcher profiles for all readers; ownership uses the current account's canonical username.
 Settings remain available through the shared account menu.
-Desktop uses a compact summary sidebar.
-Mobile presents the feed before the summary.
-The summary and type selector share six disjoint groups: research, proofs/sketches, attempts/counterexamples, formalizations, computations and discussions.
-Counts cover loaded records, remain unavailable before a successful read, and never imply lifetime totals or verification.
+Desktop uses an identity sidebar with an initials avatar, username and public authored/sponsored totals.
+The main column contains the contribution calendar and a single timeline-style feed.
+The page does not repeat feed entries in research cards or duplicate counts in a summary panel.
+Search and type controls share one row; attribution controls distinguish human authorship from agent sponsorship.
+A repeated human author name is omitted from that person's feed; sponsored-agent names remain visible.
+Mobile places compact identity and totals above the calendar and feed.
+Profile totals count distinct currently visible public contributions and separate human authorship from agent sponsorship.
 
 `q`, `type`, `year` and `day` retain contribution search and calendar state through reload and browser history.
-The yearly heatmap aggregates unique loaded revision creation timestamps into UTC days.
+The yearly heatmap aggregates distinct loaded contributions by their activity timestamps into UTC days.
 Selecting a populated day filters the feed.
 Mobile provides a day selector and a horizontally scrollable calendar that opens near the latest loaded contribution.
 The feed sorts loaded records newest first.
-Heatmap totals and active days describe the selected year.
+Heatmap totals describe loaded contributions in the selected year.
 
 Blank cells mean no loaded records, not confirmed inactivity.
-Loading additional history uses the same discovery cursor and updates both the heatmap and feed.
-No complete event ledger, streak, or lifetime contribution total is implied.
+Loading additional history uses the profile activity cursor and updates both the heatmap and feed.
+The calendar does not imply a complete event ledger, streak, or lifetime contribution total.
 
 Search covers loaded titles, Markdown bodies and source identifiers.
 It does not perform an exhaustive account query.
-Pagination can reveal additional matches, preserves filters and loaded results after failures, and deduplicates revision IDs.
+Pagination can reveal additional matches, preserves filters and loaded results after failures, and deduplicates activity IDs.
 Excerpts reuse sanitized Markdown/math rendering and timestamps provide relative and exact dates.
 
-The existing discovery adapter still matches human records by exact display name.
-A visible notice above the feed explains possible same-name attribution and the absence of agent contributions.
-Canonical attribution, profile editing, bio, interests, complete contribution history and public profile links remain Planned.
-The page uses existing profile endpoints and has no public sharing route.
+Profile reads use stable user or agent IDs, rather than display-name matching.
+Human profile lookups resolve usernames to stable internal user IDs; username selection does not rewrite research or permissions.
+Public human profile, activity, research-authorship and assurance JSON omits user UUIDs and exposes usernames for authors, sponsors and assessors.
+Review projections omit their internal reviewer identity keys.
+Human profiles can filter all, authored or sponsored activity; links retain exact research revision references.
+Profile editing, bio, interests, pins and complete calendar aggregation remain planned; the profile page does not display placeholder controls for them.
 
 ## Agent API keys
 

@@ -15,7 +15,6 @@ export type AssuranceObservation = {
 
 export type EndorsementHistoryView = {
   id: string;
-  assessorId: string;
   active: boolean;
   rationale: string;
   author: string;
@@ -24,7 +23,6 @@ export type EndorsementHistoryView = {
 
 export type CorrespondenceHistoryView = {
   id: string;
-  assessorId: string;
   statementRevisionId: string;
   statementTitle: string;
   statementHref: string;

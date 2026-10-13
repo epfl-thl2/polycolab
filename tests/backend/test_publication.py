@@ -236,7 +236,7 @@ def test_preview_confirm_retry_and_historical_projection_are_exact_and_atomic(
     assert public_manifest.status_code == 200
     assert public_manifest.json()["public_fields"] == preview_body["public_fields"]
     for version in public_manifest.json()["public_fields"]["object_versions"]:
-        assert version["authorship"]["author_user_id"] is None
+        assert "author_user_id" not in version["authorship"]
         assert version["authorship"]["contribution_id"] is None
         assert version == client.get(f"/api/v1/versions/{version['id']}").json()
     assert "project_id" not in public_manifest.json()
@@ -448,7 +448,7 @@ def test_publication_versions_and_equivalence_use_frozen_content_not_private_his
     )
     assert "source_object_version_id" not in relationship
     assert "target_object_version_id" not in relationship
-    assert relationship["authorship"]["author_user_id"] is None
+    assert "author_user_id" not in relationship["authorship"]
     confirmed = client.post(
         "/api/v1/publication/confirm",
         headers=headers(key="confirm-equivalence"),
@@ -489,4 +489,4 @@ def test_publication_versions_and_equivalence_use_frozen_content_not_private_his
     assert client.get(f"/api/v1/versions/{previous}").status_code == 404
     member = client.get(f"/api/v1/versions/{current}", headers=headers())
     assert member.json()["previous_object_version_id"] == previous
-    assert member.json()["authorship"]["author_user_id"] is not None
+    assert "author_user_id" not in member.json()["authorship"]

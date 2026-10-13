@@ -70,7 +70,7 @@ def test_local_upgrade_backs_up_and_rolls_back_failure(
     next_revision = migrations / "versions/next.py"
     next_revision.write_text("""from alembic import op
 revision = "local_next"
-down_revision = "local_20261012_projects"
+down_revision = "local_20261013_usernames"
 def upgrade():
     op.execute("CREATE TABLE migration_marker (value TEXT)")
     op.execute("INSERT INTO migration_marker VALUES ('upgraded')")
@@ -80,7 +80,7 @@ def upgrade():
     assert backup is not None and backup.is_file()
     with sqlite3.connect(backup) as db:
         assert db.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "local_20261012_projects",
+            "local_20261013_usernames",
         )
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT value FROM migration_marker").fetchone() == ("upgraded",)
@@ -135,7 +135,6 @@ def test_local_real_accounts_research_and_uploads_persist(tmp_path: Path) -> Non
     from pydantic import AnyUrl, SecretStr
 
     from polycolab.app.application import create_app
-    from polycolab.operations.bootstrap_admin import run as bootstrap
     from polycolab.platform.config import RegistrationMode, Settings
 
     database = tmp_path / "polycolab.db"
@@ -160,23 +159,38 @@ def test_local_real_accounts_research_and_uploads_persist(tmp_path: Path) -> Non
         bootstrap_admin_password=SecretStr("local-test-password-long"),
         web_dist_dir=str(tmp_path / "no-web"),
     )
-    bootstrap(settings)
+    from polycolab.accounts.builtin import hash_password
+
+    account_id, user_id = uuid4(), uuid4().hex
+    with sqlite3.connect(database) as db:
+        db.execute(
+            "INSERT INTO local_accounts (id, username, password_digest, display_name, "
+            "is_admin, created_at, updated_at) "
+            "VALUES (?, 'localresearcher', ?, 'Local researcher', 0, "
+            "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+            (account_id.hex, hash_password("local-test-password-long")),
+        )
+        db.execute(
+            "INSERT INTO users (id, issuer, subject, display_name, created_at, updated_at) "
+            "VALUES (?, 'polycolab-local', ?, 'Local researcher', "
+            "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+            (user_id, str(account_id)),
+        )
     app = create_app(settings)
     headers = {"Origin": origin, "Idempotency-Key": "local-copy"}
     with TestClient(app, base_url=origin) as client:
         registered = client.post(
-            "/auth/register",
+            "/auth/login",
             headers=headers,
             json={
                 "username": "localresearcher",
                 "password": "local-test-password-long",
             },
         )
-        assert registered.status_code == 201, registered.text
+        assert registered.status_code == 200, registered.text
         # Seed the historical project classification directly; new binaries cannot
         # create projects until the forward migration has run.
         project_id = str(uuid4())
-        user_id = client.get("/api/v1/users/me").json()["id"].replace("-", "")
         with sqlite3.connect(database) as db:
             db.execute(
                 "INSERT INTO projects "
@@ -273,6 +287,9 @@ def test_local_real_accounts_research_and_uploads_persist(tmp_path: Path) -> Non
         # Upgrade an actual account and research project from main's baseline.
         assert upgrade_database(database) is not None
         with sqlite3.connect(database) as db:
+            assert db.execute("SELECT username FROM users WHERE id = ?", (user_id,)).fetchone() == (
+                "localresearcher",
+            )
             assert db.execute("PRAGMA foreign_key_check").fetchall() == []
             assert db.execute("SELECT count(*) FROM object_version_relationships").fetchone() == (
                 3,
@@ -362,7 +379,7 @@ def test_local_upgrade_from_either_merged_branch(tmp_path: Path, previous: str) 
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT value FROM user_marker").fetchone() == ("retained",)
         assert db.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "local_20261012_projects",
+            "local_20261013_usernames",
         )
         assert "encrypted_secret" in {
             row[1] for row in db.execute("PRAGMA table_info(external_agent_credentials)")

@@ -71,7 +71,6 @@ export function mapProofSketch(
   );
   const mapEndorsement = (item: AssuranceRead['endorsements'][number]) => ({
     id: item.id,
-    assessorId: item.assessor_id,
     active: item.active,
     rationale: item.rationale,
     author: item.author_display_name ?? 'Unknown human',
@@ -81,7 +80,6 @@ export function mapProofSketch(
     const statement = resolve(item.statement_object_version_id);
     return {
       id: item.id,
-      assessorId: item.assessor_id,
       statementRevisionId: item.statement_object_version_id,
       statementTitle: statement?.title ?? `Revision ${item.statement_object_version_id}`,
       statementHref: statement?.href ?? '#',

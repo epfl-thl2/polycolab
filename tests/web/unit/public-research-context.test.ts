@@ -56,7 +56,7 @@ it('keeps current disagreement separate while paging chronological assurance his
         {
           id: 'history-a',
           object_version_id: 'sketch-r2',
-          assessor_id: 'grace-user',
+          author_username: 'grace-user',
           active: true,
           rationale: 'Initial review',
           author_display_name: 'Grace',
@@ -74,7 +74,7 @@ it('keeps current disagreement separate while paging chronological assurance his
           id: 'history-b',
           object_version_id: 'sketch-r2',
           statement_object_version_id: 'claim-r3',
-          assessor_id: 'emmy-user',
+          author_username: 'emmy-user',
           status: 'PARTIAL',
           rationale: 'Only one direction is formalized',
           author_display_name: 'Emmy',
@@ -91,7 +91,7 @@ it('keeps current disagreement separate while paging chronological assurance his
         {
           id: 'current-a',
           object_version_id: 'sketch-r2',
-          assessor_id: 'grace-user',
+          author_username: 'grace-user',
           active: false,
           rationale: 'I withdrew my position',
           author_display_name: 'Grace',
@@ -100,7 +100,7 @@ it('keeps current disagreement separate while paging chronological assurance his
         {
           id: 'current-b',
           object_version_id: 'sketch-r2',
-          assessor_id: 'sofia-user',
+          author_username: 'sofia-user',
           active: true,
           rationale: 'I still endorse it',
           author_display_name: 'Sofia',

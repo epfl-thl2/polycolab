@@ -252,6 +252,13 @@ def test_assurance_current_positions_are_per_assessor_and_history_is_chronologic
     ).json()
     proof = saved_version(client, proof)
     client.get("/api/v1/users/me", headers=headers("contributor"))
+    for actor in ("owner", "contributor"):
+        assert (
+            client.put(
+                "/api/v1/account/username", headers=headers(actor), json={"username": actor}
+            ).status_code
+            == 200
+        )
 
     created: list[tuple[str, str]] = []
     for actor, active, rationale in (
@@ -310,7 +317,12 @@ def test_assurance_current_positions_are_per_assessor_and_history_is_chronologic
         "PARTIAL",
         "MISMATCH",
     }
-    assert len({item["assessor_id"] for item in current["endorsements"]}) == 2
+    assert {item["author_username"] for item in current["endorsements"]} == {
+        "owner",
+        "contributor",
+    }
+    assert all("assessor_id" not in item for item in current["endorsements"])
+    assert all("assessor_id" not in item for item in current["correspondence"])
     assert all(
         item["statement_object_version_id"] == conclusion["object_version_id"]
         for item in current["correspondence"]

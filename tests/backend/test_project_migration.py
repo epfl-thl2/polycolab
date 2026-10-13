@@ -362,10 +362,15 @@ TABLES = (
 
 
 def snapshot(connection: Connection, *, renamed: bool = False) -> dict[str, list[Any]]:
+    # Compare the original identity columns; later migrations add account metadata.
+    user_columns = "id, issuer, subject, email, display_name, created_at, updated_at"
     return {
         name: sorted(
             connection.execute(
-                text(f"SELECT * FROM {name.replace('workspace', 'project') if renamed else name}")
+                text(
+                    f"SELECT {user_columns if name == 'users' else '*'} "
+                    f"FROM {name.replace('workspace', 'project') if renamed else name}"
+                )
             ).all(),
             key=str,
         )

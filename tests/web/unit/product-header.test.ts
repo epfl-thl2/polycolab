@@ -55,6 +55,7 @@ it('uses clear global destinations and exposes account destinations from the ava
       .getAllByRole('link')
       .map((link) => link.textContent?.trim()),
   ).toEqual(['Library', 'Projects', 'Activity', 'Chat Planned', 'Docs']);
+  expect(within(navigation).queryByRole('link', { name: 'People' })).toBeNull();
   expect(
     within(navigation)
       .getByRole('link', { name: /^Activity/ })

@@ -1,7 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { NativeSelect } from '../lib/components/ui/native-select';
-  import { Button } from '../lib/components/ui/button';
   import { contributionCalendar, historyDateLabel } from '../lib/contribution-history';
 
   let {
@@ -10,20 +9,16 @@
     selectedDay,
     loaded,
     busy,
-    hasMore,
     onYear,
     onDay,
-    onLoadMore,
   }: {
     counts: ReadonlyMap<string, number>;
     year: number;
     selectedDay?: string;
     loaded: boolean;
     busy: boolean;
-    hasMore: boolean;
     onYear: (year: number) => void;
     onDay: (day: string) => void;
-    onLoadMore: () => void;
   } = $props();
   let calendar = $state<HTMLDivElement>();
   const currentYear = new Date().getUTCFullYear();
@@ -38,7 +33,6 @@
   );
   const days = $derived(contributionCalendar(year, counts));
   const total = $derived(days.reduce((sum, day) => sum + day.count, 0));
-  const activeDays = $derived(days.filter((day) => day.count > 0).length);
   $effect(() => {
     const day = selectedDay ?? days.filter((day) => day.count > 0).at(-1)?.day;
     const element = calendar;
@@ -62,10 +56,7 @@
     <div>
       <h2 id="history-title">Contribution history</h2>
       <p role="status">
-        {#if loaded}{total} loaded contribution{total === 1 ? '' : 's'} · {activeDays} active day{activeDays ===
-          1
-            ? ''
-            : 's'} in {year}{:else}{busy
+        {#if loaded}{total} loaded public contribution{total === 1 ? '' : 's'}{:else}{busy
             ? 'Loading contribution history…'
             : 'Contribution history unavailable'}{/if}
       </p>
@@ -139,7 +130,7 @@
       </NativeSelect>
     </div>
     <div class="history-key">
-      <span>Select a highlighted day to filter contributions. Dates use UTC.</span>
+      <span>Loaded public activity · UTC</span>
       <div
         class="legend"
         aria-label="Contribution intensity: blank means no loaded contributions; shades indicate 1, 2 to 3, 4 to 7, or 8 or more"
@@ -152,16 +143,6 @@
       </div>
     </div>
   {/if}
-  <div class="history-coverage">
-    <p>
-      Based on loaded public contributions. Load more history to include older activity. Blank days
-      mean no loaded contributions.{#if hasMore}
-        More contributions are available.{/if}
-    </p>
-    {#if hasMore}<Button variant="outline" size="sm" disabled={busy} onclick={onLoadMore}
-        >{busy ? 'Loading history…' : 'Load more history'}</Button
-      >{/if}
-  </div>
 </section>
 
 <style>
@@ -287,22 +268,6 @@
   .legend span:last-child {
     margin-left: 4px;
   }
-  .history-coverage {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 18px;
-    border-top: 1px solid var(--line);
-    margin-top: 18px;
-    padding-top: 14px;
-  }
-  .history-coverage p {
-    margin: 0;
-    max-width: 85ch;
-  }
-  .history-coverage :global(button) {
-    flex-shrink: 0;
-  }
   @media (max-width: 540px) {
     .mobile-day-picker {
       display: block;
@@ -315,9 +280,6 @@
       width: 100%;
       min-height: 44px;
     }
-    .history-coverage :global(button) {
-      min-height: 44px;
-    }
     .contribution-history {
       padding: 18px 16px;
       margin-bottom: 28px;
@@ -327,10 +289,6 @@
     }
     .history-heading :global(select) {
       min-height: 44px;
-    }
-    .history-coverage {
-      flex-wrap: wrap;
-      gap: 12px;
     }
   }
 </style>

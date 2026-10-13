@@ -15,11 +15,11 @@ function version(): ObjectVersion {
     authorship: {
       actor_kind: 'HUMAN',
       contribution_id: null,
-      author_user_id: null,
+      author_username: null,
       author_display_name: 'Author',
       agent_id: null,
       agent_display_name: null,
-      sponsor_user_id: null,
+      sponsor_username: null,
     },
     content: {
       title: 'Claim',

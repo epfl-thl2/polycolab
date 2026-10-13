@@ -17,4 +17,9 @@
   }
 </script>
 
-<App path={page.url.pathname} search={page.url.search} onNavigate={navigateQuery} />
+<App
+  path={page.url.pathname}
+  search={page.url.search}
+  hash={page.url.hash}
+  onNavigate={navigateQuery}
+/>

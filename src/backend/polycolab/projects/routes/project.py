@@ -301,7 +301,7 @@ def _public_author_read(session: Session, user_id: UUID) -> PublicAuthorRead:
     user = session.get(SqlUser, user_id)
     if user is None:
         raise ProjectNotFound
-    return PublicAuthorRead(display_name=user.display_name)
+    return PublicAuthorRead(display_name=user.display_name, username=user.username)
 
 
 def _public_provenance(session: Session, contribution_id: UUID) -> PublicAgentProvenanceRead | None:
@@ -327,7 +327,9 @@ def _public_revision_read(
         title=record.title,
         content_md=record.content_md,
         base_revision_id=record.base_revision_id,
-        author=PublicAuthorRead(display_name=record.author_display_name),
+        author=PublicAuthorRead(
+            display_name=record.author_display_name, username=record.author_username
+        ),
         provenance=PublicAgentProvenanceRead() if record.actor_kind == "AGENT" else None,
         created_at=revision.created_at,
     )
@@ -415,7 +417,8 @@ def _object_scope(
 
 
 @router.get("/users/me", response_model=UserRead, operation_id="getCurrentUser", tags=["users"])
-def get_current_user(user: CurrentUser) -> UserRead:
+def get_current_user(user: CurrentUser, response: Response) -> UserRead:
+    response.headers["Cache-Control"] = "private, no-store"
     return UserRead.model_validate(user)
 
 

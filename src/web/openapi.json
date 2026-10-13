@@ -246,29 +246,27 @@
             "title": "Kind",
             "type": "string"
           },
-          "sponsor_user_id": {
+          "sponsor_username": {
             "anyOf": [
               {
-                "format": "uuid",
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Sponsor User Id"
+            "title": "Sponsor Username"
           },
-          "user_id": {
+          "username": {
             "anyOf": [
               {
-                "format": "uuid",
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "User Id"
+            "title": "Username"
           }
         },
         "required": [
@@ -4238,11 +4236,6 @@
       },
       "ObjectVersionCorrespondenceRead": {
         "properties": {
-          "assessor_id": {
-            "format": "uuid",
-            "title": "Assessor Id",
-            "type": "string"
-          },
           "author_display_name": {
             "anyOf": [
               {
@@ -4253,6 +4246,17 @@
               }
             ],
             "title": "Author Display Name"
+          },
+          "author_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Username"
           },
           "created_at": {
             "format": "date-time",
@@ -4286,7 +4290,6 @@
           "id",
           "object_version_id",
           "statement_object_version_id",
-          "assessor_id",
           "status",
           "rationale",
           "author_display_name",
@@ -4506,11 +4509,6 @@
             "title": "Active",
             "type": "boolean"
           },
-          "assessor_id": {
-            "format": "uuid",
-            "title": "Assessor Id",
-            "type": "string"
-          },
           "author_display_name": {
             "anyOf": [
               {
@@ -4521,6 +4519,17 @@
               }
             ],
             "title": "Author Display Name"
+          },
+          "author_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Username"
           },
           "created_at": {
             "format": "date-time",
@@ -4545,7 +4554,6 @@
         "required": [
           "id",
           "object_version_id",
-          "assessor_id",
           "active",
           "rationale",
           "author_display_name",
@@ -6874,6 +6882,17 @@
               }
             ],
             "title": "Display Name"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
           }
         },
         "required": [
@@ -9182,10 +9201,6 @@
             "title": "Rationale",
             "type": "string"
           },
-          "reviewer_id": {
-            "title": "Reviewer Id",
-            "type": "string"
-          },
           "reviewer_name": {
             "title": "Reviewer Name",
             "type": "string"
@@ -9206,7 +9221,6 @@
         "required": [
           "id",
           "object_version_id",
-          "reviewer_id",
           "actor_kind",
           "reviewer_name",
           "outcome",
@@ -9730,6 +9744,17 @@
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
           }
         },
         "required": [
@@ -9738,6 +9763,22 @@
           "email"
         ],
         "title": "UserRead",
+        "type": "object"
+      },
+      "UsernameWrite": {
+        "additionalProperties": false,
+        "properties": {
+          "username": {
+            "maxLength": 80,
+            "minLength": 3,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username"
+        ],
+        "title": "UsernameWrite",
         "type": "object"
       },
       "ValidationError": {
@@ -9915,17 +9956,16 @@
             ],
             "title": "Author Display Name"
           },
-          "author_user_id": {
+          "author_username": {
             "anyOf": [
               {
-                "format": "uuid",
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Author User Id"
+            "title": "Author Username"
           },
           "contribution_id": {
             "anyOf": [
@@ -9939,26 +9979,23 @@
             ],
             "title": "Contribution Id"
           },
-          "sponsor_user_id": {
+          "sponsor_username": {
             "anyOf": [
               {
-                "format": "uuid",
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Sponsor User Id"
+            "title": "Sponsor Username"
           }
         },
         "required": [
           "contribution_id",
           "actor_kind",
           "author_display_name",
-          "author_user_id",
           "agent_id",
-          "sponsor_user_id",
           "agent_display_name"
         ],
         "title": "VersionAuthorshipRead",
@@ -12431,6 +12468,126 @@
         "summary": "Verify account email",
         "tags": [
           "account recovery"
+        ]
+      }
+    },
+    "/api/v1/account/username": {
+      "put": {
+        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "operationId": "chooseUsername",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsernameWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Request too large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Request or mutation budget exhausted"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Choose username",
+        "tags": [
+          "users"
         ]
       }
     },
@@ -23423,18 +23580,17 @@
         ]
       }
     },
-    "/api/v1/profiles/{user_id}": {
+    "/api/v1/profile/{username}": {
       "get": {
         "description": "**Access:** Public access is available. Protected data and mutations retain their documented authorization requirements.",
         "operationId": "getPublicProfile",
         "parameters": [
           {
             "in": "path",
-            "name": "user_id",
+            "name": "username",
             "required": true,
             "schema": {
-              "format": "uuid",
-              "title": "User Id",
+              "title": "Username",
               "type": "string"
             }
           }
@@ -23549,18 +23705,17 @@
         ]
       }
     },
-    "/api/v1/profiles/{user_id}/activity": {
+    "/api/v1/profile/{username}/activity": {
       "get": {
         "description": "**Access:** Public access is available. Protected data and mutations retain their documented authorization requirements.",
         "operationId": "listProfileActivity",
         "parameters": [
           {
             "in": "path",
-            "name": "user_id",
+            "name": "username",
             "required": true,
             "schema": {
-              "format": "uuid",
-              "title": "User Id",
+              "title": "Username",
               "type": "string"
             }
           },

@@ -16,6 +16,7 @@ def user(row: SqlUser) -> User:
         display_name=row.display_name,
         created_at=timestamp(row.created_at),
         updated_at=timestamp(row.updated_at),
+        username=row.username,
     )
 
 

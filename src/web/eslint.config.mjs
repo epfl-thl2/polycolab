@@ -6,8 +6,7 @@ export default tseslint.config(
     ignores: [
       '.next/**',
       '.astro/**',
-      '.svelte-kit/**',
-      '.svelte-kit-test-*/**',
+      '.svelte-kit*/**',
       'dist/**',
       'node_modules/**',
       'src/lib/api-client/generated/**',

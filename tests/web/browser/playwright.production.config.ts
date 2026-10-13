@@ -8,6 +8,8 @@ export default defineConfig({
     'library.spec.ts',
     'application-configuration.spec.ts',
     'svelte-project.spec.ts',
+    'profiles.spec.ts',
+    'profile-design.spec.ts',
     'm1-commons.spec.ts',
     'proposal-workflow.spec.ts',
     'agent-session-workflow.spec.ts',

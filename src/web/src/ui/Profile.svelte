@@ -1,11 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import type { ObjectVersion } from '../lib/research-api';
   import { activityView, type Activity } from '../lib/history-api';
-  import { UserRound } from '@lucide/svelte';
+  import { Bot } from '@lucide/svelte';
   import ContributionHeatmap from './ContributionHeatmap.svelte';
   import { contributionDay, contributionDays, historyDateLabel } from '../lib/contribution-history';
-  import PlannedBadge from './PlannedBadge.svelte';
   import DiscoveryState from './DiscoveryState.svelte';
   import LoadingState from './LoadingState.svelte';
   import SearchExcerpt from './SearchExcerpt.svelte';
@@ -24,11 +24,13 @@
     onNavigate,
     profileId,
     agent = false,
+    isOwnProfile = false,
   }: {
     search?: string;
     onNavigate?: NavigateQuery;
-    profileId?: string;
+    profileId: string;
     agent?: boolean;
+    isOwnProfile?: boolean;
   } = $props();
   const urlState = $derived(readProfile(search));
   let query = $derived(urlState.query);
@@ -36,7 +38,7 @@
   let draft = $derived(query);
   let selectedDay = $derived(urlState.day);
   let historyYear = $derived(urlState.year ?? new Date().getUTCFullYear());
-  const { auth, history, externalAgents } = projectContext();
+  const { auth, history } = projectContext();
   let profile = $state<Awaited<ReturnType<typeof history.profile>>>();
   let attribution = $state<'all' | 'authored' | 'sponsored'>('all');
   type Contribution = {
@@ -54,11 +56,20 @@
   };
   type ContributionPage = { items: Contribution[]; next_cursor: string | null };
   const displayName = $derived(
-    profile?.actor.display_name ?? (profileId ? 'Contributor profile' : auth.label),
+    profile?.actor.display_name ?? (isOwnProfile ? auth.label : 'Contributor profile'),
   );
   const username = $derived(
-    !profileId ? (auth.account?.username ?? auth.user?.profile.preferred_username) : undefined,
+    profile?.actor.username ?? (isOwnProfile ? auth.account?.username : undefined),
   );
+  $effect(() => {
+    if (!agent && profile?.actor.username && profileId !== profile.actor.username) {
+      const canonicalQuery = profileQuery(readProfile(search));
+      void goto(
+        `/profile/${profile.actor.username}${canonicalQuery ? `?${canonicalQuery}` : ''}${location.hash}`,
+        { replaceState: true },
+      );
+    }
+  });
   const initials = $derived(
     displayName
       .split(/\s+/)
@@ -116,8 +127,7 @@
     busy = true;
     error = '';
     try {
-      const id = profileId ?? (await externalAgents.identity()).user_id;
-      if (!id) throw new Error('Sign in to view your profile');
+      const id = profileId;
       const [details, events] = await Promise.all([
         history.profile(id, agent),
         history.activity(
@@ -163,226 +173,189 @@
 </script>
 
 <main id="main" class="page account-page profile-page" tabindex="-1">
-  <header class="profile-header">
-    <div class="profile-identity">
-      <div class="profile-avatar" aria-hidden="true">{initials}</div>
-      <div class="profile-name">
-        <h1>{displayName}</h1>
-        <p>
-          {#if username}<span>@{username}</span><span aria-hidden="true"> · </span>{/if}Public
-          research
-        </p>
-      </div>
-    </div>
-  </header>
-
-  <div class="profile-preview">
-    <strong>Public contribution history</strong>
-    <p>Research activity attributed to this contributor's stable identity.</p>
-    {#if profile}
-      <p>
-        {profile.authored_contributions} authored contributions · {profile.sponsored_contributions}
-        sponsored contributions
-      </p>
-      {#if profile.actor.sponsor_user_id}<p>
-          Sponsored by <a href={`/profiles/${profile.actor.sponsor_user_id}`}>researcher</a>
-        </p>{/if}
-    {/if}
-    {#if !agent}<nav aria-label="Contribution attribution">
-        {#each ['all', 'authored', 'sponsored'] as value (value)}<Button
-            variant="outline"
-            disabled={busy}
-            aria-pressed={attribution === value}
-            onclick={() => {
-              attribution = value as typeof attribution;
-              page = undefined;
-              void load();
-            }}>{value}</Button
-          >{/each}
-      </nav>{/if}
-  </div>
-
-  <ContributionHeatmap
-    counts={dailyCounts}
-    year={historyYear}
-    {selectedDay}
-    loaded={Boolean(page)}
-    {busy}
-    hasMore={Boolean(page?.next_cursor)}
-    onYear={(year) => update({ year, day: undefined })}
-    onDay={(day) => update({ day: !day || selectedDay === day ? undefined : day })}
-    onLoadMore={() => load(true)}
-  />
-
   <div class="profile-layout">
-    <section class="profile-contributions" aria-labelledby="contributions-title">
-      <div class="profile-section-heading">
-        <h2 id="contributions-title">Public contributions</h2>
-        {#if page}<span class="profile-result-count" role="status"
-            >{filteredContributions.length} of {contributions.length} loaded · Newest first</span
-          >{/if}
-      </div>
-      <form
-        class="profile-search"
-        onsubmit={(event) => {
-          event.preventDefault();
-          update({ query: draft.trim().slice(0, 200) });
-        }}
-      >
-        <label class="sr-only" for="profile-search">Search loaded contributions</label>
-        <Input
-          id="profile-search"
-          type="search"
-          placeholder="Search loaded contributions"
-          maxlength={200}
-          bind:value={draft}
+    <aside class="profile-sidebar" aria-label="Profile overview">
+      <header class="profile-identity">
+        <div class="profile-avatar" aria-hidden="true">
+          {#if agent}<Bot size={64} />{:else}{initials}{/if}
+        </div>
+        <div class="profile-name">
+          <h1>{displayName}</h1>
+          {#if username}<p class="profile-handle">@{username}</p>{/if}
+          {#if agent}<p class="profile-role">Research agent</p>{/if}
+        </div>
+      </header>
+      {#if profile}
+        <dl class="profile-public-totals">
+          <div>
+            <dt>Authored contributions</dt>
+            <dd>{profile.authored_contributions}</dd>
+          </div>
+          <div>
+            <dt>Sponsored contributions</dt>
+            <dd>{profile.sponsored_contributions}</dd>
+          </div>
+        </dl>
+        {#if profile.actor.sponsor_username}<p class="profile-sponsor">
+            Sponsored by
+            <a href={`/profile/${profile.actor.sponsor_username}`}
+              >@{profile.actor.sponsor_username}</a
+            >
+          </p>{/if}
+      {/if}
+    </aside>
+    <div class="profile-content">
+      <div class="profile-calendar">
+        <ContributionHeatmap
+          counts={dailyCounts}
+          year={historyYear}
+          {selectedDay}
+          loaded={Boolean(page)}
+          {busy}
+          onYear={(year) => update({ year, day: undefined })}
+          onDay={(day) => update({ day: !day || selectedDay === day ? undefined : day })}
         />
-        <Button type="submit" variant="outline">Search</Button>
-      </form>
-      <div class="profile-filters">
-        <label for="contribution-type">Type</label>
-        <NativeSelect
-          id="contribution-type"
-          aria-label="Contribution type"
-          value={filter}
-          onchange={(event) => update({ type: event.currentTarget.value as typeof filter })}
-        >
-          <option value="all">All contributions</option>
-          {#each profileGroups as group (group.id)}<option value={group.id}>{group.label}</option
-            >{/each}
-        </NativeSelect>
-        {#if query || filter !== 'all' || selectedDay}<Button
-            type="button"
-            variant="ghost"
-            onclick={clearFilters}>Clear filters</Button
-          >{/if}
       </div>
-
-      {#if selectedDay}<div class="profile-date-filter" role="status">
-          <span>Contributions on <strong>{historyDateLabel(selectedDay)}</strong></span>
-          <Button variant="ghost" size="sm" onclick={() => update({ day: undefined })}
-            >Show all dates</Button
+      <section id="history" class="profile-contributions" aria-labelledby="contributions-title">
+        <div class="profile-section-heading">
+          <h2 id="contributions-title">Public contributions</h2>
+          {#if page && (query || filter !== 'all' || selectedDay)}<span
+              class="profile-result-count"
+              role="status">{filteredContributions.length} matching</span
+            >{/if}
+        </div>
+        {#if !agent && (contributions.length || (profile && profile.authored_contributions + profile.sponsored_contributions))}<nav
+            class="profile-attribution"
+            aria-label="Contribution attribution"
           >
-        </div>{/if}
+            {#each [{ value: 'all', label: 'All' }, { value: 'authored', label: 'Authored' }, { value: 'sponsored', label: 'Sponsored agents' }] as option (option.value)}
+              <Button
+                variant="ghost"
+                disabled={busy}
+                aria-pressed={attribution === option.value}
+                onclick={() => {
+                  attribution = option.value as typeof attribution;
+                  page = undefined;
+                  void load();
+                }}>{option.label}</Button
+              >
+            {/each}
+          </nav>{/if}
+        {#if contributions.length || query || filter !== 'all' || selectedDay}
+          <form
+            class="profile-search"
+            onsubmit={(event) => {
+              event.preventDefault();
+              update({ query: draft.trim().slice(0, 200) });
+            }}
+          >
+            <label class="sr-only" for="profile-search">Search loaded contributions</label>
+            <Input
+              id="profile-search"
+              type="search"
+              placeholder="Search contributions"
+              maxlength={200}
+              bind:value={draft}
+            />
+            <NativeSelect
+              aria-label="Contribution type"
+              value={filter}
+              onchange={(event) => update({ type: event.currentTarget.value as typeof filter })}
+            >
+              <option value="all">All types</option>
+              {#each profileGroups as group (group.id)}<option value={group.id}
+                  >{group.label}</option
+                >{/each}
+            </NativeSelect>
+            <Button type="submit" variant="outline">Search</Button>
+            {#if query || filter !== 'all' || selectedDay}<Button
+                type="button"
+                variant="ghost"
+                onclick={clearFilters}>Clear filters</Button
+              >{/if}
+          </form>
+        {/if}
 
-      {#if error}<DiscoveryState
-          kind="error"
-          level="h3"
-          title="Could not load contributions"
-          description={error}
-        >
-          <Button
+        {#if selectedDay}<div class="profile-date-filter" role="status">
+            <span>Contributions on <strong>{historyDateLabel(selectedDay)}</strong></span>
+            <Button variant="ghost" size="sm" onclick={() => update({ day: undefined })}
+              >Show all dates</Button
+            >
+          </div>{/if}
+
+        {#if error}<DiscoveryState
+            kind="error"
+            level="h3"
+            title="Could not load contributions"
+            description={error}
+          >
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onclick={() => load(Boolean(page?.next_cursor))}>Retry</Button
+            >
+          </DiscoveryState>{/if}
+        <div class="profile-feed" aria-busy={busy}>
+          {#if !page && !error}<LoadingState>Loading public contributions…</LoadingState>{/if}
+          {#each filteredContributions as item (item.id)}
+            <article class="profile-contribution-card">
+              <div class="profile-record-meta">
+                {#if item.activity}<span>{activityView(item.activity).actionLabel}</span
+                  >{#if item.activity.actor.kind === 'agent' || item.activity.actor.username !== username}<a
+                      href={activityView(item.activity).authorHref}
+                      >{item.activity.actor.display_name}</a
+                    >{/if}{/if}
+                <Badge variant="outline">{profileKindLabels[item.record.kind]}</Badge
+                >{#if item.record.created_at}<RelativeTime value={item.record.created_at} />{/if}
+              </div>
+              <h3>
+                <a href={recordUrl(item)}><HighlightedText text={item.record.title} {query} /></a>
+              </h3>
+              {#if item.record.content_md}<SearchExcerpt
+                  content={item.record.content_md}
+                  {query}
+                />{/if}
+              {#if item.record.reported_outcome}<p class="profile-outcome">
+                  Reported outcome: {item.record.reported_outcome
+                    .toLowerCase()
+                    .replaceAll('_', ' ')}
+                </p>{/if}
+              {#if item.source_identifier}<p class="profile-source">
+                  Source: {item.source_identifier}{item.source_version
+                    ? ` · ${item.source_version}`
+                    : ''}{item.source_locator ? ` · ${item.source_locator}` : ''}
+                </p>{/if}
+            </article>
+          {:else}
+            {#if page && !error}<DiscoveryState
+                level="h3"
+                title={query || filter !== 'all' || selectedDay
+                  ? 'No matching loaded contributions'
+                  : 'No public contributions loaded'}
+                description={page.next_cursor
+                  ? 'There may be matches on the next page. Load more contributions or change your filters.'
+                  : query || filter !== 'all' || selectedDay
+                    ? 'Try another search or clear the filters to see all loaded work.'
+                    : 'Public contributions will appear here.'}
+              >
+                {#if query || filter !== 'all' || selectedDay}<Button
+                    type="button"
+                    variant="outline"
+                    onclick={clearFilters}>Show all contributions</Button
+                  >{/if}
+              </DiscoveryState>{/if}
+          {/each}
+        </div>
+        {#if page?.next_cursor}<Button
             type="button"
             variant="outline"
             disabled={busy}
-            onclick={() => load(Boolean(page?.next_cursor))}>Retry</Button
-          >
-        </DiscoveryState>{/if}
-      <div class="profile-feed" aria-busy={busy}>
-        {#if !page && !error}<LoadingState>Loading public contributions…</LoadingState>{/if}
-        {#each filteredContributions as item (item.id)}
-          <article class="profile-contribution-card">
-            <div class="profile-record-meta">
-              {#if item.activity}<span>{item.activity.action.replaceAll('.', ' ')}</span><a
-                  href={activityView(item.activity).authorHref}
-                  >{item.activity.actor.display_name}</a
-                >{/if}
-              <Badge variant="outline">{profileKindLabels[item.record.kind]}</Badge
-              >{#if item.record.created_at}<RelativeTime value={item.record.created_at} />{/if}
-            </div>
-            <h3>
-              <a href={recordUrl(item)}><HighlightedText text={item.record.title} {query} /></a>
-            </h3>
-            {#if item.record.content_md}<SearchExcerpt
-                content={item.record.content_md}
-                {query}
-              />{/if}
-            {#if item.record.reported_outcome}<p class="profile-outcome">
-                Reported outcome: {item.record.reported_outcome.toLowerCase().replaceAll('_', ' ')}
-              </p>{/if}
-            {#if item.source_identifier}<p class="profile-source">
-                Source: {item.source_identifier}{item.source_version
-                  ? ` · ${item.source_version}`
-                  : ''}{item.source_locator ? ` · ${item.source_locator}` : ''}
-              </p>{/if}
-          </article>
-        {:else}
-          {#if page && !error}<DiscoveryState
-              level="h3"
-              title={query || filter !== 'all' || selectedDay
-                ? 'No matching loaded contributions'
-                : 'No public contributions loaded'}
-              description={page.next_cursor
-                ? 'There may be matches on the next page. Load more contributions or change your filters.'
-                : query || filter !== 'all' || selectedDay
-                  ? 'Try another search or clear the filters to see all loaded work.'
-                  : 'Public contributions by this identity will appear here.'}
-            >
-              {#if query || filter !== 'all' || selectedDay}<Button
-                  type="button"
-                  variant="outline"
-                  onclick={clearFilters}>Show all contributions</Button
-                >{/if}
-            </DiscoveryState>{/if}
-        {/each}
-      </div>
-      {#if page?.next_cursor}<Button
-          type="button"
-          variant="outline"
-          disabled={busy}
-          onclick={() => load(true)}
-          >{busy ? 'Loading more contributions…' : 'Load more contributions'}</Button
-        >
-        <p class="profile-page-note">
-          Search and counts cover loaded public contributions only.
-        </p>{/if}
-    </section>
-
-    <aside class="profile-sidebar" aria-label="Profile overview">
-      <section class="profile-summary" aria-labelledby="profile-summary-title">
-        <h2 id="profile-summary-title">Contribution summary</h2>
-        <p class="profile-total">
-          <strong
-            aria-label={page
-              ? `${contributions.length} loaded contributions`
-              : 'Contribution count unavailable'}>{page ? contributions.length : '—'}</strong
-          ><span>public contributions loaded</span>
-        </p>
-        <nav class="profile-counts" aria-label="Filter by contribution type">
-          {#each profileGroups as group (group.id)}
-            <button
-              type="button"
-              class="profile-stat"
-              aria-label={group.label}
-              aria-pressed={filter === group.id}
-              onclick={() => update({ type: group.id })}
-            >
-              <span>{group.label}</span><strong
-                >{page
-                  ? contributions.filter((item) => matchesProfileGroup(item.record.kind, group.id))
-                      .length
-                  : '—'}</strong
-              >
-            </button>
-          {/each}
-        </nav>
-        <p class="profile-page-note">
-          Type counts describe loaded activity entries. The calendar counts distinct contributions.
-        </p>
+            onclick={() => load(true)}
+            >{busy ? 'Loading more contributions…' : 'Load more contributions'}</Button
+          >{/if}
       </section>
-      <section class="profile-planned" aria-labelledby="public-profile-title">
-        <div class="profile-planned-heading">
-          <UserRound size={18} aria-hidden="true" />
-          <h2 id="public-profile-title">Public profile</h2>
-          <PlannedBadge />
-        </div>
-        <p>Bios and research interests are coming soon.</p>
-        <p class="profile-page-note">
-          Profile editing is planned. Public history is attributed to stable human and agent
-          identities.
-        </p>
-      </section>
-    </aside>
+    </div>
   </div>
 </main>
 
@@ -390,108 +363,145 @@
   .profile-page {
     max-width: 1160px;
   }
-  .profile-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 24px;
-    margin-bottom: 28px;
+  .profile-layout {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 40px;
+    align-items: start;
+  }
+  .profile-sidebar,
+  .profile-content {
+    min-width: 0;
+  }
+  .profile-content {
+    display: grid;
+    gap: 28px;
   }
   .profile-identity {
-    display: flex;
-    align-items: center;
+    display: grid;
     gap: 20px;
-    min-width: 0;
   }
   .profile-avatar {
     display: grid;
     place-items: center;
-    width: 76px;
-    height: 76px;
-    flex-shrink: 0;
+    width: 168px;
+    height: 168px;
     border-radius: 50%;
     background: var(--brand-soft);
     color: var(--brand);
-    font-size: 26px;
-    font-weight: 650;
-  }
-  .profile-name {
-    min-width: 0;
+    font-size: 54px;
+    font-weight: 500;
+    letter-spacing: -2px;
   }
   h1 {
-    margin: 0 0 6px;
-    overflow-wrap: anywhere;
-  }
-  .profile-name p {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 8px;
     margin: 0;
-    color: var(--muted-foreground);
-    font-size: 14px;
+    font-size: 26px;
+    line-height: 1.25;
+    letter-spacing: -0.5px;
     overflow-wrap: anywhere;
   }
-  .profile-preview {
-    border-left: 2px solid var(--line);
-    padding: 0 0 0 14px;
-    margin-bottom: 32px;
-    font-size: 13px;
+  .profile-handle {
+    margin: 6px 0 0;
     color: var(--muted-foreground);
-    max-width: 78ch;
+    font-size: 18px;
+    overflow-wrap: anywhere;
   }
-  .profile-preview strong {
-    color: var(--foreground);
+  .profile-role {
+    color: var(--muted-foreground);
+    font-size: 13px;
+    margin: 12px 0 0;
   }
-  .profile-preview p {
-    margin: 4px 0 0;
-    line-height: 1.6;
-  }
-  .profile-layout {
+  .profile-public-totals {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 280px;
-    gap: 36px;
-    align-items: start;
+    gap: 10px;
+    padding-top: 20px;
+    margin: 24px 0 0;
+    border-top: 1px solid var(--line);
   }
-  .profile-contributions,
-  .profile-sidebar {
-    min-width: 0;
-    display: grid;
-    gap: 18px;
+  .profile-public-totals > div {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    align-items: baseline;
+    gap: 8px;
+  }
+  dt {
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+  dd {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .profile-sponsor {
+    margin: 14px 0 0;
+    font-size: 12px;
+    color: var(--muted-foreground);
+    overflow-wrap: anywhere;
+  }
+  .profile-sponsor a {
+    color: var(--brand);
+  }
+  h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.4;
   }
   .profile-section-heading {
     display: flex;
-    flex-wrap: wrap;
     align-items: baseline;
     justify-content: space-between;
     gap: 10px;
   }
-  h2 {
-    margin: 0;
-    font-size: 18px;
-    line-height: 1.4;
+  .profile-calendar {
+    min-width: 0;
   }
-  .profile-result-count,
-  .profile-page-note {
+  .profile-calendar :global(.contribution-history) {
+    margin-bottom: 0;
+    padding: 18px;
+    border-radius: 8px;
+  }
+  .profile-calendar :global(h2) {
+    font-size: 16px;
+  }
+  .profile-contributions {
+    display: grid;
+    gap: 16px;
+    min-width: 0;
+    scroll-margin-top: 24px;
+  }
+  .profile-attribution {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .profile-attribution :global(button) {
+    color: var(--muted-foreground);
+  }
+  .profile-attribution :global(button[aria-pressed='true']) {
+    background: var(--accent);
+    color: var(--foreground);
+    font-weight: 600;
+  }
+  .profile-result-count {
     font-size: 12px;
     color: var(--muted-foreground);
   }
   .profile-search {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
   }
   .profile-search :global(input) {
-    min-width: 0;
+    min-width: 160px;
     flex: 1;
   }
-  .profile-filters {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 13px;
-    flex-wrap: wrap;
-  }
-  .profile-filters :global(select) {
+  .profile-search :global(select) {
     width: auto;
     max-width: 100%;
   }
@@ -508,33 +518,61 @@
   }
   .profile-feed {
     display: grid;
+    padding-left: 20px;
+    border-left: 1px solid var(--line);
+    margin-left: 5px;
   }
   .profile-contribution-card {
-    padding: 22px 0;
-    border-top: 1px solid var(--line);
+    position: relative;
+    padding: 0 0 24px;
     min-width: 0;
+  }
+  .profile-contribution-card::before {
+    content: '';
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    border: 2px solid var(--background);
+    border-radius: 50%;
+    background: var(--muted-foreground);
+    left: -25px;
+    top: 5px;
+  }
+  .profile-contribution-card + .profile-contribution-card {
+    border-top: 1px solid var(--line);
+    padding-top: 20px;
+  }
+  .profile-contribution-card + .profile-contribution-card::before {
+    top: 25px;
   }
   .profile-record-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 10px;
     align-items: center;
     font-size: 12px;
     color: var(--muted-foreground);
   }
+  .profile-record-meta a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .profile-record-meta a:hover {
+    text-decoration: underline;
+  }
   h3 {
     margin: 10px 0;
-    font-size: 19px;
+    font-size: 17px;
     line-height: 1.5;
     overflow-wrap: anywhere;
   }
   h3 a {
-    color: var(--foreground);
+    color: var(--brand);
     text-decoration: none;
   }
   h3 a:hover {
-    color: var(--brand);
     text-decoration: underline;
+    text-underline-offset: 3px;
   }
   .profile-outcome,
   .profile-source {
@@ -543,124 +581,74 @@
     color: var(--muted-foreground);
     overflow-wrap: anywhere;
   }
-  .profile-summary,
-  .profile-planned {
-    padding: 20px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-  }
-  .profile-summary h2,
-  .profile-planned h2 {
-    font-size: 15px;
-  }
-  .profile-total {
-    display: grid;
-    gap: 3px;
-    margin: 20px 0;
-  }
-  .profile-total strong {
-    font-size: 32px;
-    line-height: 1.2;
-    font-weight: 600;
-  }
-  .profile-total span {
-    font-size: 12px;
-    color: var(--muted-foreground);
-  }
-  .profile-counts {
-    display: grid;
-    gap: 2px;
-    margin-inline: -8px;
-  }
-  .profile-stat {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    min-height: 36px;
-    padding: 8px;
-    border: 0;
-    border-radius: 6px;
-    background: transparent;
-    text-align: left;
-    font-size: 13px;
-    color: var(--muted-foreground);
-    cursor: pointer;
-  }
-  .profile-stat:hover,
-  .profile-stat[aria-pressed='true'] {
-    background: var(--accent);
-    color: var(--foreground);
-  }
-  .profile-stat:focus-visible {
-    outline: 2px solid var(--brand);
-    outline-offset: 3px;
-  }
-  .profile-stat[aria-pressed='true'] {
-    box-shadow: inset 2px 0 var(--brand);
-  }
-  .profile-stat strong {
-    font-variant-numeric: tabular-nums;
-    color: var(--foreground);
-  }
-  .profile-page-note {
-    margin: 14px 0 0;
-    line-height: 1.6;
-  }
-  .profile-planned-heading {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .profile-planned > p:not(.profile-page-note) {
-    color: var(--muted-foreground);
-    font-size: 13px;
-    line-height: 1.6;
-    margin: 14px 0 0;
-  }
-  @media (max-width: 800px) {
+  @media (max-width: 900px) {
     .profile-layout {
-      grid-template-columns: minmax(0, 1fr);
-      gap: 32px;
-    }
-    .profile-sidebar {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      align-items: start;
-    }
-    .profile-stat {
-      min-height: 44px;
-    }
-  }
-  @media (max-width: 540px) {
-    .profile-header {
-      flex-wrap: wrap;
-      gap: 18px;
+      grid-template-columns: 200px minmax(0, 1fr);
+      gap: 24px;
     }
     .profile-avatar {
-      width: 56px;
-      height: 56px;
-      font-size: 20px;
+      width: 144px;
+      height: 144px;
+      font-size: 48px;
+    }
+  }
+  @media (max-width: 700px) {
+    .profile-layout {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 24px;
     }
     .profile-identity {
-      gap: 14px;
+      display: flex;
+      gap: 16px;
+      align-items: center;
     }
-    .profile-header h1 {
-      font-size: 26px;
+    .profile-avatar {
+      width: 64px;
+      height: 64px;
+      flex-shrink: 0;
+      font-size: 24px;
+      letter-spacing: -1px;
     }
-    .profile-sidebar {
-      grid-template-columns: minmax(0, 1fr);
+    .profile-avatar :global(svg) {
+      width: 32px;
+      height: 32px;
     }
-    .profile-contributions {
-      gap: 14px;
+    h1 {
+      font-size: 24px;
     }
-    .profile-preview {
-      margin-bottom: 26px;
+    .profile-handle {
+      font-size: 16px;
+      margin-top: 3px;
     }
+    .profile-public-totals {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 20px;
+      padding-top: 14px;
+      margin-top: 16px;
+    }
+    .profile-public-totals > div {
+      gap: 6px;
+    }
+    .profile-attribution :global(button),
     .profile-search :global(input),
-    .profile-filters :global(select),
-    .profile-search :global(button) {
+    .profile-search :global(button),
+    .profile-search :global(select) {
       min-height: 44px;
+    }
+  }
+  @media (max-width: 480px) {
+    .profile-calendar :global(.contribution-history) {
+      padding: 14px;
+    }
+    .profile-search :global(input) {
+      flex-basis: 100%;
+    }
+    .profile-feed {
+      padding-left: 15px;
+    }
+    .profile-contribution-card::before {
+      left: -20px;
     }
   }
 </style>
