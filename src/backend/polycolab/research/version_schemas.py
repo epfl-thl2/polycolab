@@ -26,9 +26,11 @@ class VersionAuthorshipRead(ApiModel):
     contribution_id: UUID | None
     actor_kind: ContributionActorKind
     author_display_name: str | None
-    author_user_id: UUID | None
+    author_user_id: UUID | None = Field(default=None, exclude=True)
+    author_username: str | None = None
     agent_id: UUID | None
-    sponsor_user_id: UUID | None
+    sponsor_user_id: UUID | None = Field(default=None, exclude=True)
+    sponsor_username: str | None = None
     agent_display_name: str | None
 
 

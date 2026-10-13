@@ -41,12 +41,16 @@ class SqlUser(Base):
     # Email is a mutable provider claim, not an identity key.
     email: Mapped[str | None] = mapped_column(String(320), nullable=True, index=True)
     display_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    username: Mapped[str | None] = mapped_column(String(80), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now
     )
 
-    __table_args__ = (UniqueConstraint("issuer", "subject", name="uq_users_issuer_subject"),)
+    __table_args__ = (
+        UniqueConstraint("issuer", "subject", name="uq_users_issuer_subject"),
+        Index("uq_users_username", "username", unique=True),
+    )
 
 
 class SqlLocalAccount(Base):

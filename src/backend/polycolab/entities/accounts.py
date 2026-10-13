@@ -17,6 +17,7 @@ class User:
     display_name: str | None
     created_at: datetime
     updated_at: datetime
+    username: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

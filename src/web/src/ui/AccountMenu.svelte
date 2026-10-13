@@ -24,7 +24,7 @@
     destination?: string;
     onSignOut: () => void;
   } = $props();
-  const username = $derived(auth.account?.username ?? auth.user?.profile.preferred_username);
+  const username = $derived(auth.username ?? auth.account?.username);
   const initials = $derived(
     auth.label
       .split(/\s+/)

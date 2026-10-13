@@ -42,7 +42,7 @@ class ReviewRead(ApiModel):
     model_id: str | None = None
     id: UUID
     object_version_id: UUID
-    reviewer_id: str
+    reviewer_id: str | None = Field(default=None, exclude=True)
     actor_kind: Literal["HUMAN", "AGENT"]
     reviewer_name: str
     outcome: ReviewOutcome | None

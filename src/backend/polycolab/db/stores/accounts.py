@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select, text, update
 from sqlalchemy.orm import Session
 
 from polycolab.db.converters import accounts as converter
@@ -28,6 +28,22 @@ class SqlAccountStore:
     def user_by_subject(self, issuer: str, subject: str) -> User | None:
         row = self._session.scalar(
             select(SqlUser).where(SqlUser.issuer == issuer, SqlUser.subject == subject)
+        )
+        return user(row) if row is not None else None
+
+    @persistence_boundary
+    def user_by_username(self, username: str) -> User | None:
+        row = self._session.scalar(select(SqlUser).where(SqlUser.username == username))
+        return user(row) if row is not None else None
+
+    @persistence_boundary
+    def set_username(self, user_id: UUID, username: str) -> User | None:
+        row = self._session.scalar(
+            update(SqlUser)
+            .where(SqlUser.id == user_id, SqlUser.username.is_(None))
+            .values(username=username)
+            .returning(SqlUser)
+            .execution_options(populate_existing=True)
         )
         return user(row) if row is not None else None
 

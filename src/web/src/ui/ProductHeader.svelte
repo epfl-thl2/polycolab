@@ -26,7 +26,6 @@
   import type { Auth } from '../svelte-lib/auth.svelte';
 
   type Destination =
-    | 'people'
     | 'agents'
     | 'chat'
     | 'search'
@@ -102,29 +101,27 @@
   );
   const mobileContext = $derived(
     projectName ??
-      (active === 'people'
-        ? 'People'
-        : active === 'chat'
-          ? 'Chat'
-          : active === 'search'
-            ? 'Home'
-            : active === 'activity'
-              ? 'Activity'
-              : active === 'explore'
-                ? 'Library'
-                : active === 'docs'
-                  ? 'Docs'
-                  : active === 'agents'
-                    ? 'Agent connections'
-                    : active === 'settings'
-                      ? 'Settings'
-                      : active === 'profile'
-                        ? 'Profile'
-                        : active === 'moderation'
-                          ? 'Moderation'
-                          : active === 'projects'
-                            ? 'Projects'
-                            : 'Home'),
+      (active === 'chat'
+        ? 'Chat'
+        : active === 'search'
+          ? 'Home'
+          : active === 'activity'
+            ? 'Activity'
+            : active === 'explore'
+              ? 'Library'
+              : active === 'docs'
+                ? 'Docs'
+                : active === 'agents'
+                  ? 'Agent connections'
+                  : active === 'settings'
+                    ? 'Settings'
+                    : active === 'profile'
+                      ? 'Profile'
+                      : active === 'moderation'
+                        ? 'Moderation'
+                        : active === 'projects'
+                          ? 'Projects'
+                          : 'Home'),
   );
 
   async function signOut() {

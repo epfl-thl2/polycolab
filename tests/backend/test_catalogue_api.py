@@ -103,8 +103,8 @@ def test_catalogue_admission_revision_moderation_and_revocation(client: TestClie
     version = response.json()["object_version"]
     assert version == client.get(f"/api/v1/versions/{first['object_version_id']}").json()
     assert version["authorship"]["contribution_id"] is None
-    assert version["authorship"]["author_user_id"] is None
-    assert version["authorship"]["sponsor_user_id"] is None
+    assert "author_user_id" not in version["authorship"]
+    assert "sponsor_user_id" not in version["authorship"]
     assert "statement" not in response.json()
     assert "revision_number" not in response.json()
     edit = formulation()

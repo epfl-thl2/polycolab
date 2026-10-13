@@ -362,8 +362,10 @@ def record_reads(
                 author_display_name=attribution.author_display_name,
                 actor_kind=attribution.actor_kind.value,
                 author_user_id=attribution.author_user_id,
+                author_username=attribution.author_username,
                 agent_id=attribution.agent_id,
                 sponsor_user_id=attribution.sponsor_user_id,
+                sponsor_username=attribution.sponsor_username,
                 agent_display_name=attribution.agent_display_name,
                 created_at=snapshot.created_at,
             )
@@ -444,6 +446,8 @@ def public_record_reads(
                         "base_revision_id": saved.base_revision_id
                         if saved.base_revision_id == current.base_revision_id
                         else None,
+                        "author_username": saved.author_username or current.author_username,
+                        "sponsor_username": saved.sponsor_username or current.sponsor_username,
                     }
                 )
             )

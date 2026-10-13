@@ -45,11 +45,11 @@ function revision() {
     structural_relationships: [],
     authorship: {
       actor_kind: 'HUMAN',
-      author_user_id: '44444444-4444-4444-4444-444444444444',
+      author_username: '44444444-4444-4444-4444-444444444444',
       author_display_name: 'Ada',
       agent_id: null,
       agent_display_name: null,
-      sponsor_user_id: null,
+      sponsor_username: null,
       contribution_id: null,
     },
     created_at: '2026-01-01T00:00:00Z',

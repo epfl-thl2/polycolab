@@ -106,10 +106,10 @@
             <dt>Display name</dt>
             <dd>{auth.label}</dd>
           </div>
-          {#if auth.account?.username || auth.user?.profile.preferred_username}
+          {#if auth.username || auth.account?.username}
             <div>
               <dt>Username</dt>
-              <dd>{auth.account?.username ?? auth.user?.profile.preferred_username}</dd>
+              <dd>{auth.username ?? auth.account?.username}</dd>
             </div>
           {/if}
         </dl>

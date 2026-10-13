@@ -2,7 +2,6 @@ import { expect, it } from 'vitest';
 import {
   canonicalUiLocation,
   readActivity,
-  readPeople,
   readProfile,
   profileQuery,
 } from '../../../src/web/src/lib/ui-location';
@@ -24,11 +23,14 @@ it('normalizes old routes and invalid filters without enabling examples', () => 
     ),
   ).toBe('/activity');
   expect(readActivity('?actor=agent&preview=examples').examples).toBe(true);
-  expect(readPeople('?q=logic&profile=example-noor&preview=examples')).toEqual({
-    query: 'logic',
-    profile: 'example-noor',
-    examples: true,
-  });
+});
+
+it('normalizes username profile URLs without reviving retired directory routes', () => {
+  expect(canonicalUiLocation('/profile/ADA/', '?type=proofs&year=2024&invalid=1')).toBe(
+    '/profile/ada?type=proofs&year=2024',
+  );
+  expect(canonicalUiLocation('/people', '?q=Logic')).toBe('/people?q=Logic');
+  expect(canonicalUiLocation('/profiles', '')).toBe('/profiles');
 });
 
 it('preserves profile search and type while normalizing unsupported filters', () => {

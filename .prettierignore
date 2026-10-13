@@ -7,7 +7,7 @@ playwright-report/
 test-results/
 src/backend/uv.lock
 .artifacts/
-src/web/.svelte-kit/
+src/web/.svelte-kit*/
 # Byte-exact generator outputs; validated by api:contract:check.
 src/web/openapi.json
 src/web/src/lib/api-client/generated/

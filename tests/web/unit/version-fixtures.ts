@@ -3,11 +3,11 @@ import type { components } from '../../../src/web/src/lib/api-client';
 export const versionAuthorship: components['schemas']['VersionAuthorshipRead'] = {
   actor_kind: 'HUMAN',
   author_display_name: 'Ada',
-  author_user_id: null,
+  author_username: null,
   agent_display_name: null,
   agent_id: null,
   contribution_id: null,
-  sponsor_user_id: null,
+  sponsor_username: null,
 };
 
 export function claimVersion(

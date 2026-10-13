@@ -3,9 +3,10 @@
   import { createHistoryApi } from '../lib/history-api';
   import LoadingState from './LoadingState.svelte';
   import { onMount, setContext } from 'svelte';
+  import { toStore } from 'svelte/store';
   import { goto } from '$app/navigation';
   import { accountReturnPath } from '../lib/account-navigation';
-  import { useQueryClient } from '@tanstack/svelte-query';
+  import { createQuery, useQueryClient } from '@tanstack/svelte-query';
   import { SvelteMap } from 'svelte/reactivity';
   import { Auth } from '../svelte-lib/auth.svelte';
   import { contextKey, type Draft } from '../svelte-lib/context';
@@ -31,8 +32,9 @@
   let {
     path,
     search = '',
+    hash = '',
     onNavigate,
-  }: { path: string; search?: string; onNavigate?: NavigateQuery } = $props();
+  }: { path: string; search?: string; hash?: string; onNavigate?: NavigateQuery } = $props();
   const searchState = $derived(readSearch(search));
   const returnTo = $derived(accountReturnPath(new URLSearchParams(search).get('returnTo')));
   const query = useQueryClient();
@@ -47,6 +49,7 @@
   });
   const options = { getAccessToken: auth.token, onUnauthorized: () => auth.expireSession() };
   const history = createHistoryApi(options);
+  const externalAgents = createExternalAgentApi(options);
   const capabilities = new Capabilities();
   setContext(contextKey, {
     capabilities,
@@ -60,7 +63,7 @@
     repository: createRepositoryApi(options),
     tasks: createProjectTasksApi(options),
     verification: createVerificationApi(options),
-    externalAgents: createExternalAgentApi(options),
+    externalAgents,
     auth,
     query,
     drafts,
@@ -92,65 +95,84 @@
   const view = $derived(
     retiredPreview
       ? 'missing'
-      : path === '/people'
-        ? 'people'
-        : path === '/chat'
-          ? 'chat'
-          : path === '/activity' || path === '/activity/recent' || path === '/activity/projects'
-            ? 'activity'
-            : path === '/search' || path === '/'
-              ? 'search'
-              : path === '/about'
-                ? 'about'
-                : path === '/library' || path.startsWith('/library/')
-                  ? 'library'
-                  : path === '/docs' || path.startsWith('/docs/')
-                    ? 'docs'
-                    : path === '/connect'
-                      ? 'connect'
-                      : path === '/agents'
-                        ? 'external-agents'
-                        : path === '/projects' && projectScope === 'public'
-                          ? 'public-projects'
-                          : path === '/guide'
-                            ? 'guide'
-                            : path === '/commons' || path.startsWith('/commons/')
-                              ? 'commons'
-                              : [
-                                    '/account/password-reset',
-                                    '/account/reset-password',
-                                    '/account/verify-email',
-                                    '/forgot-password',
-                                    '/reset-password',
-                                    '/verify-email',
-                                  ].includes(path)
-                                ? 'recovery'
-                                : path === '/signin'
-                                  ? 'signin'
-                                  : path === '/signup'
-                                    ? 'signup'
-                                    : path === '/profile' ||
-                                        path.startsWith('/profiles/') ||
-                                        path.startsWith('/agent-profiles/')
-                                      ? 'profile'
-                                      : path === '/moderation'
-                                        ? 'moderation'
-                                        : path === '/settings' ||
-                                            (path.startsWith('/settings/') &&
-                                              path !== '/settings/notifications')
-                                          ? 'account-settings'
-                                          : projectId
-                                            ? 'project'
-                                            : path === '/projects'
-                                              ? 'home'
-                                              : 'missing',
+      : path === '/chat'
+        ? 'chat'
+        : path === '/activity' || path === '/activity/recent' || path === '/activity/projects'
+          ? 'activity'
+          : path === '/search' || path === '/'
+            ? 'search'
+            : path === '/about'
+              ? 'about'
+              : path === '/library' || path.startsWith('/library/')
+                ? 'library'
+                : path === '/docs' || path.startsWith('/docs/')
+                  ? 'docs'
+                  : path === '/connect'
+                    ? 'connect'
+                    : path === '/agents'
+                      ? 'external-agents'
+                      : path === '/projects' && projectScope === 'public'
+                        ? 'public-projects'
+                        : path === '/guide'
+                          ? 'guide'
+                          : path === '/commons' || path.startsWith('/commons/')
+                            ? 'commons'
+                            : [
+                                  '/account/password-reset',
+                                  '/account/reset-password',
+                                  '/account/verify-email',
+                                  '/forgot-password',
+                                  '/reset-password',
+                                  '/verify-email',
+                                ].includes(path)
+                              ? 'recovery'
+                              : path === '/signin'
+                                ? 'signin'
+                                : path === '/signup'
+                                  ? 'signup'
+                                  : path === '/profile' ||
+                                      /^\/(?:profile|agent-profiles)\/[^/]+$/.test(path)
+                                    ? 'profile'
+                                    : path === '/moderation'
+                                      ? 'moderation'
+                                      : path === '/settings' ||
+                                          (path.startsWith('/settings/') &&
+                                            path !== '/settings/notifications')
+                                        ? 'account-settings'
+                                        : projectId
+                                          ? 'project'
+                                          : path === '/projects'
+                                            ? 'home'
+                                            : 'missing',
   );
+  const identity = createQuery(
+    toStore(() => ({
+      queryKey: ['current-profile-identity', accountEpoch],
+      enabled:
+        auth.loaded &&
+        auth.signedIn &&
+        (auth.configuration?.mode === 'oidc' ||
+          (view === 'profile' && !path.startsWith('/agent-profiles/'))),
+      retry: false,
+      staleTime: Infinity,
+      // Lazy account pages can mount after a fast identity failure.
+      notifyOnChangeProps: 'all',
+      queryFn: async () => {
+        const user = await history.currentUser();
+        if (!('username' in user) || (auth.configuration?.mode === 'local' && !user.username))
+          throw new Error('The account service did not return a profile username.');
+        return user;
+      },
+    })),
+  );
+  $effect(() => {
+    if (auth.signedIn && $identity.data?.username) auth.username = $identity.data.username;
+  });
   const pageTitle = $derived(
     view === 'search' && searchState.query
       ? `Results for “${searchState.query.slice(0, 200)}”`
       : {
           search: 'Home',
-          people: 'People',
           chat: 'Chat',
           activity: 'Activity',
           about: 'About',
@@ -173,29 +195,27 @@
         }[view],
   );
   const headerActive = $derived(
-    view === 'people'
-      ? ('people' as const)
-      : view === 'chat'
-        ? ('chat' as const)
-        : view === 'search'
-          ? ('search' as const)
-          : path === '/activity' || path.startsWith('/activity/')
-            ? ('activity' as const)
-            : view === 'commons' || view === 'library'
-              ? ('explore' as const)
-              : view === 'docs' || view === 'connect' || view === 'guide'
-                ? ('docs' as const)
-                : view === 'external-agents'
-                  ? ('agents' as const)
-                  : view === 'profile'
-                    ? ('profile' as const)
-                    : view === 'moderation'
-                      ? ('moderation' as const)
-                      : view === 'account-settings'
-                        ? ('settings' as const)
-                        : view === 'home' || view === 'public-projects'
-                          ? ('projects' as const)
-                          : undefined,
+    view === 'chat'
+      ? ('chat' as const)
+      : view === 'search'
+        ? ('search' as const)
+        : path === '/activity' || path.startsWith('/activity/')
+          ? ('activity' as const)
+          : view === 'commons' || view === 'library'
+            ? ('explore' as const)
+            : view === 'docs' || view === 'connect' || view === 'guide'
+              ? ('docs' as const)
+              : view === 'external-agents'
+                ? ('agents' as const)
+                : view === 'profile'
+                  ? ('profile' as const)
+                  : view === 'moderation'
+                    ? ('moderation' as const)
+                    : view === 'account-settings'
+                      ? ('settings' as const)
+                      : view === 'home' || view === 'public-projects'
+                        ? ('projects' as const)
+                        : undefined,
   );
   $effect(() => {
     if (auth.loaded && auth.signedIn && (view === 'signin' || view === 'signup')) {
@@ -223,10 +243,12 @@
         <button type="button" onclick={() => capabilities.load()}>Retry configuration</button>
       </div>{/if}
     {#key accountEpoch}
-      {#if view === 'people'}
-        {#await import('./People.svelte') then module}<module.default
-            {search}
-            {onNavigate}
+      {#if auth.loaded && auth.signedIn && auth.configuration?.mode === 'oidc' && !$identity.data?.username}
+        {#await import('./ChooseUsername.svelte') then module}<module.default
+            error={$identity.error}
+            loading={$identity.isPending}
+            onRetry={() => void $identity.refetch()}
+            onComplete={() => void $identity.refetch()}
           />{/await}
       {:else if view === 'chat'}
         {#await import('./Chat.svelte') then module}<module.default />{/await}
@@ -321,22 +343,31 @@
           </main>{/if}
       {:else if view === 'missing'}<NotFound />
       {:else if view === 'profile' && path !== '/profile'}
-        {#await import('./Profile.svelte') then module}<module.default
-            {search}
-            {onNavigate}
-            profileId={path.split('/')[2]}
-            agent={path.startsWith('/agent-profiles/')}
-          />{/await}
+        {#if !auth.loaded}<main id="main" class="page" tabindex="-1">
+            <LoadingState>Opening profile…</LoadingState>
+          </main>
+        {:else}{#await import('./Profile.svelte') then module}{#key path}<module.default
+                {search}
+                {onNavigate}
+                profileId={path.split('/')[2]}
+                agent={path.startsWith('/agent-profiles/')}
+                isOwnProfile={auth.signedIn &&
+                  $identity.data?.username === path.split('/')[2] &&
+                  path.startsWith('/profile/')}
+              />{/key}{/await}{/if}
       {:else if !auth.loaded}<main id="main" class="page narrow" tabindex="-1">
           <LoadingState>Opening your project…</LoadingState>
         </main>
       {:else if !auth.signedIn}<main id="main" class="page narrow" tabindex="-1">
-          <SignIn {auth} returnTo={path + search} />
+          <SignIn {auth} returnTo={path + search + hash} />
         </main>
       {:else if view === 'profile'}
-        {#await import('./Profile.svelte') then module}<module.default
+        {#await import('./ProfileRedirect.svelte') then module}<module.default
             {search}
-            {onNavigate}
+            {hash}
+            username={$identity.data?.username ?? undefined}
+            error={$identity.error}
+            onRetry={() => void $identity.refetch()}
           />{/await}
       {:else if view === 'moderation'}
         {#await import('./Moderation.svelte') then module}<module.default />{/await}

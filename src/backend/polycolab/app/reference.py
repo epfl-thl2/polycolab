@@ -417,6 +417,7 @@ OPERATION_SECTIONS = {
     "listExternalRunOutputs": "external-runs",
     "searchResearch": "search",
     "getCurrentUser": "users",
+    "chooseUsername": "users",
     "listProjectReferences": "references",
     "workPrivately": "references",
     "upgradeProjectReference": "references",

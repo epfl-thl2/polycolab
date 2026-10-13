@@ -110,7 +110,11 @@ def create_account(
     is_admin: bool = False,
 ) -> LocalAccount:
     normalized = normalize_username(username)
-    if transaction.accounts.local_account_by_username(normalized) is not None:
+    transaction.accounts.lock_registry()
+    if (
+        transaction.accounts.local_account_by_username(normalized) is not None
+        or transaction.accounts.user_by_username(normalized) is not None
+    ):
         raise AccountAlreadyExists
     return transaction.accounts.create_local_account(
         username=normalized,
@@ -275,7 +279,9 @@ def register_account(
                 or expires_at <= observed_at
             ):
                 raise RegistrationInvitationInvalid
-        if transaction.accounts.local_account_by_username(normalized):
+        if transaction.accounts.local_account_by_username(
+            normalized
+        ) or transaction.accounts.user_by_username(normalized):
             raise AccountAlreadyExists
         account = transaction.accounts.create_local_account(
             username=normalized,

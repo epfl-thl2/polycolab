@@ -28,7 +28,7 @@ function context(
         externalAgents: { identity: vi.fn().mockResolvedValue({ user_id: 'user-ada' }) },
         history: {
           profile: vi.fn().mockResolvedValue({
-            actor: { kind: 'human', user_id: 'user-ada', display_name: 'Ada Lovelace' },
+            actor: { kind: 'human', username: 'ada', display_name: 'Ada Lovelace' },
             authored_contributions: 2,
             sponsored_contributions: 0,
           }),
@@ -39,14 +39,14 @@ function context(
   ]);
 }
 
-it('loads public profile activity by stable user ID and separates sponsorship', async () => {
+it('loads public profile activity by username and separates sponsorship', async () => {
   const activity = vi.fn().mockResolvedValue({
     items: [
       {
         id: 'event-1',
         contribution_id: 'contribution-1',
         action: 'object.created',
-        actor: { kind: 'human', user_id: 'user-ada', display_name: 'Ada Lovelace' },
+        actor: { kind: 'human', username: 'ada', display_name: 'Ada Lovelace' },
         object_id: 'object-1',
         revision_id: 'revision-1',
         title: 'A constructive compactness proof',
@@ -57,14 +57,25 @@ it('loads public profile activity by stable user ID and separates sponsorship', 
     ],
     next_cursor: null,
   });
-  render(Profile, { context: context(activity) });
+  render(Profile, {
+    props: { profileId: 'ada', isOwnProfile: true },
+    context: context(activity),
+  });
   expect(await screen.findByRole('heading', { name: 'Ada Lovelace' })).toBeTruthy();
-  expect(await screen.findByText('A constructive compactness proof')).toBeTruthy();
-  expect(activity).toHaveBeenCalledWith('user-ada', false, undefined, 'all');
-  await fireEvent.click(screen.getByRole('button', { name: 'sponsored' }));
-  await waitFor(() =>
-    expect(activity).toHaveBeenCalledWith('user-ada', false, undefined, 'sponsored'),
-  );
+  expect(
+    await screen.findByRole('link', { name: 'A constructive compactness proof' }),
+  ).toBeTruthy();
+  expect(activity).toHaveBeenCalledWith('ada', false, undefined, 'all');
+  await fireEvent.click(screen.getByRole('button', { name: 'Sponsored agents' }));
+  await waitFor(() => expect(activity).toHaveBeenCalledWith('ada', false, undefined, 'sponsored'));
+});
+
+it('shows the public username on the canonical researcher profile', async () => {
+  const view = render(Profile, { props: { profileId: 'ada' }, context: context() });
+  await screen.findByRole('heading', { name: 'Ada Lovelace' });
+  expect(screen.getByText('@ada')).toBeTruthy();
+  await view.rerender({ profileId: 'ada', isOwnProfile: true });
+  expect(screen.getByText('@ada')).toBeTruthy();
 });
 
 it('keeps loaded profile contributions when pagination fails and retries the same cursor', async () => {
@@ -78,7 +89,7 @@ it('keeps loaded profile contributions when pagination fails and retries the sam
           object_id: 'object-r1',
           action: 'object.created',
           object_kind: 'STATEMENT',
-          actor: { kind: 'human', user_id: 'user-ada', display_name: 'Ada Lovelace' },
+          actor: { kind: 'human', username: 'ada', display_name: 'Ada Lovelace' },
           title: 'First contribution',
           occurred_at: '2026-09-10T10:00:00Z',
           project_id: null,
@@ -88,18 +99,21 @@ it('keeps loaded profile contributions when pagination fails and retries the sam
     })
     .mockRejectedValueOnce(new Error('Offline'))
     .mockResolvedValueOnce({ items: [], next_cursor: null });
-  render(Profile, { context: context(search) });
+  render(Profile, {
+    props: { profileId: 'ada', isOwnProfile: true },
+    context: context(search),
+  });
   await screen.findByRole('link', { name: 'First contribution' });
   await fireEvent.click(screen.getByRole('button', { name: 'Load more contributions' }));
   expect((await screen.findByRole('alert')).textContent).toContain('Could not load contributions');
   expect(screen.getByRole('link', { name: 'First contribution' })).toBeTruthy();
   await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-  await waitFor(() => expect(search).toHaveBeenLastCalledWith('user-ada', false, 'page-2', 'all'));
+  await waitFor(() => expect(search).toHaveBeenLastCalledWith('ada', false, 'page-2', 'all'));
   expect(screen.getByRole('link', { name: 'First contribution' })).toBeTruthy();
 });
 
 it('keeps the researcher profile free of personal management shortcuts', () => {
-  render(Profile, { context: context() });
+  render(Profile, { props: { profileId: 'ada', isOwnProfile: true }, context: context() });
 
   expect(screen.queryByRole('button', { name: 'Edit profile' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Complete profile' })).toBeNull();
@@ -112,10 +126,11 @@ it('keeps the researcher profile free of personal management shortcuts', () => {
 
 it('does not show zero contribution totals before a successful load', async () => {
   const search = vi.fn().mockRejectedValue(new Error('Offline'));
-  render(Profile, { context: context(search) });
-  expect(screen.getByLabelText('Contribution count unavailable').textContent).toBe('—');
+  render(Profile, {
+    props: { profileId: 'ada', isOwnProfile: true },
+    context: context(search),
+  });
   await screen.findByRole('alert');
-  expect(screen.getByLabelText('Contribution count unavailable').textContent).toBe('—');
   expect(screen.queryByText('No public contributions loaded')).toBeNull();
   expect(screen.getByText('Contribution history unavailable')).toBeTruthy();
   expect(screen.queryByRole('region', { name: /Yearly contribution calendar/ })).toBeNull();

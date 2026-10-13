@@ -262,6 +262,7 @@ class PublicAuthorRead(BaseModel):
     """Safe attribution; user IDs and email are never public provenance."""
 
     display_name: str | None
+    username: str | None = None
 
 
 class PublicAgentProvenanceRead(BaseModel):

@@ -182,6 +182,7 @@ export class Auth {
   user = $state<User | null>(null);
   error = $state('');
   notice = $state('');
+  username = $state<string>();
   manager?: UserManager;
   signedIn = $derived(
     this.configuration?.mode === 'local'
@@ -192,7 +193,11 @@ export class Auth {
     this.account?.display_name ?? this.account?.username ?? this.user?.profile.name ?? 'Signed in',
   );
   private cleanup?: () => void;
-  constructor(private resetPrivateState: () => void) {}
+  constructor(private onReset: () => void) {}
+  private resetPrivateState() {
+    this.username = undefined;
+    this.onReset();
+  }
   private async fetchConfiguration() {
     const response = await authRequest<unknown>('/auth/config');
     const configuration = normalizedConfiguration(response);

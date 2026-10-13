@@ -229,7 +229,9 @@ def test_two_independent_sessions_allow_one_append_and_reject_the_stale_writer(
     base = created["current_object_version"]
     assert isinstance(base, dict)
     base_id = UUID(cast(str, base["id"]))
-    author_id = UUID(cast(str, base["authorship"]["author_user_id"]))
+    author_id = UUID(
+        cast(str, client.get("/api/v1/users/me", headers=headers("owner")).json()["id"])
+    )
     app = cast(Any, client.app)
     first_session = app.state.session_factory()
     second_session = app.state.session_factory()
@@ -408,7 +410,9 @@ def test_database_rejects_a_cross_object_revision_base(client: TestClient) -> No
             title="invalid lineage",
             content_md="must fail",
             base_revision_id=UUID(cast(str, second_revision["id"])),
-            created_by_user_id=UUID(cast(str, first_revision["authorship"]["author_user_id"])),
+            created_by_user_id=UUID(
+                cast(str, client.get("/api/v1/users/me", headers=headers("owner")).json()["id"])
+            ),
         )
         session.add(invalid)
         with pytest.raises(IntegrityError):

@@ -111,7 +111,7 @@
         </p>
         <h5>Human endorsement</h5>
         <ul>
-          {#each proof.currentEndorsements as item (item.assessorId)}
+          {#each proof.currentEndorsements as item (item.id)}
             <li>
               <strong>{item.author}</strong> · {item.active ? 'Endorsed' : 'Withdrawn'}
               <span class="muted"> · {item.createdAt}</span>
@@ -123,7 +123,7 @@
         </ul>
         <h5>Formal/informal correspondence</h5>
         <ul>
-          {#each proof.currentCorrespondence as item (`${item.assessorId}:${item.statementRevisionId}`)}
+          {#each proof.currentCorrespondence as item (item.id)}
             <li>
               <strong>{item.author}</strong> · {item.status} for
               <a href={item.statementHref}>{item.statementTitle}</a>

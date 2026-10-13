@@ -81,6 +81,8 @@ def attribution(
         agent_id=agent_id,
         sponsor_user_id=envelope.sponsor_user_id,
         agent_display_name=agent_display_name,
+        author_username=author.username if envelope.human_user_id == author.id else None,
+        sponsor_username=author.username if envelope.sponsor_user_id == author.id else None,
     )
 
 

@@ -36,6 +36,9 @@ The issuer must be the same externally reachable HTTPS identity for browser and 
 Do not substitute an internal container hostname in issuer claims.
 Switching modes does not link or migrate built-in account identities to OIDC subjects.
 Agree an account migration plan first.
+OIDC users choose a unique Polycolab username on first sign-in; `preferred_username` is not used as a unique account key.
+Polycolab retains `(issuer, subject)` and its internal user ID for permissions and research history, while public profile URLs and attribution use the chosen username.
+Apply the username migration before deploying the corresponding API and browser.
 
 ## Provisioning and acceptance
 
@@ -48,7 +51,7 @@ Agree an account migration plan first.
    Startup `--import-realm` loads JSON from `/opt/keycloak/data/import` and skips an existing realm.
    Changing the file does not reconcile an existing realm.
    Never force an overwrite of a populated realm as a routine application upgrade.
-3. Verify discovery, authorization code + S256 PKCE, both callback routes, access token issuer/audience/authorized-party, expiry, logout and account switching.
+3. Verify discovery, authorization code + S256 PKCE, both callback routes, username selection and collision handling, access token issuer/audience/authorized-party, expiry, logout and account switching.
    Verify wrong-issuer/audience and ID tokens are rejected as API credentials.
 4. Rotate signing keys.
    Exercise JWKS refresh with overlap for valid old tokens.

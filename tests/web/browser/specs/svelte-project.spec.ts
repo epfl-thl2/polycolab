@@ -211,16 +211,20 @@ async function mock(
             ? { id: 'agent-1', name: 'Agent', sponsor_user_id: 'author-1' }
             : { items: [], next_cursor: null },
       });
-    if (path === '/api/v1/profiles/author-1')
+    if (path === '/api/v1/profile/ada')
       return route.fulfill({
         json: {
-          actor: { kind: 'human', user_id: 'author-1', display_name: 'Ada' },
+          actor: { kind: 'human', username: 'ada', display_name: 'Ada' },
           authored_contributions: 0,
           sponsored_contributions: 0,
         },
       });
     if (path.endsWith('/activity'))
       return route.fulfill({ json: { items: [], next_cursor: null } });
+    if (path === '/api/v1/users/me')
+      return route.fulfill({
+        json: { id: 'author-1', username: 'ada', display_name: 'Ada', email: null },
+      });
     if (path === '/api/v1/me')
       return route.fulfill({
         json: {
@@ -966,14 +970,14 @@ test('Explore keeps browsing simple and restores submitted filters from the URL'
 
 test('profile presents stable identity and public activity', async ({ page }) => {
   await mock(page);
-  await page.route('**/api/v1/profiles/author-1/activity**', (route) =>
+  await page.route('**/api/v1/profile/ada/activity**', (route) =>
     route.fulfill({
       json: {
         items: [
           {
             id: 'event-1',
             action: 'object.created',
-            actor: { kind: 'human', user_id: 'author-1', display_name: 'Ada' },
+            actor: { kind: 'human', username: 'ada', display_name: 'Ada' },
             object_id: objectId,
             object_version_id: revisionId,
             object_kind: 'PROOF',
@@ -987,11 +991,16 @@ test('profile presents stable identity and public activity', async ({ page }) =>
     }),
   );
   await page.goto('/profile');
+  await expect(page).toHaveURL(/\/profile\/ada$/);
   await expect(page.getByRole('heading', { name: 'Ada', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Public contributions' })).toBeVisible();
-  await expect(page.getByText('A constructive compactness proof')).toBeVisible();
-  await page.getByRole('button', { name: 'sponsored', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'sponsored', exact: true })).toHaveAttribute(
+  await expect(
+    page
+      .getByRole('region', { name: 'Public contributions', exact: true })
+      .getByText('A constructive compactness proof'),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Sponsored agents', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Sponsored agents', exact: true })).toHaveAttribute(
     'aria-pressed',
     'true',
   );
@@ -1076,6 +1085,32 @@ test('OIDC code flow returns to the exact project and supplies its access token'
   const issuer = `${origin}/test-oidc`;
   let nonce = '';
   const projectAuthorizations: (string | undefined)[] = [];
+  let selectedUsername: string | null = null;
+  await page.route('**/api/v1/users/me', (route) =>
+    route.fulfill({
+      json: {
+        id: 'oidc-internal-user',
+        username: selectedUsername,
+        display_name: 'OIDC Ada',
+        email: null,
+      },
+    }),
+  );
+  await page.route('**/api/v1/account/username', (route) => {
+    expect(route.request().headers().authorization).toBe('Bearer oidc-access-token');
+    const candidate = route.request().postDataJSON().username;
+    if (candidate === 'taken')
+      return route.fulfill({ status: 409, json: { error: { code: 'username_unavailable' } } });
+    selectedUsername = candidate;
+    return route.fulfill({
+      json: {
+        id: 'oidc-internal-user',
+        username: selectedUsername,
+        display_name: 'OIDC Ada',
+        email: null,
+      },
+    });
+  });
 
   await page.route('**/auth/config', (route) =>
     route.fulfill({
@@ -1141,6 +1176,13 @@ test('OIDC code flow returns to the exact project and supplies its access token'
   await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 
+  await expect(page.getByRole('heading', { name: 'Choose your username' })).toBeVisible();
+  await page.getByLabel('Username', { exact: true }).fill('taken');
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('unavailable');
+  await page.getByLabel('Username', { exact: true }).fill('OIDC-Ada');
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
+  expect(selectedUsername).toBe('oidc-ada');
   await expect(page).toHaveURL(`${origin}/projects/${projectId}/sessions/new`);
   await page.getByRole('link', { name: 'Overview', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Spectral gaps', level: 1 })).toBeVisible();
@@ -3404,10 +3446,10 @@ test('provider keys remain write-only across create, validation, rotation, failu
         body: expect.objectContaining({ api_key: 'create-secret' }),
       },
       {
-        path: '/api/v1/gateway/profiles/profile-2/rotate',
+        path: '/api/v1/gateway/profile/profile-2/rotate',
         body: { api_key: 'rotation-secret' },
       },
-      { path: '/api/v1/gateway/profiles/profile-2', body: undefined },
+      { path: '/api/v1/gateway/profile/profile-2', body: undefined },
     ]),
   );
 });

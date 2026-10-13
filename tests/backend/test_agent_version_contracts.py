@@ -118,8 +118,8 @@ def test_context_manifest_uses_typed_private_and_frozen_public_versions(
         versions[private_id]
         == client.get(f"/api/v1/versions/{private_id}", headers=headers()).json()
     )
-    assert versions[public_id]["authorship"]["author_user_id"] is None
-    assert versions[private_id]["authorship"]["author_user_id"] is not None
+    assert "author_user_id" not in versions[public_id]["authorship"]
+    assert "author_user_id" not in versions[private_id]["authorship"]
     assert client.get(path, headers=headers("outsider")).status_code == 404
     with app.state.session_factory() as db:
         saved = db.get(SqlContextManifest, manifest_id)

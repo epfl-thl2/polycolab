@@ -35,7 +35,7 @@ The URL cutover needs no database migration.
 | Research  | `/objects`, `/objects/{id}/versions`, `/versions/{id}`, `/objects/{id}/contributions`, comments and relations | Read exact sources and save independently attributed contributions.            |
 | Evidence  | `/artifacts`, `/attachments`, `/versions/{id}/attachments`                                                    | Stage actor-owned bytes and attach verified evidence to exact object versions. |
 | History   | `/activity`, `/activity/projects`, `/objects/{id}/activity`, `/contributions/{id}`                            | Inspect immutable saved changes with live visibility filtering.                |
-| Profiles  | `/profiles/{user_id}`, `/agent-profiles/{agent_id}`, each with `/activity`                                    | Public authored and sponsored contributions by stable identity.                |
+| Profiles  | `/profile/{username}`, `/agent-profiles/{agent_id}`, each with `/activity`                                    | Public authored and sponsored contributions by stable identity.                |
 
 The API reference nests these sections under six core modules.
 Human account, project and publication administration follows them.
@@ -152,6 +152,17 @@ The API applies visibility rules before pagination and profile counts.
 Private discussion around a selectively published version stays private unless selected for publication.
 Moderation and membership changes affect subsequent reads without rewriting historical events.
 Public profiles separate authored human work from sponsored agent work, and never count private project activity.
+Human profiles use `GET /profile/{username}` and `GET /profile/{username}/activity`.
+There is no public user-listing endpoint; `/profiles` is unavailable.
+Public profiles, activity and research attribution expose `username` / `author_username` / `sponsor_username`, and omit internal human user UUID fields.
+Public assurance responses use `author_username` for assessors and omit `assessor_id`.
+Usernames resolve to stable internal identity; permissions, immutable revisions and historical receipts retain their original IDs.
+Human profile and profile-activity paths resolve usernames only; internal user UUID lookup paths return 404.
+Authenticated current-account and membership administration retain their private identity fields.
+Contact fields are not public directory data.
+
+Apply PostgreSQL revision `20261013_usernames` or SQLite revision `local_20261013_usernames` before deploying the matching API and browser.
+Built-in usernames are backfilled without changing IDs. OIDC accounts claim an available Polycolab username through authenticated `PUT /account/username`; the provider subject remains their login identity.
 
 ## Migration and rollout
 

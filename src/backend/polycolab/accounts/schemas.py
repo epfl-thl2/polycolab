@@ -15,6 +15,11 @@ class UserRead(ApiModel):
     id: UUID
     display_name: str | None
     email: str | None
+    username: str | None = None
+
+
+class UsernameWrite(RequestModel):
+    username: str = Field(min_length=3, max_length=80)
 
 
 class AccountEmailRead(ApiModel):

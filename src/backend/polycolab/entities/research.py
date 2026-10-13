@@ -34,6 +34,8 @@ class ResearchAttribution:
     agent_id: UUID | None = None
     sponsor_user_id: UUID | None = None
     agent_display_name: str | None = None
+    author_username: str | None = None
+    sponsor_username: str | None = None
 
 
 class RelationshipBinding(StrEnum):

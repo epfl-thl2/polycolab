@@ -1,5 +1,7 @@
 """Canonical application identity synchronization."""
 
+from uuid import UUID
+
 from polycolab.accounts.names import normalized_email
 from polycolab.entities.accounts import Principal, User
 from polycolab.transaction import Transaction
@@ -20,5 +22,9 @@ def current_user(transaction: Transaction, principal: Principal) -> User:
         user = transaction.accounts.update_display_claims(
             user.id, email=email, display_name=principal.display_name
         )
+    if user.username is None and principal.issuer == "polycolab-local":
+        account = transaction.accounts.local_account(UUID(principal.subject))
+        if account is not None:
+            user = transaction.accounts.set_username(user.id, account.username) or user
     transaction.commit()
     return user

@@ -1,4 +1,5 @@
 import { expect, test } from '../fixtures';
+import { mockProfiles } from '../helpers/profiles';
 
 test('Docs links to its index and exposes the main documentation routes', async ({
   page,
@@ -51,17 +52,11 @@ for (const mobile of [false, true]) {
   test(`account menu stays usable in the app (${mobile ? 'mobile' : 'desktop'})`, async ({
     page,
   }, info) => {
-    await page.route('**/auth/**', (route) =>
-      route.fulfill({
-        json: route.request().url().endsWith('/config')
-          ? { mode: 'local' }
-          : { authenticated: true, username: 'ada' },
-      }),
-    );
+    await mockProfiles(page, true);
     await page.setViewportSize({ width: mobile ? 390 : 1280, height: 900 });
     await page.goto('/');
     const trigger = page.getByRole('button', {
-      name: mobile ? 'Open navigation and account menu' : 'Open account menu for ada',
+      name: mobile ? 'Open navigation and account menu' : 'Open account menu for Ada',
       exact: true,
     });
     await expect(trigger).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
@@ -82,6 +77,6 @@ for (const mobile of [false, true]) {
     await expect(trigger).toHaveAttribute('aria-expanded', 'false');
     await trigger.click();
     await page.getByRole('menuitem', { name: 'Profile', exact: true }).click();
-    await expect(page).toHaveURL(/\/profile$/);
+    await expect(page).toHaveURL('/profile/ada');
   });
 }

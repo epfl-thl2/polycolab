@@ -243,12 +243,15 @@ def test_postgresql_assurance_uses_time_not_uuid_and_keeps_assessors_independent
             current = pg_client.get(current_url)
             assert current.status_code == 200, current.text
             assert {
-                (item["assessor_id"], item["active"], item["rationale"])
+                (item["author_display_name"], item["active"], item["rationale"])
                 for item in current.json()["endorsements"]
             } == {
-                (str(owner_id), False, "owner withdraws"),
-                (str(contributor_id), True, "contributor endorses"),
+                ("Owner", False, "owner withdraws"),
+                ("Contributor", True, "contributor endorses"),
             }
+            assert str(owner_id) not in current.text
+            assert str(contributor_id) not in current.text
+            assert "assessor_id" not in current.text
 
             history_url = f"/api/v1/assurance/{proof['id']}"
             rationales: list[str] = []

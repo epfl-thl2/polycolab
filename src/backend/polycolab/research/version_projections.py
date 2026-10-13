@@ -218,8 +218,10 @@ def projected_version_reads(
             "actor_kind": record.actor_kind,
             "author_display_name": record.author_display_name,
             "author_user_id": None if public else record.author_user_id,
+            "author_username": record.author_username,
             "agent_id": None if public else record.agent_id,
             "sponsor_user_id": None if public else record.sponsor_user_id,
+            "sponsor_username": record.sponsor_username,
             "agent_display_name": record.agent_display_name,
         }
         expected = {(r.role.value, r.target_version_id) for r in record.structural_relationships}

@@ -50,20 +50,22 @@ function hit(record: (typeof records)[number]) {
     object_kind: record.kind,
     title: record.title,
     excerpt_md: record.content,
-    actor: { kind: 'human', user_id: 'user-ada', display_name: 'Ada Lovelace' },
+    actor: { kind: 'human', username: 'ada', display_name: 'Ada Lovelace' },
     project_id: null,
     occurred_at: '2026-09-10T10:00:00Z',
     reconstructed: false,
   };
 }
 async function auth(page: Page) {
-  await page.route('**/api/v1/me', (route) =>
-    route.fulfill({ json: { kind: 'human', user_id: 'user-ada' } }),
+  await page.route('**/api/v1/users/me', (route) =>
+    route.fulfill({
+      json: { id: 'user-ada', username: 'ada', display_name: 'Ada Lovelace', email: null },
+    }),
   );
-  await page.route('**/api/v1/profiles/user-ada', (route) =>
+  await page.route('**/api/v1/profile/ada', (route) =>
     route.fulfill({
       json: {
-        actor: { kind: 'human', user_id: 'user-ada', display_name: 'Ada Lovelace' },
+        actor: { kind: 'human', username: 'ada', display_name: 'Ada Lovelace' },
         authored_contributions: 6,
         sponsored_contributions: 0,
       },
@@ -82,7 +84,7 @@ test('profile puts readable contributions first and preserves search/type in his
   page,
 }, info) => {
   await auth(page);
-  await page.route('**/api/v1/profiles/user-ada/activity*', (route) =>
+  await page.route('**/api/v1/profile/ada/activity*', (route) =>
     route.fulfill({
       json: {
         items: [...records.map((record) => hit(record))],
@@ -93,8 +95,8 @@ test('profile puts readable contributions first and preserves search/type in his
   await page.setViewportSize({ width: 1360, height: 1000 });
   await page.goto('/profile');
   await expect(page.getByRole('heading', { name: 'Ada Lovelace', exact: true })).toBeVisible();
-  await expect(page.locator('.profile-total strong')).toHaveText('6');
-  await expect(page.getByRole('button', { name: 'Proofs', exact: true })).toContainText('2');
+  await expect(page.getByText('6 loaded public contributions', { exact: true })).toBeVisible();
+
   await expect(page.getByRole('link', { name: 'Another researcher' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Private agent attribution' })).toHaveCount(0);
   await expect(page.locator('.profile-feed .katex').first()).toBeVisible();
@@ -113,8 +115,8 @@ test('profile puts readable contributions first and preserves search/type in his
     page.getByRole('button', { name: '10 September 2026: 6 loaded contributions' }),
   ).toBeVisible();
   await page.screenshot({ path: info.outputPath('profile-desktop.png'), fullPage: true });
-  await page.getByRole('button', { name: 'Proofs', exact: true }).click();
-  await expect(page).toHaveURL(/\/profile\?type=proofs$/);
+  await page.getByRole('combobox', { name: 'Contribution type' }).selectOption('proofs');
+  await expect(page).toHaveURL(/\/profile\/ada\?type=proofs$/);
   await expect(page.getByRole('combobox', { name: 'Contribution type' })).toHaveValue('proofs');
   await expect(page.locator('.profile-contribution-card')).toHaveCount(2);
   await page.getByRole('searchbox', { name: 'Search loaded contributions' }).fill('Rayleigh');
@@ -125,18 +127,18 @@ test('profile puts readable contributions first and preserves search/type in his
   await expect(page.getByRole('searchbox')).toHaveValue('Rayleigh');
   await expect(page.locator('.profile-contribution-card')).toHaveCount(1);
   await page.getByRole('button', { name: 'Clear filters', exact: true }).click();
-  await expect(page).toHaveURL(/\/profile$/);
+  await expect(page).toHaveURL(/\/profile\/ada$/);
   await expect(page.locator('.profile-contribution-card')).toHaveCount(6);
   await page.goBack();
   await expect(page.getByRole('searchbox')).toHaveValue('Rayleigh');
   await expect(page.getByRole('combobox', { name: 'Contribution type' })).toHaveValue('proofs');
 });
 
-test('mobile profile keeps the feed before summary and covers evidence filters', async ({
+test('mobile profile leads with identity and covers contribution filters', async ({
   page,
 }, info) => {
   await auth(page);
-  await page.route('**/api/v1/profiles/user-ada/activity*', (route) =>
+  await page.route('**/api/v1/profile/ada/activity*', (route) =>
     route.fulfill({ json: { items: records.map((record) => hit(record)), next_cursor: null } }),
   );
   await page.setViewportSize({ width: 390, height: 844 });
@@ -144,8 +146,9 @@ test('mobile profile keeps the feed before summary and covers evidence filters',
   await expect(page.getByRole('link', { name: 'A Lean formalization', exact: true })).toBeVisible();
   await expect(page.locator('.profile-contribution-card')).toHaveCount(1);
   const feed = await page.locator('.profile-contributions').boundingBox();
-  const summary = await page.locator('.profile-summary').boundingBox();
-  expect(feed!.y).toBeLessThan(summary!.y);
+  const identity = await page.locator('.profile-identity').boundingBox();
+  expect(identity!.y).toBeLessThan(feed!.y);
+  await expect(page.locator('.profile-summary')).toHaveCount(0);
   await page.getByRole('combobox', { name: 'Contribution type' }).selectOption('research');
   await expect(
     page.getByRole('link', { name: 'Numerical spectral experiment', exact: true }),
@@ -159,14 +162,14 @@ test('mobile profile keeps the feed before summary and covers evidence filters',
   ).toBeVisible();
   await page.getByRole('button', { name: 'Show all contributions' }).click();
   await expect(page.locator('.profile-contribution-card')).toHaveCount(6);
-  await expect(page.locator('.profile-planned')).toContainText('Planned');
+  await expect(page.locator('.profile-planned')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Edit profile' })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await page.getByRole('combobox', { name: 'Contribution day' }).selectOption('2026-09-10');
   await expect(page).toHaveURL(/day=2026-09-10$/);
   await expect(page.getByRole('button', { name: 'Show all dates', exact: true })).toBeVisible();
   await page.getByRole('combobox', { name: 'Contribution day' }).selectOption('');
-  await expect(page).toHaveURL(/\/profile$/);
+  await expect(page).toHaveURL(/\/profile\/ada$/);
   await expect(page.locator('[aria-label="Contribution day"] option:checked')).toHaveText(
     'All dates',
   );
@@ -184,7 +187,7 @@ test('profile pagination keeps a filtered search and avoids false totals during 
   await auth(page);
   let fail = true;
   const cursors: Array<string | null> = [];
-  await page.route('**/api/v1/profiles/user-ada/activity*', (route) => {
+  await page.route('**/api/v1/profile/ada/activity*', (route) => {
     const cursor = new URL(route.request().url()).searchParams.get('cursor');
     cursors.push(cursor);
     return route.fulfill(
@@ -199,11 +202,13 @@ test('profile pagination keeps a filtered search and avoids false totals during 
   await expect(page.getByText(/There may be matches on the next page/)).toBeVisible();
   await page.getByRole('button', { name: 'Load more contributions' }).click();
   await expect(page.getByRole('alert')).toContainText('Could not load contributions');
-  await expect(page.locator('.profile-total strong')).toHaveText('1');
+  await expect(page.getByText('1 loaded public contribution', { exact: true })).toBeVisible();
   fail = false;
   await page.getByRole('button', { name: 'Retry', exact: true }).click();
-  await expect(page.getByRole('link', { name: 'Numerical spectral experiment' })).toBeVisible();
-  await expect(page.locator('.profile-total strong')).toHaveText('2');
+  await expect(
+    page.getByRole('link', { name: 'Numerical spectral experiment', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText(/2 loaded public contributions/, { exact: true })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Contribution type' })).toHaveValue('research');
   expect(cursors).toEqual([null, 'next', 'next']);
 });
@@ -216,7 +221,7 @@ test('heatmap filters history by UTC day, survives navigation and incorporates l
   first.occurred_at = '2024-02-29T23:30:00-02:00';
   const second = hit(records[1]);
   second.occurred_at = '2024-02-29T12:00:00Z';
-  await page.route('**/api/v1/profiles/user-ada/activity*', (route) =>
+  await page.route('**/api/v1/profile/ada/activity*', (route) =>
     route.fulfill({
       json: new URL(route.request().url()).searchParams.has('cursor')
         ? { items: [first, second], next_cursor: null }
@@ -234,9 +239,9 @@ test('heatmap filters history by UTC day, survives navigation and incorporates l
   await march.press('Enter');
   await expect(page).toHaveURL(/year=2024&day=2024-03-01$/);
   await expect(march).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('button', { name: 'Load more history', exact: true }).click();
+  await page.getByRole('button', { name: 'Load more contributions', exact: true }).click();
   await expect(calendar.getByRole('button')).toHaveCount(2);
-  await expect(page.locator('.profile-total strong')).toHaveText('2');
+  await expect(page.getByText(/2 loaded public contributions/, { exact: true })).toBeVisible();
   await expect(page.locator('.profile-contribution-card')).toHaveCount(1);
   await page
     .getByRole('button', { name: '29 February 2024: 1 loaded contribution', exact: true })
@@ -248,7 +253,7 @@ test('heatmap filters history by UTC day, survives navigation and incorporates l
   await expect(
     page.getByRole('heading', { name: 'No matching loaded contributions' }),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Load more history', exact: true }).click();
+  await page.getByRole('button', { name: 'Load more contributions', exact: true }).click();
   await expect(page.getByRole('link', { name: 'A spectral gap bound', exact: true })).toBeVisible();
   await page.goBack();
   await expect(march).toHaveAttribute('aria-pressed', 'true');
@@ -260,6 +265,6 @@ test('heatmap filters history by UTC day, survives navigation and incorporates l
   await page
     .getByRole('combobox', { name: 'Contribution year' })
     .selectOption(String(new Date().getUTCFullYear()));
-  await expect(page.getByText(/0 loaded contributions · 0 active days/)).toBeVisible();
+  await expect(page.getByText(/0 loaded public contributions/)).toBeVisible();
   await expect(calendar.getByRole('button')).toHaveCount(0);
 });

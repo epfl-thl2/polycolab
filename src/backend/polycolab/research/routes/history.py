@@ -9,8 +9,10 @@ from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
+from pydantic import Field
 from sqlalchemy import and_, func, or_, select, true
 
+from polycolab.accounts.names import normalize_username
 from polycolab.app.access import Access
 from polycolab.app.cursors import Collection, Pagination
 from polycolab.app.dependencies import DbSession
@@ -28,7 +30,9 @@ from polycolab.db.models import (
     SqlResearchScope,
     SqlUser,
 )
+from polycolab.db.stores.profiles import SqlProfileReadStore
 from polycolab.entities.object_kinds import canonical_kind
+from polycolab.entities.profiles import PublicResearcher
 from polycolab.research.contracts import RecordRead
 from polycolab.research.direct import OutputRead
 from polycolab.research.history import recent_public_submissions, visible_query
@@ -41,9 +45,11 @@ router = APIRouter(prefix="/api/v1", tags=["activity"])
 
 class ActorRead(ApiModel):
     kind: Literal["human", "agent"]
-    user_id: UUID | None = None
+    user_id: UUID | None = Field(default=None, exclude=True)
+    username: str | None = None
     agent_id: UUID | None = None
-    sponsor_user_id: UUID | None = None
+    sponsor_user_id: UUID | None = Field(default=None, exclude=True)
+    sponsor_username: str | None = None
     display_name: str
 
 
@@ -98,12 +104,16 @@ def actor_read(
             kind="agent",
             agent_id=agent_id,
             sponsor_user_id=sponsor_id,
+            sponsor_username=(
+                sponsor.username if (sponsor := session.get(SqlUser, sponsor_id)) else None
+            ),
             display_name=agent.name if agent else "Hosted agent",
         )
     user = session.get(SqlUser, user_id) if user_id else None
     return ActorRead(
         kind="human",
         user_id=user_id,
+        username=user.username if user else None,
         display_name=(user.display_name if user else None) or "Researcher",
     )
 
@@ -306,17 +316,18 @@ def object_activity(
 
 
 @router.get(
-    "/profiles/{user_id}/activity",
+    "/profile/{username}/activity",
     response_model=Collection[ActivityRead],
     operation_id="listProfileActivity",
 )
 def profile_activity(
-    user_id: UUID,
+    username: str,
     session: DbSession,
     access: Access,
     page: Pagination,
     attribution: Literal["authored", "sponsored", "all"] = "all",
 ) -> Collection[ActivityRead]:
+    user_id = resolve_profile(session, username).user_id
     query = visible_query(access, "public")
     authored, sponsored = (
         SqlResearchActivityEvent.actor_user_id == user_id,
@@ -344,34 +355,36 @@ def agent_activity(
     return event_page(session, query, page, f"agent-profile:{agent_id}")
 
 
-@router.get("/profiles/{user_id}", response_model=ProfileRead, operation_id="getPublicProfile")
-def profile(user_id: UUID, session: DbSession, access: Access) -> ProfileRead:
-    if session.get(SqlUser, user_id) is None:
-        raise ResearchNotFound
-    public = visible_query(access, "public").subquery()
-    authored = (
-        session.scalar(
-            select(func.count(func.distinct(func.coalesce(public.c.contribution_id, public.c.id))))
-            .select_from(public)
-            .where(public.c.actor_user_id == user_id)
-        )
-        or 0
-    )
-    sponsored = (
-        session.scalar(
-            select(func.count(func.distinct(func.coalesce(public.c.contribution_id, public.c.id))))
-            .select_from(public)
-            .where(public.c.sponsor_user_id == user_id)
-        )
-        or 0
-    )
-    if not authored and not sponsored and access.user_id != user_id:
-        raise ResearchNotFound
+def researcher_read(value: PublicResearcher) -> ProfileRead:
     return ProfileRead(
-        actor=actor_read(session, user_id, None, None),
-        authored_contributions=authored,
-        sponsored_contributions=sponsored,
+        actor=ActorRead(kind="human", username=value.username, display_name=value.display_name),
+        authored_contributions=value.authored_contributions,
+        sponsored_contributions=value.sponsored_contributions,
     )
+
+
+def resolve_profile(session: DbSession, identifier: str) -> PublicResearcher:
+    store = SqlProfileReadStore(session)
+    try:
+        username = normalize_username(identifier)
+    except ValueError:
+        raise ResearchNotFound from None
+    value = store.by_username(username)
+    if value is None:
+        raise ResearchNotFound
+    return value
+
+
+@router.get("/profile/{username}", response_model=ProfileRead, operation_id="getPublicProfile")
+def profile(username: str, session: DbSession, access: Access) -> ProfileRead:
+    value = resolve_profile(session, username)
+    if value is None or (
+        not value.authored_contributions
+        and not value.sponsored_contributions
+        and access.user_id != value.user_id
+    ):
+        raise ResearchNotFound
+    return researcher_read(value)
 
 
 @router.get(
