@@ -8,7 +8,7 @@
     <li>
       <h3>Develop it together</h3>
       <p>
-        Organize statements, proof sketches and evidence in a public or private workspace. Invite
+        Organize statements, proof sketches and evidence in a public or private project. Invite
         collaborators to contribute.
       </p>
     </li>

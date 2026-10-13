@@ -15,7 +15,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.orm import Session
-from test_research_domain import create_object, create_workspace
+from test_research_domain import create_object, create_project
 from test_sessions_store import _new_run
 from test_verification_foundation_postgresql import _job
 
@@ -82,7 +82,7 @@ def test_agent_work_item_and_slot_keep_physical_release_separate(
                 ),
                 SqlExecutionFairnessState(
                     workload_class=ExecutionWorkloadClass.AGENT,
-                    tenant_kind=ExecutionTenantKind.WORKSPACE,
+                    tenant_kind=ExecutionTenantKind.PROJECT,
                     tenant_id=run.project_id,
                     policy_version=1,
                     virtual_runtime=0,
@@ -298,7 +298,7 @@ def test_postgresql_slot_triggers_bind_class_owner_timestamps_and_attempt(
             finally:
                 session.close()
 
-            project_id = create_workspace(pg_client)
+            project_id = create_project(pg_client)
             record = create_object(pg_client, project_id, kind="COMPUTATION")
         with app.state.session_factory() as db:
             revision = db.get(SqlObjectRevision, UUID(record["current_object_version_id"]))

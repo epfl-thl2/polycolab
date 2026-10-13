@@ -2,8 +2,8 @@ import type { components } from '$lib/api-client';
 
 import { createWebApiClient } from './runtime';
 
-export type Project = components['schemas']['WorkspaceMemberRead'];
-export type PublicProject = components['schemas']['PublicWorkspaceRead'];
+export type Project = components['schemas']['ProjectMemberRead'];
+export type PublicProject = components['schemas']['PublicProjectRead'];
 export type ResearchObject = components['schemas']['MemberVersionedObjectRead'];
 export type PublicResearchObject = components['schemas']['PublicVersionedObjectRead'];
 export type ObjectVersion = PublicResearchObject['current_object_version'];
@@ -18,7 +18,7 @@ export type RelationshipCreate =
   | components['schemas']['BidirectionalDeclarationCreate'];
 export type Comment = components['schemas']['CommentRead'];
 export type PublicComment = components['schemas']['PublicCommentRead'];
-export type Role = components['schemas']['WorkspaceRole'];
+export type Role = components['schemas']['ProjectRole'];
 export type ObjectKind = components['schemas']['ObjectKind'];
 export type RelationType = RelationshipCreate['relationship_type'];
 export type Membership = components['schemas']['MembershipRead'];
@@ -58,7 +58,7 @@ export interface ResearchApi {
   createProject(input: {
     name: string;
     description?: string;
-    visibility: components['schemas']['WorkspaceVisibility'];
+    visibility: components['schemas']['ProjectVisibility'];
   }): Promise<Project>;
   getProject(projectId: string): Promise<Project>;
   updateProject(
@@ -66,7 +66,7 @@ export interface ResearchApi {
     input: {
       name?: string;
       description?: string;
-      visibility?: components['schemas']['WorkspaceVisibility'];
+      visibility?: components['schemas']['ProjectVisibility'];
       archived?: boolean;
     },
   ): Promise<Project>;
@@ -222,75 +222,75 @@ export function createResearchApi(
   return {
     listProjects: (cursor, q, category, sort) =>
       unwrapMemberPage<Project>(
-        memberClient.GET('/api/v1/workspaces', {
+        memberClient.GET('/api/v1/projects', {
           params: {
             query: { limit: 20, cursor, q: q || undefined, category, sort, scope: 'member' },
           },
         }),
       ),
-    createProject: (body) => unwrap(memberClient.POST('/api/v1/workspaces', { body })),
+    createProject: (body) => unwrap(memberClient.POST('/api/v1/projects', { body })),
     getProject: (projectId) =>
       unwrapMember<Project>(
-        memberClient.GET('/api/v1/workspaces/{workspace_id}', {
-          params: { path: { workspace_id: projectId } },
+        memberClient.GET('/api/v1/projects/{project_id}', {
+          params: { path: { project_id: projectId } },
         }),
       ),
     updateProject: (projectId, body) =>
       unwrap(
-        memberClient.PATCH('/api/v1/workspaces/{workspace_id}', {
-          params: { path: { workspace_id: projectId } },
+        memberClient.PATCH('/api/v1/projects/{project_id}', {
+          params: { path: { project_id: projectId } },
           body,
         }),
       ),
     deleteProject: (projectId) =>
       unwrap(
-        memberClient.DELETE('/api/v1/workspaces/{workspace_id}', {
-          params: { path: { workspace_id: projectId } },
+        memberClient.DELETE('/api/v1/projects/{project_id}', {
+          params: { path: { project_id: projectId } },
         }),
       ),
     listMembers: (projectId, cursor) =>
       unwrapPage(
-        memberClient.GET('/api/v1/workspaces/{workspace_id}/members', {
-          params: { path: { workspace_id: projectId }, query: pageQuery(cursor) },
+        memberClient.GET('/api/v1/projects/{project_id}/members', {
+          params: { path: { project_id: projectId }, query: pageQuery(cursor) },
         }),
       ),
     addMember: (projectId, body) =>
       unwrap(
-        memberClient.POST('/api/v1/workspaces/{workspace_id}/members', {
-          params: { path: { workspace_id: projectId } },
+        memberClient.POST('/api/v1/projects/{project_id}/members', {
+          params: { path: { project_id: projectId } },
           body,
         }),
       ),
     updateMember: (projectId, userId, role) =>
       unwrap(
-        memberClient.PATCH('/api/v1/workspaces/{workspace_id}/members/{member_user_id}', {
-          params: { path: { workspace_id: projectId, member_user_id: userId } },
+        memberClient.PATCH('/api/v1/projects/{project_id}/members/{member_user_id}', {
+          params: { path: { project_id: projectId, member_user_id: userId } },
           body: { role },
         }),
       ),
     removeMember: (projectId, userId) =>
       unwrap(
-        memberClient.DELETE('/api/v1/workspaces/{workspace_id}/members/{member_user_id}', {
-          params: { path: { workspace_id: projectId, member_user_id: userId } },
+        memberClient.DELETE('/api/v1/projects/{project_id}/members/{member_user_id}', {
+          params: { path: { project_id: projectId, member_user_id: userId } },
         }),
       ),
     listInvitations: (projectId, cursor) =>
       unwrapPage(
-        memberClient.GET('/api/v1/workspaces/{workspace_id}/invitations', {
-          params: { path: { workspace_id: projectId }, query: pageQuery(cursor) },
+        memberClient.GET('/api/v1/projects/{project_id}/invitations', {
+          params: { path: { project_id: projectId }, query: pageQuery(cursor) },
         }),
       ),
     createInvitation: (projectId, body) =>
       unwrap(
-        memberClient.POST('/api/v1/workspaces/{workspace_id}/invitations', {
-          params: { path: { workspace_id: projectId } },
+        memberClient.POST('/api/v1/projects/{project_id}/invitations', {
+          params: { path: { project_id: projectId } },
           body,
         }),
       ),
     revokeInvitation: (projectId, invitationId) =>
       unwrap(
-        memberClient.DELETE('/api/v1/workspaces/{workspace_id}/invitations/{invitation_id}', {
-          params: { path: { workspace_id: projectId, invitation_id: invitationId } },
+        memberClient.DELETE('/api/v1/projects/{project_id}/invitations/{invitation_id}', {
+          params: { path: { project_id: projectId, invitation_id: invitationId } },
         }),
       ),
     listGatewayProfiles: (cursor) =>
@@ -324,26 +324,26 @@ export function createResearchApi(
       ),
     getPublicProject: (projectId) =>
       unwrap(
-        publicClient.GET('/api/v1/workspaces/{workspace_id}', {
-          params: { path: { workspace_id: projectId } },
+        publicClient.GET('/api/v1/projects/{project_id}', {
+          params: { path: { project_id: projectId } },
         }),
       ),
     listPublicProjects: (q, cursor, sort) =>
       unwrapPage(
-        publicClient.GET('/api/v1/workspaces', {
+        publicClient.GET('/api/v1/projects', {
           params: { query: { limit: 20, q: q || undefined, cursor: cursor || undefined, sort } },
         }),
       ),
     listObjects: (projectId, publicRead, cursor) =>
       publicRead
         ? unwrapPage(
-            publicClient.GET('/api/v1/workspaces/{workspace_id}/objects', {
-              params: { path: { workspace_id: projectId }, query: pageQuery(cursor) },
+            publicClient.GET('/api/v1/projects/{project_id}/objects', {
+              params: { path: { project_id: projectId }, query: pageQuery(cursor) },
             }),
           )
         : unwrapPage(
-            memberClient.GET('/api/v1/workspaces/{workspace_id}/objects', {
-              params: { path: { workspace_id: projectId }, query: pageQuery(cursor) },
+            memberClient.GET('/api/v1/projects/{project_id}/objects', {
+              params: { path: { project_id: projectId }, query: pageQuery(cursor) },
             }),
           ),
     getObject: (projectId, objectId, publicRead) =>
@@ -427,7 +427,7 @@ export function createResearchApi(
             params: { header: { 'Idempotency-Key': key } },
             body: {
               snapshot: body,
-              destination: { kind: 'workspace', workspace_id: projectId },
+              destination: { kind: 'project', project_id: projectId },
             },
           }),
         );

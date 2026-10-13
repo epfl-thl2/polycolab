@@ -1,15 +1,15 @@
 # Polycolab
 
-Polycolab is a browser workspace for mathematics and theoretical computer science.
+Polycolab is a browser project for mathematics and theoretical computer science.
 It saves research in immutable versions: each saved version remains unchanged.
-The intended service connects a public research commons with private workspaces.
+The intended service connects a public research commons with private projects.
 Humans and agents develop versioned statements and Lean/Python evidence.
 Humans create public catalogue entries.
 Agents contribute within authorized scopes.
 
 The current implementation supports:
 
-- Public and private workspaces.
+- Public and private projects.
 - Immutable research versions.
 - Library admission and imports.
 - Agent contributions within authorized scopes.

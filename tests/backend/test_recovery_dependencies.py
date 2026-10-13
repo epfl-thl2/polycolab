@@ -11,7 +11,7 @@ from test_artifacts import artifact_client as artifact_client
 from test_artifacts import attach, upload
 from test_catalogue_api import admit, enable, headers
 from test_gateway import app_for, create_gateway_profile
-from test_research_domain import create_object, create_workspace
+from test_research_domain import create_object, create_project
 
 from polycolab.db.models import (
     SqlContributionEnvelope,
@@ -43,7 +43,7 @@ def test_restored_committed_artifacts_are_verified_outside_transaction(
     artifact_client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client = artifact_client
-    project = create_workspace(client)
+    project = create_project(client)
     target = create_object(client, project)
     uploaded = upload(client, project).json()
     assert (
@@ -197,7 +197,7 @@ def test_database_failure_is_not_reported_as_verified(client: TestClient) -> Non
 def test_restored_research_semantics_and_public_digest_are_verified(
     client: TestClient,
 ) -> None:
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     created = create_object(client, project_id)
     app = app_for(client)
     revision_id = UUID(cast(str, created["current_object_version_id"]))
@@ -282,7 +282,7 @@ def test_restored_research_semantics_and_public_digest_are_verified(
 
 
 def test_restored_revision_head_mismatch_is_reported_without_content(client: TestClient) -> None:
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     created = create_object(client, project_id)
     app = app_for(client)
     with app.state.session_factory() as session:
@@ -298,14 +298,14 @@ def test_restored_revision_head_mismatch_is_reported_without_content(client: Tes
 def test_restore_verifier_accepts_independently_scoped_equivalence(client: TestClient) -> None:
     app = enable(client)
     first, second = admit(client, "first"), admit(client, "second")
-    project = create_workspace(client)
+    project = create_project(client)
     response = client.post(
         "/api/v1/relations",
         headers=headers(),
         json={
             "direction": "BIDIRECTIONAL",
             "relationship_type": "EQUIVALENT_TO",
-            "destination": {"kind": "workspace", "workspace_id": project},
+            "destination": {"kind": "project", "project_id": project},
             "first_object_version_id": first["object_version_id"],
             "second_object_version_id": second["object_version_id"],
         },
@@ -317,7 +317,7 @@ def test_restore_verifier_accepts_independently_scoped_equivalence(client: TestC
 def test_restore_verifier_counts_and_checks_structural_relationships(client: TestClient) -> None:
     from polycolab.db.models.relationships import SqlObjectVersionRelationship
 
-    project = create_workspace(client)
+    project = create_project(client)
     proof = create_object(client, project, kind="PROOF_SKETCH")
     unrelated = create_object(client, project)
     app = app_for(client)
@@ -351,7 +351,7 @@ def test_restore_verifier_rejects_incomplete_structure(
 ) -> None:
     from polycolab.db.models.relationships import SqlObjectVersionRelationship
 
-    project = create_workspace(client)
+    project = create_project(client)
     created = create_object(
         client, project, kind="ATTEMPT" if missing_role == "TARGET" else "PROOF_SKETCH"
     )
@@ -380,7 +380,7 @@ def test_restore_verifier_rejects_incompatible_structural_target(
 ) -> None:
     from polycolab.db.models.relationships import SqlObjectVersionRelationship
 
-    project = create_workspace(client)
+    project = create_project(client)
     created = create_object(client, project, kind=kind)
     incompatible = create_object(client, project, kind="ATTEMPT")
     app = app_for(client)
@@ -405,7 +405,7 @@ def test_restore_verifier_rejects_invalid_attempt_result(
 ) -> None:
     from polycolab.db.models.relationships import SqlObjectVersionRelationship
 
-    project = create_workspace(client)
+    project = create_project(client)
     created = create_object(client, project, kind="ATTEMPT")
     unrelated = create_object(client, project)
     app = app_for(client)

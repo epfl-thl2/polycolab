@@ -5,11 +5,11 @@
   import * as Alert from '../lib/components/ui/alert';
   import { Button } from '../lib/components/ui/button';
   import { onMount } from 'svelte';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import Markdown from './Markdown.svelte';
   import type { RecordRead } from '../lib/records-api';
   let { revisionId }: { revisionId: string } = $props();
-  const { records, auth } = workspace();
+  const { records, auth } = projectContext();
   let record = $state<RecordRead>();
   let error = $state('');
   let showReviews = $state(false);

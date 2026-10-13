@@ -46,7 +46,7 @@
   </DropdownMenu.GroupHeading>
   <DropdownMenu.Separator />
   {@render menuLink('/profile', 'Profile', active === 'profile')}
-  {@render menuLink('/workspaces', 'Your workspaces', active === 'workspaces')}
+  {@render menuLink('/projects', 'Your projects', active === 'projects')}
 </DropdownMenu.Group>
 <DropdownMenu.Separator />
 <DropdownMenu.Group>
@@ -87,7 +87,7 @@
             aria-hidden="true"
           />{:else if href === '/moderation'}<ShieldCheck
             aria-hidden="true"
-          />{:else if href === '/workspaces'}<FolderOpen
+          />{:else if href === '/projects'}<FolderOpen
             aria-hidden="true"
           />{:else if href === '/agents'}<Bot
             aria-hidden="true"

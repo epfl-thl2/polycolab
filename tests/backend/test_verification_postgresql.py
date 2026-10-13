@@ -56,9 +56,9 @@ from polycolab.db.models import (
 )
 from polycolab.entities.time import utc_now
 from polycolab.platform.config import Settings
+from polycolab.projects.service import DomainConflict
 from polycolab.verification import service as verification
 from polycolab.verification.limits import QuotaExceeded
-from polycolab.workspaces.service import DomainConflict
 
 
 @pytest.mark.parametrize("case", [admission_case, completion_case, cancel_case, output_case])

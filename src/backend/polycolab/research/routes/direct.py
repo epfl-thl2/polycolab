@@ -50,7 +50,7 @@ from polycolab.research.direct import (
     require_edit_author,
 )
 from polycolab.research.objects import ResearchNotFound
-from polycolab.research.routes.core import member, object_scope, workspace
+from polycolab.research.routes.core import member, object_scope, project
 from polycolab.research.version_commands import snapshot_command
 from polycolab.research.version_projections import version_reads
 from polycolab.research.version_schemas import (
@@ -83,14 +83,14 @@ def scoped_object(
 def create(
     payload: VersionedObjectCreate, session: DbSession, access: Access, key: RetryKey
 ) -> MutationResult:
-    from polycolab.research.direct import WorkspaceDestination
+    from polycolab.research.direct import ProjectDestination
 
     destination = (
         LibraryDestination(
             kind="library", statement_revision_id=payload.destination.statement_object_version_id
         )
         if isinstance(payload.destination, VersionLibraryDestination)
-        else WorkspaceDestination(kind="workspace", workspace_id=payload.destination.workspace_id)
+        else ProjectDestination(kind="project", project_id=payload.destination.project_id)
     )
     scope = destination_scope(session, destination)
     try:
@@ -240,14 +240,14 @@ def comment(
 def relation(
     payload: ObjectVersionDeclarationCreate, session: DbSession, access: Access, key: RetryKey
 ) -> MutationResult:
-    from polycolab.research.direct import WorkspaceDestination
+    from polycolab.research.direct import ProjectDestination
 
     destination = (
         LibraryDestination(
             kind="library", statement_revision_id=payload.destination.statement_object_version_id
         )
         if isinstance(payload.destination, VersionLibraryDestination)
-        else WorkspaceDestination(kind="workspace", workspace_id=payload.destination.workspace_id)
+        else ProjectDestination(kind="project", project_id=payload.destination.project_id)
     )
     scope = destination_scope(session, destination)
     source_id, target_id = (
@@ -292,7 +292,7 @@ def revision(object_version_id: UUID, session: DbSession, access: Access) -> Obj
     if row is None:
         raise ResearchNotFound
     if row.project_id and member(session, access, row.project_id):
-        workspace(session, access, row.project_id)
+        project(session, access, row.project_id)
         return version_reads(session, [row], project_id=row.project_id, public=False)[0]
     return version_reads(session, [row], public=True)[0]
 

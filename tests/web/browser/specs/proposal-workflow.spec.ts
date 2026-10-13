@@ -27,7 +27,7 @@ const project: ProjectResponse = {
 const manifest = {
   id: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
   run_id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
-  workspace_id: projectId,
+  project_id: projectId,
   object_version_ids: ['ffffffff-ffff-ffff-ffff-ffffffffffff'],
   artifact_ids: [],
   digest: 'a'.repeat(64),
@@ -60,7 +60,7 @@ async function authenticate(page: Page) {
 function proposalDetail() {
   return {
     id: proposalId,
-    workspace_id: projectId,
+    project_id: projectId,
     agent_version_id: 'agent-version-1',
     context_manifest_id: manifest.id,
     summary: 'Agent found two changes',
@@ -118,15 +118,15 @@ test('contributor reviews an inbox proposal with partial per-change decisions', 
           email_recovery: true,
         },
       });
-    if (path === `/api/v1/workspaces/${projectId}`)
+    if (path === `/api/v1/projects/${projectId}`)
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify(project) });
-    if (path === `/api/v1/workspaces/${projectId}/proposals`)
+    if (path === `/api/v1/projects/${projectId}/proposals`)
       return route.fulfill({
         contentType: 'application/json',
         body: JSON.stringify([
           {
             id: proposalId,
-            workspace_id: projectId,
+            project_id: projectId,
             agent_version_id: 'agent-version-1',
             context_manifest_id: manifest.id,
             summary: 'Agent found two changes',
@@ -198,7 +198,7 @@ test('stale atomic batch preserves every selected draft and applies no partial s
           email_recovery: true,
         },
       });
-    if (path === `/api/v1/workspaces/${projectId}`)
+    if (path === `/api/v1/projects/${projectId}`)
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify(project) });
     if (path === `/api/v1/proposals/${proposalId}`)
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify(detail) });
@@ -227,7 +227,7 @@ test('stale atomic batch preserves every selected draft and applies no partial s
   await page.getByLabel('Select change 2').check();
   await page.getByRole('button', { name: 'Apply 2 selected decisions' }).click();
 
-  await expect(page.getByRole('alert')).toContainText('draft is retained');
+  await expect(page.getByRole('main').getByRole('alert')).toContainText('draft is retained');
   await expect(page.getByText('PENDING')).toHaveCount(2);
   await expect(page.getByLabel('Select change 1')).toBeChecked();
   await expect(page.getByLabel('Select change 2')).toBeChecked();
@@ -253,7 +253,7 @@ test('cross-member reviewer keeps decision controls while private source context
           email_recovery: true,
         },
       });
-    if (path === `/api/v1/workspaces/${projectId}`)
+    if (path === `/api/v1/projects/${projectId}`)
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify(project) });
     if (path === `/api/v1/proposals/${proposalId}`)
       return route.fulfill({ contentType: 'application/json', body: JSON.stringify(detail) });
@@ -294,7 +294,7 @@ test('read-only and archived project members never fetch or render proposal data
         },
       });
     if (path.endsWith('/proposals') || path.includes('/proposals/')) proposalRequests += 1;
-    const readOnly = path.endsWith(`/workspaces/${projectId}`) ? projectResponse : [];
+    const readOnly = path.endsWith(`/projects/${projectId}`) ? projectResponse : [];
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify(readOnly) });
   });
   await page.goto(`/projects/${projectId}/proposals`);
@@ -304,7 +304,9 @@ test('read-only and archived project members never fetch or render proposal data
   await expect(page.getByRole('heading', { name: 'Proposal review unavailable' })).toBeVisible();
   projectResponse = { ...project, archived_at: '2026-01-01T00:00:00Z' };
   await page.reload();
-  await expect(page.getByText('This workspace is archived and cannot be changed.')).toBeVisible();
+  await expect(
+    page.getByText('Review requires an active contributor or owner role.'),
+  ).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Proposal review unavailable' })).toBeVisible();
   expect(proposalRequests).toBe(0);
 });

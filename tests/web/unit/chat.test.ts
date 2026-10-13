@@ -17,8 +17,8 @@ it('shows the planned journey without accepting messages or credentials', async 
   expect(screen.getByRole('link', { name: 'Connect an external agent' }).getAttribute('href')).toBe(
     '/agents',
   );
-  expect(screen.getByRole('link', { name: 'Browse workspaces' }).getAttribute('href')).toBe(
-    '/workspaces?scope=public',
+  expect(screen.getByRole('link', { name: 'Browse projects' }).getAttribute('href')).toBe(
+    '/projects?scope=public',
   );
   expect(screen.getByText(/saved research is public/)).toBeTruthy();
 });

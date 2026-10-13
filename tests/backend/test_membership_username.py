@@ -61,7 +61,7 @@ def test_owner_adds_exact_builtin_username_and_receives_readable_identity(
     )
     assert setup.status_code == 200
     project = local_client.post(
-        "/api/v1/workspaces", json={"name": "Research research", "visibility": "PRIVATE"}
+        "/api/v1/projects", json={"name": "Research research", "visibility": "PRIVATE"}
     )
     assert project.status_code == 201
     project_id = project.json()["id"]
@@ -79,7 +79,7 @@ def test_owner_adds_exact_builtin_username_and_receives_readable_identity(
         )
 
     added = local_client.post(
-        f"/api/v1/workspaces/{project_id}/members",
+        f"/api/v1/projects/{project_id}/members",
         json={"username": "  BOB.EXAMPLE  ", "role": "CONTRIBUTOR"},
     )
     assert added.status_code == 201, added.text
@@ -91,7 +91,7 @@ def test_owner_adds_exact_builtin_username_and_receives_readable_identity(
         "created_at": added.json()["created_at"],
     }
 
-    listed = local_client.get(f"/api/v1/workspaces/{project_id}/members")
+    listed = local_client.get(f"/api/v1/projects/{project_id}/members")
     assert listed.status_code == 200
     identities = {(item["username"], item["display_name"]) for item in listed.json()}
     assert identities == {
@@ -100,7 +100,7 @@ def test_owner_adds_exact_builtin_username_and_receives_readable_identity(
     }
 
     duplicate = local_client.post(
-        f"/api/v1/workspaces/{project_id}/members",
+        f"/api/v1/projects/{project_id}/members",
         json={"username": "bob.example", "role": "READ_ONLY"},
     )
     assert duplicate.status_code == 409
@@ -122,10 +122,10 @@ def test_membership_target_requires_exactly_one_identifier(
 ) -> None:
     local_client.post("/auth/login", json={"username": "admin", "password": PASSWORD})
     project_id = local_client.post(
-        "/api/v1/workspaces", json={"name": "Research research", "visibility": "PRIVATE"}
+        "/api/v1/projects", json={"name": "Research research", "visibility": "PRIVATE"}
     ).json()["id"]
 
-    response = local_client.post(f"/api/v1/workspaces/{project_id}/members", json=payload)
+    response = local_client.post(f"/api/v1/projects/{project_id}/members", json=payload)
 
     assert response.status_code == 422
 
@@ -136,11 +136,11 @@ def test_username_membership_is_exact_and_does_not_offer_directory_discovery(
 ) -> None:
     local_client.post("/auth/login", json={"username": "admin", "password": PASSWORD})
     project_id = local_client.post(
-        "/api/v1/workspaces", json={"name": "Research research", "visibility": "PRIVATE"}
+        "/api/v1/projects", json={"name": "Research research", "visibility": "PRIVATE"}
     ).json()["id"]
 
     response = local_client.post(
-        f"/api/v1/workspaces/{project_id}/members",
+        f"/api/v1/projects/{project_id}/members",
         json={"username": username, "role": "CONTRIBUTOR"},
     )
 

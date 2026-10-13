@@ -11,7 +11,7 @@ it('selects one bounded exact version and never substitutes a newer result', asy
       revisionId: 'revision-2',
       title: 'Compactness claim',
       kind: 'STATEMENT',
-      workspaceName: 'Logic',
+      projectName: 'Logic',
       revisionNumber: 2,
     },
   ]);

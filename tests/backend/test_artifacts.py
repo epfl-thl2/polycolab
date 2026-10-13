@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 from research_requests import post_research
 from sqlalchemy import delete, select
-from test_research_domain import add_member, create_object, create_workspace, headers
+from test_research_domain import add_member, create_object, create_project, headers
 
 from polycolab.artifacts import cleanup
 from polycolab.artifacts.storage import GarageStorage
@@ -47,7 +47,7 @@ def upload(client: TestClient, project: str, data: bytes = b"abc", **kwargs: Any
         content=data,
         headers=headers("owner"),
         params={
-            "workspace_id": project,
+            "project_id": project,
             "sha256": hashlib.sha256(data).hexdigest(),
             "byte_length": len(data),
             **kwargs,
@@ -66,7 +66,7 @@ def attach(client: TestClient, project: str, artifact: str, revision: str) -> An
 
 def test_upload_commit_private_download_and_retry(artifact_client: TestClient) -> None:
     client = artifact_client
-    project = create_workspace(client)
+    project = create_project(client)
     target = create_object(client, project)
     response = upload(client, project, b"<script>bad()</script>", media_type="text/html")
     assert response.status_code == 201, response.text
@@ -96,7 +96,7 @@ def test_artifact_contract_uses_explicit_object_versions(artifact_client: TestCl
     from polycolab.platform.outbox import canonical_digest
 
     client = artifact_client
-    project = create_workspace(client)
+    project = create_project(client)
     target = create_object(client, project)
     version_id = target["current_object_version_id"]
     artifact = upload(client, project).json()
@@ -159,7 +159,7 @@ def test_attachment_pages_preserve_links_filter_before_paging_and_never_read_sto
     artifact_client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client = artifact_client
-    project, other = create_workspace(client), create_workspace(client)
+    project, other = create_project(client), create_project(client)
     first, second = create_object(client, project), create_object(client, project)
     foreign = create_object(client, other)
     row = upload(
@@ -180,7 +180,7 @@ def test_attachment_pages_preserve_links_filter_before_paging_and_never_read_sto
         raise AssertionError("enumeration must not create an object-store client")
 
     monkeypatch.setattr("polycolab.artifacts.routes.private.artifact_storage", fail)
-    url = f"/api/v1/workspaces/{project}/artifacts"
+    url = f"/api/v1/projects/{project}/artifacts"
     page = client.get(url, headers=headers("owner"), params={"limit": 1})
     assert page.status_code == 200
     assert page.headers["cache-control"] == "private, no-store"
@@ -240,14 +240,14 @@ def test_attachment_pages_preserve_links_filter_before_paging_and_never_read_sto
 
 def test_attachment_page_retains_exact_attempt_binding(artifact_client: TestClient) -> None:
     client = artifact_client
-    project = create_workspace(client)
+    project = create_project(client)
     target = create_object(client, project)["current_object_version_id"]
     attempt = post_research(
         client,
         "/api/v1/objects",
         headers=headers("owner"),
         json={
-            "destination": {"kind": "workspace", "workspace_id": project},
+            "destination": {"kind": "project", "project_id": project},
             "snapshot": {
                 "kind": "ATTEMPT",
                 "content": {
@@ -280,7 +280,7 @@ def test_attachment_page_retains_exact_attempt_binding(artifact_client: TestClie
         },
     )
     assert link.status_code == 200, link.text
-    item = client.get(f"/api/v1/workspaces/{project}/artifacts", headers=headers("owner")).json()[
+    item = client.get(f"/api/v1/projects/{project}/artifacts", headers=headers("owner")).json()[
         "items"
     ][0]
     assert item["attachment_id"] == link.json()["id"]
@@ -293,12 +293,12 @@ def test_attachment_list_authorization_and_archived_reads(
     artifact_client: TestClient,
 ) -> None:
     client = artifact_client
-    project = create_workspace(client)
+    project = create_project(client)
     add_member(client, project, "reader", "READ_ONLY")
     revision = create_object(client, project)["current_object_version_id"]
     row = upload(client, project).json()
     assert attach(client, project, row["id"], revision).status_code == 200
-    url = f"/api/v1/workspaces/{project}/artifacts"
+    url = f"/api/v1/projects/{project}/artifacts"
     assert client.get(url).status_code == 404
     assert client.get(url, headers=headers("outsider")).status_code == 404
     app = cast(Any, client.app)
@@ -326,7 +326,7 @@ def test_attachment_list_excludes_noncommitted_states(
     artifact_client: TestClient, state: ArtifactState
 ) -> None:
     client = artifact_client
-    project = create_workspace(client)
+    project = create_project(client)
     row = upload(client, project).json()
     revision = create_object(client, project)["current_object_version_id"]
     assert attach(client, project, row["id"], revision).status_code == 200
@@ -338,7 +338,7 @@ def test_attachment_list_excludes_noncommitted_states(
         stored.committed_at = None
         stored.deleted_at = utc_now() if state is ArtifactState.DELETED else None
         session.commit()
-    response = client.get(f"/api/v1/workspaces/{project}/artifacts", headers=headers("owner"))
+    response = client.get(f"/api/v1/projects/{project}/artifacts", headers=headers("owner"))
     assert response.json() == {"items": [], "next_cursor": None}
 
 
@@ -349,21 +349,21 @@ def test_attachment_list_excludes_noncommitted_states(
 def test_attachment_list_rejects_invalid_paging(
     artifact_client: TestClient, params: dict[str, Any], status: int
 ) -> None:
-    project = create_workspace(artifact_client)
+    project = create_project(artifact_client)
     response = artifact_client.get(
-        f"/api/v1/workspaces/{project}/artifacts", headers=headers("owner"), params=params
+        f"/api/v1/projects/{project}/artifacts", headers=headers("owner"), params=params
     )
     assert response.status_code == status
 
 
 def test_matching_hash_and_known_id_do_not_grant_access(artifact_client: TestClient) -> None:
     client = artifact_client
-    first, second = create_workspace(client), create_workspace(client)
+    first, second = create_project(client), create_project(client)
     one = upload(client, first).json()
     two = upload(client, second).json()
     assert one["sha256"] == two["sha256"] and one["id"] != two["id"]
     url = f"/api/v1/artifacts/{one['id']}"
-    # The canonical artifact URL resolves the owner’s actual workspace membership.
+    # The canonical artifact URL resolves the owner’s actual project membership.
     assert client.get(url, headers=headers("owner")).status_code == 200
     assert client.get(url, headers=headers("outsider")).status_code == 404
     target = create_object(client, first)
@@ -372,7 +372,7 @@ def test_matching_hash_and_known_id_do_not_grant_access(artifact_client: TestCli
 
 def test_revocation_denies_committed_bytes(artifact_client: TestClient) -> None:
     client = artifact_client
-    project = create_workspace(client)
+    project = create_project(client)
     add_member(client, project, "reader", "READ_ONLY")
     target = create_object(client, project)
     row = upload(client, project).json()
@@ -396,7 +396,7 @@ def test_revocation_during_download_prevents_returning_bytes(
     artifact_client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client = artifact_client
-    project = create_workspace(client)
+    project = create_project(client)
     add_member(client, project, "reader", "READ_ONLY")
     target = create_object(client, project)
     row = upload(client, project).json()
@@ -434,7 +434,7 @@ def test_cleanup_storage_failure_and_late_upload_are_recoverable(
     from polycolab.entities.time import utc_now
 
     client = artifact_client
-    project = create_workspace(client)
+    project = create_project(client)
     staged = upload(client, project).json()
     app = cast(Any, client.app)
     factory = app.state.session_factory
@@ -480,7 +480,7 @@ def test_invalid_bytes_never_commit(
     artifact_client: TestClient, params: dict[str, Any], status: int
 ) -> None:
     client = artifact_client
-    project = create_workspace(client)
+    project = create_project(client)
     assert upload(client, project, **params).status_code == status
     with cast(Any, client.app).state.session_factory() as session:
         assert not list(
@@ -490,7 +490,7 @@ def test_invalid_bytes_never_commit(
 
 
 def test_missing_storage_is_unavailable_not_a_disabled_feature(client: TestClient) -> None:
-    project = create_workspace(client)
+    project = create_project(client)
     response = upload(client, project)
     assert response.status_code == 503
     assert "artifact_storage_unavailable" in response.text
@@ -498,14 +498,14 @@ def test_missing_storage_is_unavailable_not_a_disabled_feature(client: TestClien
 
 def test_artifacts_available_but_readonly_writes_denied(artifact_client: TestClient) -> None:
     client = artifact_client
-    project = create_workspace(client)
+    project = create_project(client)
     add_member(client, project, "reader", "READ_ONLY")
     response = client.post(
         "/api/v1/artifacts",
         headers=headers("reader"),
         content=b"",
         params={
-            "workspace_id": project,
+            "project_id": project,
             "sha256": hashlib.sha256(b"").hexdigest(),
             "byte_length": 0,
         },
@@ -516,7 +516,7 @@ def test_artifacts_available_but_readonly_writes_denied(artifact_client: TestCli
 
 def test_unverified_artifact_cannot_attach(artifact_client: TestClient) -> None:
     client = artifact_client
-    project = create_workspace(client)
+    project = create_project(client)
     target = create_object(client, project)
     assert upload(client, project, sha256="0" * 64).status_code == 422
     with cast(Any, client.app).state.session_factory() as session:
@@ -534,7 +534,7 @@ def test_gc_fences_commit_and_retains_tombstones(artifact_client: TestClient) ->
     from polycolab.entities.time import utc_now
 
     client = artifact_client
-    project = create_workspace(client)
+    project = create_project(client)
     target = create_object(client, project)
     staged = upload(client, project).json()
     committed = upload(client, project).json()

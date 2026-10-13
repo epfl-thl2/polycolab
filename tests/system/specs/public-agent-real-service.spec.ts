@@ -22,36 +22,40 @@ function outputId(
 
 test.skip(!enabled, 'requires the disposable public-agent research service harness');
 
-test('public workspace, separate agent contribution, inspection, comment and revocation', async ({
+test('public project, separate agent contribution, inspection, comment and revocation', async ({
   page,
   request,
   browser,
 }) => {
   test.setTimeout(90_000);
-  await page.goto('/signup?returnTo=%2Fworkspaces');
+  await page.goto('/signup?returnTo=%2Fprojects');
   await page.getByLabel('Display name', { exact: true }).fill('Research Browser Researcher');
   await page.getByLabel('Username', { exact: true }).fill(`browser-${randomUUID().slice(0, 12)}`);
   await page.getByLabel('Password', { exact: true }).fill('browser-research-password');
   await page.getByLabel('Confirm password').fill('browser-research-password');
   await page.getByRole('button', { name: 'Create account', exact: true }).click();
-  await expect(page).toHaveURL(/\/workspaces$/);
-  await expect(page.getByRole('heading', { name: 'Workspaces', exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page.getByRole('heading', { name: 'Projects', exact: true })).toBeVisible();
 
-  await page.goto('/workspaces');
-  await page.getByRole('button', { name: 'New workspace' }).click();
-  await page.getByLabel('Workspace name').fill('Real public agent workspace');
+  await page.goto('/projects');
+  await page.getByRole('button', { name: 'New project' }).click();
+  await page.getByLabel('Project name').fill('Real public agent project');
   await page.getByLabel('Description').fill('Browser and external API acceptance.');
-  await page.getByRole('dialog').getByRole('button', { name: 'Create workspace' }).click();
-  await expect(page).toHaveURL(/\/workspaces\/[0-9a-f-]{36}$/);
-  const projectId = new URL(page.url()).pathname.split('/').at(-1)!;
-  await expect(page.locator('.room-desktop-right')).toContainText(/Public\s*· Anyone can read/);
+  await page.getByRole('dialog').getByRole('button', { name: 'Create project' }).click();
+  await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}(?:\/sessions\/new)?$/);
+  const projectId = new URL(page.url()).pathname.split('/')[2]!;
+  await page
+    .getByRole('navigation', { name: 'Project sections' })
+    .getByRole('link', { name: 'Overview', exact: true })
+    .click();
+  await expect(page.getByRole('main')).toContainText('Public');
 
   const inputResponse = await page.request.post('/api/v1/objects', {
     headers: { 'Idempotency-Key': randomUUID() },
     data: {
-      destination: { kind: 'workspace', workspace_id: projectId },
+      destination: { kind: 'project', project_id: projectId },
       snapshot: {
-        kind: 'CLAIM',
+        kind: 'STATEMENT',
         content: content(
           'Human input claim',
           'A human-authored exact input for the external research run.',
@@ -63,23 +67,23 @@ test('public workspace, separate agent contribution, inspection, comment and rev
   expect(inputResponse.status(), await inputResponse.text()).toBe(201);
   const inputReceipt = await inputResponse.json();
   const inputVersionId = outputId(inputReceipt, 'OBJECT_VERSION');
-  const foreignWorkspaceResponse = await page.request.post('/api/v1/workspaces', {
+  const foreignProjectResponse = await page.request.post('/api/v1/projects', {
     data: {
-      name: 'Cross-workspace public premise',
-      description: 'A second public workspace supplying an exact public object version.',
+      name: 'Cross-project public premise',
+      description: 'A second public project supplying an exact public object version.',
     },
   });
-  expect(foreignWorkspaceResponse.status(), await foreignWorkspaceResponse.text()).toBe(201);
-  const foreignWorkspace = await foreignWorkspaceResponse.json();
+  expect(foreignProjectResponse.status(), await foreignProjectResponse.text()).toBe(201);
+  const foreignProject = await foreignProjectResponse.json();
   const foreignInputResponse = await page.request.post('/api/v1/objects', {
     headers: { 'Idempotency-Key': randomUUID() },
     data: {
-      destination: { kind: 'workspace', workspace_id: foreignWorkspace.id },
+      destination: { kind: 'project', project_id: foreignProject.id },
       snapshot: {
-        kind: 'CLAIM',
+        kind: 'STATEMENT',
         content: content(
-          'Public premise from another workspace',
-          'Public discovery does not grant write access to this workspace.',
+          'Public premise from another project',
+          'Public discovery does not grant write access to this project.',
         ),
         structural_relationships: [],
       },
@@ -90,8 +94,9 @@ test('public workspace, separate agent contribution, inspection, comment and rev
   const foreignVersionId = outputId(foreignReceipt, 'OBJECT_VERSION');
 
   await page.goto('/settings/api-keys');
-  await expect(page.getByRole('heading', { name: 'Agent API keys' })).toBeVisible();
-  await page.getByLabel('Agent name').fill('Browser research agent');
+  await expect(page.getByRole('table', { name: 'Your API keys' })).toBeVisible();
+  await page.getByRole('button', { name: 'New API key', exact: true }).click();
+  await page.getByLabel('Polycolab agent name').fill('Browser research agent');
   await page.getByLabel('Key name').fill('Separate browser acceptance agent');
   await page.getByRole('button', { name: 'Create API key' }).click();
   const secretOutput = page.getByLabel('API key', { exact: true });
@@ -106,7 +111,7 @@ test('public workspace, separate agent contribution, inspection, comment and rev
   const attemptResponse = await request.post('/api/v1/objects', {
     headers: agentHeaders,
     data: {
-      destination: { kind: 'workspace', workspace_id: projectId },
+      destination: { kind: 'project', project_id: projectId },
       snapshot: {
         kind: 'ATTEMPT',
         content: {
@@ -127,15 +132,15 @@ test('public workspace, separate agent contribution, inspection, comment and rev
   const proofResponse = await request.post('/api/v1/objects', {
     headers: { ...agentHeaders, 'Idempotency-Key': randomUUID() },
     data: {
-      destination: { kind: 'workspace', workspace_id: projectId },
+      destination: { kind: 'project', project_id: projectId },
       snapshot: {
-        kind: 'PROOF_SKETCH',
+        kind: 'PROOF',
         content: {
           ...content(
             'Agent-saved public proof sketch',
-            'An attributable sketch using an exact public premise from another workspace.',
+            'An attributable sketch using an exact public premise from another project.',
           ),
-          reported_progress: 'POTENTIAL',
+          reported_progress: 'PARTIAL',
         },
         structural_relationships: [
           { relationship_type: 'CONCLUSION', target_object_version_id: inputVersionId },
@@ -156,12 +161,12 @@ test('public workspace, separate agent contribution, inspection, comment and rev
   const relationResponse = await request.post('/api/v1/relations', {
     headers: { ...agentHeaders, 'Idempotency-Key': randomUUID() },
     data: {
-      destination: { kind: 'workspace', workspace_id: projectId },
+      destination: { kind: 'project', project_id: projectId },
       direction: 'UNIDIRECTIONAL',
       source_object_version_id: objectVersionId,
       target_object_version_id: foreignVersionId,
       relationship_type: 'DEPENDS_ON',
-      description: 'Pins a public premise without granting foreign workspace write authority.',
+      description: 'Pins a public premise without granting foreign project write authority.',
     },
   });
   expect(relationResponse.status(), await relationResponse.text()).toBe(201);
@@ -183,7 +188,7 @@ test('public workspace, separate agent contribution, inspection, comment and rev
       'Content-Type': 'application/octet-stream',
     },
     params: {
-      workspace_id: projectId,
+      project_id: projectId,
       sha256: createHash('sha256').update(evidence).digest('hex'),
       byte_length: String(evidence.length),
       media_type: 'text/plain',
@@ -197,9 +202,9 @@ test('public workspace, separate agent contribution, inspection, comment and rev
     data: { artifact_id: artifact.id, object_version_id: objectVersionId, role: 'EVIDENCE' },
   });
   expect(attachResponse.status(), await attachResponse.text()).toBe(200);
-  await page.getByRole('button', { name: 'I’ve saved this key' }).click();
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(secretOutput).toHaveCount(0);
-  await page.goto(`/workspaces/${projectId}/objects/${objectId}`);
+  await page.goto(`/projects/${projectId}/objects/${objectId}`);
   await expect(
     page.getByRole('heading', { name: 'Agent-saved public proof sketch', level: 1 }),
   ).toBeVisible();
@@ -225,7 +230,7 @@ test('public workspace, separate agent contribution, inspection, comment and rev
   const inspectionContext = await browser.newContext();
   try {
     const publicInspection = await inspectionContext.newPage();
-    await publicInspection.goto(`/workspaces/${projectId}/objects/${objectId}`);
+    await publicInspection.goto(`/projects/${projectId}/objects/${objectId}`);
     await expect(
       publicInspection.getByRole('heading', { name: 'Agent-saved public proof sketch', level: 1 }),
     ).toBeVisible();
@@ -245,10 +250,13 @@ test('public workspace, separate agent contribution, inspection, comment and rev
   await expect(page.getByRole('heading', { name: 'Browser research agent' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Public contributions' })).toBeVisible();
   await page.goto('/settings/api-keys');
-  const credential = page.getByRole('listitem').filter({
+  const credential = page.getByRole('row').filter({
     hasText: 'Separate browser acceptance agent',
   });
-  await credential.getByRole('button', { name: 'Revoke' }).click();
+  await credential
+    .getByRole('button', { name: 'Actions for Separate browser acceptance agent' })
+    .click();
+  await page.getByRole('menuitem', { name: 'Revoke key', exact: true }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Confirm', exact: true }).click();
   await expect(page.getByRole('status')).toContainText('revoked');
   expect(
@@ -262,7 +270,7 @@ test('public workspace, separate agent contribution, inspection, comment and rev
   const anonymous = await browser.newContext();
   try {
     const publicPage = await anonymous.newPage();
-    await publicPage.goto(`/workspaces/${projectId}/objects/${objectId}`);
+    await publicPage.goto(`/projects/${projectId}/objects/${objectId}`);
     await expect(
       publicPage.getByRole('heading', { name: 'Agent-saved public proof sketch', level: 1 }),
     ).toBeVisible();

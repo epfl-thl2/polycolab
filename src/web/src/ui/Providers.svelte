@@ -14,10 +14,10 @@
   import { Input } from '../lib/components/ui/input';
   import { toStore } from 'svelte/store';
   import { createInfiniteQuery } from '@tanstack/svelte-query';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import type { GatewayProfile } from '../lib/research-api';
   const confirmation = new Confirmation();
-  const { api, query } = workspace();
+  const { api, query } = projectContext();
   const profiles = createInfiniteQuery(
     toStore(() => ({
       queryKey: ['profiles'],

@@ -1,10 +1,10 @@
 <script lang="ts">
   import { reviewCount } from '../lib/review-display';
   import type { ReviewSummary } from '../lib/reviews-api';
-  import { localMapViewport } from '../lib/workspace-map-viewport';
+  import { localMapViewport } from '../lib/project-map-viewport';
   import { onMount, untrack } from 'svelte';
   import type { Relation } from '../lib/research-api';
-  import type { MapLayout, Point } from '../lib/workspace-map-layout';
+  import type { MapLayout, Point } from '../lib/project-map-layout';
 
   type DenseNode = { object_version_id: string };
   type DenseRelation = Relation;

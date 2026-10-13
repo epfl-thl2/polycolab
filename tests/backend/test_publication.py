@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from research_requests import post_research
 from test_catalogue_api import enable
-from test_research_domain import add_member, create_object, create_workspace
+from test_research_domain import add_member, create_object, create_project
 from test_research_structure import targets
 
 from polycolab.access.actors import agent_actor
@@ -22,7 +22,7 @@ from polycolab.db.models import (
     SqlUser,
 )
 from polycolab.db.models.relationships import SqlObjectVersionRelationship
-from polycolab.entities.enums import WorkspaceRole
+from polycolab.entities.enums import ProjectRole
 from polycolab.platform.outbox import canonical_digest
 from polycolab.research.contracts import PublicationFields, PublicationSelection
 
@@ -38,7 +38,7 @@ def test_preview_confirm_retry_and_historical_projection_are_exact_and_atomic(
     client: TestClient,
 ) -> None:
     app = enable(client)
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     proof = create_object(client, project_id, kind="PROOF_SKETCH", title="Private sketch")
     proof_revision_id = proof["current_object_version_id"]
     with app.state.session_factory() as db:
@@ -50,7 +50,7 @@ def test_preview_confirm_retry_and_historical_projection_are_exact_and_atomic(
         f"/api/v1/research/objects/{proof['id']}/summary",
         headers=headers(key="publication-summary"),
         json={
-            "workspace_id": project_id,
+            "project_id": project_id,
             "body_md": "An exact authored summary",
             "source_object_version_ids": [conclusion_revision_id],
         },
@@ -60,7 +60,7 @@ def test_preview_confirm_retry_and_historical_projection_are_exact_and_atomic(
         f"/api/v1/research/objects/{proof['id']}/comments",
         headers=headers(key="publication-comment"),
         json={
-            "workspace_id": project_id,
+            "project_id": project_id,
             "object_version_id": proof_revision_id,
             "body_md": "Include this comment",
         },
@@ -70,7 +70,7 @@ def test_preview_confirm_retry_and_historical_projection_are_exact_and_atomic(
         f"/api/v1/research/objects/{proof['id']}/progress",
         headers=headers(key="publication-progress"),
         json={
-            "workspace_id": project_id,
+            "project_id": project_id,
             "object_version_id": proof_revision_id,
             "status": "PARTIAL",
             "detail_md": "Include this progress update",
@@ -80,12 +80,12 @@ def test_preview_confirm_retry_and_historical_projection_are_exact_and_atomic(
     note = client.put(
         f"/api/v1/research/objects/{proof['id']}/human-note",
         headers=headers(key="publication-note"),
-        json={"workspace_id": project_id, "body_md": "Never publish this note"},
+        json={"project_id": project_id, "body_md": "Never publish this note"},
     )
     assert note.status_code == 200, note.text
 
     selection = {
-        "workspace_id": project_id,
+        "project_id": project_id,
         "object_version_ids": [proof_revision_id],
         "summary_revision_ids": [summary.json()["current_revision"]["id"]],
         "comment_ids": [comment.json()["id"]],
@@ -228,7 +228,7 @@ def test_preview_confirm_retry_and_historical_projection_are_exact_and_atomic(
     history = client.get(
         "/api/v1/publication/history",
         headers=headers(),
-        params={"workspace_id": project_id, "limit": 1},
+        params={"project_id": project_id, "limit": 1},
     )
     assert history.status_code == 200
     assert [item["id"] for item in history.json()["items"]] == [confirmed.json()["id"]]
@@ -239,8 +239,8 @@ def test_preview_confirm_retry_and_historical_projection_are_exact_and_atomic(
         assert version["authorship"]["author_user_id"] is None
         assert version["authorship"]["contribution_id"] is None
         assert version == client.get(f"/api/v1/versions/{version['id']}").json()
-    assert "workspace_id" not in public_manifest.json()
-    assert "workspace_id" not in public_manifest.json()["selection"]
+    assert "project_id" not in public_manifest.json()
+    assert "project_id" not in public_manifest.json()["selection"]
     assert client.get(f"/api/v1/records/{proof_revision_id}").status_code == 200
     assert client.get(f"/api/v1/records/{conclusion_revision_id}").status_code == 200
 
@@ -287,7 +287,7 @@ def test_preview_confirm_retry_and_historical_projection_are_exact_and_atomic(
 
 def test_agent_cannot_preview_or_confirm_publication(client: TestClient) -> None:
     app = enable(client)
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     target = create_object(client, project_id)
     user_id = UUID(client.get("/api/v1/users/me", headers=headers()).json()["id"])
     actor = agent_actor(
@@ -311,10 +311,10 @@ def test_confirmation_reauthorizes_publisher_without_partial_release(
     client: TestClient,
 ) -> None:
     app = enable(client)
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     target = create_object(client, project_id)
     selection = {
-        "workspace_id": project_id,
+        "project_id": project_id,
         "object_version_ids": [target["current_object_version_id"]],
         "summary_revision_ids": [],
         "comment_ids": [],
@@ -327,7 +327,7 @@ def test_confirmation_reauthorizes_publisher_without_partial_release(
         membership = (
             db.query(SqlMembership).filter_by(project_id=UUID(project_id), user_id=owner_id).one()
         )
-        membership.role = WorkspaceRole.READ_ONLY
+        membership.role = ProjectRole.READ_ONLY
         db.commit()
     response = client.post(
         "/api/v1/publication/confirm",
@@ -347,7 +347,7 @@ def test_attempt_targets_and_selected_relation_endpoints_join_required_closure(
     client: TestClient,
 ) -> None:
     app = enable(client)
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     attempt = create_object(client, project_id, kind="ATTEMPT", title="Private attempt")
     unrelated = create_object(client, project_id, title="Related private statement")
     with app.state.session_factory() as db:
@@ -358,7 +358,7 @@ def test_attempt_targets_and_selected_relation_endpoints_join_required_closure(
         "/api/v1/relations",
         headers=headers(key="publication-relation"),
         json={
-            "destination": {"kind": "workspace", "workspace_id": project_id},
+            "destination": {"kind": "project", "project_id": project_id},
             "direction": "UNIDIRECTIONAL",
             "source_object_version_id": attempt["current_object_version_id"],
             "target_object_version_id": unrelated["current_object_version_id"],
@@ -372,7 +372,7 @@ def test_attempt_targets_and_selected_relation_endpoints_join_required_closure(
         "/api/v1/publication/preview",
         headers=headers(),
         json={
-            "workspace_id": project_id,
+            "project_id": project_id,
             "object_version_ids": [attempt["current_object_version_id"]],
             "relation_ids": [relation_id],
         },
@@ -392,7 +392,7 @@ def test_publication_versions_and_equivalence_use_frozen_content_not_private_his
     client: TestClient,
 ) -> None:
     app = enable(client)
-    project = create_workspace(client)
+    project = create_project(client)
     first = create_object(client, project, title="Unreleased predecessor")
     previous = first["current_object_version_id"]
     edited = post_research(
@@ -421,7 +421,7 @@ def test_publication_versions_and_equivalence_use_frozen_content_not_private_his
         "/api/v1/relations",
         headers=headers(key="published-equivalence"),
         json={
-            "destination": {"kind": "workspace", "workspace_id": project},
+            "destination": {"kind": "project", "project_id": project},
             "direction": "BIDIRECTIONAL",
             "first_object_version_id": other,
             "second_object_version_id": current,
@@ -432,7 +432,7 @@ def test_publication_versions_and_equivalence_use_frozen_content_not_private_his
     assert declaration.status_code == 201, declaration.text
     relationship_id = declaration.json()["outputs"][0]["entity_id"]
     selection = {
-        "workspace_id": project,
+        "project_id": project,
         "object_version_ids": [current],
         "relation_ids": [relationship_id],
     }
@@ -477,7 +477,7 @@ def test_publication_versions_and_equivalence_use_frozen_content_not_private_his
     assert public.status_code == 200, public.text
     assert public.json()["public_fields"] == frozen
     history = client.get(
-        "/api/v1/publication/history", headers=headers(), params={"workspace_id": project}
+        "/api/v1/publication/history", headers=headers(), params={"project_id": project}
     )
     assert history.status_code == 200, history.text
     assert history.json()["items"][0]["public_fields"] == frozen

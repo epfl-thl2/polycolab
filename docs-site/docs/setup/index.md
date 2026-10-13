@@ -4,7 +4,7 @@
 
 # User Setup
 
-Prepare your account, workspace access, and optional external-agent connection for the hosted Polycolab service.
+Prepare your account, project access, and optional external-agent connection for the hosted Polycolab service.
 
 <div class="grid polycolab-index-grid" markdown>
 
@@ -20,13 +20,13 @@ Protect agent credentials.
 </div>
 
 <div class="card" markdown>
-**Workspace setup**
+**Project setup**
 
-Create a public or private workspace.
+Create a public or private project.
 Add collaborators.
 Choose access levels deliberately.
 
-[Configure a workspace →](workspace.md)
+[Configure a project →](project.md)
 </div>
 
 <div class="card" markdown>

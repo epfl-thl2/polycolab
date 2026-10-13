@@ -19,7 +19,7 @@ it('confirms the unchanged server preview selection and refreshes immutable hist
   const preview = vi.fn().mockResolvedValue({
     preview_digest: 'digest-a',
     selection: {
-      workspace_id: 'project-a',
+      project_id: 'project-a',
       object_version_ids: ['proof-r2'],
       artifact_ids: ['artifact-a'],
     },
@@ -35,11 +35,11 @@ it('confirms the unchanged server preview selection and refreshes immutable hist
   });
   const confirm = vi.fn().mockResolvedValue({
     id: 'manifest-a',
-    workspace_id: 'project-a',
+    project_id: 'project-a',
     preview_digest: 'digest-a',
     created_at: '2026-09-07T00:00:00Z',
     publisher_display_name: 'Ada',
-    selection: { workspace_id: 'project-a', object_version_ids: ['proof-r2'] },
+    selection: { project_id: 'project-a', object_version_ids: ['proof-r2'] },
     required_object_version_ids: [],
     public_fields: {
       object_versions: [record],
@@ -74,7 +74,7 @@ it('confirms the unchanged server preview selection and refreshes immutable hist
             revisionId: 'proof-r2',
             kind: 'PROOF',
             title: 'Exact proof',
-            href: '/workspaces/project-a/records/proof-r2',
+            href: '/projects/project-a/records/proof-r2',
           },
           provenance: [],
           downloadAvailable: true,
@@ -111,7 +111,7 @@ it('confirms the unchanged server preview selection and refreshes immutable hist
 
   await waitFor(() => expect(confirm).toHaveBeenCalledOnce());
   expect(preview).toHaveBeenCalledWith({
-    workspace_id: 'project-a',
+    project_id: 'project-a',
     object_version_ids: ['proof-r2'],
     summary_revision_ids: [],
     comment_ids: [],
@@ -122,7 +122,7 @@ it('confirms the unchanged server preview selection and refreshes immutable hist
   });
   expect(confirm).toHaveBeenCalledWith(
     {
-      workspace_id: 'project-a',
+      project_id: 'project-a',
       object_version_ids: ['proof-r2'],
       artifact_ids: ['artifact-a'],
       preview_digest: 'digest-a',

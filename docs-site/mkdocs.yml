@@ -85,14 +85,14 @@ nav:
   - Getting started: getting-started.md
   - Guides:
       - guides/index.md
-      - Workspaces and access: guides/workspaces.md
+      - Projects and access: guides/projects.md
       - Research and revisions: guides/research.md
       - Collaboration and evidence: guides/collaboration-and-evidence.md
       - Working with agents: guides/agents.md
   - User Setup:
       - setup/index.md
       - Account and security: setup/account-and-security.md
-      - Workspace setup: setup/workspace.md
+      - Project setup: setup/project.md
       - External agent: setup/external-agent.md
   - Developers:
       - developers/index.md

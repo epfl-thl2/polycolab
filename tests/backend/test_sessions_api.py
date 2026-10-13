@@ -12,9 +12,9 @@ def headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def create_workspace(client: TestClient) -> dict[str, object]:
+def create_project(client: TestClient) -> dict[str, object]:
     response = client.post(
-        "/api/v1/workspaces",
+        "/api/v1/projects",
         headers=headers("owner"),
         json={"name": "Agent research", "visibility": "PRIVATE"},
     )
@@ -40,7 +40,7 @@ def create_profile(client: TestClient, token: str) -> dict[str, object]:
 def add_member(client: TestClient, project_id: str, token: str, role: str) -> None:
     user = client.get("/api/v1/users/me", headers=headers(token)).json()
     response = client.post(
-        f"/api/v1/workspaces/{project_id}/members",
+        f"/api/v1/projects/{project_id}/members",
         headers=headers("owner"),
         json={"user_id": user["id"], "role": role},
     )
@@ -51,7 +51,7 @@ def create_session(client: TestClient, project_id: str, token: str = "owner") ->
     response = client.post(
         "/api/v1/agent-sessions",
         headers=headers(token),
-        json={"workspace_id": project_id, "agent_kind": "RESEARCHER", "title": "Main thread"},
+        json={"project_id": project_id, "agent_kind": "RESEARCHER", "title": "Main thread"},
     )
     assert response.status_code == 201, response.text
     return cast(dict[str, object], response.json())
@@ -60,8 +60,8 @@ def create_session(client: TestClient, project_id: str, token: str = "owner") ->
 def test_local_browser_can_read_pagination_cursor(client: TestClient) -> None:
     app = cast(FastAPI, client.app)
     origin = str(app.state.settings.allowed_origins[0]).rstrip("/")
-    workspace = create_workspace(client)
-    agent_session = create_session(client, str(workspace["id"]))
+    project = create_project(client)
+    agent_session = create_session(client, str(project["id"]))
     profile = create_profile(client, "owner")
     run_ids = []
     for _ in range(2):
@@ -99,7 +99,7 @@ def test_local_browser_can_read_pagination_cursor(client: TestClient) -> None:
 
 
 def test_session_list_orders_by_latest_activity(client: TestClient) -> None:
-    project = create_workspace(client)
+    project = create_project(client)
     project_id = str(project["id"])
     older = create_session(client, project_id)
     newer = create_session(client, project_id)
@@ -117,9 +117,7 @@ def test_session_list_orders_by_latest_activity(client: TestClient) -> None:
     )
     assert queued.status_code == 202, queued.text
 
-    listed = client.get(
-        f"/api/v1/agent-sessions?workspace_id={project_id}", headers=headers("owner")
-    )
+    listed = client.get(f"/api/v1/agent-sessions?project_id={project_id}", headers=headers("owner"))
     assert listed.status_code == 200
     assert [item["id"] for item in listed.json()] == [older["id"], newer["id"]]
     assert listed.json()[0]["latest_run"] == {
@@ -131,7 +129,7 @@ def test_session_list_orders_by_latest_activity(client: TestClient) -> None:
 
 
 def test_session_run_summaries_are_batched(client: TestClient) -> None:
-    project_id = str(create_workspace(client)["id"])
+    project_id = str(create_project(client)["id"])
     profile = create_profile(client, "owner")
     for _ in range(4):
         agent_session = create_session(client, project_id)
@@ -162,7 +160,7 @@ def test_session_run_summaries_are_batched(client: TestClient) -> None:
     event.listen(engine, "before_cursor_execute", collect_queries)
     try:
         listed = client.get(
-            f"/api/v1/agent-sessions?workspace_id={project_id}", headers=headers("owner")
+            f"/api/v1/agent-sessions?project_id={project_id}", headers=headers("owner")
         )
     finally:
         event.remove(engine, "before_cursor_execute", collect_queries)
@@ -176,7 +174,7 @@ def test_session_run_summaries_are_batched(client: TestClient) -> None:
 def test_session_turn_authorization_idempotency_and_no_private_binding_leakage(
     client: TestClient,
 ) -> None:
-    project = create_workspace(client)
+    project = create_project(client)
     project_id = str(project["id"])
     add_member(client, project_id, "contributor", "CONTRIBUTOR")
     add_member(client, project_id, "reader", "READ_ONLY")
@@ -190,7 +188,7 @@ def test_session_turn_authorization_idempotency_and_no_private_binding_leakage(
         client.post(
             "/api/v1/agent-sessions",
             headers=headers("reader"),
-            json={"workspace_id": project_id, "agent_kind": "CRITIC"},
+            json={"project_id": project_id, "agent_kind": "CRITIC"},
         ).status_code
         == 403
     )
@@ -251,7 +249,7 @@ def test_session_turn_authorization_idempotency_and_no_private_binding_leakage(
 
 
 def test_session_and_run_history_are_private_to_the_current_requester(client: TestClient) -> None:
-    project_id = str(create_workspace(client)["id"])
+    project_id = str(create_project(client)["id"])
     add_member(client, project_id, "contributor", "CONTRIBUTOR")
     add_member(client, project_id, "same-email", "CONTRIBUTOR")
     add_member(client, project_id, "reader", "READ_ONLY")
@@ -271,7 +269,7 @@ def test_session_and_run_history_are_private_to_the_current_requester(client: Te
     run_id = queued.json()["run"]["id"]
 
     listed_own = client.get(
-        f"/api/v1/agent-sessions?workspace_id={project_id}", headers=headers("contributor")
+        f"/api/v1/agent-sessions?project_id={project_id}", headers=headers("contributor")
     )
     assert listed_own.status_code == 200
     assert [item["id"] for item in listed_own.json()] == [agent_session["id"]]
@@ -294,7 +292,7 @@ def test_session_and_run_history_are_private_to_the_current_requester(client: Te
 
     for token in ("owner", "same-email"):
         listed = client.get(
-            f"/api/v1/agent-sessions?workspace_id={project_id}", headers=headers(token)
+            f"/api/v1/agent-sessions?project_id={project_id}", headers=headers(token)
         )
         assert listed.status_code == 200
         assert listed.json() == []
@@ -329,7 +327,7 @@ def test_session_and_run_history_are_private_to_the_current_requester(client: Te
             assert response.status_code == 404, response.text
 
     for path in (
-        f"/api/v1/agent-sessions?workspace_id={project_id}",
+        f"/api/v1/agent-sessions?project_id={project_id}",
         f"/api/v1/agent-sessions/{session_id}",
         f"/api/v1/agent-sessions/{session_id}/messages",
         f"/api/v1/agent-runs/{run_id}",
@@ -379,14 +377,14 @@ def test_session_and_run_history_are_private_to_the_current_requester(client: Te
     contributor_id = client.get("/api/v1/users/me", headers=headers("contributor")).json()["id"]
     assert (
         client.delete(
-            f"/api/v1/workspaces/{project_id}/members/{contributor_id}", headers=headers("owner")
+            f"/api/v1/projects/{project_id}/members/{contributor_id}", headers=headers("owner")
         ).status_code
         == 204
     )
     # A reconnect with the old cursor must recheck current membership rather
     # than relying on authorization captured when the stream was opened.
     for path in (
-        f"/api/v1/agent-sessions?workspace_id={project_id}",
+        f"/api/v1/agent-sessions?project_id={project_id}",
         f"/api/v1/agent-sessions/{session_id}",
         f"/api/v1/agent-sessions/{session_id}/messages",
         f"/api/v1/agent-runs/{run_id}",
@@ -401,7 +399,7 @@ def test_session_and_run_history_are_private_to_the_current_requester(client: Te
 
 
 def test_cancel_resume_and_committed_cursor_sse_reconnect(client: TestClient) -> None:
-    project_id = str(create_workspace(client)["id"])
+    project_id = str(create_project(client)["id"])
     profile = create_profile(client, "owner")
     agent_session = create_session(client, project_id)
     session_id = str(agent_session["id"])
@@ -479,7 +477,7 @@ def test_cancel_resume_and_committed_cursor_sse_reconnect(client: TestClient) ->
 
 
 def test_only_creator_archives_private_session(client: TestClient) -> None:
-    project_id = str(create_workspace(client)["id"])
+    project_id = str(create_project(client)["id"])
     add_member(client, project_id, "contributor", "CONTRIBUTOR")
     agent_session = create_session(client, project_id)
     session_id = str(agent_session["id"])
@@ -496,7 +494,7 @@ def test_only_creator_archives_private_session(client: TestClient) -> None:
 
 
 def test_project_archive_atomically_stops_queued_agent_work(client: TestClient) -> None:
-    project_id = str(create_workspace(client)["id"])
+    project_id = str(create_project(client)["id"])
     profile = create_profile(client, "owner")
     agent_session = create_session(client, project_id)
     queued = client.post(
@@ -510,7 +508,7 @@ def test_project_archive_atomically_stops_queued_agent_work(client: TestClient) 
     ).json()
 
     archived = client.patch(
-        f"/api/v1/workspaces/{project_id}",
+        f"/api/v1/projects/{project_id}",
         headers=headers("owner"),
         json={"archived": True},
     )

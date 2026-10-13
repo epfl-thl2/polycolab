@@ -18,7 +18,7 @@ def test_cached_public_context_rechecks_moderation(client: TestClient) -> None:
     app = enable(client)
     entry = admit(client)
     project = client.post(
-        "/api/v1/workspaces", headers=headers(), json={"visibility": "PRIVATE", "name": "Private"}
+        "/api/v1/projects", headers=headers(), json={"visibility": "PRIVATE", "name": "Private"}
     ).json()
     _, run_id = _proposal_run(client, project["id"], [entry["object_version_id"]])
     with app.state.session_factory() as db:
@@ -45,7 +45,7 @@ def test_live_tools_use_version_contract_even_for_older_agent_definitions(
     app = enable(client)
     entry = admit(client)
     project = client.post(
-        "/api/v1/workspaces", headers=headers(), json={"visibility": "PRIVATE", "name": "Private"}
+        "/api/v1/projects", headers=headers(), json={"visibility": "PRIVATE", "name": "Private"}
     ).json()
     _proposal_run(client, project["id"], [entry["object_version_id"]])
     with app.state.session_factory() as db:

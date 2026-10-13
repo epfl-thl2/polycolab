@@ -1,7 +1,7 @@
-"""Real PostgreSQL evidence for the public-workspace/external-agent boundary."""
+"""Real PostgreSQL evidence for the public-project/external-agent boundary."""
 
 from unittest.mock import patch
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from alembic import command
@@ -15,7 +15,7 @@ from test_application_configuration import (
     test_owner_visibility_changes_filter_research_and_history as verify_visibility,
 )
 from test_application_configuration import (
-    test_private_workspace_search_preserves_access_boundaries as verify_private_search,
+    test_private_project_search_preserves_access_boundaries as verify_private_search,
 )
 from test_public_external_agents import (
     test_external_artifact_becomes_public_only_after_attachment as verify_artifact_visibility,
@@ -33,7 +33,7 @@ from test_public_external_agents import (
     test_public_contract_and_external_retry_revocation as verify_public_contract,
 )
 from test_public_external_agents import (
-    test_public_workspace_moderation_and_lifecycle_filter_every_projection as verify_moderation,
+    test_public_project_moderation_and_lifecycle_filter_every_projection as verify_moderation,
 )
 from test_public_external_agents import (
     test_transition_and_operator_recovery_invalidate_protected_access as verify_transition_recovery,
@@ -42,7 +42,6 @@ from test_public_external_agents import (
 from polycolab.accounts.authentication import MappingIdentityVerifier
 from polycolab.app.application import create_app
 from polycolab.db.models import (
-    SqlObjectRevision,
     SqlProject,
     SqlResearchObject,
     SqlResearchScope,
@@ -56,7 +55,7 @@ from polycolab.research.contributions import human_contribution
 @pytest.mark.parametrize(
     "starting_revision", ["20260914_login_rate_limits", "20260914_version_relationships"]
 )
-def test_unification_migration_preserves_workspace_research(
+def test_unification_migration_preserves_project_research(
     pg_schema: tuple[Engine, Config, str],
     identity_verifier: MappingIdentityVerifier,
     starting_revision: str,
@@ -74,11 +73,37 @@ def test_unification_migration_preserves_workspace_research(
         with TestClient(app) as pg_client:
             existing = []
             for visibility in ["PUBLIC", "PRIVATE"]:
-                project = pg_client.post(
-                    "/api/v1/workspaces",
-                    headers=headers(),
-                    json={"name": f"Preserved {visibility}", "visibility": visibility},
-                ).json()
+                from sqlalchemy import MetaData, Table, insert, select
+
+                from polycolab.db.models import SqlMembership
+                from polycolab.entities.time import utc_now
+
+                project_id = uuid4()
+                owner_id = UUID(pg_client.get("/api/v1/users/me", headers=headers()).json()["id"])
+                with engine.begin() as connection:
+                    connection.execute(
+                        insert(SqlProject).values(
+                            id=project_id,
+                            name=f"Preserved {visibility}",
+                            visibility=visibility,
+                            created_by_user_id=owner_id,
+                        )
+                    )
+                    connection.execute(
+                        insert(SqlMembership).values(
+                            project_id=project_id, user_id=owner_id, role="OWNER"
+                        )
+                    )
+                    connection.execute(
+                        insert(SqlResearchScope).values(
+                            project_id=project_id, scope_kind="WORKSPACE"
+                        )
+                    )
+                project = {
+                    "id": str(project_id),
+                    "name": f"Preserved {visibility}",
+                    "visibility": visibility,
+                }
                 # Seed the old schema without running a newer write API against it.
                 # Current activity hooks require the not-yet-installed submission counter.
                 with (
@@ -87,49 +112,68 @@ def test_unification_migration_preserves_workspace_research(
                 ):
                     owner = db.get(SqlProject, UUID(project["id"]))
                     assert owner is not None
-                    scope = db.query(SqlResearchScope).filter_by(project_id=owner.id).one()
+                    scope_id = db.scalar(
+                        select(SqlResearchScope.id).where(SqlResearchScope.project_id == owner.id)
+                    )
+                    assert scope_id is not None
                     envelope = human_contribution(
                         db,
                         user_id=owner.created_by_user_id,
-                        scope_id=scope.id,
+                        scope_id=scope_id,
                         operation="migration-fixture",
                     )
-                    obj = SqlResearchObject(
-                        ownership_scope_id=scope.id,
-                        contribution_id=envelope.id,
-                        kind=ResearchObjectKind.CLAIM,
-                        entity_class=ResearchEntityClass.STATEMENT,
-                        created_by_user_id=owner.created_by_user_id,
-                        provenance_kind=ProvenanceKind.HUMAN_DIRECT,
+                    object_id, version_id = uuid4(), uuid4()
+                    db.execute(
+                        insert(SqlResearchObject).values(
+                            id=object_id,
+                            ownership_scope_id=scope_id,
+                            contribution_id=envelope.id,
+                            kind=ResearchObjectKind.CLAIM,
+                            entity_class=ResearchEntityClass.STATEMENT,
+                            created_by_user_id=owner.created_by_user_id,
+                            provenance_kind=ProvenanceKind.HUMAN_DIRECT,
+                        )
                     )
-                    db.add(obj)
-                    db.flush()
-                    version = SqlObjectRevision(
-                        object_id=obj.id,
-                        ownership_scope_id=scope.id,
-                        contribution_id=envelope.id,
-                        created_by_user_id=owner.created_by_user_id,
-                        provenance_kind=ProvenanceKind.HUMAN_DIRECT,
-                        number=1,
-                        schema_version=1,
-                        title="Preserved exact claim",
-                        content_md="Preserved body",
+                    db.execute(
+                        Table("object_revisions", MetaData(), autoload_with=db.connection())
+                        .insert()
+                        .values(
+                            id=version_id,
+                            object_id=object_id,
+                            ownership_scope_id=scope_id,
+                            contribution_id=envelope.id,
+                            created_by_user_id=owner.created_by_user_id,
+                            provenance_kind=ProvenanceKind.HUMAN_DIRECT,
+                            number=1,
+                            schema_version=1,
+                            title="Preserved exact claim",
+                            content_md="Preserved body",
+                            created_at=utc_now(),
+                        )
                     )
-                    db.add(version)
-                    db.flush()
-                    db.add(SqlStatementRevision(revision_id=version.id, kind="CLAIM"))
-                    obj.current_revision_id = version.id
+                    db.execute(
+                        insert(SqlStatementRevision).values(revision_id=version_id, kind="CLAIM")
+                    )
+                    from sqlalchemy import update
+
+                    db.execute(
+                        update(SqlResearchObject)
+                        .where(SqlResearchObject.id == object_id)
+                        .values(current_revision_id=version_id)
+                    )
                     db.commit()
-                    existing.append((project, str(obj.id), str(version.id)))
+                    existing.append((project, str(object_id), str(version_id)))
             command.upgrade(config, "head")
             assert "beta_sample_data_installations" not in inspect(engine).get_table_names()
-            for project, object_id, version_id in existing:
-                assert (
-                    pg_client.get(f"/api/v1/workspaces/{project['id']}", headers=headers()).json()
-                    == project
-                )
-                claim = pg_client.get(f"/api/v1/objects/{object_id}", headers=headers()).json()
-                assert claim["current_object_version_id"] == version_id
+            for project, existing_object_id, existing_version_id in existing:
+                current = pg_client.get(
+                    f"/api/v1/projects/{project['id']}", headers=headers()
+                ).json()
+                assert {key: current[key] for key in project} == project
+                claim = pg_client.get(
+                    f"/api/v1/objects/{existing_object_id}", headers=headers()
+                ).json()
+                assert claim["current_object_version_id"] == existing_version_id
                 version_read = pg_client.get(f"/api/v1/versions/{version_id}", headers=headers())
                 assert version_read.status_code == 200, version_read.text
                 assert version_read.json()["content"]["title"] == "Preserved exact claim"
@@ -172,6 +216,6 @@ def test_external_agent_authority_retries_and_revocation_on_postgresql(
                     "UPDATE external_agent_credentials "
                     "SET fixed_rights = CAST(:rights AS JSON) WHERE id = :credential_id"
                 ),
-                {"rights": '["WORKSPACE_WRITE"]', "credential_id": credential_id},
+                {"rights": '["PROJECT_WRITE"]', "credential_id": credential_id},
             )
         transaction.rollback()

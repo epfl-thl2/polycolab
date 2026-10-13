@@ -36,8 +36,8 @@ test('M2 real publication preview matches anonymous immutable output', async ({
   await page.route('**/api/v1/**', (route) =>
     route.continue({ headers: { ...route.request().headers(), ...human } }),
   );
-  const project = await post(page.request, '/api/v1/workspaces', {
-    name: 'M2 publication workspace',
+  const project = await post(page.request, '/api/v1/projects', {
+    name: 'M2 publication project',
   });
   const projectId = project.id;
   const owner = await page.request.get(`${apiUrl}/api/v1/users/me`, { headers: human });
@@ -48,13 +48,13 @@ test('M2 real publication preview matches anonymous immutable output', async ({
   });
   expect(successor.ok(), await successor.text()).toBeTruthy();
   const successorId = (await successor.json()).id as string;
-  await post(page.request, `/api/v1/workspaces/${projectId}/members`, {
+  await post(page.request, `/api/v1/projects/${projectId}/members`, {
     user_id: successorId,
     role: 'OWNER',
   });
 
   const claim = await post(page.request, '/api/v1/records', {
-    workspace_id: projectId,
+    project_id: projectId,
     kind: 'CLAIM',
     title: 'Exact private claim',
     content_md: 'Every finite tree has a leaf.',
@@ -63,7 +63,7 @@ test('M2 real publication preview matches anonymous immutable output', async ({
     reason: 'Create publication target',
   });
   const proof = await post(page.request, '/api/v1/records', {
-    workspace_id: projectId,
+    project_id: projectId,
     kind: 'PROOF_SKETCH',
     title: 'Exact private proof sketch',
     content_md: 'Choose a longest path and inspect an endpoint.',
@@ -78,24 +78,24 @@ test('M2 real publication preview matches anonymous immutable output', async ({
     },
   });
   const summary = await put(page.request, `/api/v1/research/objects/${proof.id}/summary`, {
-    workspace_id: projectId,
+    project_id: projectId,
     body_md: 'The endpoint argument proves the exact claim.',
     source_revision_ids: [proof.revision_id, claim.revision_id],
   });
   const comment = await post(page.request, `/api/v1/research/objects/${proof.id}/comments`, {
-    workspace_id: projectId,
+    project_id: projectId,
     revision_id: proof.revision_id,
     body_md: 'The maximal-path endpoint needs degree one.',
   });
   const progress = await post(page.request, `/api/v1/research/objects/${proof.id}/progress`, {
-    workspace_id: projectId,
+    project_id: projectId,
     revision_id: proof.revision_id,
     status: 'PARTIAL',
     detail_md: 'The dependency closure is ready for review.',
   });
   const privateMarker = `PRIVATE-NOTE-${crypto.randomUUID()}`;
   await put(page.request, `/api/v1/research/objects/${proof.id}/human-note`, {
-    workspace_id: projectId,
+    project_id: projectId,
     body_md: privateMarker,
   });
 
@@ -121,7 +121,7 @@ test('M2 real publication preview matches anonymous immutable output', async ({
   await preview.getByLabel('Publication reason').fill('Publish reviewed exact research.');
 
   const revoked = await page.request.patch(
-    `${apiUrl}/api/v1/workspaces/${projectId}/members/${ownerId}`,
+    `${apiUrl}/api/v1/projects/${projectId}/members/${ownerId}`,
     { headers: human, data: { role: 'READ_ONLY' } },
   );
   expect(revoked.ok(), await revoked.text()).toBeTruthy();
@@ -130,7 +130,7 @@ test('M2 real publication preview matches anonymous immutable output', async ({
   await expect(page.getByRole('link', { name: /Open immutable public release/ })).toHaveCount(0);
 
   const restored = await page.request.patch(
-    `${apiUrl}/api/v1/workspaces/${projectId}/members/${ownerId}`,
+    `${apiUrl}/api/v1/projects/${projectId}/members/${ownerId}`,
     {
       headers: { Authorization: 'Bearer contributor' },
       data: { role: 'OWNER' },
@@ -160,7 +160,7 @@ test('M2 real publication preview matches anonymous immutable output', async ({
   expect((await retriedConfirmation.json()).id).toBe(manifestId);
 
   await post(page.request, '/api/v1/records', {
-    workspace_id: projectId,
+    project_id: projectId,
     object_id: proof.id,
     base_revision_id: proof.revision_id,
     kind: 'PROOF_SKETCH',

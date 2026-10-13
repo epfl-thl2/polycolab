@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from test_catalogue_api import admit, enable, headers
 from test_direct_contributions import active_run
 from test_proposals_api import _proposal_run
-from test_research_domain import create_object, create_workspace
+from test_research_domain import create_object, create_project
 
 from polycolab.agents.context import manifest_for_run
 from polycolab.db.models import (
@@ -79,7 +79,7 @@ def test_context_manifest_uses_typed_private_and_frozen_public_versions(
 ) -> None:
     app = enable(client)
     public = admit(client)
-    project = create_workspace(client)
+    project = create_project(client)
     private = create_object(client, project, title="Private source")
     public_id = public["object_version_id"]
     private_id = private["current_object_version_id"]

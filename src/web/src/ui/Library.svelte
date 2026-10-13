@@ -6,7 +6,7 @@
   import * as Field from '../lib/components/ui/field';
   import { onMount } from 'svelte';
   import type { CatalogueEntry, CatalogueRevision, LibraryFilters } from '../lib/catalogue-api';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import { accountHref } from '../lib/account-navigation';
   import Markdown from './Markdown.svelte';
   import LoadingState from './LoadingState.svelte';
@@ -17,7 +17,7 @@
   import CatalogueEdit from './CatalogueEdit.svelte';
   let { entryId, revisionId }: { entryId?: string; revisionId?: string } = $props();
   const basePath = '/library';
-  const { catalogue, records, auth } = workspace();
+  const { catalogue, records, auth } = projectContext();
   let page = $state<Awaited<ReturnType<typeof catalogue.library>>>();
   let entry = $state<CatalogueEntry>();
   let history = $state<Awaited<ReturnType<typeof catalogue.history>>>();
@@ -365,7 +365,7 @@
         <h1>Library</h1>
         {#if auth.signedIn}<Button href="/library/new">Add to Library</Button>{/if}
       </div>
-      <p>Find statements and questions to develop in your workspace.</p>
+      <p>Find statements and questions to develop in your project.</p>
     </header>
     <form
       class="library-search"
@@ -509,8 +509,8 @@
             {#if Object.values(applied).some(Boolean)}<Button variant="outline" onclick={clear}
                 >Clear search and filters</Button
               >
-            {:else}<Button href="/workspaces?scope=public" variant="outline"
-                >Explore public workspaces</Button
+            {:else}<Button href="/projects?scope=public" variant="outline"
+                >Explore public projects</Button
               >{/if}
           </DiscoveryState>{/if}{/if}
     </section>

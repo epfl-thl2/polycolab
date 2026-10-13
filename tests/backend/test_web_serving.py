@@ -34,9 +34,9 @@ def test_removed_public_project_routes_stay_blocked(client: TestClient) -> None:
     for path in (
         "/api/v1/public/projects",
         "/api/v1/public/projects/probe",
-        "/public/workspaces",
+        "/public/projects",
         "/public/projects/probe/objects/probe",
-        "/api/v1/workspaces/probe/objects/probe/neighborhood",
+        "/api/v1/projects/probe/objects/probe/neighborhood",
     ):
         for method in ("GET", "POST"):
             assert client.request(method, path).status_code in (404, 405)
@@ -46,7 +46,7 @@ def test_private_and_unknown_public_pages_have_the_same_non_disclosing_response(
     client: TestClient,
 ) -> None:
     project = client.post(
-        "/api/v1/workspaces",
+        "/api/v1/projects",
         headers={"Authorization": "Bearer owner"},
         json={"visibility": "PRIVATE", "name": "Private project"},
     )
@@ -135,18 +135,18 @@ def test_vite_assets_and_spa_fallback_do_not_swallow_service_routes(tmp_path: Pa
             "/chat",
             "/activity",
             "/activity/recent",
-            "/activity/workspaces",
+            "/activity/projects",
             "/library",
             "/library/statement",
-            "/workspaces",
-            "/workspaces/example",
-            "/workspaces?scope=public",
-            "/workspaces/example/objects/claim",
+            "/projects",
+            "/projects/example",
+            "/projects?scope=public",
+            "/projects/example/objects/claim",
         ):
             browser_response = vite_client.get(browser_path)
             assert browser_response.status_code == 200
             assert browser_response.text == "<html>vite shell</html>"
-        assert vite_client.get("/public/workspaces-other").status_code == 404
+        assert vite_client.get("/public/projects-other").status_code == 404
         route = vite_client.get("/projects/example")
         asset = vite_client.get("/assets/polycolab.js")
         assert root.status_code == route.status_code == asset.status_code == 200
@@ -181,6 +181,9 @@ def test_vite_assets_and_spa_fallback_do_not_swallow_service_routes(tmp_path: Pa
             ("/connect", "/docs/setup/external-agent/"),
             ("/docs/connect", "/docs/setup/external-agent/"),
             ("/docs/agent-api", "/docs/developers/agent-runs/"),
+            ("/docs/guides/workspaces", "/docs/guides/projects/"),
+            ("/docs/guides/workspaces/?from=bookmark", "/docs/guides/projects/?from=bookmark"),
+            ("/docs/setup/workspace/", "/docs/setup/project/"),
         ):
             redirect = vite_client.get(old, follow_redirects=False)
             assert redirect.status_code == 307

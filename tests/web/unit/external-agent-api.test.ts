@@ -7,7 +7,7 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
-it('authenticates account key management and private workspace run inspection', async () => {
+it('authenticates account key management and private project run inspection', async () => {
   const requests: Request[] = [];
   globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = new Request(input, init);
@@ -15,7 +15,7 @@ it('authenticates account key management and private workspace run inspection', 
     if (request.method === 'POST') {
       return Response.json({
         id: 'credential-a',
-        workspace_id: null,
+        project_id: null,
         scope_kind: 'ACCOUNT',
         sponsor_user_id: 'user-a',
         name: 'Lean helper',
@@ -40,7 +40,7 @@ it('authenticates account key management and private workspace run inspection', 
   const issued = await api.createCredential('Lean helper', 'agent-a');
   await api.listCredentials();
   await api.revokeCredential('credential-a');
-  await api.listWorkspaceRuns('project-a');
+  await api.listProjectRuns('project-a');
 
   expect(issued.secret).toBe('shown-once');
   expect(await requests[0]!.json()).toEqual({
@@ -59,6 +59,6 @@ it('authenticates account key management and private workspace run inspection', 
     '/api/v1/account/agent-keys',
     '/api/v1/account/agent-keys',
     '/api/v1/account/agent-keys/credential-a',
-    '/api/v1/workspaces/project-a/runs',
+    '/api/v1/projects/project-a/runs',
   ]);
 });

@@ -100,7 +100,7 @@ def mutate(
         operation = "REPORT_PROGRESS"
     if operation not in authority.allowed_operations:
         raise AuthorizationDenied("operation not granted; use a suggestion")
-    destination = run.project_id if authority.destination == "WORKSPACE" else None
+    destination = run.project_id if authority.destination == "PROJECT" else None
     if payload.project_id != destination:
         raise AuthorizationDenied("destination not granted")
     readable = {UUID(value) for value in manifest.revision_ids}

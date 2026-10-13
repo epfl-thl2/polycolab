@@ -18,7 +18,7 @@ it('uses the generated publication routes, exact cursor, and confirmation retry 
     baseUrl: 'https://api.example.test',
     getAccessToken: () => 'owner-token',
   });
-  const selection = { workspace_id: 'project-a', object_version_ids: ['proof-r2'] };
+  const selection = { project_id: 'project-a', object_version_ids: ['proof-r2'] };
   await api.preview(selection);
   await api.confirm(
     { ...selection, preview_digest: 'digest-a', reason: 'Reviewed exact output' },
@@ -41,7 +41,7 @@ it('uses the generated publication routes, exact cursor, and confirmation retry 
     reason: 'Reviewed exact output',
   });
   expect(Object.fromEntries(new URL(requests[2]!.url).searchParams)).toEqual({
-    workspace_id: 'project-a',
+    project_id: 'project-a',
     limit: '10',
     cursor: 'history-next',
   });

@@ -4,7 +4,7 @@ import {
   displayRelationships,
   relationshipWrite,
 } from '../../../src/web/src/lib/display-relationships';
-import { objectDiagram, type WorkspaceMap } from '../../../src/web/src/lib/workspace-map';
+import { objectDiagram, type ProjectMap } from '../../../src/web/src/lib/project-map';
 import { proofVersion, claimVersion, structuralPin } from './version-fixtures';
 import type { Relation } from '../../../src/web/src/lib/research-api';
 
@@ -55,7 +55,7 @@ it('maps exact proof directions, premises, and duplicate declarations without mu
       structuralPin('proof-current', 'premise', 'PREMISE'),
       structuralPin('proof-current', 'statement'),
     ],
-  } as WorkspaceMap;
+  } as ProjectMap;
   const edges = displayRelationships(data);
   expect(edges.map((edge) => edge.label)).toEqual(['Proved by', 'Refuted by', 'Depends on']);
   expect(edges[0].originals).toHaveLength(2);

@@ -51,7 +51,7 @@ def configuration_failures(
         ),
     }
     failures = [name for name, passed in checks.items() if not passed]
-    if require_moderation_operator and not settings.public_workspace_moderator_subjects:
+    if require_moderation_operator and not settings.public_project_moderator_subjects:
         failures.append("moderation_operators")
     return failures
 

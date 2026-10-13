@@ -17,9 +17,9 @@ from polycolab.db.models.research import SqlProofSketchMetadata
 from polycolab.db.stores.relationships import add_structural_relationship
 from polycolab.entities.enums import ResearchObjectKind
 from polycolab.entities.research import StructuralRole
+from polycolab.projects.service import DomainConflict
 from polycolab.research.contracts import ProofStructureRead
 from polycolab.research.schemas import ProofStructureRequest
-from polycolab.workspaces.service import DomainConflict
 
 MAX_DEPENDENCY_EDGES = 10_000
 
@@ -41,7 +41,7 @@ def validate_structure(
     """Reject malformed or cyclic exact-statement dependency sets.
 
     The caller holds the commons graph-mutation lock. Private dependency graphs
-    include their workspace and the public graph, but never another workspace.
+    include their project and the public graph, but never another project.
     """
 
     from polycolab.research.records import accessible_revision, public_condition

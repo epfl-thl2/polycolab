@@ -6,21 +6,21 @@
   import { Textarea } from '../lib/components/ui/textarea';
   import * as DropdownMenu from '../lib/components/ui/dropdown-menu';
   import { listReviews, saveReview, type ReviewWrite } from '../lib/reviews-api';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import Markdown from './Markdown.svelte';
   let {
     versionId,
-    workspaceId,
+    projectId,
     canReview = false,
-  }: { versionId: string; workspaceId?: string; canReview?: boolean } = $props();
-  const { query, auth } = workspace();
+  }: { versionId: string; projectId?: string; canReview?: boolean } = $props();
+  const { query, auth } = projectContext();
   let history = $state(false);
   let cursor = $state<string>();
   let previous = $state<Awaited<ReturnType<typeof listReviews>>['items']>([]);
   const reviews = createQuery(
     toStore(() => ({
-      queryKey: ['object-reviews', versionId, workspaceId, history, cursor],
-      queryFn: () => listReviews(versionId, workspaceId, cursor, !history),
+      queryKey: ['object-reviews', versionId, projectId, history, cursor],
+      queryFn: () => listReviews(versionId, projectId, cursor, !history),
     })),
   );
   let rationale = $state('');

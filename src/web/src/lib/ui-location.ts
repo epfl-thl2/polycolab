@@ -7,7 +7,7 @@ const choice = <T extends string>(value: string | null, values: readonly T[], fa
 export function readActivity(search: string) {
   const params = new URLSearchParams(search);
   return {
-    view: choice(params.get('view'), ['recent', 'workspaces'] as const, 'recent'),
+    view: choice(params.get('view'), ['recent', 'projects'] as const, 'recent'),
     window: choice(params.get('window'), ['day', 'week', 'month'] as const, 'week'),
     actor: choice(params.get('actor'), ['all', 'human', 'agent'] as const, 'all'),
     kind: 'all' as const,
@@ -41,7 +41,7 @@ export function readSearch(search: string) {
   const params = new URLSearchParams(search);
   return {
     query: (params.get('q') ?? '').trim(),
-    type: choice(params.get('type'), ['all', 'research', 'workspaces'] as const, 'all'),
+    type: choice(params.get('type'), ['all', 'research', 'projects'] as const, 'all'),
   };
 }
 export function readProfile(search: string) {
@@ -85,6 +85,12 @@ export function searchQuery(query: string, type: ReturnType<typeof readSearch>['
   return params.toString();
 }
 export function canonicalUiLocation(path: string, search: string) {
+  // Browser bookmark compatibility only; API callers must adopt the new contract.
+  const renamed = path
+    .replace(/^\/workspaces(?=\/|$)/, '/projects')
+    .replace(/^\/demo\/workspaces(?=\/|$)/, '/demo/projects');
+  if (renamed !== path) return renamed + search;
+  if (path === '/activity/workspaces') return '/activity/projects' + search;
   if (path === '/settings/providers') return '/settings/model-providers' + search;
   if (path === '/settings/agent-keys') return '/settings/api-keys' + search;
   let query: string;
@@ -92,9 +98,9 @@ export function canonicalUiLocation(path: string, search: string) {
     const state = readSearch(search);
     path = '/';
     query = searchQuery(state.query, state.type);
-  } else if (['/activity', '/activity/recent', '/activity/workspaces'].includes(path)) {
+  } else if (['/activity', '/activity/recent', '/activity/projects'].includes(path)) {
     const state = readActivity(search);
-    if (path === '/activity/workspaces') state.view = 'workspaces';
+    if (path === '/activity/projects') state.view = 'projects';
     if (path === '/activity/recent') state.view = 'recent';
     path = '/activity';
     query = activityQuery(state);

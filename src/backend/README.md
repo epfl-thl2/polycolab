@@ -17,7 +17,7 @@ Import it before inspecting `polycolab.db.base.metadata`.
 
 Capability-local `store.py` modules define database-independent interfaces.
 `polycolab/transaction.py` defines the shared transaction interface, implemented by `polycolab/db/transaction.py`.
-Identity synchronization, built-in accounts, browser sessions, registration, project authorization, workspace operations, and the shared workspace listing use these interfaces.
+Identity synchronization, built-in accounts, browser sessions, registration, project authorization, project operations, and the shared project listing use these interfaces.
 Other capability services still use SQLAlchemy directly during the conversion.
 See [persistence architecture](../../docs/architecture/persistence.md).
 
@@ -60,7 +60,7 @@ Do not place any provider key in this file, logs, events, or diagnostic output.
 PostgreSQL-backed admission state enforces the execution safety controls.
 These controls use conservative defaults:
 
-- Owners control public/private workspace visibility.
+- Owners control public/private project visibility.
   Deployment flags do not select visibility.
 - `FEATURE_AGENT_EXECUTION_ENABLED` gates session creation, queueing, and resume requests.
 - `EXECUTION_USER_REQUESTS_PER_MINUTE`, `EXECUTION_PROJECT_REQUESTS_PER_MINUTE`, `EXECUTION_USER_CONCURRENT_RUNS`, and `EXECUTION_PROJECT_CONCURRENT_RUNS` bound admission.

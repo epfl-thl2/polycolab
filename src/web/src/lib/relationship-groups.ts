@@ -1,8 +1,8 @@
 import { displayRelationships } from './display-relationships';
-import type { WorkspaceMap } from './workspace-map';
-export function groupRelationships(data: WorkspaceMap | undefined, objectId: string) {
+import type { ProjectMap } from './project-map';
+export function groupRelationships(data: ProjectMap | undefined, objectId: string) {
   type Item = {
-    relation: WorkspaceMap['relations'][number];
+    relation: ProjectMap['relations'][number];
     display: import('./display-relationships').DisplayRelationship;
     otherRevisionId: string;
     focusedRevisionId: string;

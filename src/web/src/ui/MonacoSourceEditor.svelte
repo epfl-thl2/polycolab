@@ -1,7 +1,7 @@
 <script lang="ts">
   import LoadingState from './LoadingState.svelte';
   import { onMount, tick, untrack } from 'svelte';
-  import { syncEditorModel, type WorkspaceEditorSessions } from '../lib/workspace-editor-session';
+  import { syncEditorModel, type ProjectEditorSessions } from '../lib/project-editor-session';
   import type * as Monaco from 'monaco-editor';
 
   let {
@@ -17,7 +17,7 @@
   }: {
     value: string;
     language: 'LEAN' | 'PYTHON' | 'TEXT' | 'MARKDOWN' | 'JSON';
-    sessions?: WorkspaceEditorSessions;
+    sessions?: ProjectEditorSessions;
     sessionKey?: string;
     readOnly?: boolean;
     active?: boolean;
@@ -156,7 +156,7 @@
 <div
   bind:this={container}
   class="monaco-source-editor"
-  class:workspace-editor={Boolean(sessions)}
+  class:project-editor={Boolean(sessions)}
   class:hidden={loading || Boolean(error)}
   aria-label="Enhanced source editor"
 ></div>
@@ -167,7 +167,7 @@
     border: 1px solid var(--demo-line, #c9cecc);
   }
 
-  .workspace-editor {
+  .project-editor {
     height: 100%;
     min-height: 0;
     border: 0;

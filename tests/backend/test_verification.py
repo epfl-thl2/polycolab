@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from sqlalchemy import func, select
-from test_research_domain import create_object, create_workspace, current_user_id, headers
+from test_research_domain import create_object, create_project, current_user_id, headers
 
 from polycolab.db.models import (
     SqlArtifact,
@@ -20,6 +20,7 @@ from polycolab.db.models import (
 )
 from polycolab.entities.enums import ArtifactState, VerificationLanguage
 from polycolab.entities.time import utc_now
+from polycolab.projects.service import DomainConflict
 from polycolab.verification import service as verification
 from polycolab.verification.contracts import (
     ControllerCompletion,
@@ -32,12 +33,11 @@ from polycolab.verification.contracts import (
 )
 from polycolab.verification.limits import QuotaExceeded
 from polycolab.verification.version_contracts import VersionJobSubmission
-from polycolab.workspaces.service import DomainConflict
 
 
 def setup_job(client: TestClient) -> tuple[Any, UUID, JobSubmission]:
     app = cast(Any, client.app)
-    project_id = UUID(create_workspace(client))
+    project_id = UUID(create_project(client))
     source = create_object(client, str(project_id), kind="COMPUTATION", content="print(1)")
     user_id = UUID(current_user_id(client, "owner"))
     limits = ResourceLimits(
@@ -404,7 +404,7 @@ def test_http_authentication_private_schema_and_disabled_execution(
 ) -> None:
     app, _, submission = setup_job(client)
     assert not any(path.startswith("/internal/verification") for path in app.openapi()["paths"])
-    url = f"/api/v1/workspaces/{submission.project_id}/verification-jobs"
+    url = f"/api/v1/projects/{submission.project_id}/verification-jobs"
     payload = {
         "retry_key": "http",
         "submission": VersionJobSubmission.from_stored(submission).model_dump(mode="json"),
@@ -458,7 +458,7 @@ def test_available_environment_discovery_is_authorized_bounded_and_exact(
         expected = sorted((first.id, second.id))
 
     app.state.settings.feature_verification_submission_enabled = False
-    url = f"/api/v1/workspaces/{submission.project_id}/verification-environments"
+    url = f"/api/v1/projects/{submission.project_id}/verification-environments"
     assert client.get(url, headers=headers("outsider")).status_code == 404
     assert client.get(url).status_code == 401
     first_page = client.get(
@@ -526,7 +526,7 @@ def test_deadline_and_environment_denial(client: TestClient) -> None:
 
 
 def test_revoked_sponsor_cannot_claim_or_complete(client: TestClient) -> None:
-    from polycolab.access.authorization import WorkspaceNotFound
+    from polycolab.access.authorization import ProjectNotFound
     from polycolab.db.models import SqlMembership
 
     app, user_id, submission = setup_job(client)
@@ -542,7 +542,7 @@ def test_revoked_sponsor_cannot_claim_or_complete(client: TestClient) -> None:
         )
         session.delete(member)
         session.commit()
-        with pytest.raises(WorkspaceNotFound):
+        with pytest.raises(ProjectNotFound):
             verification.complete(
                 session,
                 payload=completion(leased),
@@ -562,7 +562,7 @@ def test_http_body_bound_and_reads_after_submission_disabled(
 ) -> None:
     app, user_id, submission = setup_job(client)
     job = admit(app, user_id, submission)
-    url = f"/api/v1/workspaces/{submission.project_id}/verification-jobs"
+    url = f"/api/v1/projects/{submission.project_id}/verification-jobs"
     app.state.settings.verification_api_max_request_bytes = 32
     response = client.post(
         url,

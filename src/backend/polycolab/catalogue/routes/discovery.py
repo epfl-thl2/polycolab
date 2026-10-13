@@ -1,4 +1,4 @@
-"""Public discovery and separately authorized private workspace search."""
+"""Public discovery and separately authorized private project search."""
 
 from typing import Annotated, Literal
 from uuid import UUID
@@ -34,7 +34,7 @@ def public_no_store(response: Response) -> None:
 def public_search(
     session: DbSession,
     access: Access,
-    workspace_id: UUID | None = None,
+    project_id: UUID | None = None,
     scope: Literal["public", "member"] = "public",
     q: QueryText = "",
     kind: ObjectKind | None = None,
@@ -46,10 +46,10 @@ def public_search(
     cursor: Cursor = None,
 ) -> VersionDiscoveryPage:
     if scope == "member":
-        workspace_id = collection_scope(session, access, scope, workspace_id)
+        project_id = collection_scope(session, access, scope, project_id)
     selected = discovery.search(
         session,
-        project_id=workspace_id,
+        project_id=project_id,
         public_only=scope == "public",
         query=q,
         kind=kind,
@@ -73,7 +73,7 @@ def public_search(
         session,
         [rows[record.revision_id] for record in records],
         records,
-        public=workspace_id is None,
+        public=project_id is None,
     )
     return VersionDiscoveryPage(
         items=[

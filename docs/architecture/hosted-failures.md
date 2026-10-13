@@ -19,7 +19,7 @@ The recovery policy is conservative:
 | Cancellation / expired lease / changed credentials     | Recheck authority before dispatch, delivery and exports. Stop local work when lease budget expires                         | `test_codex_runtime.py`, `test_hosted_artifacts.py`    |
 | Lost process / failed stop / failed scratch deletion   | Durable journal, quarantine and retained physical occupancy. Reconcile before reuse                                        | `test_hosted_recovery.py`, `test_hosted_scheduler.py`  |
 | Unsafe or late file export                             | Bounded selected paths, storage verification and atomic completion binding                                                 | `test_hosted_artifacts.py`, `test_codex_runtime.py`    |
-| Browser reconnect / disabled admission                 | Poll canonical history. Retain downloads from old completed runs. Show an explicit resume warning.                         | `svelte-workspace.spec.ts` hosted-history case         |
+| Browser reconnect / disabled admission                 | Poll canonical history. Retain downloads from old completed runs. Show an explicit resume warning.                         | `svelte-project.spec.ts` hosted-history case           |
 
 Run repository regressions:
 
@@ -56,7 +56,7 @@ Before enabling hosted agents, also record:
 2. Controller SIGKILL, host reboot, disconnected API/database, corrupt/full journal storage, ambiguous VM creation and failed stop.
    Verify quarantine and recovery while healthy chats progress.
 3. Offline networking, read-only inputs, host credential isolation, pinned image identity and cold/warm image behavior on the selected host.
-4. Five real chats across multiple users/workspaces, with capacity four.
+4. Five real chats across multiple users/projects, with capacity four.
    Verify at most four active attempts and a queued fifth attempt.
    Cancel one attempt.
    Simulate the loss of another attempt.

@@ -16,7 +16,7 @@ from polycolab.entities.enums import VerificationJobState
 def candidate_page(session: Session, *, limit: int = 100) -> list[UUID]:
     if type(limit) is not int or not 1 <= limit <= 100:
         raise ValueError("invalid verification candidate page limit")
-    # Rank a user's jobs across all workspaces: creating more workspaces must
+    # Rank a user's jobs across all projects: creating more projects must
     # not give one sponsor multiple first-in-user positions.
     users = (
         select(
@@ -33,9 +33,9 @@ def candidate_page(session: Session, *, limit: int = 100) -> list[UUID]:
         .where(SqlVerificationJob.state == VerificationJobState.QUEUED)
         .subquery()
     )
-    # Within each workspace, interleave users before assigning workspace ranks.
+    # Within each project, interleave users before assigning project ranks.
     # Ranking by FIFO alone here would hide a new user's job behind a busy
-    # neighbor in the very same workspace.
+    # neighbor in the very same project.
     scopes = select(
         users.c.id,
         users.c.queued_at,

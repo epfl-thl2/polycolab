@@ -11,7 +11,7 @@
   import { toStore } from 'svelte/store';
   import { createInfiniteQuery, createQuery } from '@tanstack/svelte-query';
   import { untrack } from 'svelte';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import { ProposalApiError, type ProposalBatchDecision } from '../lib/proposals-api';
   import {
     editProposalText,
@@ -21,7 +21,7 @@
   } from '../lib/proposal-editor';
   import Markdown from './Markdown.svelte';
   let { projectId, proposalId }: { projectId: string; proposalId?: string } = $props();
-  const { proposals, query } = workspace();
+  const { proposals, query } = projectContext();
   let selected = $state<string[]>([]);
   let edited = $state<Record<string, string>>({});
   let actions = $state<Record<string, 'ACCEPT' | 'REJECT'>>({});
@@ -110,7 +110,7 @@
     >
     <Button type="submit" onclick={() => $inbox.refetch()}>Retry</Button>{:else}<ul class="list">
       {#each $inbox.data?.pages.flatMap((p) => p.items) ?? [] as proposal (proposal.id)}<li>
-          <a href={`/workspaces/${projectId}/proposals/${proposal.id}`}>{proposal.summary}</a>
+          <a href={`/projects/${projectId}/proposals/${proposal.id}`}>{proposal.summary}</a>
           <p class="muted">{new Date(proposal.created_at).toLocaleString()}</p>
         </li>{/each}
     </ul>
@@ -122,13 +122,13 @@
     >{/if}
 {:else if $detail.isPending}<LoadingState>
     Loading proposal…
-  </LoadingState>{:else if $detail.isError || $detail.data?.workspace_id !== projectId}<Alert.Root
+  </LoadingState>{:else if $detail.isError || $detail.data?.project_id !== projectId}<Alert.Root
     variant="destructive"
     role="alert"
   >
     Proposal unavailable. Return to the inbox.
   </Alert.Root>{:else if $detail.data}
-  <a href={`/workspaces/${projectId}/proposals`}>← Proposal inbox</a>
+  <a href={`/projects/${projectId}/proposals`}>← Proposal inbox</a>
   <h2 class="mt-6">{$detail.data.summary}</h2>
   <p class="muted">Agent version {$detail.data.agent_version_id}</p>
   {#if $context.isPending}<LoadingState>Loading exact proposal context…</LoadingState>

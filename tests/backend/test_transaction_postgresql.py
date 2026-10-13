@@ -9,9 +9,9 @@ from sqlalchemy.engine import Engine
 
 from polycolab.db.session import make_session_factory
 from polycolab.db.transaction import make_transaction_factory
-from polycolab.entities.enums import WorkspaceRole, WorkspaceVisibility
+from polycolab.entities.enums import ProjectRole, ProjectVisibility
+from polycolab.projects.service import DomainConflict, change_membership_role, create_project
 from polycolab.transaction import PersistenceConflict
-from polycolab.workspaces.service import DomainConflict, change_membership_role, create_workspace
 
 
 def test_owner_set_mutations_are_serialized_by_shared_transaction(
@@ -27,16 +27,16 @@ def test_owner_set_mutations_are_serialized_by_shared_transaction(
         second = transaction.accounts.create_user(
             issuer="test", subject="second", email=None, display_name=None
         )
-        project = create_workspace(
+        project = create_project(
             transaction,
             creator=first,
             name="Two owners",
             description=None,
-            visibility=WorkspaceVisibility.PRIVATE,
+            visibility=ProjectVisibility.PRIVATE,
             commit=False,
         )
-        transaction.workspaces.add_membership(
-            project_id=project.id, user_id=second.id, role=WorkspaceRole.OWNER, invited_by=first.id
+        transaction.projects.add_membership(
+            project_id=project.id, user_id=second.id, role=ProjectRole.OWNER, invited_by=first.id
         )
         transaction.commit()
     barrier = Barrier(2)
@@ -50,7 +50,7 @@ def test_owner_set_mutations_are_serialized_by_shared_transaction(
                     transaction,
                     project_id=project.id,
                     user_id=user.id,
-                    role=WorkspaceRole.CONTRIBUTOR,
+                    role=ProjectRole.CONTRIBUTOR,
                 )
             except DomainConflict:
                 return False
@@ -60,10 +60,10 @@ def test_owner_set_mutations_are_serialized_by_shared_transaction(
         results = list(pool.map(demote, (0, 1)))
     assert sorted(results) == [False, True]
     with factory() as transaction:
-        assert len(transaction.workspaces.owners(project.id)) == 1
+        assert len(transaction.projects.owners(project.id)) == 1
 
 
-def test_constraint_failure_rolls_back_new_workspace_and_user(
+def test_constraint_failure_rolls_back_new_project_and_user(
     pg_schema: tuple[Engine, Config, str],
 ) -> None:
     engine, config, _ = pg_schema
@@ -75,18 +75,18 @@ def test_constraint_failure_rolls_back_new_workspace_and_user(
         owner = transaction.accounts.create_user(
             issuer="test", subject="owner", email=None, display_name=None
         )
-        project = create_workspace(
+        project = create_project(
             transaction,
             creator=owner,
             name="Rolled back",
             description=None,
-            visibility=WorkspaceVisibility.PRIVATE,
+            visibility=ProjectVisibility.PRIVATE,
             commit=False,
         )
-        transaction.workspaces.add_membership(
-            project_id=project.id, user_id=owner.id, role=WorkspaceRole.OWNER, invited_by=None
+        transaction.projects.add_membership(
+            project_id=project.id, user_id=owner.id, role=ProjectRole.OWNER, invited_by=None
         )
     with factory() as transaction:
         assert transaction.accounts.user(owner.id) is None
-        assert transaction.workspaces.workspace(project.id) is None
-        assert transaction.workspaces.membership(project.id, owner.id) is None
+        assert transaction.projects.project(project.id) is None
+        assert transaction.projects.membership(project.id, owner.id) is None

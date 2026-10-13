@@ -24,6 +24,9 @@ from test_discovery import (
 from test_notifications import (
     test_notification_retry_reference_revocation_and_filtered_summary as notification_journey,
 )
+from test_project_references import (
+    test_pin_reuse_explicit_upgrade_and_private_history as reference_history,
+)
 from test_record_moderation import (
     test_record_hide_restore_audit_and_public_search as moderation_journey,
 )
@@ -51,9 +54,6 @@ from test_research_snapshots import (
 )
 from test_research_snapshots import (
     test_snapshots_batch_children_and_work_after_session_close as materialized_snapshots,
-)
-from test_workspace_references import (
-    test_pin_reuse_explicit_upgrade_and_private_history as reference_history,
 )
 
 from polycolab.accounts.authentication import MappingIdentityVerifier

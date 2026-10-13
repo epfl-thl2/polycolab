@@ -12,7 +12,7 @@
       <PlannedBadge />
     </div>
     <p>
-      Explore an idea with a server-hosted research agent, then turn useful results into workspace
+      Explore an idea with a server-hosted research agent, then turn useful results into project
       research.
     </p>
   </header>
@@ -25,7 +25,7 @@
       <Button variant="outline" disabled><Plus size={16} aria-hidden="true" />New chat</Button>
       <h2>Conversations</h2>
       <p>Your private conversations will appear here.</p>
-      <p class="muted">Resume an investigation without choosing a workspace first.</p>
+      <p class="muted">Resume an investigation without choosing a project first.</p>
     </details>
     <div class="chat-conversation">
       <div class="chat-welcome">
@@ -77,7 +77,7 @@
         </div>
         <div>
           <dt>Destination</dt>
-          <dd>Conversation only, until you choose a workspace.</dd>
+          <dd>Conversation only, until you choose a project.</dd>
         </div>
       </dl>
     </details>
@@ -86,12 +86,12 @@
     <div>
       <h2>Keep the conversation private</h2>
       <p>
-        General Chat will start without workspace write access. You will choose which results to
-        save or continue in a workspace.
+        General Chat will start without project write access. You will choose which results to save
+        or continue in a project.
       </p>
       <p>
-        In a public workspace, saved research is public; the private conversation is not
-        automatically shared.
+        In a public project, saved research is public; the private conversation is not automatically
+        shared.
       </p>
     </div>
     <div>
@@ -99,8 +99,8 @@
       <p>Connect an external agent running on your own machine or infrastructure.</p>
       <div class="chat-links">
         <Button href="/agents">Connect an external agent</Button><Button
-          href="/workspaces?scope=public"
-          variant="outline">Browse workspaces</Button
+          href="/projects?scope=public"
+          variant="outline">Browse projects</Button
         >
       </div>
     </div>

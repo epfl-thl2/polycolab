@@ -6,7 +6,7 @@ export type PersonView = {
   bio: string;
   interests: string[];
   contributions?: { title: string; summary: string; href?: string }[];
-  workspaces: { name: string; href?: string }[];
+  projects: { name: string; href?: string }[];
 };
 export interface PeopleSource {
   getProfile(id: string): Promise<PersonView | undefined>;
@@ -30,7 +30,7 @@ export const examplePeopleSource: PeopleSource = {
             summary: 'An illustrative proof sketch exploring the role of connectedness.',
           },
         ],
-        workspaces: [{ name: 'Spectral gaps' }],
+        projects: [{ name: 'Spectral gaps' }],
       },
       {
         id: 'example-noor',
@@ -38,7 +38,7 @@ export const examplePeopleSource: PeopleSource = {
         handle: 'noor-example',
         bio: 'An illustrative collaborator exploring formalization and proof structure.',
         interests: ['Lean', 'Logic'],
-        workspaces: [{ name: 'Formal proof workshop' }],
+        projects: [{ name: 'Formal proof workshop' }],
       },
       {
         id: 'example-alex',
@@ -46,7 +46,7 @@ export const examplePeopleSource: PeopleSource = {
         handle: 'alex-example',
         bio: 'An illustrative researcher studying complexity and algorithmic arguments.',
         interests: ['Complexity', 'Algorithms'],
-        workspaces: [{ name: 'Combinatorial identities' }],
+        projects: [{ name: 'Combinatorial identities' }],
       },
     ];
     const term = query.trim().toLocaleLowerCase();

@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from research_requests import post_research
 from test_catalogue_api import admit, enable, headers
 from test_public_external_agents import version_snapshot
-from test_research_domain import add_member, create_object, create_workspace
+from test_research_domain import add_member, create_object, create_project
 
 
 def attempt_payload(
@@ -466,7 +466,7 @@ def test_private_note_capability_summary_freshness_and_batched_revision_display(
     client: TestClient,
 ) -> None:
     enable(client)
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     source = create_object(client, project_id, title="Original source")
     object_id = source["id"]
     source_revision_id = source["current_object_version_id"]
@@ -475,7 +475,7 @@ def test_private_note_capability_summary_freshness_and_batched_revision_display(
     note = client.put(
         f"/api/v1/research/objects/{object_id}/human-note",
         headers=headers(key="private-note-capability"),
-        json={"workspace_id": project_id, "body_md": "Owner-only edit stream"},
+        json={"project_id": project_id, "body_md": "Owner-only edit stream"},
     )
     assert note.status_code == 200, note.text
     assert note.json()["owner_user_id"] == owner_id
@@ -484,7 +484,7 @@ def test_private_note_capability_summary_freshness_and_batched_revision_display(
     member_note = client.get(
         f"/api/v1/research/objects/{object_id}/human-note",
         headers=headers("contributor"),
-        params={"workspace_id": project_id},
+        params={"project_id": project_id},
     )
     assert member_note.status_code == 200
     assert member_note.json()["owner_user_id"] == owner_id
@@ -493,13 +493,13 @@ def test_private_note_capability_summary_freshness_and_batched_revision_display(
     contributor_note = client.put(
         f"/api/v1/research/objects/{contributor_object['id']}/human-note",
         headers=headers("contributor", key="contributor-note-capability"),
-        json={"workspace_id": project_id, "body_md": "Contributor-owned edit stream"},
+        json={"project_id": project_id, "body_md": "Contributor-owned edit stream"},
     )
     assert contributor_note.status_code == 200
     assert contributor_note.json()["can_edit"] is True
     contributor_id = client.get("/api/v1/users/me", headers=headers("contributor")).json()["id"]
     downgraded = client.patch(
-        f"/api/v1/workspaces/{project_id}/members/{contributor_id}",
+        f"/api/v1/projects/{project_id}/members/{contributor_id}",
         headers=headers(),
         json={"role": "READ_ONLY"},
     )
@@ -507,12 +507,12 @@ def test_private_note_capability_summary_freshness_and_batched_revision_display(
     downgraded_note = client.get(
         f"/api/v1/research/objects/{contributor_object['id']}/human-note",
         headers=headers("contributor"),
-        params={"workspace_id": project_id},
+        params={"project_id": project_id},
     )
     assert downgraded_note.status_code == 200
     assert downgraded_note.json()["can_edit"] is False
     archived = client.patch(
-        f"/api/v1/workspaces/{project_id}",
+        f"/api/v1/projects/{project_id}",
         headers=headers(),
         json={"archived": True},
     )
@@ -520,12 +520,12 @@ def test_private_note_capability_summary_freshness_and_batched_revision_display(
     archived_note = client.get(
         f"/api/v1/research/objects/{object_id}/human-note",
         headers=headers(),
-        params={"workspace_id": project_id},
+        params={"project_id": project_id},
     )
     assert archived_note.status_code == 200
     assert archived_note.json()["can_edit"] is False
     unarchived = client.patch(
-        f"/api/v1/workspaces/{project_id}",
+        f"/api/v1/projects/{project_id}",
         headers=headers(),
         json={"archived": False},
     )
@@ -535,7 +535,7 @@ def test_private_note_capability_summary_freshness_and_batched_revision_display(
         f"/api/v1/research/objects/{object_id}/summary",
         headers=headers(key="fresh-summary"),
         json={
-            "workspace_id": project_id,
+            "project_id": project_id,
             "body_md": "Summary of the exact original source",
             "source_object_version_ids": [source_revision_id],
         },
@@ -556,7 +556,7 @@ def test_private_note_capability_summary_freshness_and_batched_revision_display(
     current_summary = client.get(
         f"/api/v1/research/objects/{object_id}/summary",
         headers=headers(),
-        params={"workspace_id": project_id},
+        params={"project_id": project_id},
     )
     assert current_summary.status_code == 200
     assert current_summary.json()["current_revision"]["fresh"] is False
@@ -565,7 +565,7 @@ def test_private_note_capability_summary_freshness_and_batched_revision_display(
         "/api/v1/research/versions/display",
         headers=headers("contributor"),
         json={
-            "workspace_id": project_id,
+            "project_id": project_id,
             "object_version_ids": [revised_id, source_revision_id],
         },
     )
@@ -578,7 +578,7 @@ def test_private_note_capability_summary_freshness_and_batched_revision_display(
         client.post(
             "/api/v1/research/versions/display",
             headers=headers("outsider"),
-            json={"workspace_id": project_id, "object_version_ids": [source_revision_id]},
+            json={"project_id": project_id, "object_version_ids": [source_revision_id]},
         ).status_code
         == 404
     )

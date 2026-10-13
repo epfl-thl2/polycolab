@@ -7,14 +7,14 @@
   import { Input } from '../lib/components/ui/input';
   import { Textarea } from '../lib/components/ui/textarea';
   import { onMount } from 'svelte';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import type {
     VerificationEnvironmentRead,
     VerificationJobSubmission,
   } from '../lib/verification-api';
 
   let { projectId, canWrite }: { projectId: string; canWrite: boolean } = $props();
-  const { verification } = workspace();
+  const { verification } = projectContext();
   let language = $state<'' | 'LEAN' | 'PYTHON'>('');
   let environments = $state<VerificationEnvironmentRead[]>([]);
   let nextAfter = $state<string | null>(null);
@@ -120,7 +120,7 @@
         throw new Error('Certificate verification requires an exact certificate input.');
       submission = {
         version: 1,
-        workspace_id: projectId,
+        project_id: projectId,
         work_target_object_version_id: workTargetRevisionId.trim(),
         research_attempt_object_version_id: researchAttemptRevisionId.trim() || null,
         environment_id: selected.id,
@@ -145,7 +145,7 @@
     try {
       const job = await verification.submit(projectId, submission, receipt.key);
       receipt = undefined;
-      location.assign(`/workspaces/${projectId}/verification/${job.id}`);
+      location.assign(`/projects/${projectId}/verification/${job.id}`);
     } catch (cause) {
       error = `${explain(cause)} Your exact IDs and requested limits are retained.`;
     } finally {

@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.engine import Engine
 from test_catalogue_api import enable
 from test_publication import headers
-from test_research_domain import create_object, create_workspace
+from test_research_domain import create_object, create_project
 
 from polycolab.accounts.authentication import MappingIdentityVerifier
 from polycolab.app.application import create_app
@@ -54,7 +54,7 @@ def upload(client: TestClient, project_id: str, data: bytes) -> dict[str, Any]:
         headers=headers(),
         content=data,
         params={
-            "workspace_id": project_id,
+            "project_id": project_id,
             "sha256": hashlib.sha256(data).hexdigest(),
             "byte_length": len(data),
             "media_type": "text/html",
@@ -76,7 +76,7 @@ def attach(client: TestClient, project_id: str, artifact_id: str, revision_id: s
 
 def selection(project_id: str, revision_id: str, artifact_ids: list[str]) -> dict[str, Any]:
     return {
-        "workspace_id": project_id,
+        "project_id": project_id,
         "object_version_ids": [revision_id],
         "summary_revision_ids": [],
         "comment_ids": [],
@@ -90,7 +90,7 @@ def test_selected_artifact_preview_confirmation_and_public_bytes_are_exact(
     client: TestClient,
 ) -> None:
     app = artifact_app(client)
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     target = create_object(client, project_id, title="Artifact-backed result")
     revision_id = target["current_object_version_id"]
     artifact = upload(client, project_id, b"<script>released evidence</script>")
@@ -187,8 +187,8 @@ def test_artifact_publication_fails_closed_for_state_scope_bytes_and_stale_previ
     client: TestClient,
 ) -> None:
     app = artifact_app(client)
-    project_id = create_workspace(client)
-    other_project_id = create_workspace(client)
+    project_id = create_project(client)
+    other_project_id = create_project(client)
     target = create_object(client, project_id, title="Publication target")
     revision_id = target["current_object_version_id"]
     staged = upload(client, project_id, b"not committed")
@@ -256,7 +256,7 @@ def test_public_artifact_download_rechecks_moderation_after_storage_read(
     client: TestClient,
 ) -> None:
     app = artifact_app(client)
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     target = create_object(client, project_id, title="Moderated artifact target")
     revision_id = target["current_object_version_id"]
     artifact = upload(client, project_id, b"moderated bytes")
@@ -308,7 +308,7 @@ def test_postgresql_artifact_release_membership_commits_with_exact_release(
     app.state.artifact_storage = GarageStorage(MemoryS3(), "publication-postgresql")
     try:
         with TestClient(app) as pg_client:
-            project_id = create_workspace(pg_client)
+            project_id = create_project(pg_client)
             target = create_object(pg_client, project_id, title="PostgreSQL artifact result")
             revision_id = target["current_object_version_id"]
             artifact = upload(pg_client, project_id, b"postgresql-bound-bytes")

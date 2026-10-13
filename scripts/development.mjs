@@ -95,7 +95,7 @@ try {
       APP_ENV: 'local',
       DATABASE_URL: `sqlite+pysqlite:///${resolve(root, '.local/polycolab.db')}`,
       ARTIFACT_LOCAL_DIRECTORY: resolve(root, '.local/artifacts'),
-      WORKSPACE_REPOSITORY_DIRECTORY: resolve(root, '.local/repositories'),
+      PROJECT_REPOSITORY_DIRECTORY: resolve(root, '.local/repositories'),
       PUBLIC_APP_ORIGIN: process.env.PUBLIC_APP_ORIGIN || 'http://localhost:5174',
       ALLOWED_ORIGINS: JSON.stringify(['http://localhost:5174', 'http://127.0.0.1:5174']),
       POLYCOLAB_API_PROXY_TARGET: 'http://127.0.0.1:8000',

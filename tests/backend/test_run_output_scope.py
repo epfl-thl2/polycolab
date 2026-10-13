@@ -24,7 +24,7 @@ def test_public_grant_requires_separate_public_task_and_public_inputs(client: Te
     app = enable(client)
     entry = admit(client)
     project = client.post(
-        "/api/v1/workspaces", headers=headers(), json={"visibility": "PRIVATE", "name": "Private"}
+        "/api/v1/projects", headers=headers(), json={"visibility": "PRIVATE", "name": "Private"}
     ).json()
     user = client.get("/api/v1/users/me", headers=headers()).json()
     private = client.post(

@@ -51,7 +51,7 @@
 
   async function saveEndorsement() {
     const draft: EndorsementDraft = {
-      workspace_id: projectId,
+      project_id: projectId,
       object_version_id: revisionId,
       active: endorsementActive,
       rationale: endorsementRationale,
@@ -76,7 +76,7 @@
   async function saveCorrespondence() {
     if (!statementRevisionId) return;
     const draft: CorrespondenceDraft = {
-      workspace_id: projectId,
+      project_id: projectId,
       object_version_id: revisionId,
       statement_object_version_id: statementRevisionId,
       status: correspondenceStatus,

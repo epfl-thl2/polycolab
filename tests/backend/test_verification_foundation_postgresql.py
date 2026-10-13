@@ -9,7 +9,7 @@ from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import DBAPIError
-from test_research_domain import create_object, create_workspace
+from test_research_domain import create_object, create_project
 
 from polycolab.accounts.authentication import MappingIdentityVerifier
 from polycolab.app.application import create_app
@@ -103,7 +103,7 @@ def test_verification_foundation_preserves_exact_identity_and_history(
     )
     try:
         with TestClient(app) as pg_client:
-            project_id = create_workspace(pg_client)
+            project_id = create_project(pg_client)
             attempt_record = create_object(pg_client, project_id, kind="ATTEMPT")
         with app.state.session_factory() as db:
             research_attempt = db.get(
@@ -274,7 +274,7 @@ def test_verification_foundation_rejects_incoherent_targets_and_artifact_states(
     )
     try:
         with TestClient(app) as pg_client:
-            project_id = create_workspace(pg_client)
+            project_id = create_project(pg_client)
             target_record = create_object(pg_client, project_id)
             attempt_record = create_object(pg_client, project_id, kind="ATTEMPT")
         with app.state.session_factory() as db:

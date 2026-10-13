@@ -70,7 +70,7 @@ def test_local_upgrade_backs_up_and_rolls_back_failure(
     next_revision = migrations / "versions/next.py"
     next_revision.write_text("""from alembic import op
 revision = "local_next"
-down_revision = "local_20261012_key_preview"
+down_revision = "local_20261012_projects"
 def upgrade():
     op.execute("CREATE TABLE migration_marker (value TEXT)")
     op.execute("INSERT INTO migration_marker VALUES ('upgraded')")
@@ -80,7 +80,7 @@ def upgrade():
     assert backup is not None and backup.is_file()
     with sqlite3.connect(backup) as db:
         assert db.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "local_20261012_key_preview",
+            "local_20261012_projects",
         )
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT value FROM migration_marker").fetchone() == ("upgraded",)
@@ -173,13 +173,28 @@ def test_local_real_accounts_research_and_uploads_persist(tmp_path: Path) -> Non
             },
         )
         assert registered.status_code == 201, registered.text
-        project = client.post(
-            "/api/v1/workspaces",
-            headers=headers,
-            json={"name": "Persistent local research", "visibility": "PRIVATE"},
-        )
-        assert project.status_code == 201, project.text
-        project_id = project.json()["id"]
+        # Seed the historical project classification directly; new binaries cannot
+        # create projects until the forward migration has run.
+        project_id = str(uuid4())
+        user_id = client.get("/api/v1/users/me").json()["id"].replace("-", "")
+        with sqlite3.connect(database) as db:
+            db.execute(
+                "INSERT INTO projects "
+                "(id, name, visibility, created_by_user_id, created_at, updated_at) "
+                "VALUES (?, 'Persistent local research', 'PRIVATE', ?, "
+                "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                (project_id.replace("-", ""), user_id),
+            )
+            db.execute(
+                "INSERT INTO memberships (id, project_id, user_id, role, created_at, updated_at) "
+                "VALUES (?, ?, ?, 'OWNER', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                (uuid4().hex, project_id.replace("-", ""), user_id),
+            )
+            db.execute(
+                "INSERT INTO research_scopes (id, scope_kind, project_id, created_at) "
+                "VALUES (?, 'WORKSPACE', ?, CURRENT_TIMESTAMP)",
+                (uuid4().hex, project_id.replace("-", "")),
+            )
         # Seed the frozen baseline directly: the current API must not write an old schema.
         version_id, object_id, contribution_id = (uuid4().hex for _ in range(3))
         with sqlite3.connect(database) as db:
@@ -255,7 +270,7 @@ def test_local_real_accounts_research_and_uploads_persist(tmp_path: Path) -> Non
                         user_id,
                     ),
                 )
-        # Upgrade an actual account and research workspace from main's baseline.
+        # Upgrade an actual account and research project from main's baseline.
         assert upgrade_database(database) is not None
         with sqlite3.connect(database) as db:
             assert db.execute("PRAGMA foreign_key_check").fetchall() == []
@@ -285,7 +300,7 @@ def test_local_real_accounts_research_and_uploads_persist(tmp_path: Path) -> Non
             headers=headers,
             content=body,
             params={
-                "workspace_id": project_id,
+                "project_id": project_id,
                 "sha256": hashlib.sha256(body).hexdigest(),
                 "byte_length": len(body),
             },
@@ -320,7 +335,7 @@ def test_local_real_accounts_research_and_uploads_persist(tmp_path: Path) -> Non
         assert signed_in.status_code == 200, signed_in.text
         assert client.get(url).content == body
         assert (
-            client.get(f"/api/v1/workspaces/{project_id}").json()["name"]
+            client.get(f"/api/v1/projects/{project_id}").json()["name"]
             == "Persistent local research"
         )
     app.state.engine.dispose()
@@ -347,7 +362,7 @@ def test_local_upgrade_from_either_merged_branch(tmp_path: Path, previous: str) 
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT value FROM user_marker").fetchone() == ("retained",)
         assert db.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "local_20261012_key_preview",
+            "local_20261012_projects",
         )
         assert "encrypted_secret" in {
             row[1] for row in db.execute("PRAGMA table_info(external_agent_credentials)")

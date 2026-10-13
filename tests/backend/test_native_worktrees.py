@@ -7,23 +7,23 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from test_sessions_api import add_member, create_workspace, headers
+from test_sessions_api import add_member, create_project, headers
 
-from polycolab.workspaces.git_storage import GitRepository
-from polycolab.workspaces.worktree_storage import WorktreeStorage
+from polycolab.projects.git_storage import GitRepository
+from polycolab.projects.worktree_storage import WorktreeStorage
 
 
 @pytest.fixture
 def native(client: TestClient, tmp_path: Path) -> tuple[TestClient, str, GitRepository]:
     app = cast(FastAPI, client.app)
-    app.state.settings.workspace_repository_directory = tmp_path / "repos"
-    workspace_id = str(create_workspace(client)["id"])
-    return client, workspace_id, GitRepository(tmp_path / "repos", UUID(workspace_id))
+    app.state.settings.project_repository_directory = tmp_path / "repos"
+    project_id = str(create_project(client)["id"])
+    return client, project_id, GitRepository(tmp_path / "repos", UUID(project_id))
 
 
 def test_save_commit_discard_and_remove(native: tuple[TestClient, str, GitRepository]) -> None:
-    client, workspace, git = native
-    root = f"/api/v1/workspaces/{workspace}/worktrees"
+    client, project, git = native
+    root = f"/api/v1/projects/{project}/worktrees"
     auth = headers("owner")
     response = client.get(root, headers=auth)
     assert response.status_code == 200, response.text
@@ -94,7 +94,7 @@ def test_save_commit_discard_and_remove(native: tuple[TestClient, str, GitReposi
     assert not WorktreeStorage(git).path(UUID(worktree["id"])).exists()
     assert client.post(url + "/restore", headers=auth).json()["lifecycle"] == "active"
     assert (WorktreeStorage(git).path(UUID(worktree["id"])) / "notes.txt").read_text() == "hello"
-    add_member(client, workspace, "reader", "READ_ONLY")
+    add_member(client, project, "reader", "READ_ONLY")
     assert client.get(url, headers=headers("reader")).json()["writable"] is False
     assert (
         client.post(
@@ -104,7 +104,7 @@ def test_save_commit_discard_and_remove(native: tuple[TestClient, str, GitReposi
     )
     assert (
         client.post(
-            f"/api/v1/workspaces/{workspace}/repository/changes",
+            f"/api/v1/projects/{project}/repository/changes",
             headers=retry,
             json={
                 "branch": "experiment",
@@ -149,10 +149,10 @@ def test_main_protection_missing_checkout_and_conflicting_alias(
 ) -> None:
     import shutil
 
-    client, workspace, git = native
-    root = f"/api/v1/workspaces/{workspace}/worktrees"
+    client, project, git = native
+    root = f"/api/v1/projects/{project}/worktrees"
     auth = headers("owner")
-    add_member(client, workspace, "reader", "READ_ONLY")
+    add_member(client, project, "reader", "READ_ONLY")
     main = client.get(root, headers=headers("reader")).json()[0]
     url = root + "/" + main["id"]
     save = client.post(
@@ -180,7 +180,7 @@ def test_main_protection_missing_checkout_and_conflicting_alias(
         "/api/v1/agent-sessions",
         headers=auth,
         json={
-            "workspace_id": workspace,
+            "project_id": project,
             "worktree_id": main["id"],
             "task_id": str(uuid4()),
             "agent_kind": "RESEARCHER",
@@ -194,16 +194,16 @@ def test_native_migration_retains_old_ids_and_is_resumable(
 ) -> None:
     from polycolab.db.stores.repositories import SqlRepositoryStore
     from polycolab.db.transaction import SqlAlchemyTransaction
-    from polycolab.workspaces.worktree_service import WorktreeService
+    from polycolab.projects.worktree_service import WorktreeService
 
-    client, workspace, git = native
+    client, project, git = native
     auth = headers("owner")
     legacy = client.post(
-        f"/api/v1/workspaces/{workspace}/tasks",
+        f"/api/v1/projects/{project}/tasks",
         headers=auth,
         json={"client_request_id": str(uuid4()), "title": "Existing branch"},
     ).json()
-    root = f"/api/v1/workspaces/{workspace}/worktrees"
+    root = f"/api/v1/projects/{project}/worktrees"
     assert client.get(root, headers=auth).status_code == 409
     user = client.get("/api/v1/users/me", headers=auth).json()
     app = cast(FastAPI, client.app)
@@ -212,7 +212,7 @@ def test_native_migration_retains_old_ids_and_is_resumable(
             SqlAlchemyTransaction(db),
             SqlRepositoryStore(db),
             git,
-            UUID(workspace),
+            UUID(project),
             UUID(user["id"]),
         )
         with instance.open():
@@ -229,9 +229,9 @@ def test_native_migration_retains_old_ids_and_is_resumable(
 def test_merge_requires_clean_files_and_exact_saved_revisions(
     native: tuple[TestClient, str, GitRepository],
 ) -> None:
-    client, workspace, _ = native
+    client, project, _ = native
     auth = headers("owner")
-    root = f"/api/v1/workspaces/{workspace}"
+    root = f"/api/v1/projects/{project}"
     main = client.get(root + "/worktrees", headers=auth).json()[0]
     branch = client.post(
         root + "/worktrees",

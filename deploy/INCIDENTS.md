@@ -18,7 +18,7 @@ Assign these incident roles:
 
 Record UTC detection/containment/recovery times, affected service classes, exact release/migration revisions, sanitized status/counts, action approvals and restricted evidence references.
 Never attach private project bodies, prompts, tokens, cookies, decrypted keys or raw HTTP/database traces.
-Use a dedicated synthetic workspace for drills.
+Use a dedicated synthetic project for drills.
 Never deliberately corrupt production state.
 Live ingress, replica, secret or key-policy changes require operator authority.
 This document performs none.

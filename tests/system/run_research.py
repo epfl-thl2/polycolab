@@ -1,6 +1,6 @@
 """Separate-process research HTTP acceptance with disposable PostgreSQL and Garage.
 
-Run: uv run --directory src/backend python ../tests/system/run_research.py
+Run: uv run --directory src/backend python ../../tests/system/run_research.py
 No worker/provider/controller runs. Only this invocation's unique Compose project
 and API child are removed. Diagnostics never print response bodies or secrets.
 """
@@ -31,7 +31,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def claim_snapshot(title: str, content: str) -> dict[str, object]:
     return {
-        "kind": "CLAIM",
+        "kind": "STATEMENT",
         "content": {
             "title": title,
             "content_md": content,
@@ -50,7 +50,7 @@ def output_id(receipt: dict, entity_type: str) -> str:
     )
 
 
-def public_research_snapshot(client: httpx.Client, workspace_id: str) -> dict[str, object]:
+def public_research_snapshot(client: httpx.Client, project_id: str) -> dict[str, object]:
     """Capture the bounded fixture's exact public versions and relationship graph."""
     captured: dict[str, object] = {}
 
@@ -63,7 +63,7 @@ def public_research_snapshot(client: httpx.Client, workspace_id: str) -> dict[st
         captured[path] = value
         return value
 
-    objects = read(f"/api/v1/workspaces/{workspace_id}/objects?limit=100")
+    objects = read(f"/api/v1/projects/{project_id}/objects?limit=100")
     if objects["next_cursor"] or not objects["items"]:
         raise RuntimeError("restore_fixture_object_bound_invalid")
     for item in objects["items"]:
@@ -211,11 +211,11 @@ def main() -> int:
                     "/auth/login",
                     {"username": "admin", "password": "Research-test-password-2026!"},
                 )
-                workspace = post("/api/v1/workspaces", {"name": "External research acceptance"})
+                project = post("/api/v1/projects", {"name": "External research acceptance"})
                 claim = post(
                     "/api/v1/objects",
                     {
-                        "destination": {"kind": "workspace", "workspace_id": workspace["id"]},
+                        "destination": {"kind": "project", "project_id": project["id"]},
                         "snapshot": claim_snapshot(
                             "Example input", "A public test claim, not a theorem."
                         ),
@@ -241,7 +241,7 @@ def main() -> int:
                     agent_input = post(
                         "/api/v1/objects",
                         {
-                            "destination": {"kind": "workspace", "workspace_id": workspace["id"]},
+                            "destination": {"kind": "project", "project_id": project["id"]},
                             "snapshot": claim_snapshot(
                                 "Sum of the first n odd integers",
                                 "For every integer n >= 1, the sum of 2k-1 "
@@ -252,7 +252,7 @@ def main() -> int:
                     context = {
                         "service_url": origin,
                         "credential": credential["secret"],
-                        "workspace_id": workspace["id"],
+                        "project_id": project["id"],
                         "input_object_id": output_id(agent_input, "RESEARCH_OBJECT"),
                         "input_object_version_id": output_id(agent_input, "OBJECT_VERSION"),
                     }
@@ -276,7 +276,7 @@ def main() -> int:
                         )
                         if denied.status_code != 401:
                             raise RuntimeError("live_agent_revocation_not_enforced")
-                        public = anonymous.get(f"/api/v1/workspaces/{workspace['id']}/objects")
+                        public = anonymous.get(f"/api/v1/projects/{project['id']}/objects")
                         if public.status_code != 200:
                             raise RuntimeError("live_agent_public_reread_failed")
                     print("PASS: interactive agent contribution followed by revocation/public read")
@@ -301,8 +301,8 @@ def main() -> int:
                         + [
                             "--input-object-version",
                             output_id(claim, "OBJECT_VERSION"),
-                            "--workspace-id",
-                            workspace["id"],
+                            "--project-id",
+                            project["id"],
                         ],
                         cwd=ROOT / "src/backend",
                         env=client_env,
@@ -310,7 +310,7 @@ def main() -> int:
                 probe = ExternalClient(origin, credential["secret"])
                 try:
                     payload = {
-                        "destination": {"kind": "workspace", "workspace_id": workspace["id"]},
+                        "destination": {"kind": "project", "project_id": project["id"]},
                         "snapshot": claim_snapshot("Probe", "Probe content"),
                     }
                     created = probe.request(
@@ -364,8 +364,8 @@ def main() -> int:
                         key="probe-equivalence",
                         json={
                             "destination": {
-                                "kind": "workspace",
-                                "workspace_id": workspace["id"],
+                                "kind": "project",
+                                "project_id": project["id"],
                             },
                             "direction": "BIDIRECTIONAL",
                             "relationship_type": "EQUIVALENT_TO",
@@ -376,7 +376,7 @@ def main() -> int:
                     )
                     data = b"Staged evidence must not be public"
                     params = {
-                        "workspace_id": workspace["id"],
+                        "project_id": project["id"],
                         "sha256": hashlib.sha256(data).hexdigest(),
                         "byte_length": len(data),
                     }
@@ -446,7 +446,7 @@ def main() -> int:
                     raise RuntimeError("revoke_failed")
                 command(invocation + ["--expect-revoked"], cwd=ROOT / "src/backend", env=client_env)
                 with httpx.Client(base_url=origin, trust_env=False) as anonymous:
-                    response = anonymous.get(f"/api/v1/workspaces/{workspace['id']}/objects")
+                    response = anonymous.get(f"/api/v1/projects/{project['id']}/objects")
                     if response.status_code != 200:
                         raise RuntimeError("public_read_after_revoke_failed")
                 restored_credential_response = human.post(
@@ -482,7 +482,7 @@ def main() -> int:
                         },
                     )
                     print(
-                        "PASS: production browser public workspace, external agent, "
+                        "PASS: production browser public project, external agent, "
                         "inspection and revocation"
                     )
             command(
@@ -491,6 +491,7 @@ def main() -> int:
                     "-m",
                     "pytest",
                     "../../tests/backend/test_external_agents_postgresql.py",
+                    "../../tests/backend/test_project_migration.py",
                     "-q",
                 ],
                 cwd=ROOT / "src/backend",
@@ -503,7 +504,7 @@ def main() -> int:
             # Garage/key recovery acceptance. Restore only into this test server.
             if os.environ.get("POLYCOLAB_RESEARCH_ENCRYPTED_DB_DRILL") == "1":
                 with httpx.Client(base_url=origin, trust_env=False, timeout=10) as anonymous:
-                    expected_research = public_research_snapshot(anonymous, workspace["id"])
+                    expected_research = public_research_snapshot(anonymous, project["id"])
                 probe_history = expected_research[f"/api/v1/objects/{object_id}/versions?limit=100"]
                 if not isinstance(probe_history, dict) or len(probe_history["items"]) != 2:
                     raise RuntimeError("restore_fixture_requires_multiple_versions")
@@ -702,7 +703,7 @@ def main() -> int:
                             except httpx.TransportError:
                                 pass
                             time.sleep(0.2)
-                        page = restored_api.get(f"/api/v1/workspaces/{workspace['id']}/artifacts")
+                        page = restored_api.get(f"/api/v1/projects/{project['id']}/artifacts")
                         page.raise_for_status()
                         for item in page.json()["items"]:
                             metadata = item["artifact"]
@@ -715,7 +716,7 @@ def main() -> int:
                         if not page.json()["items"]:
                             raise RuntimeError("restored_artifacts_missing")
                         if (
-                            public_research_snapshot(restored_api, workspace["id"])
+                            public_research_snapshot(restored_api, project["id"])
                             != expected_research
                         ):
                             raise RuntimeError(

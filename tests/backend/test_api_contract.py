@@ -60,8 +60,7 @@ def test_openapi_has_versioned_operations_security_and_error_envelopes(client: T
     assert len(normalized_paths) == len(set(normalized_paths))
     assert "400" in document["paths"]["/api/v1/invitations/accept"]["post"]["responses"]
     assert (
-        "503"
-        in document["paths"]["/api/v1/workspaces/{workspace_id}/invitations"]["post"]["responses"]
+        "503" in document["paths"]["/api/v1/projects/{project_id}/invitations"]["post"]["responses"]
     )
 
 
@@ -103,12 +102,12 @@ def test_openapi_tags_match_resource_boundaries() -> None:
     assert paths["/api/v1/account/agent-keys"]["post"]["tags"] == ["agent-keys"]
     assert "post" not in paths["/api/v1/runs"]
     assert paths["/api/v1/agent-runs/{run_id}"]["get"]["tags"] == ["agent-runs"]
-    assert paths["/api/v1/workspaces"]["get"]["tags"] == ["workspaces"]
-    assert paths["/api/v1/workspaces"]["post"]["tags"] == ["workspaces"]
+    assert paths["/api/v1/projects"]["get"]["tags"] == ["projects"]
+    assert paths["/api/v1/projects"]["post"]["tags"] == ["projects"]
     assert paths["/api/v1/catalogue/{entry_id}/audit"]["get"]["tags"] == ["catalogue"]
     assert paths["/api/v1/catalogue-moderators/{user_id}"]["put"]["tags"] == ["moderation"]
     assert paths["/api/v1/research/objects/{object_id}/human-note"]["get"]["tags"] == ["context"]
-    assert "Human authentication required" in paths["/api/v1/workspaces"]["post"]["description"]
+    assert "Human authentication required" in paths["/api/v1/projects"]["post"]["description"]
     assert "Idempotency-Key" in paths["/api/v1/objects"]["post"]["description"]
     assert "X-Run-ID" not in paths["/api/v1/objects"]["post"]["description"]
     assert (
@@ -153,18 +152,18 @@ def test_reference_omits_sections_when_their_operations_are_absent() -> None:
 
 def test_list_pagination_uses_opaque_cursor_headers_and_stable_order(client: TestClient) -> None:
     project = client.post(
-        "/api/v1/workspaces",
+        "/api/v1/projects",
         headers={"Authorization": "Bearer owner"},
         json={"visibility": "PRIVATE", "name": "Pages"},
     )
     assert project.status_code == 201
-    workspace_id = project.json()["id"]
+    project_id = project.json()["id"]
     for title in ("one", "two", "three"):
         response = client.post(
             "/api/v1/objects",
             headers={"Authorization": "Bearer owner", "Idempotency-Key": title},
             json={
-                "destination": {"kind": "workspace", "workspace_id": workspace_id},
+                "destination": {"kind": "project", "project_id": project_id},
                 "snapshot": {
                     "kind": "STATEMENT",
                     "content": {
@@ -180,7 +179,7 @@ def test_list_pagination_uses_opaque_cursor_headers_and_stable_order(client: Tes
         )
         assert response.status_code == 201
     first = client.get(
-        f"/api/v1/workspaces/{workspace_id}/objects?limit=2",
+        f"/api/v1/projects/{project_id}/objects?limit=2",
         headers={"Authorization": "Bearer owner"},
     )
     assert first.status_code == 200
@@ -188,7 +187,7 @@ def test_list_pagination_uses_opaque_cursor_headers_and_stable_order(client: Tes
     assert len(first.json()["items"]) == 2
     cursor = first.json()["next_cursor"]
     second = client.get(
-        f"/api/v1/workspaces/{workspace_id}/objects?limit=2&cursor={cursor}",
+        f"/api/v1/projects/{project_id}/objects?limit=2&cursor={cursor}",
         headers={"Authorization": "Bearer owner"},
     )
     assert second.status_code == 200
@@ -203,7 +202,7 @@ def test_list_pagination_uses_opaque_cursor_headers_and_stable_order(client: Tes
         "three",
     }
     malformed = client.get(
-        f"/api/v1/workspaces/{workspace_id}/objects?cursor=not-a-cursor",
+        f"/api/v1/projects/{project_id}/objects?cursor=not-a-cursor",
         headers={"Authorization": "Bearer owner"},
     )
     assert malformed.status_code == 422
@@ -354,27 +353,27 @@ def test_legacy_api_reference_redirects(client: TestClient) -> None:
     assert response.headers["location"] == "/docs/api/"
 
 
-def test_public_workspace_vocabulary_does_not_change_stored_payload_keys() -> None:
+def test_public_project_vocabulary_does_not_change_stored_payload_keys() -> None:
     from uuid import uuid4
 
-    from polycolab.workspaces.schemas import WorkspaceVersionCopyCreate
+    from polycolab.projects.schemas import ProjectVersionCopyCreate
 
     document = json.loads(serialized_openapi())
     for path, methods in document["paths"].items():
-        assert "/projects/" not in path
+        assert "workspace" not in path
         for operation in methods.values():
-            assert "Project" not in operation["operationId"]
+            assert "Workspace" not in operation["operationId"]
             assert all(
-                parameter["name"] != "project_id" for parameter in operation.get("parameters", [])
+                parameter["name"] != "workspace_id" for parameter in operation.get("parameters", [])
             )
     for name, schema in document["components"]["schemas"].items():
-        assert "Project" not in name
-        assert "project_id" not in schema.get("properties", {})
-    workspace_id, version_id = uuid4(), uuid4()
-    request = WorkspaceVersionCopyCreate.model_validate(
-        {"workspace_id": str(workspace_id), "source_object_version_id": str(version_id)}
+        assert "Workspace" not in name
+        assert "workspace_id" not in schema.get("properties", {})
+    project_id, version_id = uuid4(), uuid4()
+    request = ProjectVersionCopyCreate.model_validate(
+        {"project_id": str(project_id), "source_object_version_id": str(version_id)}
     )
-    assert request.model_dump(mode="json", by_alias=True)["workspace_id"] == str(workspace_id)
+    assert request.model_dump(mode="json", by_alias=True)["project_id"] == str(project_id)
     stored = request.historical_command().model_dump(mode="json")
-    assert stored["project_id"] == str(workspace_id)
+    assert stored["project_id"] == str(project_id)
     assert "workspace_id" not in stored

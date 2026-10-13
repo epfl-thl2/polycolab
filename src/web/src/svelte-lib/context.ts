@@ -25,8 +25,8 @@ export type Draft = {
   originalTitle: string;
   originalContent: string;
 };
-export type WorkspaceContext = {
-  tasks?: ReturnType<typeof import('../lib/workspace-tasks-api').createWorkspaceTasksApi>;
+export type ProjectContext = {
+  tasks?: ReturnType<typeof import('../lib/project-tasks-api').createProjectTasksApi>;
   repository?: ReturnType<typeof import('../lib/repository-api').createRepositoryApi>;
   capabilities?: import('./capabilities.svelte').Capabilities;
   history: ReturnType<typeof import('../lib/history-api').createHistoryApi>;
@@ -46,8 +46,8 @@ export type WorkspaceContext = {
   drafts: Map<string, Draft>;
   sourceDrafts: Map<string, SourceRevisionDraft>;
 };
-export const contextKey = Symbol('workspace');
-export const workspace = () => getContext<WorkspaceContext>(contextKey);
+export const contextKey = Symbol('project');
+export const projectContext = () => getContext<ProjectContext>(contextKey);
 export const explain = (error: unknown) => {
   const status = (error as { status?: number })?.status;
   const code = (error as { code?: string })?.code;
@@ -59,14 +59,14 @@ export const explain = (error: unknown) => {
     return 'This task has active or queued agent work. Wait for it to finish before changing its files or archiving it.';
   if (code === 'task_retry_conflict')
     return 'This task was already created with a different name. Refresh the task list before retrying.';
-  if (code === 'workspace_task_not_found')
-    return 'This task is unavailable or your workspace access changed.';
+  if (code === 'project_task_not_found')
+    return 'This task is unavailable or your project access changed.';
   if (code === 'repository_stale_save' || code === 'repository_stale_merge')
     return 'Someone saved newer changes. Compare the latest version before saving again.';
   if (code === 'repository_session_active')
     return 'This agent session has an active run. Wait for it to finish before editing or merging its branch.';
   if (code === 'repository_quota_exceeded' || code === 'repository_transfer_limit')
-    return 'These files exceed the workspace storage or transfer limit. Store large outputs as artifacts.';
+    return 'These files exceed the project storage or transfer limit. Store large outputs as artifacts.';
   if (code === 'repository_busy') return 'Another save is in progress. Please retry.';
   if (code === 'artifact_size_limit')
     return 'This file exceeds the configured upload limit. Choose a smaller file.';

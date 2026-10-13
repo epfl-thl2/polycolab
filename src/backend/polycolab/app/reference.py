@@ -7,7 +7,7 @@ from typing import Any
 
 REFERENCE_GROUPS = [
     {"name": "Access", "tags": ["identity", "agent-identities", "agent-keys"]},
-    {"name": "Discovery", "tags": ["search", "catalogue", "workspaces"]},
+    {"name": "Discovery", "tags": ["search", "catalogue", "projects"]},
     {
         "name": "Research",
         "tags": [
@@ -46,7 +46,7 @@ REFERENCE_GROUPS = [
             "verification",
         ],
     },
-    {"name": "Legacy history", "tags": ["external-runs", "workspace-runs"]},
+    {"name": "Legacy history", "tags": ["external-runs", "project-runs"]},
 ]
 
 REFERENCE_TAGS = {
@@ -75,17 +75,17 @@ REFERENCE_TAGS = {
         "x-displayName": "Agent API keys",
         "description": "Human-owned account-wide keys, one-time secrets, usage and revocation.",
     },
-    "workspaces": {
-        "name": "workspaces",
-        "x-displayName": "Workspaces",
+    "projects": {
+        "name": "projects",
+        "x-displayName": "Projects",
         "description": (
-            "Discover and inspect public or member workspaces; human-only lifecycle operations."
+            "Discover and inspect public or member projects; human-only lifecycle operations."
         ),
     },
     "memberships": {
         "name": "memberships",
         "x-displayName": "Members",
-        "description": "Human-only workspace membership and roles.",
+        "description": "Human-only project membership and roles.",
     },
     "invitations": {
         "name": "invitations",
@@ -129,9 +129,9 @@ REFERENCE_TAGS = {
             "writes, separate output pagination and closure."
         ),
     },
-    "workspace-runs": {
-        "name": "workspace-runs",
-        "x-displayName": "Workspace run history",
+    "project-runs": {
+        "name": "project-runs",
+        "x-displayName": "Project run history",
         "description": "Public or member-visible run summaries without input or output expansion.",
     },
     "catalogue": {
@@ -147,7 +147,7 @@ REFERENCE_TAGS = {
         "x-displayName": "Records and decisions",
         "description": (
             "Read or write structured research records and inspect revision "
-            "decisions; workspace records are not automatically Library "
+            "decisions; project records are not automatically Library "
             "admissions."
         ),
     },
@@ -168,8 +168,8 @@ REFERENCE_TAGS = {
     },
     "references": {
         "name": "references",
-        "x-displayName": "Workspace references",
-        "description": "Private workspace references pinned to exact public research versions.",
+        "x-displayName": "Project references",
+        "description": "Private project references pinned to exact public research versions.",
     },
     "provenance": {
         "name": "provenance",
@@ -251,30 +251,30 @@ REFERENCE_TAGS = {
 }
 
 OPERATION_SECTIONS = {
-    "listWorktrees": "workspaces",
-    "createWorktree": "workspaces",
-    "getWorktree": "workspaces",
-    "getWorktreeFile": "workspaces",
-    "diffWorktree": "workspaces",
-    "saveWorktree": "workspaces",
-    "commitWorktree": "workspaces",
-    "discardWorktree": "workspaces",
-    "removeWorktree": "workspaces",
-    "restoreWorktree": "workspaces",
-    "listWorkspaceTasks": "workspaces",
-    "getWorkspaceTask": "workspaces",
-    "createWorkspaceTask": "workspaces",
-    "updateWorkspaceTask": "workspaces",
-    "getSessionRepository": "workspaces",
-    "enableSessionRepository": "workspaces",
-    "getRunRepository": "workspaces",
-    "getWorkspaceRepository": "workspaces",
-    "getWorkspaceFile": "workspaces",
-    "listWorkspaceFileHistory": "workspaces",
-    "diffWorkspaceFiles": "workspaces",
-    "saveWorkspaceFiles": "workspaces",
-    "previewWorkspaceMerge": "workspaces",
-    "mergeWorkspaceFiles": "workspaces",
+    "listWorktrees": "projects",
+    "createWorktree": "projects",
+    "getWorktree": "projects",
+    "getWorktreeFile": "projects",
+    "diffWorktree": "projects",
+    "saveWorktree": "projects",
+    "commitWorktree": "projects",
+    "discardWorktree": "projects",
+    "removeWorktree": "projects",
+    "restoreWorktree": "projects",
+    "listProjectTasks": "projects",
+    "getProjectTask": "projects",
+    "createProjectTask": "projects",
+    "updateProjectTask": "projects",
+    "getSessionRepository": "projects",
+    "enableSessionRepository": "projects",
+    "getRunRepository": "projects",
+    "getProjectRepository": "projects",
+    "getProjectFile": "projects",
+    "listProjectFileHistory": "projects",
+    "diffProjectFiles": "projects",
+    "saveProjectFiles": "projects",
+    "previewProjectMerge": "projects",
+    "mergeProjectFiles": "projects",
     "getApplicationConfiguration": "identity",
     "saveObjectSummary": "context",
     "readObjectSummary": "context",
@@ -288,7 +288,7 @@ OPERATION_SECTIONS = {
     "getPublicProfile": "profiles",
     "getPublicAgentProfile": "profiles",
     "getContribution": "activity",
-    "listWorkspaceActivity": "activity",
+    "listProjectActivity": "activity",
     "getObjectVersion": "objects",
     "listAttachedContributions": "objects",
     "createExternalAgentIdentity": "agent-identities",
@@ -336,7 +336,7 @@ OPERATION_SECTIONS = {
     "getMyCatalogueCommunityState": "community",
     "setCatalogueFollow": "community",
     "setCatalogueInterest": "community",
-    "searchWorkspaceResearch": "search",
+    "searchProjectResearch": "search",
     "listGatewayProfiles": "gateway-profiles",
     "createGatewayProfile": "gateway-profiles",
     "deleteGatewayProfile": "gateway-profiles",
@@ -353,11 +353,11 @@ OPERATION_SECTIONS = {
     "listObjectRelations": "relations",
     "listObjectVersions": "objects",
     "createObjectVersion": "objects",
-    "listPublicWorkspaceRecordModerationAudit": "moderation",
-    "moderatePublicWorkspaceRecord": "moderation",
+    "listPublicProjectRecordModerationAudit": "moderation",
+    "moderatePublicProjectRecord": "moderation",
     "listPlatformAgents": "agents",
     "getAgentContributionProvenance": "provenance",
-    "listWorkspaceProposals": "proposals",
+    "listProjectProposals": "proposals",
     "discoverVerificationEnvironments": "verification",
     "submitVerificationJob": "verification",
     "getVerificationJob": "verification",
@@ -392,7 +392,7 @@ OPERATION_SECTIONS = {
     "listSelectivePublicationHistory": "publication",
     "previewSelectivePublication": "publication",
     "listScopedRecordRelations": "records",
-    "listWorkspaceRecords": "records",
+    "listProjectRecords": "records",
     "listPublicRecordModerationAudit": "moderation",
     "moderatePublicRecord": "moderation",
     "getScopedRecord": "records",
@@ -417,27 +417,27 @@ OPERATION_SECTIONS = {
     "listExternalRunOutputs": "external-runs",
     "searchResearch": "search",
     "getCurrentUser": "users",
-    "listWorkspaceReferences": "references",
+    "listProjectReferences": "references",
     "workPrivately": "references",
-    "upgradeWorkspaceReference": "references",
-    "listWorkspaces": "workspaces",
-    "createWorkspace": "workspaces",
-    "copyLibraryToWorkspace": "workspaces",
-    "deleteWorkspace": "workspaces",
-    "getWorkspace": "workspaces",
-    "updateWorkspace": "workspaces",
+    "upgradeProjectReference": "references",
+    "listProjects": "projects",
+    "createProject": "projects",
+    "copyLibraryToProject": "projects",
+    "deleteProject": "projects",
+    "getProject": "projects",
+    "updateProject": "projects",
     "pageArtifactAttachments": "artifacts",
     "uploadArtifact": "artifacts",
-    "listWorkspaceInvitations": "invitations",
-    "createWorkspaceInvitation": "invitations",
-    "revokeWorkspaceInvitation": "invitations",
-    "listWorkspaceMembers": "memberships",
-    "addWorkspaceMember": "memberships",
-    "removeWorkspaceMember": "memberships",
-    "updateWorkspaceMember": "memberships",
+    "listProjectInvitations": "invitations",
+    "createProjectInvitation": "invitations",
+    "revokeProjectInvitation": "invitations",
+    "listProjectMembers": "memberships",
+    "addProjectMember": "memberships",
+    "removeProjectMember": "memberships",
+    "updateProjectMember": "memberships",
     "listResearchObjects": "objects",
     "createResearchObject": "objects",
-    "listWorkspaceRuns": "workspace-runs",
+    "listProjectRuns": "project-runs",
 }
 
 
@@ -455,7 +455,7 @@ def arrange_reference(schema: dict[str, Any]) -> None:
             # Existing authored summaries win; replace FastAPI's function-name titles.
             if not operation.get("description"):
                 words = re.sub(r"(?<!^)(?=[A-Z])", " ", operation_id).lower()
-                words = words.replace("project", "workspace")
+                words = words.replace("project", "project")
                 operation["summary"] = words.capitalize()
             security = operation.get("security", [])
             if not security or {} in security:
@@ -465,8 +465,7 @@ def arrange_reference(schema: dict[str, Any]) -> None:
                 )
             elif security == [{"ExternalAgentBearer": []}]:
                 access = (
-                    "Agent key required. The owning key and current workspace authority "
-                    "are checked."
+                    "Agent key required. The owning key and current project authority are checked."
                 )
             elif any("ExternalAgentBearer" in option for option in security):
                 access = (

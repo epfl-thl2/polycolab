@@ -18,7 +18,7 @@ from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from fastapi.testclient import TestClient
-from sqlalchemy import event, func, inspect, select, text
+from sqlalchemy import event, func, insert, inspect, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
@@ -44,18 +44,18 @@ from polycolab.db.models import (
 )
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.enums import (
+    ProjectRole,
+    ProjectVisibility,
     ResearchObjectKind,
     ResearchScopeKind,
-    WorkspaceRole,
-    WorkspaceVisibility,
 )
 from polycolab.entities.time import utc_now
 from polycolab.operations.telemetry import community_outbox_snapshot
 from polycolab.platform.config import Settings
 from polycolab.platform.outbox import canonical_digest, claim_events, record_consumer_receipt
+from polycolab.projects.service import create_project
 from polycolab.research.contributions import ContributionOutput, record_contribution
 from polycolab.research.objects import StaleRevision, create_object, create_revision
-from polycolab.workspaces.service import create_workspace
 
 
 def test_postgresql_proposal_batch_retains_agent_provenance(
@@ -82,7 +82,7 @@ def test_postgresql_proposal_batch_retains_agent_provenance(
         app.state.engine.dispose()
 
 
-def test_revocation_wins_against_waiting_workspace_writer(
+def test_revocation_wins_against_waiting_project_writer(
     pg_schema: tuple[Engine, Config, str],
 ) -> None:
     engine, config, _ = pg_schema
@@ -92,9 +92,7 @@ def test_revocation_wins_against_waiting_workspace_writer(
         user = SqlUser(issuer="test", subject="contributor")
         db.add(user)
         db.flush()
-        db.add(
-            SqlMembership(project_id=project_id, user_id=user.id, role=WorkspaceRole.CONTRIBUTOR)
-        )
+        db.add(SqlMembership(project_id=project_id, user_id=user.id, role=ProjectRole.CONTRIBUTOR))
         db.commit()
         user_id = user.id
     waiting = Event()
@@ -129,7 +127,7 @@ def test_revocation_wins_against_waiting_workspace_writer(
             select(SqlMembership).where(SqlMembership.user_id == user_id).with_for_update()
         )
         assert membership
-        membership.role = WorkspaceRole.READ_ONLY
+        membership.role = ProjectRole.READ_ONLY
         future = pool.submit(write)
         try:
             assert waiting.wait(timeout=10)
@@ -196,12 +194,12 @@ def seed(engine: Engine) -> tuple[UUID, UUID, UUID]:
         user = SqlUser(issuer="test", subject="owner")
         db.add(user)
         db.commit()
-        project = create_workspace(
+        project = create_project(
             SqlAlchemyTransaction(db),
             creator=user,
             name="Private",
             description=None,
-            visibility=WorkspaceVisibility.PRIVATE,
+            visibility=ProjectVisibility.PRIVATE,
         )
         scope = db.scalar(select(SqlResearchScope).where(SqlResearchScope.project_id == project.id))
         assert scope is not None
@@ -268,7 +266,7 @@ def test_postgresql_community_snapshot_uses_concurrent_index_and_local_timeout(
         assert session.scalar(text("SHOW statement_timeout")) == "250ms"
 
 
-def test_workspace_and_commons_have_complete_immutable_revisions(
+def test_project_and_commons_have_complete_immutable_revisions(
     pg_schema: tuple[Engine, Config, str],
 ) -> None:
     engine, config, _ = pg_schema
@@ -502,7 +500,22 @@ def test_permanent_submission_numbers_backfill_and_concurrent_allocation(
 ) -> None:
     engine, config, _ = pg_schema
     command.upgrade(config, "20260914_unified_deployment")
-    _, _, scope_id = seed(engine)
+    user_id, project_id, scope_id = uuid4(), uuid4(), uuid4()
+    # Seed the historical wire values before applying the Project cutover.
+    with engine.begin() as connection:
+        connection.execute(
+            insert(SqlUser).values(id=user_id, issuer="test", subject="old-activity")
+        )
+        connection.execute(
+            insert(SqlProject).values(
+                id=project_id, name="Submission history", created_by_user_id=user_id
+            )
+        )
+        connection.execute(
+            insert(SqlResearchScope).values(
+                id=scope_id, project_id=project_id, scope_kind="WORKSPACE"
+            )
+        )
     old_ids = [uuid4(), uuid4()]
     with engine.begin() as connection:
         for index, identity in enumerate(old_ids):

@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
       ? `${process.env.POLYCOLAB_SVELTE_OUT_DIR}/vite`
       : undefined,
     optimizeDeps: {
-      // These dependencies are reached through lazy workspace views. Prebundle
+      // These dependencies are reached through lazy project views. Prebundle
       // them before navigation so discovery does not invalidate active imports.
       include: [
         'monaco-editor',

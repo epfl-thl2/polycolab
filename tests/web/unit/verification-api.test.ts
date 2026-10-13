@@ -12,7 +12,7 @@ afterEach(() => {
 
 const submission: VerificationJobSubmission = {
   version: 1,
-  workspace_id: 'project-a',
+  project_id: 'project-a',
   work_target_object_version_id: 'target-r2',
   research_attempt_object_version_id: 'attempt-r1',
   environment_id: 'environment-a',
@@ -52,7 +52,7 @@ it('submits the exact generated verification manifest with its retry identity', 
   await api.submit('project-a', submission, 'stable-retry');
 
   expect(request?.method).toBe('POST');
-  expect(new URL(request!.url).pathname).toBe('/api/v1/workspaces/project-a/verification-jobs');
+  expect(new URL(request!.url).pathname).toBe('/api/v1/projects/project-a/verification-jobs');
   expect(request?.headers.get('Authorization')).toBe('Bearer member-token');
   expect(await request?.json()).toEqual({ submission, retry_key: 'stable-retry' });
 });
@@ -71,7 +71,7 @@ it('discovers a bounded page of exact curated environments', async () => {
 
   expect(request?.method).toBe('GET');
   expect(new URL(request!.url).pathname).toBe(
-    '/api/v1/workspaces/project-a/verification-environments',
+    '/api/v1/projects/project-a/verification-environments',
   );
   expect(Object.fromEntries(new URL(request!.url).searchParams)).toEqual({
     after: 'environment-a',
@@ -99,10 +99,10 @@ it('uses bounded committed-event replay and canonical control endpoints', async 
   await api.rerun('project-a', 'job-a', 'rerun-key');
 
   expect(requests.map((request) => `${request.method} ${new URL(request.url).pathname}`)).toEqual([
-    'GET /api/v1/workspaces/project-a/verification-jobs/job-a',
-    'GET /api/v1/workspaces/project-a/verification-jobs/job-a/events',
-    'POST /api/v1/workspaces/project-a/verification-jobs/job-a/cancel',
-    'POST /api/v1/workspaces/project-a/verification-jobs/job-a/rerun',
+    'GET /api/v1/projects/project-a/verification-jobs/job-a',
+    'GET /api/v1/projects/project-a/verification-jobs/job-a/events',
+    'POST /api/v1/projects/project-a/verification-jobs/job-a/cancel',
+    'POST /api/v1/projects/project-a/verification-jobs/job-a/rerun',
   ]);
   expect(Object.fromEntries(new URL(requests[1]!.url).searchParams)).toEqual({
     after_sequence: '17',

@@ -7,7 +7,7 @@ export default defineConfig({
   testMatch: [
     'library.spec.ts',
     'application-configuration.spec.ts',
-    'svelte-workspace.spec.ts',
+    'svelte-project.spec.ts',
     'm1-commons.spec.ts',
     'proposal-workflow.spec.ts',
     'agent-session-workflow.spec.ts',

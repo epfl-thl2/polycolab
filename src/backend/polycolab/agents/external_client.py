@@ -97,13 +97,13 @@ class ExternalClient:
         raise ServiceError(503, "retry_exhausted")
 
     def scenario(
-        self, request_id: UUID, input_object_version: UUID, workspace_id: UUID
+        self, request_id: UUID, input_object_version: UUID, project_id: UUID
     ) -> dict[str, Any]:
         self.request("GET", "/api/v1/me")
-        project = str(workspace_id)
+        project = str(project_id)
         # Bounded discovery; the caller selects the exact object version explicitly.
-        self.request("GET", "/api/v1/workspaces", params={"limit": 25})
-        self.request("GET", f"/api/v1/workspaces/{project}/objects", params={"limit": 25})
+        self.request("GET", "/api/v1/projects", params={"limit": 25})
+        self.request("GET", f"/api/v1/projects/{project}/objects", params={"limit": 25})
         self.request("GET", f"/api/v1/versions/{input_object_version}")
         replayed = True
         outputs = []
@@ -140,7 +140,7 @@ class ExternalClient:
                 "/api/v1/objects",
                 key=f"{request_id}:{kind}",
                 json={
-                    "destination": {"kind": "workspace", "workspace_id": project},
+                    "destination": {"kind": "project", "project_id": project},
                     "snapshot": {
                         "kind": kind,
                         "content": {
@@ -166,7 +166,7 @@ class ExternalClient:
             "/api/v1/relations",
             key=f"{request_id}:relation",
             json={
-                "destination": {"kind": "workspace", "workspace_id": project},
+                "destination": {"kind": "project", "project_id": project},
                 "direction": "UNIDIRECTIONAL",
                 "source_object_version_id": object_version_id,
                 "target_object_version_id": str(input_object_version),
@@ -190,7 +190,7 @@ class ExternalClient:
             key=f"{request_id}:upload",
             content=evidence,
             params={
-                "workspace_id": project,
+                "project_id": project,
                 "sha256": hashlib.sha256(evidence).hexdigest(),
                 "byte_length": len(evidence),
                 "media_type": "text/plain",
@@ -212,21 +212,19 @@ class ExternalClient:
             self.request("GET", f"/api/v1/objects/{object_id}")
         if self.request("GET", f"/api/v1/artifacts/{artifact_id}/content", raw=True) != evidence:
             raise ServiceError(502, "download_integrity_mismatch")
-        self.request("GET", "/api/v1/activity", params={"scope": "member", "workspace_id": project})
+        self.request("GET", "/api/v1/activity", params={"scope": "member", "project_id": project})
         return {"artifact_id": artifact_id, "status": "COMPLETED", "replayed": replayed}
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--request-id", type=UUID, required=True)
-    parser.add_argument("--workspace-id", type=UUID)
+    parser.add_argument("--project-id", type=UUID)
     parser.add_argument("--input-object-version", type=UUID)
     parser.add_argument("--expect-revoked", action="store_true")
     args = parser.parse_args()
-    if not args.expect_revoked and (args.input_object_version is None or args.workspace_id is None):
-        parser.error(
-            "--workspace-id and --input-object-version are required for the write scenario"
-        )
+    if not args.expect_revoked and (args.input_object_version is None or args.project_id is None):
+        parser.error("--project-id and --input-object-version are required for the write scenario")
     client = None
     try:
         client = ExternalClient(
@@ -241,8 +239,8 @@ def main() -> int:
                     {
                         "json": {
                             "destination": {
-                                "kind": "workspace",
-                                "workspace_id": str(args.workspace_id),
+                                "kind": "project",
+                                "project_id": str(args.project_id),
                             },
                             "snapshot": {
                                 "kind": "NOTE",
@@ -271,7 +269,7 @@ def main() -> int:
         else:
             print(
                 json.dumps(
-                    client.scenario(args.request_id, args.input_object_version, args.workspace_id)
+                    client.scenario(args.request_id, args.input_object_version, args.project_id)
                 )
             )
     except (KeyError, ValueError, ServiceError) as error:

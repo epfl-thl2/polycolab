@@ -1,7 +1,7 @@
 """Version-based proposal commands; historical stored payloads decode separately.
 
 Proposal/run ownership determines the destination. A change cannot nominate a
-different workspace, Library destination, author, or contribution identity.
+different project, Library destination, author, or contribution identity.
 These contracts are the input foundation for the coordinated proposal cutover;
 they do not replace the historical decoder in ``proposals.py``.
 """

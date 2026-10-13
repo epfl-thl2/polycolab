@@ -13,8 +13,7 @@ type Manifest = components['schemas']['PublicationVersionManifestRead'];
 type PublicManifest = components['schemas']['PublicPublicationVersionManifestRead'];
 type Fields = components['schemas']['PublicationVersionFields'];
 
-const privateRecordHref = (projectId: string, id: string) =>
-  `/workspaces/${projectId}/records/${id}`;
+const privateRecordHref = (projectId: string, id: string) => `/projects/${projectId}/records/${id}`;
 const publicRecordHref = (id: string) => `/commons/records/${id}`;
 
 function recordKind(kind: components['schemas']['ObjectKind']): PublicationSelectionItem['kind'] {
@@ -30,7 +29,7 @@ export function publicationSelection(
 ): Selection {
   const selected = available.filter((item) => selectedIds.includes(item.id));
   return {
-    workspace_id: projectId,
+    project_id: projectId,
     review_ids: selected.filter((item) => item.kind === 'REVIEW').map((item) => item.id),
     object_version_ids: selected
       .filter((item) => ['RESEARCH_REVISION', 'PROOF', 'RESEARCH_ATTEMPT'].includes(item.kind))
@@ -61,7 +60,7 @@ function members(
     kind: recordKind(record.kind),
     revisionId: record.id,
     title: record.content.title,
-    href: link(selection.workspace_id, record.id),
+    href: link(selection.project_id, record.id),
     inclusion: selectedRevisions.has(record.id) ? 'SELECTED' : 'REQUIRED',
     reason: requiredRevisionIds.includes(record.id) ? 'Exact dependency closure' : undefined,
   }));
@@ -71,7 +70,7 @@ function members(
       kind: 'REVIEW' as const,
       revisionId: review.object_version_id,
       title: `${review.actor_kind === 'HUMAN' ? 'Human' : 'AI'} review by ${review.reviewer_name}`,
-      href: link(selection.workspace_id, review.object_version_id),
+      href: link(selection.project_id, review.object_version_id),
       inclusion: 'SELECTED' as const,
     })),
     ...fields.summaries.map((summary) => ({
@@ -79,7 +78,7 @@ function members(
       kind: 'AUTHORED_SUMMARY' as const,
       revisionId: summary.id,
       title: `Authored summary revision ${summary.number}`,
-      href: link(selection.workspace_id, summary.object_id),
+      href: link(selection.project_id, summary.object_id),
       inclusion: 'SELECTED' as const,
     })),
     ...fields.comments.map((comment) => ({
@@ -87,7 +86,7 @@ function members(
       kind: 'COMMENT' as const,
       revisionId: comment.object_version_id,
       title: `Comment by ${comment.author_display_name ?? comment.agent_display_name ?? 'Unknown contributor'}`,
-      href: link(selection.workspace_id, comment.object_version_id),
+      href: link(selection.project_id, comment.object_version_id),
       inclusion: 'SELECTED' as const,
     })),
     ...fields.progress.map((progress) => ({
@@ -95,14 +94,14 @@ function members(
       kind: 'PROGRESS' as const,
       revisionId: progress.object_version_id,
       title: `${progress.status} progress`,
-      href: link(selection.workspace_id, progress.object_version_id),
+      href: link(selection.project_id, progress.object_version_id),
       inclusion: 'SELECTED' as const,
     })),
     ...fields.relationships.map((relation) => ({
       id: relation.id,
       kind: 'RELATION' as const,
       title: `${relation.relationship_type} relationship`,
-      href: link(selection.workspace_id, relationshipEndpoints(relation)[0]),
+      href: link(selection.project_id, relationshipEndpoints(relation)[0]),
       inclusion: 'SELECTED' as const,
     })),
     ...fields.artifacts.map((artifact) => ({
@@ -113,7 +112,7 @@ function members(
       href: publicLinks
         ? artifact.content_path
         : privateRecordHref(
-            selection.workspace_id,
+            selection.project_id,
             artifact.source_object_version_id ?? artifact.links[0]?.object_version_id ?? '',
           ),
       description: `sha256:${artifact.sha256} · ${artifact.byte_length.toLocaleString()} bytes · ${artifact.media_type}`,
@@ -190,7 +189,7 @@ export function mapPublicationManifest(manifest: Manifest): PublicationManifestV
 }
 
 export function mapPublicPublicationManifest(manifest: PublicManifest): PublicationManifestView {
-  const selection: Selection = { ...manifest.selection, workspace_id: '' };
+  const selection: Selection = { ...manifest.selection, project_id: '' };
   return {
     publicationId: manifest.id,
     digest: manifest.preview_digest,

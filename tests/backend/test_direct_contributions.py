@@ -40,10 +40,10 @@ def active_run(
     app.state.settings.feature_agent_execution_enabled = True
     entry = admit(client)
     project = (
-        client.get(f"/api/v1/workspaces/{project_id}", headers=headers()).json()
+        client.get(f"/api/v1/projects/{project_id}", headers=headers()).json()
         if project_id
         else client.post(
-            "/api/v1/workspaces",
+            "/api/v1/projects",
             headers=headers(),
             json={"visibility": "PRIVATE", "name": "Research"},
         ).json()
@@ -53,13 +53,13 @@ def active_run(
         "/api/v1/agent-sessions",
         headers=headers(),
         json={
-            "workspace_id": project["id"],
+            "project_id": project["id"],
             "agent_kind": "RESEARCHER",
             "agent_version": 2,
         },
     ).json()
     authority = {
-        "destination": "PUBLIC" if public else "WORKSPACE",
+        "destination": "PUBLIC" if public else "PROJECT",
         "allowed_operations": allowed_operations
         or [
             "CREATE_RECORD",

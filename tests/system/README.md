@@ -12,16 +12,16 @@ This separate harness creates a unique disposable Compose project with PostgreSQ
 It bootstraps a real local account and invokes `polycolab.external_client` in a separate process receiving only the service URL and delegated credential.
 No worker/provider/controller is started.
 It verifies public committed evidence, scenario replay, relation/comment writes, staged-byte denial, bad digest rejection, conflicting retries, stale edits and revocation.
-It also runs PostgreSQL authority cases for expiry, membership loss, cross-workspace denial, visibility changes (including artifact bytes), and private-only search.
+It also runs PostgreSQL authority cases for expiry, membership loss, cross-project denial, visibility changes (including artifact bytes), and private-only search.
 Migration cases check preservation of existing public/private research across the unification migration.
 
-The API supports public and private workspaces under the same configuration.
+The API supports public and private projects under the same configuration.
 The orchestrator injects corruption and missing bytes into one exact artifact created by the test and verifies public downloads fail closed with 503.
 It restores the original bytes and verifies successful reread before any backup capture.
 Database/storage credentials are confined to the orchestrator, not the client.
 
 The optional browser gate builds the actual Svelte production bundle, serves it from FastAPI, and runs Chromium against that same PostgreSQL/Garage service.
-A real local account creates a public workspace and reveals a one-time credential.
+A real local account creates a public project and reveals a one-time credential.
 A separate credential-only HTTP context saves attributable research versions, a relationship, a comment and committed evidence, and receives 401 after human revocation.
 A fresh anonymous browser context still reads the exact research, comment and evidence bytes afterward.
 No API response is mocked.

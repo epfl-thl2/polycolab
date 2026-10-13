@@ -5,7 +5,7 @@
   import { Button } from '../lib/components/ui/button';
   import { untrack } from 'svelte';
   import type { components } from '$lib/api-client';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import {
     coarseKind,
     exactRevision,
@@ -47,7 +47,7 @@
     canWrite,
     canPublish = false,
   }: { record: RecordRead; projectId: string; canWrite: boolean; canPublish?: boolean } = $props();
-  const { researchStructure, artifacts: artifactApi } = workspace();
+  const { researchStructure, artifacts: artifactApi } = projectContext();
   let attempts = $state<AttemptPage>({ items: [], next_cursor: null });
   let note = $state<NoteRead>();
   let noteHistory = $state<NotePage>({ items: [], next_cursor: null });
@@ -78,7 +78,7 @@
   let displays = $state<Record<string, ObjectVersionDisplayRead>>({});
   let artifactAttachments = $state<ArtifactAttachmentPage>({ items: [], next_cursor: null });
 
-  const href = (revisionId: string) => `/workspaces/${projectId}/records/${revisionId}`;
+  const href = (revisionId: string) => `/projects/${projectId}/records/${revisionId}`;
   const resolve = (revisionId: string) => ({
     title:
       revisionId === record.id
@@ -145,7 +145,7 @@
     );
     const pages = await Promise.all(
       batches.map((object_version_ids) =>
-        researchStructure.objectVersionDisplays({ workspace_id: projectId, object_version_ids }),
+        researchStructure.objectVersionDisplays({ project_id: projectId, object_version_ids }),
       ),
     );
     displays = {
@@ -182,19 +182,19 @@
         artifactPage,
       ] = await Promise.all([
         researchStructure.attempts(record.object_id, {
-          workspace_id: projectId,
+          project_id: projectId,
           target_object_version_id: record.id,
         }),
         optional(researchStructure.humanNote(record.object_id, projectId)),
-        optional(researchStructure.humanNoteHistory(record.object_id, { workspace_id: projectId })),
+        optional(researchStructure.humanNoteHistory(record.object_id, { project_id: projectId })),
         optional(researchStructure.summary(record.object_id, projectId)),
-        optional(researchStructure.summaryHistory(record.object_id, { workspace_id: projectId })),
+        optional(researchStructure.summaryHistory(record.object_id, { project_id: projectId })),
         researchStructure.comments(record.object_id, {
-          workspace_id: projectId,
+          project_id: projectId,
           object_version_id: record.id,
         }),
         researchStructure.progress(record.object_id, {
-          workspace_id: projectId,
+          project_id: projectId,
           object_version_id: record.id,
         }),
         researchStructure.assurance(record.id, projectId),
@@ -237,11 +237,11 @@
   async function reloadActivity() {
     [comments, progress] = await Promise.all([
       researchStructure.comments(record.object_id, {
-        workspace_id: projectId,
+        project_id: projectId,
         object_version_id: record.id,
       }),
       researchStructure.progress(record.object_id, {
-        workspace_id: projectId,
+        project_id: projectId,
         object_version_id: record.id,
       }),
     ]);
@@ -252,7 +252,7 @@
     loadingAttempts = true;
     try {
       const next = await researchStructure.attempts(record.object_id, {
-        workspace_id: projectId,
+        project_id: projectId,
         target_object_version_id: record.id,
         cursor: attempts.next_cursor,
       });
@@ -270,7 +270,7 @@
     loadingNoteHistory = true;
     try {
       const next = await researchStructure.humanNoteHistory(record.object_id, {
-        workspace_id: projectId,
+        project_id: projectId,
         cursor: noteHistory.next_cursor,
       });
       noteHistory = { ...next, items: [...noteHistory.items, ...next.items] };
@@ -286,7 +286,7 @@
     loadingSummaryHistory = true;
     try {
       const next = await researchStructure.summaryHistory(record.object_id, {
-        workspace_id: projectId,
+        project_id: projectId,
         cursor: summaryHistory.next_cursor,
       });
       await loadDisplays(next.items.flatMap((item) => item.source_object_version_ids));
@@ -305,14 +305,14 @@
       const [nextComments, nextProgress] = await Promise.all([
         comments.next_cursor
           ? researchStructure.comments(record.object_id, {
-              workspace_id: projectId,
+              project_id: projectId,
               object_version_id: record.id,
               cursor: comments.next_cursor,
             })
           : Promise.resolve(undefined),
         progress.next_cursor
           ? researchStructure.progress(record.object_id, {
-              workspace_id: projectId,
+              project_id: projectId,
               object_version_id: record.id,
               cursor: progress.next_cursor,
             })
@@ -451,7 +451,7 @@
           const saved = await researchStructure.writeHumanNote(
             record.object_id,
             {
-              workspace_id: projectId,
+              project_id: projectId,
               base_revision_id: draft.baseRevisionId,
               body_md: draft.content,
             },
@@ -475,7 +475,7 @@
         save={async (draft, key) => {
           const saved = await researchStructure.writeHumanNote(
             record.object_id,
-            { workspace_id: projectId, body_md: draft.content },
+            { project_id: projectId, body_md: draft.content },
             key,
           );
           note = saved;
@@ -494,7 +494,7 @@
         summary = await researchStructure.writeSummary(
           record.object_id,
           {
-            workspace_id: projectId,
+            project_id: projectId,
             base_revision_id: baseRevisionId,
             body_md: content,
             source_object_version_ids: sourceRevisionIds,
@@ -517,14 +517,14 @@
         comment={(body, key) =>
           researchStructure.comment(
             record.object_id,
-            { workspace_id: projectId, object_version_id: record.id, body_md: body },
+            { project_id: projectId, object_version_id: record.id, body_md: body },
             key,
           )}
         progress={(status, detail, key) =>
           researchStructure.reportProgress(
             record.object_id,
             {
-              workspace_id: projectId,
+              project_id: projectId,
               object_version_id: record.id,
               status,
               detail_md: detail,

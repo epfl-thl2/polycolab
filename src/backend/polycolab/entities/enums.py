@@ -3,19 +3,19 @@
 from enum import StrEnum
 
 
-class WorkspaceRole(StrEnum):
+class ProjectRole(StrEnum):
     OWNER = "OWNER"
     CONTRIBUTOR = "CONTRIBUTOR"
     READ_ONLY = "READ_ONLY"
 
 
-class WorkspaceVisibility(StrEnum):
+class ProjectVisibility(StrEnum):
     PRIVATE = "PRIVATE"
     PUBLIC = "PUBLIC"
 
 
 class ResearchScopeKind(StrEnum):
-    WORKSPACE = "WORKSPACE"
+    PROJECT = "PROJECT"
     COMMONS = "COMMONS"
 
 
@@ -176,7 +176,7 @@ class ExecutionWorkloadClass(StrEnum):
 
 class ExecutionTenantKind(StrEnum):
     USER = "USER"
-    WORKSPACE = "WORKSPACE"
+    PROJECT = "PROJECT"
 
 
 class VerificationInputRole(StrEnum):
@@ -299,8 +299,8 @@ class RuntimeRunBindingStatus(StrEnum):
 
 
 __all__ = [
-    "WorkspaceRole",
-    "WorkspaceVisibility",
+    "ProjectRole",
+    "ProjectVisibility",
     "ResearchScopeKind",
     "ResearchEntityClass",
     "ContributionActorKind",

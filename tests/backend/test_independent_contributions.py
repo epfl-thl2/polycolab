@@ -10,10 +10,10 @@ def test_independent_agent_write_rotation_and_history(client: TestClient) -> Non
 
     enable(client)
     auth = {"Authorization": "Bearer owner"}
-    workspace = client.post(
-        "/api/v1/workspaces", headers=auth, json={"visibility": "PRIVATE", "name": "Research"}
+    project = client.post(
+        "/api/v1/projects", headers=auth, json={"visibility": "PRIVATE", "name": "Research"}
     )
-    assert workspace.status_code == 201
+    assert project.status_code == 201
     agent = client.post("/api/v1/account/agents", headers=auth, json={"name": "Research helper"})
     assert agent.status_code == 201, agent.text
     identity = agent.json()["id"]
@@ -29,7 +29,7 @@ def test_independent_agent_write_rotation_and_history(client: TestClient) -> Non
 
     secret = issue()
     body = {
-        "destination": {"kind": "workspace", "workspace_id": workspace.json()["id"]},
+        "destination": {"kind": "project", "project_id": project.json()["id"]},
         "snapshot": version_snapshot("CLAIM", "A bound", "Evidence"),
     }
     headers = {"Authorization": f"Bearer {secret}", "Idempotency-Key": str(uuid4())}
@@ -124,9 +124,9 @@ def test_summary_progress_history_and_resumable_backfill(client: TestClient) -> 
     from polycolab.db.models import SqlResearchActivityEvent
     from polycolab.research.history import backfill
 
-    workspace, secret = setup(client)
+    project, secret = setup(client)
     created = client.post(
-        "/api/v1/objects", headers=headers(secret), json=body(workspace["id"])
+        "/api/v1/objects", headers=headers(secret), json=body(project["id"])
     ).json()
     object_id, revision_id = [row["entity_id"] for row in created["outputs"]]
     summary = client.put(
@@ -168,11 +168,11 @@ def test_selective_publication_does_not_publish_private_discussion_history(
     client: TestClient,
 ) -> None:
     from test_catalogue_api import enable
-    from test_research_domain import create_object, create_workspace, headers
+    from test_research_domain import create_object, create_project, headers
 
     enable(client)
-    workspace_id = create_workspace(client)
-    target = create_object(client, workspace_id)
+    project_id = create_project(client)
+    target = create_object(client, project_id)
     comment = client.post(
         f"/api/v1/objects/{target['id']}/comments",
         headers=headers("owner"),
@@ -198,7 +198,7 @@ def test_selective_publication_does_not_publish_private_discussion_history(
         if row["entity_type"] == "OBJECT_VERSION"
     )
     selection = {
-        "workspace_id": workspace_id,
+        "project_id": project_id,
         "object_version_ids": [published_revision],
         "summary_revision_ids": [],
         "comment_ids": [],
@@ -245,7 +245,7 @@ def test_selective_publication_does_not_publish_private_discussion_history(
         )
     feed = client.get("/api/v1/activity").json()["items"]
     assert {row["action"] for row in feed} == {"object.revised", "research.published"}
-    assert all(row["workspace_id"] is None for row in feed)
+    assert all(row["project_id"] is None for row in feed)
     assert all(row["excerpt_md"] == "The revised formulation" for row in feed)
     assert all(row["previous_object_version_id"] is None for row in feed)
     assert all("revision_id" not in row and "previous_revision_id" not in row for row in feed)
@@ -254,11 +254,11 @@ def test_selective_publication_does_not_publish_private_discussion_history(
     ]
     revision_event = next(row for row in member_feed if row["action"] == "object.revised")
     assert revision_event["previous_object_version_id"] == private_base
-    assert revision_event["workspace_id"] == workspace_id
+    assert revision_event["project_id"] == project_id
     assert (
         client.get(f"/api/v1/contributions/{comment.json()['contribution_id']}").status_code == 404
     )
-    assert client.get("/api/v1/activity/workspaces").json()["items"] == []
+    assert client.get("/api/v1/activity/projects").json()["items"] == []
 
     # Public projections saved before this fix may contain a private predecessor.
     from uuid import UUID

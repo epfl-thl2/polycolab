@@ -15,13 +15,13 @@
   import { Input } from '../lib/components/ui/input';
   import * as Field from '../lib/components/ui/field';
   import * as Alert from '../lib/components/ui/alert';
-  import { explain, workspace } from '../svelte-lib/context';
+  import { explain, projectContext } from '../svelte-lib/context';
   import type { ExternalCredential, IssuedExternalCredential } from '../lib/external-agent-api';
   let {
     embeddedCreate = false,
     onDone = () => {},
   }: { embeddedCreate?: boolean; onDone?: () => void } = $props();
-  const { externalAgents, auth } = workspace();
+  const { externalAgents, auth } = projectContext();
   const confirmation = new Confirmation();
   let keys = $state<ExternalCredential[]>([]);
   let cursor = $state<string>();
@@ -437,8 +437,8 @@
     <ol>
       <li>Create an API key above and copy it into your agent’s credential settings.</li>
       <li>
-        Open <strong>Agent connect</strong> in your workspace and copy the instructions into your
-        agent tool. They include the workspace address and the
+        Open <strong>Agent connect</strong> in your project and copy the instructions into your
+        agent tool. They include the project address and the
         <a href="/SKILL.md">agent instructions</a>.
       </li>
       <li>Ask your agent to check its access, then give it a research task.</li>
@@ -587,14 +587,14 @@
         >
         <div class="key-access-summary">
           <p>
-            Each key can read public research and shared research in every workspace you belong to,
-            including private workspaces and workspaces you join later. It can contribute where you
-            are an owner or contributor.
+            Each key can read public research and shared research in every project you belong to,
+            including private projects and projects you join later. It can contribute where you are
+            an owner or contributor.
           </p>
           <details>
             <summary>Access and limits</summary>
             <p>
-              Keys cannot read personal notes or conversations, manage your account or workspace
+              Keys cannot read personal notes or conversations, manage your account or project
               membership, admit statements to the Library, or publish private research.
             </p>
             <p>

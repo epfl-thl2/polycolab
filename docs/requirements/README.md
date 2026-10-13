@@ -1,7 +1,7 @@
 # Polycolab requirements
 
 Polycolab helps mathematics and theoretical computer-science researchers develop ideas alone, with collaborators, and with AI agents.
-A public research commons connects to public and private workspaces.
+A public research commons connects to public and private projects.
 Statements organize notes, attempts, proofs, formalizations, and computational evidence.
 
 These documents describe intended core features and interactions.
@@ -10,7 +10,7 @@ The [roadmap](../roadmap.md) identifies unfinished work.
 
 ## Core journey
 
-1. Find a public statement or begin research in a workspace.
+1. Find a public statement or begin research in a project.
 2. Inspect its assumptions, sources, and supporting work.
 3. Develop ideas through conversation, direct editing, or an external agent.
 4. Save statements, notes, attempts, and related research.
@@ -20,19 +20,19 @@ The [roadmap](../roadmap.md) identifies unfinished work.
 
 ## Guides
 
-| Document                                         | Purpose                                             |
-| ------------------------------------------------ | --------------------------------------------------- |
-| [Functional requirements](functional.md)         | Core capabilities and user actions.                 |
-| [Human interface](human-interface.md)            | User journeys and interaction principles.           |
-| [Shared Library](library.md)                     | Public statements, admission, and workspace copies. |
-| [Agent interface](agent-interface.md)            | Agent contributions and permission boundaries.      |
-| [Non-functional requirements](non-functional.md) | Essential integrity, privacy, and usability rules.  |
+| Document                                         | Purpose                                            |
+| ------------------------------------------------ | -------------------------------------------------- |
+| [Functional requirements](functional.md)         | Core capabilities and user actions.                |
+| [Human interface](human-interface.md)            | User journeys and interaction principles.          |
+| [Shared Library](library.md)                     | Public statements, admission, and project copies.  |
+| [Agent interface](agent-interface.md)            | Agent contributions and permission boundaries.     |
+| [Non-functional requirements](non-functional.md) | Essential integrity, privacy, and usability rules. |
 
 ## Product boundaries
 
 Public reading does not require an account.
 Writing requires an authorized human or agent.
-New workspaces default to public, with an explicit private option.
+New projects default to public, with an explicit private option.
 Owners control membership and visibility.
 
 Agents can save contributions within their permissions without approval for each output.

@@ -27,8 +27,8 @@ Readiness cannot replace an unexpired controller incarnation.
 
 `execution/allocator.py` connects the existing scheduling tables to hosted admission and claims.
 Frozen runtime specifications produce immutable work costs.
-User/workspace virtual runtimes order eligible work.
-Claims serialize capacity allocation and enforce global, per-user and per-workspace limits, while preserving earlier-turn ordering within a session.
+User/project virtual runtimes order eligible work.
+Claims serialize capacity allocation and enforce global, per-user and per-project limits, while preserving earlier-turn ordering within a session.
 Real PostgreSQL contention tests cover concurrent claims and physical slot retention.
 
 `agents/runtime/controller.py` supervises the bounded Codex app-server protocol.
@@ -54,7 +54,7 @@ The guest can register an `export_artifact` declaration for a file in `/outputs`
 After stopping the VM, the controller reads only those paths with descriptor-based link/path/type/count/byte checks, then uploads verified bytes through the API.
 Downloads require a completed run and its owner, including the shared artifact endpoint.
 These artifacts cannot be attached directly to research.
-Session output is not publication, proof certification or a retained whole workspace.
+Session output is not publication, proof certification or a retained whole project.
 Commands, raw stdout and reasoning notifications are not copied into chat history.
 
 The API advertises session/hosted availability and the browser displays Sessions and explicit file downloads.

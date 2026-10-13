@@ -34,7 +34,7 @@ def test_notification_retry_reference_revocation_and_filtered_summary(client: Te
         f"/api/v1/community/{entry['entry_id']}/follow", headers=headers(), json={"active": True}
     )
     reference = client.post(
-        "/api/v1/workspace-references",
+        "/api/v1/project-references",
         headers=headers("outsider", "ref"),
         json={"object_version_id": entry["object_version_id"]},
     ).json()
@@ -66,7 +66,7 @@ def test_notification_retry_reference_revocation_and_filtered_summary(client: Te
     with app.state.session_factory() as db:
         assert db.scalar(select(func.count()).select_from(SqlResearchNotification)) == count
         db.execute(
-            delete(SqlMembership).where(SqlMembership.project_id == UUID(reference["workspace_id"]))
+            delete(SqlMembership).where(SqlMembership.project_id == UUID(reference["project_id"]))
         )
         db.add(SqlRecordModeration(object_id=UUID(record_object_id), hidden=True))
         db.commit()

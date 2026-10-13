@@ -2,7 +2,7 @@
   import type { ObjectVersion, ResearchObject } from '../lib/research-api';
   import { editableVersionSnapshot } from '../lib/version-snapshot';
   import { objectProgress } from '../lib/object-progress';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import { NativeSelect } from '../lib/components/ui/native-select';
   import { Textarea } from '../lib/components/ui/textarea';
   import { Button } from '../lib/components/ui/button';
@@ -17,7 +17,7 @@
     canWrite?: boolean;
     onsaved?: (object: ResearchObject) => void;
   } = $props();
-  const { api, query } = workspace();
+  const { api, query } = projectContext();
   const structured = $derived(version.kind === 'PROOF' || version.kind === 'ATTEMPT');
   const current = $derived(
     version.kind === 'PROOF'
@@ -60,11 +60,11 @@
       query.setQueryData(['object', projectId, version.object_id], result);
       onsaved(result);
       await query.invalidateQueries({
-        queryKey: ['workspace-map', projectId],
+        queryKey: ['project-map', projectId],
         refetchType: 'none',
       });
       await Promise.all(
-        ['workspace-map', 'workspace-inspector-map', 'objects', 'history'].map((key) =>
+        ['project-map', 'project-inspector-map', 'objects', 'history'].map((key) =>
           query.invalidateQueries({ queryKey: [key, projectId] }),
         ),
       );

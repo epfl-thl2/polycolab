@@ -7,7 +7,7 @@
   <div class="settings-cards administration-cards">
     <article class="card settings-card">
       <strong>People & access</strong><span
-        >Accounts, invitations, roles, and workspace access policy</span
+        >Accounts, invitations, roles, and project access policy</span
       ><small>Administration service required</small>
     </article>
     <a class="card settings-card" href="/moderation"

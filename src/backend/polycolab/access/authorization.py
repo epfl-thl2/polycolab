@@ -1,4 +1,4 @@
-"""Reusable workspace policy primitives for routes, context construction, and tools."""
+"""Reusable project policy primitives for routes, context construction, and tools."""
 
 from __future__ import annotations
 
@@ -8,14 +8,14 @@ from typing import Protocol
 from uuid import UUID
 
 from polycolab.access.actors import Actor, ActorKind, ActorOperation
-from polycolab.entities.enums import WorkspaceRole, WorkspaceVisibility
-from polycolab.entities.workspaces import Membership, Workspace, WorkspaceMemberAccess
+from polycolab.entities.enums import ProjectRole, ProjectVisibility
+from polycolab.entities.projects import Membership, Project, ProjectMemberAccess
 from polycolab.transaction import Transaction
 
 
-class PublicWorkspaceState(Protocol):
+class PublicProjectState(Protocol):
     @property
-    def visibility(self) -> WorkspaceVisibility: ...
+    def visibility(self) -> ProjectVisibility: ...
 
     @property
     def archived_at(self) -> datetime | None: ...
@@ -24,7 +24,7 @@ class PublicWorkspaceState(Protocol):
     def deleted_at(self) -> datetime | None: ...
 
 
-class WorkspaceAction(StrEnum):
+class ProjectAction(StrEnum):
     VIEW = "VIEW"
     MANAGE_SETTINGS = "MANAGE_SETTINGS"
     MANAGE_MEMBERS = "MANAGE_MEMBERS"
@@ -40,25 +40,25 @@ class AuthorizationDenied(Exception):
     pass
 
 
-class WorkspaceNotFound(Exception):
+class ProjectNotFound(Exception):
     pass
 
 
-ROLE_ACTIONS: dict[WorkspaceRole, frozenset[WorkspaceAction]] = {
-    WorkspaceRole.OWNER: frozenset(WorkspaceAction),
-    WorkspaceRole.CONTRIBUTOR: frozenset(
+ROLE_ACTIONS: dict[ProjectRole, frozenset[ProjectAction]] = {
+    ProjectRole.OWNER: frozenset(ProjectAction),
+    ProjectRole.CONTRIBUTOR: frozenset(
         {
-            WorkspaceAction.VIEW,
-            WorkspaceAction.CREATE_RESEARCH,
-            WorkspaceAction.COMMENT,
-            WorkspaceAction.REVIEW_PROPOSALS,
-            WorkspaceAction.RUN_AGENTS,
+            ProjectAction.VIEW,
+            ProjectAction.CREATE_RESEARCH,
+            ProjectAction.COMMENT,
+            ProjectAction.REVIEW_PROPOSALS,
+            ProjectAction.RUN_AGENTS,
         }
     ),
-    WorkspaceRole.READ_ONLY: frozenset({WorkspaceAction.VIEW}),
+    ProjectRole.READ_ONLY: frozenset({ProjectAction.VIEW}),
 }
 
-# All mutations that recheck workspace authority acquire these rows in this order.
+# All mutations that recheck project authority acquire these rows in this order.
 # Future scope/entity locks and moderation locks must follow the same prefix.
 AUTHORIZATION_LOCK_ORDER = ("project", "membership")
 
@@ -132,15 +132,15 @@ def require_public_participation(
     )
 
 
-def require_workspace_write(actor: Actor, *, project_id: UUID | None = None) -> None:
-    _require_scoped_operation(actor, ActorOperation.WORKSPACE_WRITE, project_id=project_id)
+def require_project_write(actor: Actor, *, project_id: UUID | None = None) -> None:
+    _require_scoped_operation(actor, ActorOperation.PROJECT_WRITE, project_id=project_id)
 
 
 def require_publication(actor: Actor) -> None:
     require_human_actor(actor, action="publication")
 
 
-def require_workspace_management(actor: Actor) -> None:
+def require_project_management(actor: Actor) -> None:
     require_human_actor(actor, action="project management")
 
 
@@ -164,80 +164,80 @@ def require_proposal_review(actor: Actor) -> None:
     require_human_actor(actor, action="proposal review")
 
 
-def lock_workspace_authorization(
+def lock_project_authorization(
     transaction: Transaction, *, project_id: UUID, user_id: UUID
-) -> tuple[Workspace | None, Membership | None]:
-    """Lock workspace then membership before checking mutable authority.
+) -> tuple[Project | None, Membership | None]:
+    """Lock project then membership before checking mutable authority.
 
     Archive, deletion, membership revocation, and moderation mutations must
     acquire these rows in this order so authorization and the protected write
     share one transaction boundary.
     """
 
-    workspace = transaction.workspaces.workspace(project_id, lock=True)
-    membership = transaction.workspaces.membership(project_id, user_id, lock=True)
-    return workspace, membership
+    project = transaction.projects.project(project_id, lock=True)
+    membership = transaction.projects.membership(project_id, user_id, lock=True)
+    return project, membership
 
 
-class WorkspacePolicy:
+class ProjectPolicy:
     """Loads current membership on each call; no permission is cached in a token."""
 
     def membership(
         self, transaction: Transaction, project_id: UUID, user_id: UUID
     ) -> Membership | None:
-        return transaction.workspaces.membership(project_id, user_id)
+        return transaction.projects.membership(project_id, user_id)
 
     def can(
-        self, transaction: Transaction, project_id: UUID, user_id: UUID, action: WorkspaceAction
+        self, transaction: Transaction, project_id: UUID, user_id: UUID, action: ProjectAction
     ) -> bool:
-        workspace = transaction.workspaces.workspace(project_id)
-        if workspace is None or workspace.deleted_at is not None:
+        project = transaction.projects.project(project_id)
+        if project is None or project.deleted_at is not None:
             return False
-        if workspace.archived_at is not None and action not in {
-            WorkspaceAction.VIEW,
-            WorkspaceAction.MANAGE_SETTINGS,
-            WorkspaceAction.ARCHIVE,
-            WorkspaceAction.DELETE,
+        if project.archived_at is not None and action not in {
+            ProjectAction.VIEW,
+            ProjectAction.MANAGE_SETTINGS,
+            ProjectAction.ARCHIVE,
+            ProjectAction.DELETE,
         }:
             return False
         membership = self.membership(transaction, project_id, user_id)
         return membership is not None and action in ROLE_ACTIONS[membership.role]
 
     def require_scope(
-        self, transaction: Transaction, project_id: UUID, user_id: UUID, action: WorkspaceAction
-    ) -> WorkspaceMemberAccess:
-        if action is WorkspaceAction.VIEW:
-            workspace = transaction.workspaces.workspace(project_id)
+        self, transaction: Transaction, project_id: UUID, user_id: UUID, action: ProjectAction
+    ) -> ProjectMemberAccess:
+        if action is ProjectAction.VIEW:
+            project = transaction.projects.project(project_id)
             membership = self.membership(transaction, project_id, user_id)
         else:
-            workspace, membership = lock_workspace_authorization(
+            project, membership = lock_project_authorization(
                 transaction, project_id=project_id, user_id=user_id
             )
-        if workspace is None or workspace.deleted_at is not None:
-            raise WorkspaceNotFound
-        # A non-member is deliberately indistinguishable from an unknown workspace.
+        if project is None or project.deleted_at is not None:
+            raise ProjectNotFound
+        # A non-member is deliberately indistinguishable from an unknown project.
         if membership is None:
-            raise WorkspaceNotFound
-        # Archived workspaces are read-only until an owner changes settings to
+            raise ProjectNotFound
+        # Archived projects are read-only until an owner changes settings to
         # unarchive them; membership, research, agent, and review mutations stop.
-        if workspace.archived_at is not None and action not in {
-            WorkspaceAction.VIEW,
-            WorkspaceAction.MANAGE_SETTINGS,
-            WorkspaceAction.ARCHIVE,
-            WorkspaceAction.DELETE,
+        if project.archived_at is not None and action not in {
+            ProjectAction.VIEW,
+            ProjectAction.MANAGE_SETTINGS,
+            ProjectAction.ARCHIVE,
+            ProjectAction.DELETE,
         }:
             raise AuthorizationDenied
         if action not in ROLE_ACTIONS[membership.role]:
             raise AuthorizationDenied
-        return WorkspaceMemberAccess(workspace, membership)
+        return ProjectMemberAccess(project, membership)
 
-    def can_read_public(self, workspace: PublicWorkspaceState | None) -> bool:
+    def can_read_public(self, project: PublicProjectState | None) -> bool:
         return bool(
-            workspace is not None
-            and workspace.visibility is WorkspaceVisibility.PUBLIC
-            and workspace.archived_at is None
-            and workspace.deleted_at is None
+            project is not None
+            and project.visibility is ProjectVisibility.PUBLIC
+            and project.archived_at is None
+            and project.deleted_at is None
         )
 
 
-workspace_policy = WorkspacePolicy()
+project_policy = ProjectPolicy()

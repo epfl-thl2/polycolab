@@ -5,8 +5,8 @@
   import { Input } from '../lib/components/ui/input';
   import { Textarea } from '../lib/components/ui/textarea';
   import { Button } from '../lib/components/ui/button';
-  import { workspace, explain } from '../svelte-lib/context';
-  const { records, catalogue } = workspace();
+  import { projectContext, explain } from '../svelte-lib/context';
+  const { records, catalogue } = projectContext();
   let kind = $state<'RECORD' | 'CATALOGUE'>('RECORD');
   let objectId = $state('');
   let base = $state('');
@@ -47,7 +47,7 @@
 <main id="main" class="page narrow" tabindex="-1">
   <h1>Public research moderation</h1>
   <p>
-    Only assigned human moderators may hide or restore research. Workspace ownership does not grant
+    Only assigned human moderators may hide or restore research. Project ownership does not grant
     moderation rights. Public content is unavailable while hidden; restoration uses the known object
     and exact current version IDs.
   </p>

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Page, Project, PublicProject } from '../lib/research-api';
-  type WorkspaceListingItem = PublicProject &
+  type ProjectListingItem = PublicProject &
     Partial<Pick<Project, 'current_user_role' | 'member_count'>>;
   import { FolderOpen, Globe, LockKeyhole, Users, X, LoaderCircle } from '@lucide/svelte';
   import DiscoveryState from './DiscoveryState.svelte';
@@ -17,11 +17,11 @@
   import * as Dialog from '../lib/components/ui/dialog';
   import { goto } from '$app/navigation';
   import { accountHref } from '../lib/account-navigation';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   let { publicScope = false }: { publicScope?: boolean } = $props();
-  type WorkspacePage = Page<WorkspaceListingItem> & { pageIndex: number; search: string };
-  const basePath = '/workspaces';
-  const { api, query, auth } = workspace();
+  type ProjectPage = Page<ProjectListingItem> & { pageIndex: number; search: string };
+  const basePath = '/projects';
+  const { api, query, auth } = projectContext();
   let search = $state('');
   let visibility = $state<'PUBLIC' | 'PRIVATE'>('PUBLIC');
   let searchDraft = $state('');
@@ -36,7 +36,7 @@
   let pageIndex = $state(0);
   const pageSize = 20;
   const projects = createQuery(
-    toStore<CreateQueryOptions<WorkspacePage>>(() => ({
+    toStore<CreateQueryOptions<ProjectPage>>(() => ({
       queryKey: [
         publicScope ? 'public-projects' : 'projects',
         publicScope,
@@ -48,7 +48,7 @@
       enabled: publicScope || auth.signedIn,
       placeholderData: (previousData, previousQuery) =>
         previousQuery?.queryKey[1] === publicScope ? previousData : undefined,
-      queryFn: async (): Promise<WorkspacePage> => {
+      queryFn: async (): Promise<ProjectPage> => {
         const requestedPage = pageIndex;
         const requestedSearch = search;
         const result = await (publicScope
@@ -147,7 +147,7 @@
       await query.invalidateQueries({ queryKey: ['projects'] });
       await query.invalidateQueries({ queryKey: ['public-projects'] });
       open = false;
-      await goto(`/workspaces/${project.id}`);
+      await goto(`/projects/${project.id}`);
     } catch (reason) {
       error = explain(reason);
     } finally {
@@ -156,23 +156,23 @@
   }
 </script>
 
-<main id="main" class="page discovery-page workspace-page" tabindex="-1">
+<main id="main" class="page discovery-page project-page" tabindex="-1">
   <header class="discovery-heading">
-    <div class="discovery-title workspace-title">
-      <h1>Workspaces</h1>
+    <div class="discovery-title project-title">
+      <h1>Projects</h1>
       {#if auth.signedIn}
         <Dialog.Root bind:open
-          ><Dialog.Trigger class={buttonVariants()}>New workspace</Dialog.Trigger><Dialog.Content
+          ><Dialog.Trigger class={buttonVariants()}>New project</Dialog.Trigger><Dialog.Content
             class="sm:max-w-lg"
             ><Dialog.Header class="pr-8"
               ><Dialog.Title class="leading-snug">What are you investigating?</Dialog.Title
               ><Dialog.Description
-                >Choose who can view this workspace. Members can contribute according to their role.</Dialog.Description
+                >Choose who can view this project. Members can contribute according to their role.</Dialog.Description
               ></Dialog.Header
             >
             <form onsubmit={create}>
               <Field.Label
-                >Workspace name<Input required maxlength={200} bind:value={name} /></Field.Label
+                >Project name<Input required maxlength={200} bind:value={name} /></Field.Label
               ><Field.Label>Description<Textarea bind:value={description}></Textarea></Field.Label>
               <Field.Label
                 >Visibility<NativeSelect bind:value={visibility}>
@@ -182,15 +182,15 @@
               >
               <p>
                 {visibility === 'PUBLIC'
-                  ? 'Anyone can view this workspace and its research.'
-                  : 'Only members can view this workspace and its research.'}
+                  ? 'Anyone can view this project and its research.'
+                  : 'Only members can view this project and its research.'}
               </p>
               {#if error}<Alert.Root variant="destructive" role="alert">
                   {error}
                 </Alert.Root>{/if}
               <div class="row">
                 <Button type="submit" disabled={busy || !name.trim()}
-                  >{busy ? 'Creating…' : 'Create workspace'}</Button
+                  >{busy ? 'Creating…' : 'Create project'}</Button
                 ><Dialog.Close class={buttonVariants({ variant: 'outline' })}>Cancel</Dialog.Close>
               </div>
             </form></Dialog.Content
@@ -198,17 +198,17 @@
         >{/if}
     </div>
   </header>
-  <nav class="workspace-scope" aria-label="Workspace scope">
+  <nav class="project-scope" aria-label="Project scope">
     <a href={directoryHref(true)} aria-current={publicScope ? 'page' : undefined}>Public</a>
     <a href={directoryHref(false)} aria-current={!publicScope ? 'page' : undefined}>Yours</a>
   </nav>
   {#if !publicScope && !auth.signedIn}
     <p class="muted">
       <a href={accountHref('signin', directoryHref(false))}>Sign in</a> to see your public and private
-      workspaces.
+      projects.
     </p>
   {:else}
-    {#if !publicScope}<nav class="workspace-categories" aria-label="Workspace categories">
+    {#if !publicScope}<nav class="project-categories" aria-label="Project categories">
         {#each [['active', 'All'], ['owned', 'Owned'], ['shared', 'Shared'], ['archived', 'Archived']] as [id, label] (id)}<Button
             type="submit"
             variant="ghost"
@@ -218,25 +218,25 @@
       </nav>{/if}
 
     <form
-      class="toolbar workspace-toolbar"
+      class="toolbar project-toolbar"
       role="search"
-      aria-label="Workspaces"
+      aria-label="Projects"
       onsubmit={(event) => {
         event.preventDefault();
         submitSearch();
       }}
     >
-      <div class="workspace-query">
+      <div class="project-query">
         <Input
           aria-label="Search"
           bind:ref={searchInput}
           type="search"
-          placeholder="Search existing workspaces"
+          placeholder="Search existing projects"
           bind:value={searchDraft}
         />
         {#if searchDraft || search}
           <Button
-            class="workspace-clear-search"
+            class="project-clear-search"
             variant="ghost"
             size="icon"
             type="button"
@@ -248,9 +248,9 @@
         {/if}
       </div>
       <Button type="submit">Search</Button>
-      {#if !publicScope}<Field.Label class="workspace-category-select"
-          ><span class="sr-only">Workspace category</span><NativeSelect
-            aria-label="Workspace category"
+      {#if !publicScope}<Field.Label class="project-category-select"
+          ><span class="sr-only">Project category</span><NativeSelect
+            aria-label="Project category"
             bind:value={category}
             onchange={(event) => chooseCategory(event.currentTarget.value)}
           >
@@ -259,9 +259,9 @@
             ><option value="archived">Archived</option>
           </NativeSelect></Field.Label
         >{/if}
-      <Field.Label class="workspace-sort"
-        ><span class="workspace-sort-label">Sort by</span><NativeSelect
-          aria-label="Sort workspaces"
+      <Field.Label class="project-sort"
+        ><span class="project-sort-label">Sort by</span><NativeSelect
+          aria-label="Sort projects"
           bind:value={sort}
           onchange={chooseSort}
         >
@@ -273,75 +273,75 @@
         </NativeSelect></Field.Label
       >
     </form>
-    <div class="workspace-results-heading" bind:this={resultsHeading} tabindex="-1">
+    <div class="project-results-heading" bind:this={resultsHeading} tabindex="-1">
       {#if displayedSearch}<h2>Results for “{displayedSearch}”</h2>{/if}
       <div class="row">
         <span class="muted" aria-live="polite"
           >{items.length
             ? `${displayedPage * pageSize + 1}-${displayedPage * pageSize + items.length}`
             : '0'}{$projects.data?.total !== undefined
-            ? ` of ${$projects.data.total} ${displayedSearch ? 'matches' : 'workspaces'}`
+            ? ` of ${$projects.data.total} ${displayedSearch ? 'matches' : 'projects'}`
             : ' shown'}</span
         >
       </div>
-      <span class="workspace-refresh" role="status">
+      <span class="project-refresh" role="status">
         {#if updating}<LoaderCircle size={14} aria-hidden="true" />Updating…{/if}
       </span>
     </div>
-    {#if $projects.isPending}<LoadingState>Loading workspaces…</LoadingState
+    {#if $projects.isPending}<LoadingState>Loading projects…</LoadingState
       >{:else if $projects.isError}<DiscoveryState
         kind="error"
-        title="Could not load workspaces"
+        title="Could not load projects"
         description={explain($projects.error)}
       >
         <Button variant="outline" onclick={() => $projects.refetch()}>Retry</Button>
       </DiscoveryState>{:else if !items.length}<DiscoveryState
         title={search
-          ? 'No matching workspaces'
+          ? 'No matching projects'
           : category === 'archived'
             ? 'Archive is empty'
-            : 'No workspaces yet'}
+            : 'No projects yet'}
         description={search
           ? publicScope
             ? 'Try different words or clear your search.'
             : 'Try different words or change your filters.'
           : category === 'archived'
-            ? 'Archived workspaces will appear here.'
+            ? 'Archived projects will appear here.'
             : publicScope
-              ? 'Public workspaces will appear here when they are created.'
-              : 'Create a workspace, add a statement, and develop it with your team.'}
+              ? 'Public projects will appear here when they are created.'
+              : 'Create a project, add a statement, and develop it with your team.'}
       >
         {#if category === 'active' && auth.signedIn}<Button
             type="submit"
-            onclick={() => (open = true)}>Create workspace</Button
+            onclick={() => (open = true)}>Create project</Button
           >{/if}
       </DiscoveryState>{:else}<section
-        class="workspace-grid"
+        class="project-grid"
         class:updating
-        aria-label="Workspace results"
+        aria-label="Project results"
         aria-busy={updating}
       >
         {#each items as project (project.id)}
-          <article class="workspace-card interactive">
-            <div class="workspace-card-heading">
+          <article class="project-card interactive">
+            <div class="project-card-heading">
               <h3 title={project.name}>
-                <a href={`/workspaces/${project.id}`} title={project.name}
-                  ><span class="workspace-name"
+                <a href={`/projects/${project.id}`} title={project.name}
+                  ><span class="project-name"
                     ><FolderOpen
                       size={16}
-                      class="workspace-folder"
+                      class="project-folder"
                       aria-hidden="true"
                     />{project.name}</span
                   ></a
                 >
               </h3>
             </div>
-            <p class="workspace-description" title={project.description || 'No description yet.'}>
+            <p class="project-description" title={project.description || 'No description yet.'}>
               {project.description || 'No description yet.'}
             </p>
             <footer>
-              <div class="workspace-footer-meta">
-                {#if auth.signedIn && project.current_user_role}<span class="workspace-role"
+              <div class="project-footer-meta">
+                {#if auth.signedIn && project.current_user_role}<span class="project-role"
                     >{project.current_user_role === 'OWNER'
                       ? 'Owner'
                       : project.current_user_role === 'CONTRIBUTOR'
@@ -351,7 +351,7 @@
 
                 <div class="visibility-bottom">{@render visibilityLabel(project.visibility)}</div>
                 {#if auth.signedIn && project.member_count !== undefined}<span
-                    class="workspace-members"
+                    class="project-members"
                     ><Users class="size-4 shrink-0" aria-hidden="true" />{project.member_count}
                     {project.member_count === 1 ? 'member' : 'members'}</span
                   >{/if}
@@ -370,7 +370,7 @@
         {/each}
       </section>{/if}
     {#if pageIndex > 0 || $projects.data?.nextCursor}
-      <nav class="workspace-pagination" aria-label="Workspace pages">
+      <nav class="project-pagination" aria-label="Project pages">
         <Button
           variant="outline"
           disabled={pageIndex === 0 || $projects.isFetching}
@@ -392,11 +392,11 @@
 
 {#snippet visibilityLabel(visibility: string)}
   <span
-    class="workspace-visibility"
+    class="project-visibility"
     class:is-private={visibility === 'PRIVATE'}
     title={visibility === 'PUBLIC'
-      ? 'Anyone can read this workspace'
-      : 'Only workspace members can read this workspace'}
+      ? 'Anyone can read this project'
+      : 'Only project members can read this project'}
   >
     {#if visibility === 'PUBLIC'}<Globe size={14} aria-hidden="true" />Public
     {:else}<LockKeyhole size={14} aria-hidden="true" />Private{/if}
@@ -404,14 +404,14 @@
 {/snippet}
 
 <style>
-  .workspace-pagination {
+  .project-pagination {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 12px;
     margin-top: 20px;
   }
-  .workspace-scope {
+  .project-scope {
     display: flex;
     width: fit-content;
     gap: 4px;
@@ -421,7 +421,7 @@
     border-radius: var(--radius-lg);
     background: var(--muted);
   }
-  .workspace-scope a {
+  .project-scope a {
     padding: 6px 14px;
     border-radius: var(--radius);
     color: var(--muted-foreground);
@@ -429,25 +429,25 @@
     font-weight: 400;
     text-decoration: none;
   }
-  .workspace-scope a[aria-current='page'] {
+  .project-scope a[aria-current='page'] {
     background: var(--panel);
     color: var(--foreground);
     box-shadow: 0 1px 3px var(--polycolab-shadow);
   }
-  .workspace-scope a:hover {
+  .project-scope a:hover {
     color: var(--foreground);
   }
 
-  .page.workspace-page {
+  .page.project-page {
     gap: 16px;
     padding-top: 24px;
   }
-  .workspace-title,
-  .workspace-results-heading {
+  .project-title,
+  .project-results-heading {
     scroll-margin-top: 88px;
     justify-content: space-between;
   }
-  .workspace-toolbar {
+  .project-toolbar {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto auto;
     gap: 8px;
@@ -455,29 +455,29 @@
     padding: 0;
     align-items: center;
   }
-  .workspace-toolbar :global(.workspace-query),
-  .workspace-toolbar :global(.workspace-sort) {
+  .project-toolbar :global(.project-query),
+  .project-toolbar :global(.project-sort) {
     min-width: 0;
     margin: 0;
     gap: 0;
   }
-  .workspace-toolbar :global(.workspace-sort) {
+  .project-toolbar :global(.project-sort) {
     flex-direction: row;
     align-items: center;
     gap: 8px;
     grid-column: 3;
     grid-row: 1;
   }
-  .workspace-query {
+  .project-query {
     position: relative;
   }
-  .workspace-query :global(input) {
+  .project-query :global(input) {
     padding-right: 36px;
   }
-  .workspace-query :global(input::-webkit-search-cancel-button) {
+  .project-query :global(input::-webkit-search-cancel-button) {
     display: none;
   }
-  .workspace-query :global(.workspace-clear-search) {
+  .project-query :global(.project-clear-search) {
     position: absolute;
     right: 4px;
     top: 50%;
@@ -485,7 +485,7 @@
     width: 28px;
     height: 28px;
   }
-  .workspace-refresh {
+  .project-refresh {
     min-width: 82px;
     min-height: 20px;
     display: inline-flex;
@@ -494,50 +494,50 @@
     color: var(--muted-foreground);
     font-size: 12px;
   }
-  .workspace-refresh :global(svg) {
-    animation: workspace-spin 1s linear infinite;
+  .project-refresh :global(svg) {
+    animation: project-spin 1s linear infinite;
   }
-  .workspace-grid.updating {
+  .project-grid.updating {
     opacity: 0.65;
   }
-  @keyframes workspace-spin {
+  @keyframes project-spin {
     to {
       transform: rotate(360deg);
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .workspace-refresh :global(svg) {
+    .project-refresh :global(svg) {
       animation: none;
     }
   }
-  .workspace-sort-label {
+  .project-sort-label {
     white-space: nowrap;
     color: var(--muted-foreground);
   }
-  .workspace-toolbar :global(.workspace-sort select) {
+  .project-toolbar :global(.project-sort select) {
     width: 180px;
   }
-  .workspace-toolbar :global(.workspace-category-select) {
+  .project-toolbar :global(.project-category-select) {
     grid-column: 1 / -1;
     grid-row: 2;
   }
-  .workspace-results-heading {
+  .project-results-heading {
     scroll-margin-top: 88px;
     display: flex;
     align-items: baseline;
     gap: 16px;
     flex-wrap: wrap;
   }
-  .workspace-results-heading h2 {
+  .project-results-heading h2 {
     margin: 0;
     font-size: 20px;
   }
-  .workspace-grid {
+  .project-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
   }
-  .workspace-card {
+  .project-card {
     height: 160px;
     position: relative;
     display: flex;
@@ -549,12 +549,12 @@
     border-radius: var(--radius);
     background: var(--panel);
   }
-  .workspace-card.interactive:hover,
-  .workspace-card:focus-within {
+  .project-card.interactive:hover,
+  .project-card:focus-within {
     border-color: var(--line-strong);
     background: color-mix(in srgb, var(--muted) 40%, var(--panel));
   }
-  .workspace-card footer {
+  .project-card footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -563,24 +563,24 @@
     line-height: 16px;
     color: var(--muted-foreground);
   }
-  .workspace-card-heading {
+  .project-card-heading {
     min-height: 44.8px;
     flex-shrink: 0;
     display: flex;
     align-items: flex-start;
     gap: 12px;
   }
-  .workspace-card-heading h3 {
+  .project-card-heading h3 {
     flex: 1;
     min-width: 0;
   }
-  .workspace-footer-meta {
+  .project-footer-meta {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
   }
-  .workspace-name {
+  .project-name {
     word-break: break-all;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -588,10 +588,10 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  .workspace-card h3 a {
+  .project-card h3 a {
     min-width: 0;
   }
-  .workspace-card footer {
+  .project-card footer {
     flex-wrap: wrap;
     gap: 8px;
   }
@@ -599,33 +599,33 @@
     display: flex;
     align-items: center;
   }
-  .workspace-card footer time {
+  .project-card footer time {
     display: inline-flex;
     align-items: center;
     min-height: 22px;
   }
-  .workspace-members,
-  .workspace-visibility {
+  .project-members,
+  .project-visibility {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     min-height: 22px;
     line-height: 16px;
   }
-  .workspace-visibility {
+  .project-visibility {
     --visibility-color: var(--research-accent);
     color: color-mix(in srgb, var(--visibility-color) 70%, var(--muted-foreground));
     white-space: nowrap;
     font-weight: 400;
     line-height: 16px;
   }
-  .workspace-visibility :global(svg) {
+  .project-visibility :global(svg) {
     color: var(--visibility-color);
   }
-  .workspace-visibility.is-private {
+  .project-visibility.is-private {
     --visibility-color: var(--info);
   }
-  .workspace-role {
+  .project-role {
     color: var(--foreground);
     background: var(--muted);
     font-weight: 500;
@@ -637,37 +637,37 @@
     border-radius: 4px;
     padding: 2px 6px;
   }
-  .workspace-card h3 {
+  .project-card h3 {
     margin: 0;
     font-size: 16px;
     line-height: 1.4;
     font-weight: 600;
     overflow-wrap: anywhere;
   }
-  :global(.workspace-folder) {
+  :global(.project-folder) {
     display: inline;
     vertical-align: -2px;
     margin-right: 8px;
     color: var(--muted-foreground);
   }
-  .workspace-card h3 a {
+  .project-card h3 a {
     color: var(--foreground);
     text-decoration: none;
   }
-  .workspace-card h3 a::after {
+  .project-card h3 a::after {
     content: '';
     position: absolute;
     inset: 0;
     border-radius: var(--radius);
   }
-  .workspace-card h3 a:focus-visible {
+  .project-card h3 a:focus-visible {
     outline: none;
   }
-  .workspace-card:has(a:focus-visible) {
+  .project-card:has(a:focus-visible) {
     outline: 2px solid var(--brand);
     outline-offset: 2px;
   }
-  .workspace-description {
+  .project-description {
     height: 36px;
     flex-shrink: 0;
     margin: 0;
@@ -680,32 +680,32 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  .workspace-card footer {
+  .project-card footer {
     margin-top: auto;
     padding-top: 10px;
     border-top: 1px solid var(--border);
   }
   @media (max-width: 1000px) {
-    .workspace-grid {
+    .project-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
   @media (max-width: 700px) {
-    .workspace-toolbar {
+    .project-toolbar {
       grid-template-columns: minmax(0, 1fr) auto minmax(120px, 140px);
       gap: 8px;
     }
-    .workspace-sort-label {
+    .project-sort-label {
       display: none;
     }
-    .workspace-toolbar :global(.workspace-sort select) {
+    .project-toolbar :global(.project-sort select) {
       width: 100%;
     }
-    .workspace-grid {
+    .project-grid {
       grid-template-columns: minmax(0, 1fr);
       gap: 10px;
     }
-    .workspace-card {
+    .project-card {
       height: 180px;
       padding: 14px;
       gap: 6px;

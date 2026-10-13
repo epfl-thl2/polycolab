@@ -11,10 +11,10 @@ from polycolab.catalogue.schemas import CatalogueRevise
 from polycolab.db.models import SqlCorrectionDecision, SqlCorrectionSuggestion, SqlUser
 from polycolab.platform.config import Settings
 from polycolab.platform.outbox import append_event, canonical_digest
+from polycolab.projects.service import DomainConflict
 from polycolab.research import records
 from polycolab.research.contracts import CorrectionDecisionRead, CorrectionDecisionWrite
 from polycolab.research.objects import ResearchNotFound
-from polycolab.workspaces.service import DomainConflict
 
 
 def decision_read(value: SqlCorrectionDecision) -> CorrectionDecisionRead:

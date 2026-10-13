@@ -13,7 +13,7 @@
   import { createInfiniteQuery, createQuery } from '@tanstack/svelte-query';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import { advancesCursor, statusFromEvent } from '../svelte-lib/session-events';
   import type { AgentRun } from '../lib/agent-sessions-api';
   import { prepareTurn, type TurnDraft } from '../lib/run-authority';
@@ -40,13 +40,13 @@
     onCreated?: (id: string) => void;
   } = $props();
   const allSessions = $derived(view ? view === 'list' : page.url.pathname.endsWith('/sessions'));
-  const { api, agents, query, records, capabilities: applicationCapabilities } = workspace();
+  const { api, agents, query, records, capabilities: applicationCapabilities } = projectContext();
   const executionEnabled = $derived(applicationCapabilities?.enabled('agent_execution') ?? false);
-  const repository = workspace().repository;
-  let useWorkspaceFiles = $state(false);
+  const repository = projectContext().repository;
+  let useProjectFiles = $state(false);
   const repositoryState = createQuery(
     toStore(() => ({
-      queryKey: ['workspace-repository-availability', projectId],
+      queryKey: ['project-repository-availability', projectId],
       enabled: Boolean(repository),
       queryFn: () => repository!.state(projectId),
     })),
@@ -63,13 +63,13 @@
   let configurationMode = $state<'preset' | 'custom'>('preset');
   let customSystemPrompt = $state('');
   let customizationOpen = $state(false);
-  let contextScope = $state('workspace');
+  let contextScope = $state('project');
   let responseStyle = $state('balanced');
   let draft = $state('');
   let newChatInput = $state<HTMLTextAreaElement | null>(null);
   let sessionChatInput = $state<HTMLTextAreaElement | null>(null);
   const promptStarters = [
-    'Summarize this workspace',
+    'Summarize this project',
     'Find related research objects',
     'Help me test a conjecture',
     'Review a proof idea',
@@ -122,11 +122,11 @@
       queryFn: () => agents.getSession(sessionId!),
     })),
   );
-  const tasks = workspace().tasks;
+  const tasks = projectContext().tasks;
   const currentTaskId = $derived(sessionId ? $session.data?.task_id : worktreeId);
   const task = createQuery(
     toStore(() => ({
-      queryKey: ['workspace-task', projectId, currentTaskId],
+      queryKey: ['project-task', projectId, currentTaskId],
       enabled: Boolean(tasks && currentTaskId),
       queryFn: () => tasks!.get(projectId, currentTaskId!),
       refetchInterval: isVisible && currentTaskId ? 5000 : false,
@@ -223,7 +223,7 @@
   );
   const selectedAgent = $derived(availableAgents.find((agent) => agent.id === agentId));
   const hasCustomSettings = $derived(
-    configurationMode === 'custom' || contextScope !== 'workspace' || responseStyle !== 'balanced',
+    configurationMode === 'custom' || contextScope !== 'project' || responseStyle !== 'balanced',
   );
   $effect(() => {
     if (!agentId && availableAgents[0]) agentId = availableAgents[0].id;
@@ -245,7 +245,7 @@
     profileId = availableProfiles[0]?.id ?? '';
     configurationMode = 'preset';
     customSystemPrompt = '';
-    contextScope = 'workspace';
+    contextScope = 'project';
     responseStyle = 'balanced';
     customizationOpen = false;
   }
@@ -286,8 +286,8 @@
     if (!$capabilities.data?.execution_available) return 'Agent execution is unavailable.';
     if (active) return 'Wait for the current run to finish.';
     if (!profileId) return 'Choose an AI provider in Chat settings.';
-    if (destination === 'PUBLIC' && (useWorkspaceFiles || $sessionRepository.data?.enabled))
-      return 'Workspace files are private. Choose a private contribution destination for this session.';
+    if (destination === 'PUBLIC' && (useProjectFiles || $sessionRepository.data?.enabled))
+      return 'Project files are private. Choose a private contribution destination for this session.';
     if (!(destination === 'PUBLIC' ? publicTask.trim() : draft.trim()))
       return destination === 'PUBLIC' ? 'Write a public task to send.' : 'Write a message to send.';
     return '';
@@ -331,7 +331,7 @@
         throw new Error('Choose an available agent version.');
       if (!startingSessionId) {
         const created = await agents.createSession({
-          workspace_id: projectId,
+          project_id: projectId,
           ...(worktreeId ? { worktree_id: worktreeId } : {}),
           agent_kind: choice.agent_kind,
           agent_version: choice.version,
@@ -342,7 +342,7 @@
         startingSessionId = created.id;
         await query.invalidateQueries({ queryKey: ['sessions', projectId] });
       }
-      if (!worktreeId && useWorkspaceFiles && repository)
+      if (!worktreeId && useProjectFiles && repository)
         await repository.enableSession(projectId, startingSessionId);
       const body = {
         ...prepareTurn({
@@ -369,7 +369,7 @@
       });
       draft = '';
       if (onCreated) onCreated(startingSessionId);
-      else await goto(`/workspaces/${projectId}/sessions/${startingSessionId}`);
+      else await goto(`/projects/${projectId}/sessions/${startingSessionId}`);
     } catch (reason) {
       error = explain(reason);
     } finally {
@@ -378,7 +378,7 @@
   }
   $effect(() => {
     const id = sessionId;
-    if (!isVisible || !id || !$session.data || $session.data.workspace_id !== projectId) return;
+    if (!isVisible || !id || !$session.data || $session.data.project_id !== projectId) return;
     if (streamSessionId !== id) {
       streamSessionId = id;
       streamCursor = undefined;
@@ -441,7 +441,7 @@
     busy = true;
     error = '';
     try {
-      if (useWorkspaceFiles && repository) {
+      if (useProjectFiles && repository) {
         await repository.enableSession(projectId, sessionId);
         await query.invalidateQueries({ queryKey: ['session-repository', projectId, sessionId] });
       }
@@ -500,42 +500,42 @@
   <div class="session-repository-controls">
     {#if $sessionRepository.data?.enabled}
       <a
-        href={`/workspaces/${projectId}/files?branch=${encodeURIComponent($sessionRepository.data.branch || 'main')}`}
+        href={`/projects/${projectId}/files?branch=${encodeURIComponent($sessionRepository.data.branch || 'main')}`}
         >Review saved agent files</a
       >
       <p class="muted">
-        This session uses a saved working copy. Files are shared with workspace members; chat stays
+        This session uses a saved working copy. Files are shared with project members; chat stays
         private.
       </p>
     {:else}
       <label
-        ><input type="checkbox" bind:checked={useWorkspaceFiles} disabled={busy} /> Use workspace files
-        for this session</label
+        ><input type="checkbox" bind:checked={useProjectFiles} disabled={busy} /> Use project files for
+        this session</label
       >
     {/if}
   </div>
 {/if}
 
 <div
-  class="workspace-chat"
-  class:workspace-chat-detail={Boolean(sessionId)}
-  class:workspace-chat-new={!sessionId && !allSessions}
+  class="project-chat"
+  class:project-chat-detail={Boolean(sessionId)}
+  class:project-chat-new={!sessionId && !allSessions}
 >
   {#if !executionEnabled}<p class="notice">
       Hosted execution is disabled. Saved sessions remain available.
     </p>{/if}
   <ErrorToast message={error} placement="top" />
   {#if !sessionId}
-    {#if allSessions}<header class="workspace-chat-intro">
+    {#if allSessions}<header class="project-chat-intro">
         <h1>All sessions</h1>
       </header>{/if}
-    {#if !allSessions}<div class="workspace-chat-start-group">
-        <form class="workspace-chat-start" onsubmit={create}>
-          <div class="workspace-chat-config-bar" aria-label="Chat configuration">
+    {#if !allSessions}<div class="project-chat-start-group">
+        <form class="project-chat-start" onsubmit={create}>
+          <div class="project-chat-config-bar" aria-label="Chat configuration">
             <Popover.Root bind:open={customizationOpen}>
               <Popover.Trigger
                 type="button"
-                class="workspace-chat-customize-trigger"
+                class="project-chat-customize-trigger"
                 aria-label="Customize chat"
                 disabled={Boolean(startingSessionId)}
               >
@@ -547,11 +547,11 @@
                   side="top"
                   align="end"
                   sideOffset={10}
-                  class="workspace-chat-customization-popover"
+                  class="project-chat-customization-popover"
                   role="dialog"
                   aria-label="Customize chat"
                 >
-                  <header class="workspace-chat-customization-header">
+                  <header class="project-chat-customization-header">
                     <h2>Customize chat</h2>
                     <p>
                       {selectedAgent
@@ -559,14 +559,14 @@
                         : 'Configure this conversation.'}
                     </p>
                   </header>
-                  <div class="workspace-chat-customization-fields">
+                  <div class="project-chat-customization-fields">
                     <Field.Label
                       >Context scope<NativeSelect
                         aria-label="Context scope"
                         bind:value={contextScope}
                         disabled={Boolean(startingSessionId)}
                       >
-                        <option value="workspace">Entire workspace</option>
+                        <option value="project">Entire project</option>
                         <option value="selected">Selected research</option>
                         <option value="custom">Custom scope</option>
                       </NativeSelect></Field.Label
@@ -585,7 +585,7 @@
                     <a href="/settings/model-providers">Manage AI providers</a>
                     <button
                       type="button"
-                      class="workspace-chat-custom-toggle"
+                      class="project-chat-custom-toggle"
                       aria-pressed={configurationMode === 'custom'}
                       disabled={Boolean(startingSessionId)}
                       onclick={() => setCustomConfiguration(configurationMode !== 'custom')}
@@ -594,13 +594,13 @@
                         <strong>Custom instructions</strong>
                         <small>Add a session-specific system prompt through Hosted Codex.</small>
                       </span>
-                      <span class="workspace-chat-custom-toggle-state"
+                      <span class="project-chat-custom-toggle-state"
                         >{configurationMode === 'custom' ? 'On' : 'Off'}</span
                       >
                     </button>
                     {#if configurationMode === 'custom'}
                       {#if !hostedAvailable}
-                        <p class="workspace-chat-unavailable" role="status">
+                        <p class="project-chat-unavailable" role="status">
                           Hosted Codex is unavailable right now. You can review these options, but
                           cannot start a customized chat.
                         </p>
@@ -615,7 +615,7 @@
                           disabled={Boolean(startingSessionId)}
                         /></Field.Label
                       >
-                      <p class="muted workspace-chat-config-help">
+                      <p class="muted project-chat-config-help">
                         Added to the base agent instructions for this session.
                       </p>
                       <Field.Label
@@ -625,11 +625,11 @@
                       >
                     {/if}
                   </div>
-                  <footer class="workspace-chat-customization-footer">
+                  <footer class="project-chat-customization-footer">
                     <Button
                       type="button"
                       variant="ghost"
-                      class="workspace-chat-reset"
+                      class="project-chat-reset"
                       disabled={Boolean(startingSessionId)}
                       onclick={resetNewChatSettings}
                       ><RotateCcw class="size-4" aria-hidden="true" />Reset to defaults</Button
@@ -639,7 +639,7 @@
               </Popover.Portal>
             </Popover.Root>
           </div>
-          <div class="workspace-chat-composer-surface">
+          <div class="project-chat-composer-surface">
             <Textarea
               required
               aria-label="Message the agent"
@@ -650,24 +650,24 @@
             />
             {#if !worktreeId && $repositoryState.data?.enabled && hostedAvailable}
               <label
-                ><input type="checkbox" bind:checked={useWorkspaceFiles} disabled={busy} /> Use workspace
+                ><input type="checkbox" bind:checked={useProjectFiles} disabled={busy} /> Use project
                 files (saved changes are shared with members)</label
               >
             {/if}
-            <div class="workspace-chat-start-footer">
-              {#if newChatVisibleSendReason}<span class="workspace-chat-send-reason" role="status"
+            <div class="project-chat-start-footer">
+              {#if newChatVisibleSendReason}<span class="project-chat-send-reason" role="status"
                   >{newChatVisibleSendReason}</span
                 >{/if}
-              <div class="workspace-chat-composer-preset">
+              <div class="project-chat-composer-preset">
                 <DropdownMenu.Root>
                   <DropdownMenu.Trigger
                     type="button"
-                    class="workspace-chat-agent-trigger"
+                    class="project-chat-agent-trigger"
                     aria-label="Choose agent"
                     disabled={Boolean(startingSessionId) || !availableAgents.length}
                   >
                     <Sparkles class="size-4" aria-hidden="true" />
-                    <span class="workspace-chat-agent-trigger-copy">
+                    <span class="project-chat-agent-trigger-copy">
                       <strong>{selectedAgent?.display_name ?? 'Loading agents…'}</strong>
                       {#if selectedAgent}<small>v{selectedAgent.version}</small>{/if}
                     </span>
@@ -677,20 +677,17 @@
                     side="top"
                     align="end"
                     sideOffset={8}
-                    class="workspace-chat-agent-menu"
+                    class="project-chat-agent-menu"
                   >
                     <DropdownMenu.Label>Choose an agent</DropdownMenu.Label>
                     <DropdownMenu.Separator />
                     <DropdownMenu.RadioGroup bind:value={agentId}>
                       {#each availableAgents as agent (agent.id)}
-                        <DropdownMenu.RadioItem
-                          value={agent.id}
-                          class="workspace-chat-agent-option"
-                        >
-                          <span class="workspace-chat-agent-option-icon">
+                        <DropdownMenu.RadioItem value={agent.id} class="project-chat-agent-option">
+                          <span class="project-chat-agent-option-icon">
                             <Sparkles class="size-4" aria-hidden="true" />
                           </span>
-                          <span class="workspace-chat-agent-option-copy">
+                          <span class="project-chat-agent-option-copy">
                             <span>
                               <strong>{agent.display_name}</strong>
                               <small>v{agent.version}</small>
@@ -706,7 +703,7 @@
               <Button
                 type="submit"
                 size="icon"
-                class="workspace-chat-send"
+                class="project-chat-send"
                 aria-label="Send message"
                 disabled={Boolean(newChatSendReason)}
                 ><ArrowUp class="size-4" aria-hidden="true" /></Button
@@ -714,7 +711,7 @@
             </div>
           </div>
         </form>
-        <div class="workspace-chat-prompt-starters" aria-label="Suggested prompts">
+        <div class="project-chat-prompt-starters" aria-label="Suggested prompts">
           {#each promptStarters as starter (starter)}<Button
               variant="outline"
               size="sm"
@@ -730,7 +727,7 @@
         >{/if}
     {/if}
     {#if allSessions}<section
-        class="workspace-chat-history"
+        class="project-chat-history"
         aria-label={allSessions ? 'All sessions' : 'Recent sessions'}
       >
         <h2>{allSessions ? 'Sessions' : 'Recent sessions'}</h2>
@@ -738,7 +735,7 @@
           {#each ($sessions.data?.pages.flatMap((p) => p.items) ?? []).slice(0, allSessions ? undefined : 5) as value (value)}<li
             >
               <h3>
-                <a href={`/workspaces/${projectId}/sessions/${value.id}`}
+                <a href={`/projects/${projectId}/sessions/${value.id}`}
                   >{value.title || `${value.agent_display_name} session`}</a
                 >
               </h3>
@@ -759,24 +756,24 @@
       </section>{/if}
   {:else if $session.isPending}<LoadingState>
       Opening session…
-    </LoadingState>{:else if $session.isError || $session.data?.workspace_id !== projectId}<Alert.Root
+    </LoadingState>{:else if $session.isError || $session.data?.project_id !== projectId}<Alert.Root
       variant="destructive"
       role="alert"
     >
       Session unavailable. Return to the session list.
     </Alert.Root>{:else}
-    <header class="workspace-chat-thread-header">
-      <a href={`/workspaces/${projectId}/sessions`}>← All sessions</a>
+    <header class="project-chat-thread-header">
+      <a href={`/projects/${projectId}/sessions`}>← All sessions</a>
       <h1>{$session.data?.title || $session.data?.agent_display_name}</h1>
     </header>
-    <div class="workspace-chat-panel-meta" use:chatPanelPortal={isVisible}>
+    <div class="project-chat-panel-meta" use:chatPanelPortal={isVisible}>
       <h2>Session</h2>
       <p role="status">{run?.status ?? connection}</p>
       {#if $session.data?.harness === 'codex'}
         <p>Hosted Codex</p>
         <details>
           <summary>System prompt</summary>
-          <p class="workspace-chat-saved-prompt">{$session.data.system_prompt}</p>
+          <p class="project-chat-saved-prompt">{$session.data.system_prompt}</p>
         </details>
       {/if}
     </div>
@@ -804,10 +801,10 @@
         <p class="message-author">Agent · responding</p>
         <p style="white-space:pre-wrap">{streaming}</p>
       </article>{/if}
-    <details class="workspace-chat-files" use:chatPanelPortal={isVisible}>
+    <details class="project-chat-files" use:chatPanelPortal={isVisible}>
       <summary>Files and run history</summary>
       {#if $runRepository.data?.input_commit}
-        <p>Workspace input: <code>{$runRepository.data.input_commit.slice(0, 12)}</code></p>
+        <p>Project input: <code>{$runRepository.data.input_commit.slice(0, 12)}</code></p>
         <p>
           Saved output: <code
             >{($runRepository.data.output_revision || $runRepository.data.output_commit)?.slice(
@@ -819,7 +816,7 @@
       {/if}
       {#if run?.failure_code?.startsWith('repository_')}
         <p role="alert">
-          The workspace could not be saved. Previously saved commits remain available.
+          The project could not be saved. Previously saved commits remain available.
         </p>
       {/if}
       <Field.Label
@@ -858,8 +855,8 @@
         accessible.
       </p>
     {/if}
-    <form class="workspace-chat-composer" onsubmit={send}>
-      <div class="workspace-chat-side-controls" use:chatPanelPortal={isVisible}>
+    <form class="project-chat-composer" onsubmit={send}>
+      <div class="project-chat-side-controls" use:chatPanelPortal={isVisible}>
         <Field.Label
           >AI provider<NativeSelect required bind:value={profileId}
             ><option value="">Choose an AI provider</option
@@ -870,7 +867,7 @@
         >{#if $profiles.hasNextPage}<Button type="button" onclick={() => $profiles.fetchNextPage()}
             >Load more providers</Button
           >{/if}<a href="/settings/model-providers">Manage AI providers</a>
-        <details class="workspace-chat-settings">
+        <details class="project-chat-settings">
           <summary>Run settings</summary>
           <details>
             <summary>Context · {selected.length} pinned versions</summary>
@@ -895,7 +892,7 @@
           {#if destination !== 'PUBLIC'}<details>
               <summary>Artifact context · {ids(artifactIds).length} exact IDs</summary>
               <p>
-                Enter at most 32 exact committed artifact IDs. The service rechecks workspace access
+                Enter at most 32 exact committed artifact IDs. The service rechecks project access
                 and exposes bounded metadata only; neighboring artifacts and object bytes are not
                 implied.
               </p>
@@ -909,7 +906,7 @@
             </p>{/if}
           <details>
             <summary>Public research inputs</summary>
-            <p>Choose exact public versions. Workspace pins are never automatically upgraded.</p>
+            <p>Choose exact public versions. Project pins are never automatically upgraded.</p>
             {#each $pins.data?.pages.flatMap((page) => page.items) ?? [] as pin (pin.id)}
               {#if pin.available}<Field.Label
                   ><Checkbox
@@ -943,10 +940,10 @@
               <Field.Label
                 >Contribution destination<NativeSelect bind:value={destination}>
                   <option value="REVIEW">Private conversation and reviewed proposals only</option>
-                  <option value="WORKSPACE">Direct contributions to this private workspace</option>
+                  <option value="PROJECT">Direct contributions to this private project</option>
                   <option
                     value="PUBLIC"
-                    disabled={useWorkspaceFiles || $sessionRepository.data?.enabled}
+                    disabled={useProjectFiles || $sessionRepository.data?.enabled}
                     >Direct contributions to explicit public targets</option
                   >
                 </NativeSelect></Field.Label
@@ -1034,7 +1031,7 @@
           {/if}
         </details>
       </div>
-      {#if destination !== 'PUBLIC'}<Field.Label class="workspace-chat-message"
+      {#if destination !== 'PUBLIC'}<Field.Label class="project-chat-message"
           >Private message<Textarea
             required
             bind:value={draft}
@@ -1046,7 +1043,7 @@
           Your private message draft is retained locally and is not sent with this turn.
         </p>{/if}
       <div class="row">
-        {#if sessionSendReason}<span class="workspace-chat-send-reason" role="status"
+        {#if sessionSendReason}<span class="project-chat-send-reason" role="status"
             >{sessionSendReason}</span
           >{/if}
         <Button type="submit" disabled={Boolean(sessionSendReason)}

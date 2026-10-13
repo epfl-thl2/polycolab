@@ -40,7 +40,7 @@ it('shows statement status and literature without inventing a human review', asy
     await screen.findByRole('link', { name: entry.object_version.content.title }),
   ).toBeTruthy();
   expect(within(screen.getByRole('table')).getByText('Open')).toBeTruthy();
-  expect(screen.queryByRole('button', { name: 'Copy to workspace' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Copy to project' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Add to Library' })).toBeNull();
 });
 
@@ -69,7 +69,7 @@ it('reads an exact formulation with its assumptions, source, and non-verificatio
   expect(screen.getByRole('link', { name: '← Library' }).getAttribute('href')).toBe('/library');
 });
 
-it('appends catalogue-only results without using general workspace discovery', async () => {
+it('appends catalogue-only results without using general project discovery', async () => {
   const library = vi
     .fn()
     .mockResolvedValueOnce({ items: [entry], next_cursor: 'next' })
@@ -146,7 +146,7 @@ it('keeps failure distinct from an empty Library and recovers through retry', as
 });
 
 it('copies the displayed revision, filters destinations, and preserves retry identity', async () => {
-  const copyToWorkspace = vi.fn().mockRejectedValue({ status: 503 });
+  const copyToProject = vi.fn().mockRejectedValue({ status: 503 });
   const listProjects = vi.fn().mockResolvedValue({
     items: [
       { id: 'owned', name: 'My investigation', current_user_role: 'OWNER' },
@@ -162,28 +162,28 @@ it('copies the displayed revision, filters destinations, and preserves retry ide
         {
           capabilities: { enabled: () => true },
           api: { listProjects },
-          records: { copyToWorkspace },
+          records: { copyToProject },
           auth: { signedIn: true },
         },
       ],
     ]),
   });
-  await fireEvent.click(screen.getByRole('button', { name: 'Copy to workspace' }));
+  await fireEvent.click(screen.getByRole('button', { name: 'Copy to project' }));
   await screen.findByRole('option', { name: 'My investigation' });
   expect(screen.queryByRole('option', { name: 'Read-only' })).toBeNull();
   expect(screen.queryByRole('option', { name: 'Archived' })).toBeNull();
-  await fireEvent.change(screen.getByLabelText('Destination workspace'), {
+  await fireEvent.change(screen.getByLabelText('Destination project'), {
     target: { value: 'owned' },
   });
   await fireEvent.click(screen.getByRole('button', { name: 'Create copy' }));
   await screen.findByRole('alert');
   await fireEvent.click(screen.getByRole('button', { name: 'Create copy' }));
-  await waitFor(() => expect(copyToWorkspace).toHaveBeenCalledTimes(2));
-  expect(copyToWorkspace.mock.calls[0]![0]).toMatchObject({
-    workspace_id: 'owned',
+  await waitFor(() => expect(copyToProject).toHaveBeenCalledTimes(2));
+  expect(copyToProject.mock.calls[0]![0]).toMatchObject({
+    project_id: 'owned',
     source_object_version_id: entry.object_version.id,
   });
-  expect(copyToWorkspace.mock.calls[0]![1]).toBe(copyToWorkspace.mock.calls[1]![1]);
+  expect(copyToProject.mock.calls[0]![1]).toBe(copyToProject.mock.calls[1]![1]);
 });
 
 it('offers admission to signed-in readers', async () => {

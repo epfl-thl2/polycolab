@@ -4,9 +4,8 @@ from datetime import datetime
 from typing import Annotated, Literal, Self
 from uuid import UUID
 
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
 
-from polycolab.app.schemas import workspace_field_name
 from polycolab.verification.contracts import (
     AttemptBinding,
     AttemptRead,
@@ -53,8 +52,6 @@ class VersionInputReference(Contract):
 
 
 class VersionJobSubmission(Contract):
-    model_config = ConfigDict(alias_generator=workspace_field_name, populate_by_name=True)
-
     version: Literal[1] = 1
     project_id: UUID
     work_target_object_version_id: UUID

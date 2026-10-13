@@ -17,7 +17,7 @@
     activityWindows,
     type ActivitySource,
     type SubmissionView,
-    type ActiveWorkspaceView,
+    type ActiveProjectView,
   } from '../lib/activity-view';
   import { exampleActivitySource } from '../lib/activity-examples';
 
@@ -30,7 +30,7 @@
     source?: ActivitySource;
     search?: string;
     onNavigate?: NavigateQuery;
-    initialView?: 'recent' | 'workspaces';
+    initialView?: 'recent' | 'projects';
   } = $props();
   const urlState = $derived(readActivity(search));
   let view = $derived(search ? urlState.view : initialView);
@@ -47,7 +47,7 @@
     onNavigate?.(activityQuery({ view, window, actor, kind, examples }));
   }
   let submissions = $state<SubmissionView[]>([]);
-  let workspaces = $state<ActiveWorkspaceView[]>([]);
+  let projects = $state<ActiveProjectView[]>([]);
   let cursor = $state<string>();
   let pageIndex = $state(0);
   let pageCursors = $state<(string | undefined)[]>([undefined]);
@@ -71,9 +71,9 @@
         pageCursors[requestedPage] = requestedCursor;
         cursor = requestedPage < 9 ? page.nextCursor : undefined;
       } else {
-        const page = await activeSource.workspaces(window, more ? cursor : undefined);
+        const page = await activeSource.projects(window, more ? cursor : undefined);
         if (request !== generation) return;
-        workspaces = more ? [...workspaces, ...page.items] : page.items;
+        projects = more ? [...projects, ...page.items] : page.items;
         cursor = page.nextCursor;
       }
     } catch {
@@ -93,7 +93,7 @@
     untrack(() => {
       generation += 1;
       submissions = [];
-      workspaces = [];
+      projects = [];
       cursor = undefined;
       pageIndex = 0;
       pageCursors = [undefined];
@@ -129,13 +129,13 @@
       <Button
         variant="ghost"
         class="activity-view-button"
-        aria-pressed={view === 'workspaces'}
-        onclick={() => update({ view: 'workspaces' })}
-        ><FolderOpen size={15} aria-hidden="true" />Active workspaces</Button
+        aria-pressed={view === 'projects'}
+        onclick={() => update({ view: 'projects' })}
+        ><FolderOpen size={15} aria-hidden="true" />Active projects</Button
       >
     </nav>
     <div class="activity-filters">
-      {#if view === 'workspaces'}<label
+      {#if view === 'projects'}<label
           >Time window<NativeSelect bind:value={window} onchange={() => update()}
             >{#each Object.entries(activityWindows) as [value, label] (value)}<option {value}
                 >{label}</option
@@ -154,7 +154,7 @@
     </div>
   </div>
   <section
-    aria-label={view === 'recent' ? 'Recent submissions' : 'Active workspaces'}
+    aria-label={view === 'recent' ? 'Recent submissions' : 'Active projects'}
     aria-busy={busy}
   >
     {#if !activeSource}
@@ -162,14 +162,14 @@
         <h3>
           {view === 'recent'
             ? 'Recent submissions are coming soon'
-            : 'Workspace activity is coming soon'}
+            : 'Project activity is coming soon'}
         </h3>
         <p>
           {view === 'recent'
             ? 'This view will show saved research, versions, comments and evidence from humans and agents.'
-            : 'This view will show recently active workspaces with contributor, submission, attempt and comment counts.'}
+            : 'This view will show recently active projects with contributor, submission, attempt and comment counts.'}
         </p>
-        <a href="/workspaces?scope=public">Browse public workspaces</a>
+        <a href="/projects?scope=public">Browse public projects</a>
       </div>
     {:else}
       {#if error}<div class="notice" role="alert">
@@ -185,10 +185,10 @@
           tabindex="0"
         >
           <table>
-            <caption class="sr-only">Recent submissions from public workspaces</caption>
+            <caption class="sr-only">Recent submissions from public projects</caption>
             <colgroup>
               <col class="index-column" /><col class="author-column" /><col
-                class="workspace-column"
+                class="project-column"
               />
               <col class="type-column" /><col /><col class="version-column" /><col
                 class="time-column"
@@ -196,7 +196,7 @@
             </colgroup>
             <thead
               ><tr>
-                <th scope="col">#</th><th scope="col">Contributor</th><th scope="col">Workspace</th>
+                <th scope="col">#</th><th scope="col">Contributor</th><th scope="col">Project</th>
                 <th scope="col">Type</th><th scope="col">Submission</th><th scope="col">Version</th
                 ><th scope="col" title={clock.timeZone}>Time ({clock.local ? 'local' : 'UTC'})</th>
               </tr></thead
@@ -216,9 +216,9 @@
                         >{/if}
                     </span></td
                   >
-                  <td title={item.workspace}>
-                    {#if item.workspaceHref}<a href={item.workspaceHref}>{item.workspace}</a
-                      >{:else}{item.workspace}{/if}
+                  <td title={item.project}>
+                    {#if item.projectHref}<a href={item.projectHref}>{item.project}</a
+                      >{:else}{item.project}{/if}
                   </td>
                   <td>
                     {#if item.objectKind}<ObjectKindBadge kind={item.objectKind} />{:else}<Badge
@@ -256,11 +256,11 @@
         <div
           class="submission-table-scroll"
           role="region"
-          aria-label="Active workspaces table"
+          aria-label="Active projects table"
           tabindex="0"
         >
-          <table class="workspace-table">
-            <caption class="sr-only">Active public workspaces</caption>
+          <table class="project-table">
+            <caption class="sr-only">Active public projects</caption>
             <colgroup
               ><col /><col class="count-column" /><col class="count-column" /><col
                 class="time-column"
@@ -268,7 +268,7 @@
             >
             <thead
               ><tr>
-                <th scope="col">Workspace</th><th scope="col" class="numeric-cell">Contributors</th>
+                <th scope="col">Project</th><th scope="col" class="numeric-cell">Contributors</th>
                 <th scope="col" class="numeric-cell">Submissions</th>
                 <th scope="col" title={clock.timeZone}
                   >Last submission ({clock.local ? 'local' : 'UTC'})</th
@@ -276,7 +276,7 @@
               </tr></thead
             >
             <tbody>
-              {#each workspaces as item (item.id)}
+              {#each projects as item (item.id)}
                 <tr class="submission-row">
                   <td
                     ><h3
@@ -298,7 +298,7 @@
           </table>
         </div>
       {/if}
-      {#if !busy && !error && !(view === 'recent' ? submissions.length : workspaces.length)}<div
+      {#if !busy && !error && !(view === 'recent' ? submissions.length : projects.length)}<div
           class="activity-empty"
         >
           <h3>No matching activity</h3>
@@ -422,7 +422,7 @@
   .version-column {
     width: 64px;
   }
-  .workspace-column {
+  .project-column {
     width: 140px;
   }
   .author-column {
@@ -514,10 +514,10 @@
     gap: 12px;
     font-size: 13px;
   }
-  .workspace-table {
+  .project-table {
     min-width: 640px;
   }
-  .workspace-table .time-column {
+  .project-table .time-column {
     width: 180px;
   }
   .count-column {

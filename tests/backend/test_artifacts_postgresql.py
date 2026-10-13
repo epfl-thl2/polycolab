@@ -22,8 +22,8 @@ from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.enums import ArtifactResearchRole, ArtifactState, ResearchObjectKind
 from polycolab.entities.time import utc_now
 from polycolab.platform.config import Settings
+from polycolab.projects.service import DomainConflict
 from polycolab.research.objects import create_object
-from polycolab.workspaces.service import DomainConflict
 
 
 @pytest.fixture

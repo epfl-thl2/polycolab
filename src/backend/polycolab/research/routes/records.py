@@ -118,21 +118,21 @@ def correction_decision(
     return decision_read(value) if value else None
 
 
-@router.get("/records", response_model=ObjectVersionPage, operation_id="listWorkspaceRecords")
+@router.get("/records", response_model=ObjectVersionPage, operation_id="listProjectRecords")
 def list_private(
     session: DbSession,
     access: Access,
-    workspace_id: UUID | None = None,
+    project_id: UUID | None = None,
     scope: Literal["public", "member"] = "public",
     statement_id: UUID | None = None,
     object_id: UUID | None = None,
     limit: Limit = 25,
     cursor: Cursor = None,
 ) -> ObjectVersionPage:
-    workspace_id = collection_scope(session, access, scope, workspace_id)
+    project_id = collection_scope(session, access, scope, project_id)
     selected = records.list_records(
         session,
-        project_id=workspace_id,
+        project_id=project_id,
         statement_id=statement_id,
         object_id=object_id,
         limit=limit,
@@ -151,7 +151,7 @@ def list_private(
             session,
             [rows[item.revision_id] for item in selected.items],
             selected.items,
-            public=workspace_id is None,
+            public=project_id is None,
         ),
         next_cursor=selected.next_cursor,
     )
@@ -161,11 +161,11 @@ def list_private(
     "/records/{object_version_id}", response_model=ObjectVersionRead, operation_id="getScopedRecord"
 )
 def private_detail(
-    object_version_id: UUID, session: DbSession, access: Access, workspace_id: UUID | None = None
+    object_version_id: UUID, session: DbSession, access: Access, project_id: UUID | None = None
 ) -> ObjectVersionRead:
-    workspace_id = revision_scope(session, access, object_version_id, workspace_id)
-    row = records.accessible_revision(session, object_version_id, workspace_id)
-    return version_reads(session, [row], project_id=workspace_id, public=workspace_id is None)[0]
+    project_id = revision_scope(session, access, object_version_id, project_id)
+    row = records.accessible_revision(session, object_version_id, project_id)
+    return version_reads(session, [row], project_id=project_id, public=project_id is None)[0]
 
 
 @router.post(
@@ -184,19 +184,19 @@ def object_version_displays(
 def relations(
     session: DbSession,
     revision_id: UUID,
-    workspace_id: UUID | None,
+    project_id: UUID | None,
     limit: int,
     cursor: str | None,
     response: Response,
 ) -> list[ObjectVersionRelationshipRead]:
-    records.accessible_revision(session, revision_id, workspace_id)
+    records.accessible_revision(session, revision_id, project_id)
     source = aliased(SqlObjectRevision)
     target = aliased(SqlObjectRevision)
     predicate = records.public_condition(source.id)
     target_predicate = records.public_condition(target.id)
-    if workspace_id is not None:
-        predicate = or_(source.project_id == workspace_id, predicate)
-        target_predicate = or_(target.project_id == workspace_id, target_predicate)
+    if project_id is not None:
+        predicate = or_(source.project_id == project_id, predicate)
+        target_predicate = or_(target.project_id == project_id, target_predicate)
     query = (
         select(SqlRelationAssertion)
         .join(source, source.id == SqlRelationAssertion.source_revision_id)
@@ -205,7 +205,7 @@ def relations(
             predicate,
             target_predicate,
             or_(source.id == revision_id, target.id == revision_id),
-            records.relation_read_condition(workspace_id),
+            records.relation_read_condition(project_id),
         )
         .order_by(SqlRelationAssertion.id)
     )
@@ -216,10 +216,8 @@ def relations(
         response.headers["X-Next-Cursor"] = records.encode_cursor(values[limit - 1].id)
     selected = values[:limit]
     declaring_scope_id = (
-        session.scalar(
-            select(SqlResearchScope.id).where(SqlResearchScope.project_id == workspace_id)
-        )
-        if workspace_id is not None
+        session.scalar(select(SqlResearchScope.id).where(SqlResearchScope.project_id == project_id))
+        if project_id is not None
         else None
     )
     private_ids = [
@@ -248,13 +246,13 @@ def private_relations(
     session: DbSession,
     access: Access,
     response: Response,
-    workspace_id: UUID | None = None,
+    project_id: UUID | None = None,
     limit: Limit = 50,
     cursor: Cursor = None,
 ) -> list[ObjectVersionRelationshipRead]:
-    if workspace_id is None:
-        workspace_id = revision_scope(session, access, object_version_id)
+    if project_id is None:
+        project_id = revision_scope(session, access, object_version_id)
     else:
-        # A declaring workspace can connect public versions it does not own.
-        records.project_access(session, workspace_id, access.require_user_id())
-    return relations(session, object_version_id, workspace_id, limit, cursor, response)
+        # A declaring project can connect public versions it does not own.
+        records.project_access(session, project_id, access.require_user_id())
+    return relations(session, object_version_id, project_id, limit, cursor, response)

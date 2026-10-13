@@ -12,7 +12,7 @@ from uuid import UUID
 from sqlalchemy import exists, func, select, text
 from sqlalchemy.orm import Session, aliased
 
-from polycolab.access.authorization import WorkspaceAction, workspace_policy
+from polycolab.access.authorization import ProjectAction, project_policy
 from polycolab.agents.runtime.spec import RuntimeSpec
 from polycolab.db.models import (
     SqlAgentRun,
@@ -106,10 +106,10 @@ def _serialize(session: Session) -> SqlExecutionClassState:
 
 
 def _candidate(
-    session: Session, now: datetime, tenant_capacity: int, workspace_capacity: int
+    session: Session, now: datetime, tenant_capacity: int, project_capacity: int
 ) -> SqlAgentRun | None:
     user = aliased(SqlExecutionFairnessState)
-    workspace = aliased(SqlExecutionFairnessState)
+    project = aliased(SqlExecutionFairnessState)
     previous = aliased(SqlAgentRun)
     occupied = (
         select(SqlExecutionSlotLease.id)
@@ -169,7 +169,7 @@ def _candidate(
     score = func.greatest(
         floor,
         func.coalesce(user.virtual_runtime, floor),
-        func.coalesce(workspace.virtual_runtime, floor),
+        func.coalesce(project.virtual_runtime, floor),
     )
     return session.scalar(
         select(SqlAgentRun)
@@ -182,10 +182,10 @@ def _candidate(
             & (user.tenant_id == SqlAgentRun.requested_by_user_id),
         )
         .outerjoin(
-            workspace,
-            (workspace.workload_class == AGENT)
-            & (workspace.tenant_kind == ExecutionTenantKind.WORKSPACE)
-            & (workspace.tenant_id == SqlAgentRun.project_id),
+            project,
+            (project.workload_class == AGENT)
+            & (project.tenant_kind == ExecutionTenantKind.PROJECT)
+            & (project.tenant_id == SqlAgentRun.project_id),
         )
         .where(
             SqlAgentRun.status == AgentRunStatus.QUEUED,
@@ -193,7 +193,7 @@ def _candidate(
             SqlExecutionWorkItem.policy_version == POLICY.version,
             ~occupied,
             count_scope(True) < tenant_capacity,
-            count_scope(False) < workspace_capacity,
+            count_scope(False) < project_capacity,
             ~exists(
                 select(previous.id).where(
                     previous.session_id == SqlAgentRun.session_id,
@@ -214,7 +214,7 @@ def claim(
     lease_seconds: int,
     capacity: int,
     user_capacity: int,
-    workspace_capacity: int,
+    project_capacity: int,
     slot_id: int | None = None,
     incarnation: str | None = None,
     image_digest: str | None = None,
@@ -222,11 +222,11 @@ def claim(
     from polycolab.agents.sessions import _append_event_locked, claim_next_run_in_transaction
     from polycolab.entities.enums import AgentRunEventKind
 
-    if min(capacity, user_capacity, workspace_capacity) <= 0:
+    if min(capacity, user_capacity, project_capacity) <= 0:
         return None
     for _ in range(100):
         now = utc_now()
-        candidate = _candidate(session, now, user_capacity, workspace_capacity)
+        candidate = _candidate(session, now, user_capacity, project_capacity)
         if candidate is None:
             session.rollback()
             return None
@@ -260,7 +260,7 @@ def claim(
             ):
                 session.rollback()
                 return None
-            candidate = _candidate(session, now, user_capacity, workspace_capacity)
+            candidate = _candidate(session, now, user_capacity, project_capacity)
             if candidate is None or candidate.id != run_id:
                 session.rollback()
                 continue
@@ -292,8 +292,8 @@ def claim(
                 select(SqlAgentRun).where(SqlAgentRun.id == run_id).with_for_update()
             )
             assert run is not None
-            if not workspace_policy.can(
-                SqlAlchemyTransaction(session), project_id, user_id, WorkspaceAction.RUN_AGENTS
+            if not project_policy.can(
+                SqlAlchemyTransaction(session), project_id, user_id, ProjectAction.RUN_AGENTS
             ):
                 run.status = AgentRunStatus.FAILED
                 run.failure_code = "authorization_revoked"
@@ -311,7 +311,7 @@ def claim(
             states = []
             for kind, tenant in (
                 (ExecutionTenantKind.USER, user_id),
-                (ExecutionTenantKind.WORKSPACE, project_id),
+                (ExecutionTenantKind.PROJECT, project_id),
             ):
                 row = session.scalar(
                     select(SqlExecutionFairnessState)

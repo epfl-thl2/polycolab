@@ -1,6 +1,6 @@
 """Scoped artifact lifecycle. Database phases never perform object-storage I/O.
 
-Initial human uploads belong to private workspaces. Public artifact projection
+Initial human uploads belong to private projects. Public artifact projection
 is supplied by research's explicit publication integration, never by hash lookup.
 """
 
@@ -39,9 +39,10 @@ from polycolab.db.models import (
     SqlUser,
 )
 from polycolab.entities.artifacts import StoredArtifact as StoredArtifact
-from polycolab.entities.enums import ArtifactResearchRole, ArtifactState, WorkspaceVisibility
+from polycolab.entities.enums import ArtifactResearchRole, ArtifactState, ProjectVisibility
 from polycolab.entities.time import utc_now
 from polycolab.platform.config import Settings
+from polycolab.projects.service import DomainConflict
 from polycolab.research.contributions import actor_contribution
 from polycolab.research.objects import ResearchNotFound
 from polycolab.research.records import (
@@ -51,7 +52,6 @@ from polycolab.research.records import (
     project_access,
     read_condition,
 )
-from polycolab.workspaces.service import DomainConflict
 
 
 def _utc(value: datetime) -> datetime:
@@ -325,7 +325,7 @@ def attach(
 def public_artifact(
     session: Session, artifact_id: UUID
 ) -> tuple[SqlArtifact, PublishedArtifactRead]:
-    """Project only committed bytes attached to active public-workspace research."""
+    """Project only committed bytes attached to active public-project research."""
 
     artifact = session.get(SqlArtifact, artifact_id)
     if artifact is None or artifact.state is not ArtifactState.COMMITTED:
@@ -336,7 +336,7 @@ def public_artifact(
         scope.project_id is not None
         and (
             project is None
-            or project.visibility is not WorkspaceVisibility.PUBLIC
+            or project.visibility is not ProjectVisibility.PUBLIC
             or project.archived_at is not None
             or project.deleted_at is not None
         )
@@ -406,7 +406,7 @@ def list_public_attachments(
     project = session.get(SqlProject, project_id)
     if (
         project is None
-        or project.visibility is not WorkspaceVisibility.PUBLIC
+        or project.visibility is not ProjectVisibility.PUBLIC
         or project.archived_at is not None
         or project.deleted_at is not None
     ):

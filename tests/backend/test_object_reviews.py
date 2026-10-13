@@ -3,7 +3,7 @@
 from typing import Any
 
 from fastapi.testclient import TestClient
-from test_research_domain import create_workspace, headers
+from test_research_domain import create_project, headers
 
 
 def create_statement(client: TestClient, project: str, *, label: str = "CONJECTURE") -> str:
@@ -11,7 +11,7 @@ def create_statement(client: TestClient, project: str, *, label: str = "CONJECTU
         "/api/v1/objects",
         headers=headers("owner"),
         json={
-            "destination": {"kind": "workspace", "workspace_id": str(project)},
+            "destination": {"kind": "project", "project_id": str(project)},
             "snapshot": {
                 "kind": "STATEMENT",
                 "content": {
@@ -36,7 +36,7 @@ def create_statement(client: TestClient, project: str, *, label: str = "CONJECTU
 
 
 def test_canonical_statement_and_review_history(client: TestClient) -> None:
-    project = create_workspace(client)
+    project = create_project(client)
     version = create_statement(client, project)
     exact = client.get(f"/api/v1/versions/{version}", headers=headers("owner")).json()
     assert exact["kind"] == "STATEMENT"
@@ -61,7 +61,7 @@ def test_canonical_statement_and_review_history(client: TestClient) -> None:
     summary = client.post(
         "/api/v1/reviews/summary",
         headers=headers("owner"),
-        params={"workspace_id": str(project)},
+        params={"project_id": str(project)},
         json={"object_version_ids": [version]},
     )
     assert summary.status_code == 200, summary.text
@@ -81,7 +81,7 @@ def test_canonical_statement_and_review_history(client: TestClient) -> None:
 
 
 def test_review_rejects_spoofed_actor_and_wrong_outcome(client: TestClient) -> None:
-    project = create_workspace(client)
+    project = create_project(client)
     version = create_statement(client, project)
     body = {
         "object_version_id": version,
@@ -101,13 +101,13 @@ def test_review_rejects_spoofed_actor_and_wrong_outcome(client: TestClient) -> N
 
 
 def test_old_kind_writes_are_rejected(client: TestClient) -> None:
-    project = create_workspace(client)
+    project = create_project(client)
     for kind in ("CLAIM", "PROOF_SKETCH", "IDEA", "DISCUSSION", "COUNTEREXAMPLE", "COMPUTATION"):
         response = client.post(
             "/api/v1/objects",
             headers=headers("owner"),
             json={
-                "destination": {"kind": "workspace", "workspace_id": str(project)},
+                "destination": {"kind": "project", "project_id": str(project)},
                 "snapshot": {
                     "kind": kind,
                     "content": {
@@ -129,7 +129,7 @@ def test_reviews_are_private_version_pinned_and_conflicts_remain_visible(
 ) -> None:
     from test_research_domain import add_member
 
-    project = create_workspace(client)
+    project = create_project(client)
     add_member(client, project, "contributor", "CONTRIBUTOR")
     version = create_statement(client, project)
     body = {
@@ -152,7 +152,7 @@ def test_reviews_are_private_version_pinned_and_conflicts_remain_visible(
     summary = client.post(
         "/api/v1/reviews/summary",
         headers=headers("owner"),
-        params={"workspace_id": project},
+        params={"project_id": project},
         json={"object_version_ids": [version]},
     ).json()[0]
     assert summary["human"] == {
@@ -187,7 +187,7 @@ def test_reviews_are_private_version_pinned_and_conflicts_remain_visible(
 
 
 def test_external_reviews_require_opt_in_and_have_server_identity(client: TestClient) -> None:
-    project = create_workspace(client)
+    project = create_project(client)
     version = create_statement(client, project)
     agent = client.post(
         "/api/v1/account/agents", headers=headers("owner"), json={"name": "Review agent"}
@@ -218,7 +218,7 @@ def test_publication_explicitly_selects_reviews_and_closes_evidence(client: Test
     from test_catalogue_api import enable
 
     enable(client)
-    project = create_workspace(client)
+    project = create_project(client)
     version = create_statement(client, project)
     evidence = create_statement(client, project, label="LEMMA")
     response = client.post(
@@ -234,7 +234,7 @@ def test_publication_explicitly_selects_reviews_and_closes_evidence(client: Test
     )
     assert response.status_code == 201, response.text
     review_id = response.json()["outputs"][0]["entity_id"]
-    selection = {"workspace_id": project, "object_version_ids": [version]}
+    selection = {"project_id": project, "object_version_ids": [version]}
     preview = client.post("/api/v1/publication/preview", headers=headers("owner"), json=selection)
     assert preview.status_code == 200, preview.text
     published = client.post(
@@ -266,7 +266,7 @@ def test_publication_explicitly_selects_reviews_and_closes_evidence(client: Test
 
 
 def test_review_acknowledgement_has_optional_comment(client: TestClient) -> None:
-    project = create_workspace(client)
+    project = create_project(client)
     version = create_statement(client, project)
     body = {"object_version_id": version, "outcome": "REVIEWED"}
     response = client.post("/api/v1/reviews", headers=headers("owner"), json=body)
@@ -280,7 +280,7 @@ def test_review_acknowledgement_has_optional_comment(client: TestClient) -> None
     summary = client.post(
         "/api/v1/reviews/summary",
         headers=headers("owner"),
-        params={"workspace_id": project},
+        params={"project_id": project},
         json={"object_version_ids": [version]},
     ).json()[0]
     assert summary["human"]["reviewed"] == 1

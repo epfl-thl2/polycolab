@@ -6,7 +6,7 @@ import { ApiError, type Page } from './research-api';
 export type ExternalCredential = components['schemas']['ExternalCredentialRead'];
 export type IssuedExternalCredential = components['schemas']['ExternalCredentialIssued'];
 export type AgentIdentity = components['schemas']['AgentIdentityRead'];
-export type WorkspaceRun = components['schemas']['WorkspaceRunRead'];
+export type ProjectRun = components['schemas']['ProjectRunRead'];
 
 type ErrorBody = { error?: { code?: string } };
 
@@ -105,10 +105,10 @@ export function createExternalAgentApi(
           params: { path: { credential_id: credentialId } },
         }),
       ),
-    listWorkspaceRuns: (projectId: string, cursor?: string) =>
+    listProjectRuns: (projectId: string, cursor?: string) =>
       page(
-        human.GET('/api/v1/workspaces/{workspace_id}/runs', {
-          params: { path: { workspace_id: projectId }, query: query(cursor) },
+        human.GET('/api/v1/projects/{project_id}/runs', {
+          params: { path: { project_id: projectId }, query: query(cursor) },
         }),
       ),
   };

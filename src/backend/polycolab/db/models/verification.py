@@ -363,7 +363,7 @@ class SqlExecutionFairnessState(Base):
 
     __tablename__ = "execution_fairness_states"
     __table_args__ = (
-        CheckConstraint("tenant_kind IN ('USER','WORKSPACE')", name="ck_execution_tenant_kind"),
+        CheckConstraint("tenant_kind IN ('USER','PROJECT')", name="ck_execution_tenant_kind"),
         CheckConstraint("policy_version >= 1", name="ck_execution_fairness_policy"),
         CheckConstraint("virtual_runtime >= 0", name="ck_execution_fairness_runtime"),
     )

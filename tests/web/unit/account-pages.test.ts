@@ -52,7 +52,7 @@ it('loads public profile activity by stable user ID and separates sponsorship', 
         title: 'A constructive compactness proof',
         object_kind: 'PROOF',
         occurred_at: '2026-09-08T10:00:00Z',
-        workspace_id: null,
+        project_id: null,
       },
     ],
     next_cursor: null,
@@ -81,7 +81,7 @@ it('keeps loaded profile contributions when pagination fails and retries the sam
           actor: { kind: 'human', user_id: 'user-ada', display_name: 'Ada Lovelace' },
           title: 'First contribution',
           occurred_at: '2026-09-10T10:00:00Z',
-          workspace_id: null,
+          project_id: null,
         },
       ],
       next_cursor: 'page-2',
@@ -104,7 +104,7 @@ it('keeps the researcher profile free of personal management shortcuts', () => {
   expect(screen.queryByRole('button', { name: 'Edit profile' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Complete profile' })).toBeNull();
   expect(screen.queryByRole('heading', { name: 'Edit profile preview' })).toBeNull();
-  for (const name of ['Manage account', 'Your workspaces', 'Agent connections']) {
+  for (const name of ['Manage account', 'Your projects', 'Agent connections']) {
     expect(screen.queryByRole('link', { name })).toBeNull();
   }
   expect(screen.queryByRole('link', { name: 'View your activity' })).toBeNull();
@@ -189,7 +189,7 @@ it('presents administration as a future deployment-level surface', () => {
   expect(screen.getByText('System health', { exact: true })).toBeTruthy();
 });
 
-it('creates an account-wide key without a workspace and forgets its secret on navigation', async () => {
+it('creates an account-wide key without a project and forgets its secret on navigation', async () => {
   const auth = new Auth(() => {});
   auth.configuration = { mode: 'local' };
   auth.account = { authenticated: true, username: 'ada', display_name: 'Ada' };
@@ -222,9 +222,7 @@ it('creates an account-wide key without a workspace and forgets its secret on na
   );
   await fireEvent.click(screen.getByRole('button', { name: 'New API key' }));
   await waitFor(() => expect(screen.getByText(/Expires after 30 days/)).toBeTruthy());
-  expect(
-    screen.getByText(/including private workspaces and workspaces you join later/),
-  ).toBeTruthy();
+  expect(screen.getByText(/including private projects and projects you join later/)).toBeTruthy();
   expect(screen.queryByRole('combobox', { name: 'Polycolab agent name' })).toBeNull();
   await fireEvent.input(screen.getByLabelText('Polycolab agent name'), {
     target: { value: 'Ada assistant' },

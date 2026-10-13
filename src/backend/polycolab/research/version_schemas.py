@@ -339,9 +339,9 @@ class AgentObjectVersionComment(ObjectVersionCommentCreate):
     project_id: UUID | None = None
 
 
-class VersionWorkspaceDestination(RequestModel):
-    kind: Literal["workspace"]
-    workspace_id: UUID
+class VersionProjectDestination(RequestModel):
+    kind: Literal["project"]
+    project_id: UUID
 
 
 class VersionLibraryDestination(RequestModel):
@@ -350,7 +350,7 @@ class VersionLibraryDestination(RequestModel):
 
 
 VersionDestination = Annotated[
-    VersionWorkspaceDestination | VersionLibraryDestination, Field(discriminator="kind")
+    VersionProjectDestination | VersionLibraryDestination, Field(discriminator="kind")
 ]
 
 

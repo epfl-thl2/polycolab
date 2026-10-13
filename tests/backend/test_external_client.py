@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 from test_public_external_agents import (
     create_human_claim,
-    create_workspace,
+    create_project,
     enable_research,
     issue,
 )
@@ -20,7 +20,7 @@ def test_external_example_completes_public_evidence_loop(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, reverse_outputs: bool
 ) -> None:
     enable_research(client, artifacts=True)
-    project = create_workspace(client)
+    project = create_project(client)
     claim = create_human_claim(client, project["id"], "Example input")
     credential = issue(client, project["id"])
     example = ExternalClient("http://127.0.0.1", credential["secret"])

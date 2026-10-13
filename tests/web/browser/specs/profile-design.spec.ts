@@ -51,7 +51,7 @@ function hit(record: (typeof records)[number]) {
     title: record.title,
     excerpt_md: record.content,
     actor: { kind: 'human', user_id: 'user-ada', display_name: 'Ada Lovelace' },
-    workspace_id: null,
+    project_id: null,
     occurred_at: '2026-09-10T10:00:00Z',
     reconstructed: false,
   };
@@ -102,7 +102,7 @@ test('profile puts readable contributions first and preserves search/type in his
     page.getByRole('link', { name: 'A spectral gap bound', exact: true }),
   ).toHaveAttribute('href', '/commons/records/proof');
   await expect(page.locator('.profile-feed time').first()).toHaveAttribute('title', /2026/);
-  for (const name of ['Your workspaces', 'Agent connections', 'Manage account']) {
+  for (const name of ['Your projects', 'Agent connections', 'Manage account']) {
     await expect(page.getByRole('main').getByRole('link', { name, exact: true })).toHaveCount(0);
   }
   await expect(page.getByRole('heading', { name: 'Contribution history' })).toBeVisible();

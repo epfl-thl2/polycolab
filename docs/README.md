@@ -5,7 +5,7 @@ Start with the guide for your task:
 | Task                                          | Guide                                                         |
 | --------------------------------------------- | ------------------------------------------------------------- |
 | Run Polycolab locally                         | [Project README](../README.md#run-locally-or-with-docker)     |
-| Use workspaces, research, and agents          | [User guides](../docs-site/docs/index.md)                     |
+| Use projects, research, and agents            | [User guides](../docs-site/docs/index.md)                     |
 | Understand the product and its requirements   | [Requirements](requirements/README.md)                        |
 | Understand the implementation                 | [Architecture](architecture/README.md)                        |
 | Find source code and tests                    | [Repository map](../README.md#repository-map)                 |
@@ -20,7 +20,7 @@ The generated [OpenAPI snapshot](../src/web/openapi.json) lives with the TypeScr
 Run `pnpm run api:contract` after API changes.
 Do not edit generated files by hand.
 
-See [Workspace files](architecture/workspace-files.md) for Git-backed task working copies, collaboration, and coordinated backups.
+See [Project files](architecture/project-files.md) for Git-backed task working copies, collaboration, and coordinated backups.
 
 ## Authority
 

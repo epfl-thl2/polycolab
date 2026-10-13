@@ -27,14 +27,14 @@ def repository_claim(
     native_copy: bool = False,
 ) -> tuple[Any, str, dict[str, Any], str]:
     app, run_id = _queue_run(client)
-    app.state.settings.workspace_repository_directory = tmp_path / "repositories"
+    app.state.settings.project_repository_directory = tmp_path / "repositories"
     app.state.settings.runtime_codex_image = spec().image
     with app.state.session_factory() as db:
         run = db.get(SqlAgentRun, run_id)
         db.get(SqlUser, run.requested_by_user_id).subject = "owner"
-        db.add(SqlResearchScope(scope_kind=ResearchScopeKind.WORKSPACE, project_id=run.project_id))
+        db.add(SqlResearchScope(scope_kind=ResearchScopeKind.PROJECT, project_id=run.project_id))
         run.status = AgentRunStatus.FAILED
-        url = f"/api/v1/workspaces/{run.project_id}/repository"
+        url = f"/api/v1/projects/{run.project_id}/repository"
         session_id = run.session_id
         db.commit()
     if task_copy:
@@ -56,8 +56,8 @@ def repository_claim(
 
         from polycolab.db.stores.repositories import SqlRepositoryStore
         from polycolab.db.transaction import SqlAlchemyTransaction
-        from polycolab.workspaces.git_storage import GitRepository
-        from polycolab.workspaces.worktree_service import WorktreeService
+        from polycolab.projects.git_storage import GitRepository
+        from polycolab.projects.worktree_service import WorktreeService
 
         with app.state.session_factory() as db:
             previous = db.get(SqlAgentRun, run_id)
@@ -102,7 +102,7 @@ def repository_claim(
     # API/transport test; native executor readiness is exercised separately.
     app.state.settings.runtime_codex_image = None
     if disabled:
-        app.state.settings.workspace_repository_directory = None
+        app.state.settings.project_repository_directory = None
     if native_copy:
         old_controller = client.post(
             "/internal/v1/runtime/claims",
@@ -141,15 +141,15 @@ def test_hosted_checkout_save_completion_and_fencing(
     )
     checkout = client.get(internal, headers=WORKER, params=lease)
     assert checkout.status_code == 200, checkout.text
-    inputs, outputs, workspace = tmp_path / "inputs", tmp_path / "outputs", tmp_path / "workspace"
+    inputs, outputs, project = tmp_path / "inputs", tmp_path / "outputs", tmp_path / "project"
     inputs.mkdir()
     outputs.mkdir()
     (inputs / "workspace.bundle").write_bytes(checkout.content)
     (inputs / "workspace.json").write_text(json.dumps(binding))
-    metadata = guest_repository.checkout(inputs, workspace)
+    metadata = guest_repository.checkout(inputs, project)
     assert metadata is not None
-    (workspace / "proof.lean").write_text("-- saved research\n")
-    commit = guest_repository.checkpoint(metadata, workspace, outputs)
+    (project / "proof.lean").write_text("-- saved research\n")
+    commit = guest_repository.checkpoint(metadata, project, outputs)
     data = (outputs / "workspace.bundle").read_bytes()
     assert (
         client.post(
@@ -228,20 +228,20 @@ def test_native_agent_sees_saved_overlay_and_leaves_human_review(
         json={"expected_revision": binding["revision"]},
     )
     assert blocked.status_code == 409
-    inputs, outputs, workspace = tmp_path / "inputs", tmp_path / "outputs", tmp_path / "workspace"
+    inputs, outputs, project = tmp_path / "inputs", tmp_path / "outputs", tmp_path / "project"
     inputs.mkdir()
     outputs.mkdir()
     (inputs / "workspace.bundle").write_bytes(
         client.get(internal, headers=WORKER, params=lease).content
     )
     (inputs / "workspace.json").write_text(json.dumps(binding))
-    metadata = guest_repository.checkout(inputs, workspace)
+    metadata = guest_repository.checkout(inputs, project)
     assert metadata is not None
-    assert (workspace / "human.txt").read_text() == "human"
-    assert guest_repository.git(workspace, "rev-parse", "HEAD") == binding["commit"]
-    assert guest_repository.git(workspace, "status", "--porcelain")
-    (workspace / "agent.txt").write_text("agent")
-    guest_commit = guest_repository.checkpoint(metadata, workspace, outputs)
+    assert (project / "human.txt").read_text() == "human"
+    assert guest_repository.git(project, "rev-parse", "HEAD") == binding["commit"]
+    assert guest_repository.git(project, "status", "--porcelain")
+    (project / "agent.txt").write_text("agent")
+    guest_commit = guest_repository.checkpoint(metadata, project, outputs)
     saved = client.post(
         internal, headers=WORKER, params=lease, content=(outputs / "workspace.bundle").read_bytes()
     )

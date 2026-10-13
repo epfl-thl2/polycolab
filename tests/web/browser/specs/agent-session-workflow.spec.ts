@@ -28,7 +28,7 @@ test('read-only member has no browser agent controls', async ({ page }) => {
           email_recovery: true,
         },
       });
-    const body = path.endsWith(`/workspaces/${projectId}`)
+    const body = path.endsWith(`/projects/${projectId}`)
       ? {
           id: projectId,
           name: 'Private project',
@@ -44,7 +44,7 @@ test('read-only member has no browser agent controls', async ({ page }) => {
           : path.endsWith(`/objects/${objectId}`)
             ? {
                 id: objectId,
-                workspace_id: projectId,
+                project_id: projectId,
                 kind: 'STATEMENT',
                 current_object_version_id: revisionId,
                 current_object_version: claimVersion({
@@ -79,7 +79,7 @@ test('contributor can create a session and queue a chat turn', async ({ page }) 
   let messages: Array<Record<string, unknown>> = [];
   const session = {
     id: 'session-1',
-    workspace_id: projectId,
+    project_id: projectId,
     agent_version_id: 'agent-1',
     agent_kind: 'RESEARCHER',
     agent_version: 1,
@@ -165,7 +165,7 @@ test('contributor can create a session and queue a chat turn', async ({ page }) 
           run: {
             id: 'run-1',
             session_id: session.id,
-            workspace_id: projectId,
+            project_id: projectId,
             request_message_id: 'message-1',
             parent_run_id: null,
             queue_sequence: 1,
@@ -187,7 +187,7 @@ test('contributor can create a session and queue a chat turn', async ({ page }) 
         contentType: 'text/event-stream',
         body: 'id: 1\nevent: completed\ndata: {"run_id":"run-1","cursor":1,"kind":"COMPLETED","payload":{"content_md":"Done."},"occurred_at":"2026-01-01T00:00:00Z"}\n\n',
       });
-    const body = path.endsWith(`/workspaces/${projectId}`)
+    const body = path.endsWith(`/projects/${projectId}`)
       ? {
           id: projectId,
           name: 'Prime Patterns',
@@ -207,12 +207,12 @@ test('contributor can create a session and queue a chat turn', async ({ page }) 
       ),
     });
   });
-  await page.goto(`/workspaces/${projectId}/sessions/new`);
+  await page.goto(`/projects/${projectId}/sessions/new`);
   await expect(page.getByLabel('Message the agent')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Choose agent' })).toContainText('Researcher');
   await expect(page.getByLabel('AI provider')).toHaveCount(0);
   await page.getByLabel('Message the agent').fill('Explore this claim.');
   await page.getByRole('button', { name: 'Send message' }).click();
-  await expect(page).toHaveURL(`/workspaces/${projectId}/sessions/${session.id}`);
+  await expect(page).toHaveURL(`/projects/${projectId}/sessions/${session.id}`);
   await expect(page.getByText('Explore this claim.')).toBeVisible();
 });

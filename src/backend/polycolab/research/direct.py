@@ -12,9 +12,9 @@ from sqlalchemy.orm import Session
 from polycolab.access.actors import Actor, ActorKind, ActorOperation, human_actor
 from polycolab.access.authorization import (
     AuthorizationDenied,
-    WorkspaceAction,
-    lock_workspace_authorization,
-    workspace_policy,
+    ProjectAction,
+    lock_project_authorization,
+    project_policy,
 )
 from polycolab.agents.external import ExternalAgentInvalid, ExternalAgentLimit, _aware
 from polycolab.app.access import ResearchAccess
@@ -34,9 +34,9 @@ from polycolab.research.objects import ResearchNotFound
 from polycolab.research.records import public_revision
 
 
-class WorkspaceDestination(RequestModel):
-    kind: Literal["workspace"]
-    workspace_id: UUID
+class ProjectDestination(RequestModel):
+    kind: Literal["project"]
+    project_id: UUID
 
 
 class LibraryDestination(RequestModel):
@@ -44,7 +44,7 @@ class LibraryDestination(RequestModel):
     statement_revision_id: UUID
 
 
-Destination = Annotated[WorkspaceDestination | LibraryDestination, Field(discriminator="kind")]
+Destination = Annotated[ProjectDestination | LibraryDestination, Field(discriminator="kind")]
 
 
 class OutputRead(ApiModel):
@@ -67,9 +67,9 @@ class MutationResult(ApiModel):
 
 
 def destination_scope(session: Session, destination: Destination) -> SqlResearchScope:
-    if isinstance(destination, WorkspaceDestination):
+    if isinstance(destination, ProjectDestination):
         scope = session.scalar(
-            select(SqlResearchScope).where(SqlResearchScope.project_id == destination.workspace_id)
+            select(SqlResearchScope).where(SqlResearchScope.project_id == destination.project_id)
         )
         if scope is None:
             raise ResearchNotFound
@@ -85,14 +85,14 @@ def destination_scope(session: Session, destination: Destination) -> SqlResearch
 def authorize(session: Session, access: ResearchAccess, scope: SqlResearchScope) -> Actor:
     user_id = access.require_user_id()
     if scope.project_id is not None:
-        lock_workspace_authorization(
+        lock_project_authorization(
             SqlAlchemyTransaction(session), project_id=scope.project_id, user_id=user_id
         )
-        workspace_policy.require_scope(
+        project_policy.require_scope(
             SqlAlchemyTransaction(session),
             scope.project_id,
             user_id,
-            WorkspaceAction.CREATE_RESEARCH,
+            ProjectAction.CREATE_RESEARCH,
         )
     else:
         lock_commons(session)
@@ -127,7 +127,7 @@ def authorize(session: Session, access: ResearchAccess, scope: SqlResearchScope)
                 ActorOperation.CONTRIBUTION_EDIT,
                 ActorOperation.PUBLIC_PARTICIPATION
                 if scope.project_id is None
-                else ActorOperation.WORKSPACE_WRITE,
+                else ActorOperation.PROJECT_WRITE,
             }
         ),
     )
@@ -193,13 +193,16 @@ def mutate(
     outputs = apply(actor, envelope)
     from polycolab.db.models import MutationReceiptStatus, SqlMutationReceipt
     from polycolab.platform.outbox import canonical_digest
+    from polycolab.platform.project_history import receipt_payload
 
     session.add(
         SqlMutationReceipt(
             actor_key=actor_key,
             operation=operation,
             idempotency_key_digest=canonical_digest(key),
-            request_digest=canonical_digest({"version": 1, "payload": request}),
+            request_digest=canonical_digest(
+                {"version": 1, "payload": receipt_payload(operation, request)}
+            ),
             status=MutationReceiptStatus.COMMITTED,
             resource_ids=[
                 str(envelope.id),

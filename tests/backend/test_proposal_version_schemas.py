@@ -41,7 +41,7 @@ def test_proposal_version_requires_complete_snapshot_and_exact_guard() -> None:
         proposal_change_adapter.validate_python({**value, "kind": "CREATE_REVISION"})
 
 
-@pytest.mark.parametrize("field", ["destination", "workspace_id", "authorship", "contribution_id"])
+@pytest.mark.parametrize("field", ["destination", "project_id", "authorship", "contribution_id"])
 def test_proposal_does_not_accept_caller_owned_authority(field: str) -> None:
     with pytest.raises(ValidationError):
         proposal_change_adapter.validate_python(

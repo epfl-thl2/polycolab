@@ -13,11 +13,9 @@ import {
 } from '../../../src/web/src/lib/search-excerpt';
 
 it('normalizes old routes and invalid filters without enabling examples', () => {
-  expect(canonicalUiLocation('/search', '?q=graph&type=workspaces')).toBe(
-    '/?q=graph&type=workspaces',
-  );
-  expect(canonicalUiLocation('/activity/workspaces', '?window=day&preview=examples')).toBe(
-    '/activity?view=workspaces&window=day&preview=examples',
+  expect(canonicalUiLocation('/search', '?q=graph&type=projects')).toBe('/?q=graph&type=projects');
+  expect(canonicalUiLocation('/activity/projects', '?window=day&preview=examples')).toBe(
+    '/activity?view=projects&window=day&preview=examples',
   );
   expect(
     canonicalUiLocation(
@@ -79,4 +77,13 @@ it('redirects old key settings routes and preserves query parameters', () => {
   expect(canonicalUiLocation('/settings/agent-keys', '')).toBe('/settings/api-keys');
   expect(canonicalUiLocation('/settings/model-providers', '')).toBe('/settings/model-providers');
   expect(canonicalUiLocation('/settings/api-keys', '')).toBe('/settings/api-keys');
+});
+
+it('redirects old project bookmarks and preserves their query', () => {
+  expect(canonicalUiLocation('/workspaces/id/files', '?branch=tasks%2Fid')).toBe(
+    '/projects/id/files?branch=tasks%2Fid',
+  );
+  expect(canonicalUiLocation('/demo/workspaces/id', '?panel=map')).toBe(
+    '/demo/projects/id?panel=map',
+  );
 });

@@ -12,10 +12,10 @@
   import { createInfiniteQuery } from '@tanstack/svelte-query';
   import { untrack } from 'svelte';
   import { goto } from '$app/navigation';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import { ApiError, type Project, type Role } from '../lib/research-api';
   let { project }: { project: Project } = $props();
-  const { api, query } = workspace();
+  const { api, query } = projectContext();
   let visibility = $state(untrack(() => project.visibility));
   let name = $state(untrack(() => project.name));
   let description = $state(untrack(() => project.description ?? ''));
@@ -60,29 +60,29 @@
     if (reason instanceof ApiError && reason.code === 'invalid_member')
       return 'No account matches that exact username. Check the spelling and ask the researcher to register first.';
     if (reason instanceof ApiError && reason.status === 409)
-      return 'That account is already a member of this workspace.';
+      return 'That account is already a member of this project.';
   };
   const ownerChangeError = (reason: unknown) => {
     if (reason instanceof ApiError && reason.status === 409)
-      return 'Every workspace must retain at least one owner. Promote another member before changing this owner.';
+      return 'Every project must retain at least one owner. Promote another member before changing this owner.';
   };
 </script>
 
 <header class="settings-header">
-  <h1>Workspace settings</h1>
-  <p>Manage workspace details, access, and lifecycle.</p>
+  <h1>Project settings</h1>
+  <p>Manage project details, access, and lifecycle.</p>
 </header>
-{#if !owner}<p>Only workspace owners can manage settings and membership.</p>{:else}
+{#if !owner}<p>Only project owners can manage settings and membership.</p>{:else}
   {#if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>{/if}{#if notice}<p
       role="status"
     >
       {notice}
     </p>{/if}
   <div class="settings-stack">
-    <section class="settings-section" aria-labelledby="workspace-details-heading">
+    <section class="settings-section" aria-labelledby="project-details-heading">
       <div class="section-heading">
-        <h2 id="workspace-details-heading">Workspace details</h2>
-        <p>Name, description, and who can read this workspace.</p>
+        <h2 id="project-details-heading">Project details</h2>
+        <p>Name, description, and who can read this project.</p>
       </div>
       <form
         class="details-form"
@@ -92,8 +92,8 @@
             visibility !== project.visibility &&
             !(await confirmation.ask(
               visibility === 'PUBLIC'
-                ? 'Make this workspace public? Anyone will be able to read its saved research.'
-                : 'Make this workspace private? Previously downloaded research and separately published Library releases cannot be retracted.',
+                ? 'Make this project public? Anyone will be able to read its saved research.'
+                : 'Make this project private? Previously downloaded research and separately published Library releases cannot be retracted.',
             ))
           )
             return;
@@ -119,8 +119,8 @@
       </form>
       <p class="visibility-note">
         {project.visibility === 'PUBLIC'
-          ? 'Workspace details and saved research are public immediately. Membership controls writing, not reading.'
-          : 'Only workspace members can read this workspace and its saved research.'}
+          ? 'Project details and saved research are public immediately. Membership controls writing, not reading.'
+          : 'Only project members can read this project and its saved research.'}
       </p>
     </section>
     <section class="settings-section" aria-labelledby="members-heading">
@@ -159,7 +159,7 @@
                 variant="outline"
                 disabled={busy}
                 onclick={async () => {
-                  if (await confirmation.ask('Remove this member’s workspace access?'))
+                  if (await confirmation.ask('Remove this member’s project access?'))
                     void perform(
                       () => api.removeMember(project.id, member.user_id),
                       'Member removed.',
@@ -216,8 +216,8 @@
     </section>
     <section class="settings-section lifecycle-section" aria-labelledby="lifecycle-heading">
       <div class="section-heading">
-        <h2 id="lifecycle-heading">Workspace lifecycle</h2>
-        <p>Archive to pause contributions, or permanently delete the workspace.</p>
+        <h2 id="lifecycle-heading">Project lifecycle</h2>
+        <p>Archive to pause contributions, or permanently delete the project.</p>
       </div>
       <div class="lifecycle-actions">
         <Button
@@ -242,7 +242,7 @@
               void perform(async () => {
                 await api.deleteProject(project.id);
                 await goto('/');
-              }, 'Workspace deleted.');
+              }, 'Project deleted.');
           }}>Delete permanently</Button
         >
       </div>

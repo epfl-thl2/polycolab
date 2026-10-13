@@ -42,7 +42,7 @@ from polycolab.entities.enums import (
     ResearchScopeKind,
 )
 from polycolab.platform.config import Settings
-from polycolab.workspaces.service import DomainConflict
+from polycolab.projects.service import DomainConflict
 
 
 def test_catalogue_real_postgresql_api(

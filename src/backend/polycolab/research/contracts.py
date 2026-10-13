@@ -453,42 +453,42 @@ class ResourceResult(ApiModel):
     revision_id: UUID | None = None
 
 
-class WorkspaceCopyCreate(CatalogueRequest):
+class ProjectCopyCreate(CatalogueRequest):
     revision_id: UUID
     project_id: UUID | None = None
-    workspace_name: str = Field(default="Research workspace", min_length=1, max_length=200)
-    workspace_visibility: Literal["PUBLIC", "PRIVATE"] = "PUBLIC"
+    project_name: str = Field(default="Research project", min_length=1, max_length=200)
+    project_visibility: Literal["PUBLIC", "PRIVATE"] = "PUBLIC"
 
 
-class WorkspaceCopyRead(ApiModel):
+class ProjectCopyRead(ApiModel):
     project_id: UUID
     object_id: UUID
     revision_id: UUID
     source_revision_id: UUID
 
 
-class WorkspaceReferenceCreate(CatalogueRequest):
+class ProjectReferenceCreate(CatalogueRequest):
     object_version_id: UUID
     project_id: UUID | None = None
-    workspace_name: str = Field(default="Research workspace", min_length=1, max_length=200)
+    project_name: str = Field(default="Research project", min_length=1, max_length=200)
     reason: str = Field(default="Import from Library", min_length=1, max_length=4000)
-    workspace_visibility: Literal["PUBLIC", "PRIVATE"] = "PUBLIC"
-    create_new_workspace: bool | None = None
+    project_visibility: Literal["PUBLIC", "PRIVATE"] = "PUBLIC"
+    create_new_project: bool | None = None
 
     @model_validator(mode="after")
-    def explicit_destination(self) -> WorkspaceReferenceCreate:
-        if self.create_new_workspace and self.project_id:
-            raise ValueError("choose an existing workspace or create a new one")
+    def explicit_destination(self) -> ProjectReferenceCreate:
+        if self.create_new_project and self.project_id:
+            raise ValueError("choose an existing project or create a new one")
         return self
 
 
-class WorkspaceReferenceUpgrade(CatalogueRequest):
+class ProjectReferenceUpgrade(CatalogueRequest):
     expected_current_reference_version_id: UUID
     object_version_id: UUID
     reason: str = Field(min_length=1, max_length=4000)
 
 
-class WorkspaceReferenceRead(ApiModel):
+class ProjectReferenceRead(ApiModel):
     id: UUID
     project_id: UUID
     object_id: UUID
@@ -503,8 +503,8 @@ class WorkspaceReferenceRead(ApiModel):
     latest_object_version_id: UUID | None = None
 
 
-class WorkspaceReferencePage(ApiModel):
-    items: list[WorkspaceReferenceRead]
+class ProjectReferencePage(ApiModel):
+    items: list[ProjectReferenceRead]
     next_cursor: str | None
 
 

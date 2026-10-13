@@ -7,7 +7,7 @@
     const current = page.url.pathname + page.url.search;
     const canonical = canonicalUiLocation(page.url.pathname, page.url.search);
     if (canonical !== current)
-      void goto(canonical, { replaceState: true, noScroll: true, keepFocus: true });
+      void goto(canonical + page.url.hash, { replaceState: true, noScroll: true, keepFocus: true });
   });
   function navigateQuery(search: string) {
     void goto(page.url.pathname + (search ? `?${search}` : ''), {

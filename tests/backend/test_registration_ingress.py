@@ -158,7 +158,7 @@ def test_disconnect_before_complete_never_calls_application() -> None:
         {"type": "lifespan"},
         {"type": "websocket"},
         {"type": "http", "method": "GET", "path": "/auth/register"},
-        {"type": "http", "method": "POST", "path": "/api/v1/workspaces/p/artifacts"},
+        {"type": "http", "method": "POST", "path": "/api/v1/projects/p/artifacts"},
     ],
 )
 def test_other_scopes_are_not_buffered(scope: Scope) -> None:

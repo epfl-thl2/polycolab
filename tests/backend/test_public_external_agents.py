@@ -25,7 +25,7 @@ from polycolab.db.models import (
     SqlResearchActivityEvent,
     SqlUser,
 )
-from polycolab.entities.enums import WorkspaceVisibility
+from polycolab.entities.enums import ProjectVisibility
 from polycolab.entities.time import utc_now
 from polycolab.operations.account_recovery import OperatorRecoveryInvalid, recover_account
 from polycolab.operations.restore_invalidation import (
@@ -58,15 +58,15 @@ class MemoryS3:
 
 def enable_research(client: TestClient, *, artifacts: bool = False) -> None:
     app = cast(Any, client.app)
-    app.state.settings.public_workspace_moderator_subjects = ["owner"]
+    app.state.settings.public_project_moderator_subjects = ["owner"]
     app.state.settings.external_agent_max_requests = 10_000
     app.state.settings.external_agent_max_mutations = 1_000
     if artifacts:
         app.state.artifact_storage = GarageStorage(MemoryS3(), "research-test")
 
 
-def create_workspace(client: TestClient, name: str = "Public research") -> dict[str, Any]:
-    response = client.post("/api/v1/workspaces", headers=headers(), json={"name": name})
+def create_project(client: TestClient, name: str = "Public research") -> dict[str, Any]:
+    response = client.post("/api/v1/projects", headers=headers(), json={"name": name})
     assert response.status_code == 201, response.text
     return cast(dict[str, Any], response.json())
 
@@ -99,7 +99,7 @@ def create_human_claim(client: TestClient, project_id: str, title: str) -> dict[
         "/api/v1/objects",
         headers=headers(),
         json={
-            "destination": {"kind": "workspace", "workspace_id": project_id},
+            "destination": {"kind": "project", "project_id": project_id},
             "snapshot": version_snapshot("CLAIM", title, f"Content: {title}"),
         },
     )
@@ -123,10 +123,10 @@ def issue(client: TestClient, project_id: str, token: str = "owner") -> dict[str
 
 def test_public_contract_and_external_retry_revocation(client: TestClient) -> None:
     enable_research(client)
-    project = create_workspace(client)
+    project = create_project(client)
     credential = issue(client, project["id"])
     payload = {
-        "destination": {"kind": "workspace", "workspace_id": project["id"]},
+        "destination": {"kind": "project", "project_id": project["id"]},
         "snapshot": version_snapshot("CLAIM", "Independent claim", "Content"),
     }
     auth = {**headers(credential["secret"]), "Idempotency-Key": "claim"}
@@ -154,8 +154,8 @@ def test_public_contract_and_external_retry_revocation(client: TestClient) -> No
 
 def test_external_exact_public_input_relation_scope_and_stale_edit(client: TestClient) -> None:
     enable_research(client)
-    project = create_workspace(client)
-    other = create_workspace(client, "Public source")
+    project = create_project(client)
+    other = create_project(client, "Public source")
     source = create_human_claim(client, other["id"], "Exact public source")
     credential = issue(client, project["id"])
     auth = {**headers(credential["secret"]), "Idempotency-Key": "claim"}
@@ -163,7 +163,7 @@ def test_external_exact_public_input_relation_scope_and_stale_edit(client: TestC
         "/api/v1/objects",
         headers=auth,
         json={
-            "destination": {"kind": "workspace", "workspace_id": project["id"]},
+            "destination": {"kind": "project", "project_id": project["id"]},
             "snapshot": version_snapshot("CLAIM", "My claim", "x"),
         },
     ).json()
@@ -172,7 +172,7 @@ def test_external_exact_public_input_relation_scope_and_stale_edit(client: TestC
         "/api/v1/relations",
         headers=auth,
         json={
-            "destination": {"kind": "workspace", "workspace_id": project["id"]},
+            "destination": {"kind": "project", "project_id": project["id"]},
             "direction": "UNIDIRECTIONAL",
             "source_object_version_id": revision_id,
             "target_object_version_id": source["current_object_version_id"],
@@ -204,7 +204,7 @@ def test_external_exact_public_input_relation_scope_and_stale_edit(client: TestC
 
 def test_external_artifact_becomes_public_only_after_attachment(client: TestClient) -> None:
     enable_research(client, artifacts=True)
-    project = create_workspace(client)
+    project = create_project(client)
     target = create_human_claim(client, project["id"], "Evidence target")
     credential = issue(client, project["id"])
     auth = {**headers(credential["secret"]), "Idempotency-Key": "evidence"}
@@ -212,7 +212,7 @@ def test_external_artifact_becomes_public_only_after_attachment(client: TestClie
         "/api/v1/artifacts",
         headers=auth,
         params={
-            "workspace_id": project["id"],
+            "project_id": project["id"],
             "sha256": hashlib.sha256(b"abc").hexdigest(),
             "byte_length": 3,
         },
@@ -243,7 +243,7 @@ def test_external_artifact_becomes_public_only_after_attachment(client: TestClie
     for visibility, status in [("PRIVATE", 404), ("PUBLIC", 200)]:
         assert (
             client.patch(
-                f"/api/v1/workspaces/{project['id']}",
+                f"/api/v1/projects/{project['id']}",
                 headers=headers(),
                 json={"visibility": visibility},
             ).status_code
@@ -256,11 +256,11 @@ def test_external_artifact_becomes_public_only_after_attachment(client: TestClie
 
 def test_interrupted_external_upload_is_private_and_safely_retryable(client: TestClient) -> None:
     enable_research(client, artifacts=True)
-    project = create_workspace(client)
+    project = create_project(client)
     credential = issue(client, project["id"])
     auth = {**headers(credential["secret"]), "Idempotency-Key": "upload"}
     params = {
-        "workspace_id": project["id"],
+        "project_id": project["id"],
         "sha256": hashlib.sha256(b"abc").hexdigest(),
         "byte_length": 3,
     }
@@ -279,18 +279,18 @@ def test_interrupted_external_upload_is_private_and_safely_retryable(client: Tes
     assert client.get(f"/api/v1/artifacts/{response.json()['id']}").status_code == 404
 
 
-def test_public_workspace_moderation_and_lifecycle_filter_every_projection(
+def test_public_project_moderation_and_lifecycle_filter_every_projection(
     client: TestClient,
 ) -> None:
     enable_research(client)
-    project = create_workspace(client, "Moderation")
+    project = create_project(client, "Moderation")
     target = create_human_claim(client, project["id"], "Moderate me")
     source = create_human_claim(client, project["id"], "Relation source")
     relation = client.post(
         "/api/v1/relations",
         headers={**headers(), "Idempotency-Key": "relation"},
         json={
-            "destination": {"kind": "workspace", "workspace_id": project["id"]},
+            "destination": {"kind": "project", "project_id": project["id"]},
             "direction": "UNIDIRECTIONAL",
             "source_object_version_id": source["current_object_version_id"],
             "target_object_version_id": target["current_object_version_id"],
@@ -299,7 +299,7 @@ def test_public_workspace_moderation_and_lifecycle_filter_every_projection(
         },
     )
     assert relation.status_code == 201, relation.text
-    url = f"/api/v1/operator/workspaces/{project['id']}/objects/{target['id']}/moderation"
+    url = f"/api/v1/operator/projects/{project['id']}/objects/{target['id']}/moderation"
     hidden = client.post(
         url,
         headers={**headers(), "Idempotency-Key": "hide"},
@@ -311,17 +311,15 @@ def test_public_workspace_moderation_and_lifecycle_filter_every_projection(
     )
     assert hidden.status_code == 200, hidden.text
     assert client.get(f"/api/v1/versions/{target['current_object_version_id']}").status_code == 404
-    public = client.get("/api/v1/activity", params={"workspace_id": project["id"]})
+    public = client.get("/api/v1/activity", params={"project_id": project["id"]})
     assert public.status_code == 200, public.text
     assert all(
         row["object_id"] != target["id"] and row["action"] != "relation.created"
         for row in public.json()["items"]
     )
+    assert client.delete(f"/api/v1/projects/{project['id']}", headers=headers()).status_code == 204
     assert (
-        client.delete(f"/api/v1/workspaces/{project['id']}", headers=headers()).status_code == 204
-    )
-    assert (
-        client.get("/api/v1/activity", params={"workspace_id": project["id"]}).json()["items"] == []
+        client.get("/api/v1/activity", params={"project_id": project["id"]}).json()["items"] == []
     )
 
 
@@ -329,11 +327,11 @@ def test_external_limits_expiry_and_membership_loss_are_live(client: TestClient)
     enable_research(client)
     app = cast(Any, client.app)
     app.state.settings.external_agent_max_mutations = 1
-    project = create_workspace(client)
+    project = create_project(client)
     credential = issue(client, project["id"])
     auth = {**headers(credential["secret"]), "Idempotency-Key": "one"}
     payload = {
-        "destination": {"kind": "workspace", "workspace_id": project["id"]},
+        "destination": {"kind": "project", "project_id": project["id"]},
         "snapshot": version_snapshot("NOTE", "Note", "x"),
     }
     assert client.post("/api/v1/objects", headers=auth, json=payload).status_code == 201
@@ -358,7 +356,7 @@ def test_external_credential_fixed_contract_and_request_limit(client: TestClient
     app = cast(Any, client.app)
     app.state.settings.external_agent_credential_ttl_seconds = 3600
     app.state.settings.external_agent_max_requests = 2
-    project = create_workspace(client, "Fixed credential policy")
+    project = create_project(client, "Fixed credential policy")
     attempted_broadening = client.post(
         "/api/v1/account/agent-keys",
         headers=headers(),
@@ -376,7 +374,7 @@ def test_external_credential_fixed_contract_and_request_limit(client: TestClient
     assert timedelta(seconds=3599) <= expires_at - created_at <= timedelta(seconds=3600)
     secret = credential["secret"]
     expected_rights = {
-        "WORKSPACE_WRITE",
+        "PROJECT_WRITE",
         "CONTRIBUTION_CREATE",
         "CONTRIBUTION_EDIT",
         "PUBLIC_PARTICIPATION",
@@ -388,10 +386,10 @@ def test_external_credential_fixed_contract_and_request_limit(client: TestClient
     assert set(first.json()["fixed_rights"]) == expected_rights
     assert first.json()["requests_remaining"] == 2
     assert first.json()["mutations_remaining"] == 1000
-    second = client.get("/api/v1/workspaces", headers=headers(secret))
+    second = client.get("/api/v1/projects", headers=headers(secret))
     assert second.status_code == 200
-    client.get("/api/v1/workspaces", headers=headers(secret))
-    exhausted = client.get("/api/v1/workspaces", headers=headers(secret))
+    client.get("/api/v1/projects", headers=headers(secret))
+    exhausted = client.get("/api/v1/projects", headers=headers(secret))
     assert exhausted.status_code == 429
     assert exhausted.json()["error"]["code"] == "credential_request_budget_exhausted"
     listed = client.get("/api/v1/account/agent-keys", headers=headers())
@@ -399,13 +397,13 @@ def test_external_credential_fixed_contract_and_request_limit(client: TestClient
     assert listed.json()["items"][0]["request_count"] == 2
     assert set(listed.json()["items"][0]["fixed_rights"]) == expected_rights
     assert "secret" not in listed.json()["items"][0]
-    assert client.get(f"/api/v1/workspaces/{project['id']}").status_code == 200
+    assert client.get(f"/api/v1/projects/{project['id']}").status_code == 200
 
     corrupted = issue(client, project["id"])
     with app.state.session_factory() as session:
         row = session.get(SqlExternalAgentCredential, UUID(corrupted["id"]))
         assert row is not None
-        row.fixed_rights = ["WORKSPACE_WRITE"]
+        row.fixed_rights = ["PROJECT_WRITE"]
         if session.get_bind().dialect.name == "postgresql":
             with pytest.raises(DBAPIError, match="external agent credential grant is immutable"):
                 session.commit()
@@ -424,14 +422,14 @@ def test_external_credential_fixed_contract_and_request_limit(client: TestClient
 def test_transition_and_operator_recovery_invalidate_protected_access(client: TestClient) -> None:
     app = cast(Any, client.app)
     project_id = client.post(
-        "/api/v1/workspaces",
+        "/api/v1/projects",
         headers=headers(),
         json={"name": "Private research", "visibility": "PRIVATE"},
     ).json()["id"]
     with app.state.session_factory() as session:
         project = session.get(SqlProject, UUID(project_id))
         assert project is not None
-        assert project.visibility is WorkspaceVisibility.PRIVATE
+        assert project.visibility is ProjectVisibility.PRIVATE
 
         account = SqlLocalAccount(
             username="recovery-user",
@@ -453,7 +451,7 @@ def test_transition_and_operator_recovery_invalidate_protected_access(client: Te
             expires_at=utc_now() + timedelta(days=1),
         )
         credential = SqlExternalAgentCredential(
-            scope_kind="WORKSPACE",
+            scope_kind="PROJECT",
             project_id=project.id,
             sponsor_user_id=user.id,
             name="Delegated",
@@ -505,7 +503,7 @@ def test_transition_and_operator_recovery_invalidate_protected_access(client: Te
 
 def test_restore_invalidation_revokes_the_complete_protected_cohort(client: TestClient) -> None:
     app = cast(Any, client.app)
-    project_id = create_workspace(client)["id"]
+    project_id = create_project(client)["id"]
     with app.state.session_factory() as session:
         account = SqlLocalAccount(username="restored-user", password_digest="old")
         session.add(account)
@@ -525,7 +523,7 @@ def test_restore_invalidation_revokes_the_complete_protected_cohort(client: Test
             revoked_at=utc_now(),
         )
         credential = SqlExternalAgentCredential(
-            scope_kind="WORKSPACE",
+            scope_kind="PROJECT",
             project_id=UUID(project_id),
             sponsor_user_id=user.id,
             name="Restored delegated agent",
@@ -599,12 +597,12 @@ def test_restore_invalidation_cli_requires_explicit_confirmation() -> None:
 
 def test_recent_public_submissions_cap_and_visibility(client: TestClient) -> None:
     enable_research(client)
-    public = create_workspace(client)
-    other = create_workspace(client, "Second public workspace")
+    public = create_project(client)
+    other = create_project(client, "Second public project")
     create_human_claim(client, public["id"], "First public claim")
     create_human_claim(client, other["id"], "Second public claim")
     private = client.post(
-        "/api/v1/workspaces", headers=headers(), json={"name": "Private", "visibility": "PRIVATE"}
+        "/api/v1/projects", headers=headers(), json={"name": "Private", "visibility": "PRIVATE"}
     ).json()
     create_human_claim(client, private["id"], "Private claim")
     with cast(Any, client.app).state.session_factory() as session:
@@ -639,9 +637,9 @@ def test_recent_public_submissions_cap_and_visibility(client: TestClient) -> Non
         assert response.status_code == 200, response.text
         data = response.json()
         assert len(data["items"]) == 50
-        assert all(row["workspace_id"] in {public["id"], other["id"]} for row in data["items"])
+        assert all(row["project_id"] in {public["id"], other["id"]} for row in data["items"])
         assert all(
-            row["workspace_name"] and row["object_version_number"] == 1 for row in data["items"]
+            row["project_name"] and row["object_version_number"] == 1 for row in data["items"]
         )
         seen.extend(row["id"] for row in data["items"])
         numbers.update({row["id"]: row["submission_number"] for row in data["items"]})

@@ -93,7 +93,7 @@ def test_catalogue_admission_revision_moderation_and_revocation(client: TestClie
     assert response.json()["object_version"]["id"] == first["object_version_id"]
     assert response.json()["source"] == formulation()["source"]
     for forbidden in (
-        "workspace_id",
+        "project_id",
         "session_id",
         "run_id",
         "membership",
@@ -490,14 +490,14 @@ def test_promotion_preserves_public_supporting_identity_and_denies_private(
             {"schema_version": 1, "entry_id": "None", "payload": historical_promotion}
         )
     project = client.post(
-        "/api/v1/workspaces", headers=headers(), json={"visibility": "PRIVATE", "name": "Private"}
+        "/api/v1/projects", headers=headers(), json={"visibility": "PRIVATE", "name": "Private"}
     ).json()
     private = post_research(
         client,
         "/api/v1/objects",
         headers=headers(),
         json={
-            "destination": {"kind": "workspace", "workspace_id": project["id"]},
+            "destination": {"kind": "project", "project_id": project["id"]},
             "snapshot": {
                 "kind": "STATEMENT",
                 "content": {
@@ -523,10 +523,10 @@ def test_library_reads_only_admitted_statements(
 ) -> None:
     enable(client)
     admitted = admit(client)
-    workspace = client.post(
-        "/api/v1/workspaces",
+    project = client.post(
+        "/api/v1/projects",
         headers=headers(),
-        json={"visibility": "PRIVATE", "name": "Unreviewed workspace"},
+        json={"visibility": "PRIVATE", "name": "Unreviewed project"},
     ).json()
     assert (
         post_research(
@@ -534,7 +534,7 @@ def test_library_reads_only_admitted_statements(
             "/api/v1/objects",
             headers=headers(),
             json={
-                "destination": {"kind": "workspace", "workspace_id": workspace["id"]},
+                "destination": {"kind": "project", "project_id": project["id"]},
                 "snapshot": {
                     "kind": "STATEMENT",
                     "content": {

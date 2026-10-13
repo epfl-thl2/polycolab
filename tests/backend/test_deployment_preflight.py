@@ -22,7 +22,7 @@ def deployment_settings() -> Settings:
         runtime_worker_token=SecretStr("s" * 32),
         admission_scope_hmac_key=SecretStr("h" * 32),
         release_sha="abc123",
-        public_workspace_moderator_subjects=["research-operator"],
+        public_project_moderator_subjects=["research-operator"],
         feature_agent_execution_enabled=False,
         artifact_s3_endpoint=AnyUrl("http://garage:3900"),
         artifact_s3_bucket="research",
@@ -68,7 +68,7 @@ def test_rejects_incompatible_deployment_configuration(
 
 
 def test_live_release_gate_requires_a_moderation_operator_after_bootstrap() -> None:
-    settings = deployment_settings().model_copy(update={"public_workspace_moderator_subjects": []})
+    settings = deployment_settings().model_copy(update={"public_project_moderator_subjects": []})
     assert "moderation_operators" not in configuration_failures(settings)
     assert "moderation_operators" in configuration_failures(
         settings, require_moderation_operator=True

@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from polycolab.access.authorization import WorkspaceAction, workspace_policy
+from polycolab.access.authorization import ProjectAction, project_policy
 from polycolab.accounts.authentication import AuthenticationRequired, bearer_token
 from polycolab.agents.context import ContextInvalid, manifest_for_run
 from polycolab.agents.runtime.errors import RuntimeApiConflict as RuntimeApiConflict
@@ -253,8 +253,8 @@ def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str
                 user_capacity=min(
                     settings.hosted_agent_user_capacity, max(1, settings.hosted_agent_capacity - 1)
                 ),
-                workspace_capacity=min(
-                    settings.hosted_agent_workspace_capacity,
+                project_capacity=min(
+                    settings.hosted_agent_project_capacity,
                     max(1, settings.hosted_agent_capacity - 1),
                 ),
             )
@@ -276,11 +276,11 @@ def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str
                 lease_generation=run.lease_generation,
             )
             _ensure_binding(session, run)
-            if not workspace_policy.can(
+            if not project_policy.can(
                 SqlAlchemyTransaction(session),
                 run.project_id,
                 run.requested_by_user_id,
-                WorkspaceAction.RUN_AGENTS,
+                ProjectAction.RUN_AGENTS,
             ):
                 _finish_claim_failure(session, run, payload.worker_id, "authorization_revoked")
                 return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -290,7 +290,7 @@ def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str
                 SqlRepositoryStore(session).session(run.project_id, run.session_id).enabled
             )
             if repository_enabled and (
-                settings.workspace_repository_directory is None or payload.engine != "codex"
+                settings.project_repository_directory is None or payload.engine != "codex"
             ):
                 raise RepositoryError("repository_unavailable", 503)
             manifest = manifest_for_run(session, run=run)
@@ -324,8 +324,8 @@ def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str
                     _finish_claim_failure(session, run, payload.worker_id, "runtime_spec_missing")
                     return Response(status_code=status.HTTP_204_NO_CONTENT)
                 RuntimeSpec.model_validate(run.runtime_spec)
-                if settings.workspace_repository_directory is not None:
-                    from polycolab.workspaces.routes.repository import service as repository_service
+                if settings.project_repository_directory is not None:
+                    from polycolab.projects.routes.repository import service as repository_service
 
                     envelope["repository"] = repository_service(
                         request, session, run.project_id, run.requested_by_user_id
@@ -410,11 +410,11 @@ def heartbeat(run_id: UUID, payload: LeaseRequest, request: Request) -> dict[str
         run = _lease_or_conflict(
             session, run_id, payload, request.app.state.settings.runtime_lease_seconds
         )
-        if run.runtime_spec and not workspace_policy.can(
+        if run.runtime_spec and not project_policy.can(
             SqlAlchemyTransaction(session),
             run.project_id,
             run.requested_by_user_id,
-            WorkspaceAction.RUN_AGENTS,
+            ProjectAction.RUN_AGENTS,
         ):
             raise RuntimeApiConflict("authorization_revoked")
         deadline = run.deadline_at
@@ -443,11 +443,11 @@ def issue_model_grant(run_id: UUID, payload: LeaseRequest, request: Request) -> 
     session = request.app.state.session_factory()
     try:
         run = _lease_or_conflict(session, run_id, payload, settings.runtime_lease_seconds)
-        if run.status is not AgentRunStatus.RUNNING or not workspace_policy.can(
+        if run.status is not AgentRunStatus.RUNNING or not project_policy.can(
             SqlAlchemyTransaction(session),
             run.project_id,
             run.requested_by_user_id,
-            WorkspaceAction.RUN_AGENTS,
+            ProjectAction.RUN_AGENTS,
         ):
             raise RuntimeApiConflict("authorization_revoked")
         try:

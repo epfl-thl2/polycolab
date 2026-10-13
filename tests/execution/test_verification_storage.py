@@ -67,13 +67,13 @@ def test_controller_output_commits_real_verified_bytes(storage: GarageStorage) -
             human = {"Authorization": "Bearer owner"}
             private = {"Authorization": "Bearer test-controller-only"}
             project = client.post(
-                "/api/v1/workspaces", headers=human, json={"name": "Verification"}
+                "/api/v1/projects", headers=human, json={"name": "Verification"}
             ).json()["id"]
             created = client.post(
                 "/api/v1/objects",
                 headers=human,
                 json={
-                    "destination": {"kind": "workspace", "workspace_id": project},
+                    "destination": {"kind": "project", "project_id": project},
                     "snapshot": {
                         "kind": "COMPUTATION",
                         "content": {
@@ -94,12 +94,12 @@ def test_controller_output_commits_real_verified_bytes(storage: GarageStorage) -
                 if item["entity_type"] == "OBJECT_VERSION"
             )
             response = client.post(
-                f"/api/v1/workspaces/{project}/verification-jobs",
+                f"/api/v1/projects/{project}/verification-jobs",
                 headers=human,
                 json={
                     "retry_key": "garage",
                     "submission": {
-                        "workspace_id": project,
+                        "project_id": project,
                         "work_target_object_version_id": revision,
                         "environment_id": environment_id,
                         "purpose": "PYTHON_RUN",

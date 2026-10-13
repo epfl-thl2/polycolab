@@ -12,9 +12,9 @@ from sqlalchemy.orm import Session
 from polycolab.access.actors import Actor, ActorKind, ActorOperation
 from polycolab.access.authorization import (
     AuthorizationDenied,
-    WorkspaceAction,
+    ProjectAction,
+    project_policy,
     require_human_actor,
-    workspace_policy,
 )
 from polycolab.catalogue.admission import is_moderator, lock_commons
 from polycolab.db.models import (
@@ -36,6 +36,7 @@ from polycolab.db.models import (
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.enums import ProvenanceKind
 from polycolab.platform import mutation_keys
+from polycolab.projects.service import DomainConflict
 from polycolab.research.contracts import (
     HumanNotePage,
     HumanNoteRead,
@@ -61,7 +62,6 @@ from polycolab.research.records import (
     project_access,
     read_condition,
 )
-from polycolab.workspaces.service import DomainConflict
 
 
 @dataclass(frozen=True, slots=True)
@@ -294,11 +294,11 @@ def _human_note_read(
         can_edit=note.owner_user_id == actor_user_id
         and (
             project_id is None
-            or workspace_policy.can(
+            or project_policy.can(
                 SqlAlchemyTransaction(session),
                 project_id,
                 actor_user_id,
-                WorkspaceAction.CREATE_RESEARCH,
+                ProjectAction.CREATE_RESEARCH,
             )
         ),
         current_revision=_note_revision_read(session, revision),

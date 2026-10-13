@@ -29,7 +29,7 @@ async function account(page: Page, initiallySignedIn = false) {
   await page.route(new RegExp('/api/v1/account/agents(?:\\?.*)?$'), (route) =>
     route.fulfill({ json: { items: [], next_cursor: null } }),
   );
-  await page.route(new RegExp('/api/v1/workspaces(?:\\?.*)?$'), (route) =>
+  await page.route(new RegExp('/api/v1/projects(?:\\?.*)?$'), (route) =>
     route.fulfill({ json: { items: [], next_cursor: null } }),
   );
 }
@@ -70,8 +70,8 @@ for (const mode of ['signin', 'signup'] as const) {
 test('already signed-in account entry rejects external return destinations', async ({ page }) => {
   await account(page, true);
   await page.goto('/signin?returnTo=https%3A%2F%2Fexternal.example');
-  await expect(page).toHaveURL(/\/workspaces$/);
-  await expect(page.getByRole('heading', { name: 'Workspaces', exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/projects$/);
+  await expect(page.getByRole('heading', { name: 'Projects', exact: true })).toBeVisible();
 });
 
 test('Docs index keeps its anchor and focused navigation', async ({ page }) => {
@@ -139,7 +139,7 @@ test('agent connection errors offer a retry and a real next step for new contrib
   fail = false;
   await page.getByRole('button', { name: 'Retry' }).click();
   await expect(page.getByText(/No agents yet/)).toBeVisible();
-  await page.getByRole('link', { name: 'Open your workspaces' }).click();
-  await page.getByRole('button', { name: 'New workspace' }).click();
+  await page.getByRole('link', { name: 'Open your projects' }).click();
+  await page.getByRole('button', { name: 'New project' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
 });

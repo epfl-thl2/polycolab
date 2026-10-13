@@ -6,7 +6,7 @@ from typing import Protocol, Self
 
 from polycolab.accounts.store import AccountStore
 from polycolab.artifacts.store import ArtifactStore
-from polycolab.workspaces.store import WorkspaceStore
+from polycolab.projects.store import ProjectStore
 
 
 class PersistenceError(Exception):
@@ -25,7 +25,7 @@ class Transaction(Protocol):
     def accounts(self) -> AccountStore: ...
 
     @property
-    def workspaces(self) -> WorkspaceStore: ...
+    def projects(self) -> ProjectStore: ...
 
     def commit(self) -> None: ...
 

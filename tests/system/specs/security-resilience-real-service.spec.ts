@@ -25,16 +25,16 @@ async function call<T>(
 test('revoked memberships block active-session SSE reconnect and cross-project session reads', async ({
   request,
 }) => {
-  const first = await call<{ id: string }>(request, 'post', '/api/v1/workspaces', {
+  const first = await call<{ id: string }>(request, 'post', '/api/v1/projects', {
     data: { name: `Revocation ${Date.now()}` },
   });
-  const second = await call<{ id: string }>(request, 'post', '/api/v1/workspaces', {
+  const second = await call<{ id: string }>(request, 'post', '/api/v1/projects', {
     data: { name: `Other project ${Date.now()}` },
   });
   const contributor = await call<{ id: string }>(request, 'get', '/api/v1/users/me', {
     token: 'contributor',
   });
-  const membership = await call(request, 'post', `/api/v1/workspaces/${first.body.id}/members`, {
+  const membership = await call(request, 'post', `/api/v1/projects/${first.body.id}/members`, {
     data: { user_id: contributor.body.id, role: 'CONTRIBUTOR' },
   });
   expect(membership.status).toBe(201);
@@ -49,7 +49,7 @@ test('revoked memberships block active-session SSE reconnect and cross-project s
   });
   const session = await call<{ id: string }>(request, 'post', '/api/v1/agent-sessions', {
     token: 'contributor',
-    data: { workspace_id: first.body.id, agent_kind: 'CRITIC' },
+    data: { project_id: first.body.id, agent_kind: 'CRITIC' },
   });
   const queued = await call<{ run: { id: string } }>(
     request,
@@ -68,7 +68,7 @@ test('revoked memberships block active-session SSE reconnect and cross-project s
   const removed = await call(
     request,
     'delete',
-    `/api/v1/workspaces/${first.body.id}/members/${contributor.body.id}`,
+    `/api/v1/projects/${first.body.id}/members/${contributor.body.id}`,
   );
   expect(removed.status).toBe(204);
   const reconnect = await request.get(
@@ -80,7 +80,7 @@ test('revoked memberships block active-session SSE reconnect and cross-project s
   expect(reconnect.status()).toBe(404);
 
   const ownerSession = await call<{ id: string }>(request, 'post', '/api/v1/agent-sessions', {
-    data: { workspace_id: second.body.id, agent_kind: 'RESEARCHER' },
+    data: { project_id: second.body.id, agent_kind: 'RESEARCHER' },
   });
   const crossProject = await request.get(
     `${apiBaseUrl}/api/v1/agent-sessions/${ownerSession.body.id}`,
@@ -94,7 +94,7 @@ test('revoked memberships block active-session SSE reconnect and cross-project s
 test('provider faults finish as normalized failures without provider credential disclosure', async ({
   request,
 }) => {
-  const project = await call<{ id: string }>(request, 'post', '/api/v1/workspaces', {
+  const project = await call<{ id: string }>(request, 'post', '/api/v1/projects', {
     data: { name: `Provider fault ${Date.now()}` },
   });
   const profile = await call<{ id: string }>(request, 'post', '/api/v1/gateway/profiles', {
@@ -106,7 +106,7 @@ test('provider faults finish as normalized failures without provider credential 
     },
   });
   const session = await call<{ id: string }>(request, 'post', '/api/v1/agent-sessions', {
-    data: { workspace_id: project.body.id, agent_kind: 'CRITIC' },
+    data: { project_id: project.body.id, agent_kind: 'CRITIC' },
   });
   const queued = await call<{ run: { id: string } }>(
     request,

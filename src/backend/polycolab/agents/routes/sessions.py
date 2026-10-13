@@ -16,8 +16,8 @@ from sqlalchemy import func, or_, select
 
 from polycolab.access.authorization import (
     AuthorizationDenied,
-    WorkspaceAction,
-    workspace_policy,
+    ProjectAction,
+    project_policy,
 )
 from polycolab.agents.access import _run_scope as _run_scope
 from polycolab.agents.access import _session_scope as _session_scope
@@ -53,7 +53,7 @@ from polycolab.db.models import (
     SqlPlatformAgentVersion,
 )
 from polycolab.db.transaction import SqlAlchemyTransaction
-from polycolab.entities.enums import AgentRunStatus, WorkspaceRole
+from polycolab.entities.enums import AgentRunStatus, ProjectRole
 from polycolab.entities.time import utc_now
 from polycolab.execution.limits import (
     ExecutionLimitExceeded,
@@ -220,13 +220,13 @@ def _session_read(
 def _session_participant(db: DbSession, *, value: SqlAgentSession, user_id: UUID) -> bool:
     """Return whether this current member may access this private chat history."""
 
-    membership = workspace_policy.membership(SqlAlchemyTransaction(db), value.project_id, user_id)
+    membership = project_policy.membership(SqlAlchemyTransaction(db), value.project_id, user_id)
     return (
         membership is not None
-        and membership.role is not WorkspaceRole.READ_ONLY
+        and membership.role is not ProjectRole.READ_ONLY
         and value.created_by_user_id == user_id
-        and workspace_policy.can(
-            SqlAlchemyTransaction(db), value.project_id, user_id, WorkspaceAction.VIEW
+        and project_policy.can(
+            SqlAlchemyTransaction(db), value.project_id, user_id, ProjectAction.VIEW
         )
     )
 
@@ -271,8 +271,8 @@ def post_agent_session(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="hosted_harness_unavailable"
         )
-    workspace_policy.require_scope(
-        SqlAlchemyTransaction(db), payload.project_id, user.id, WorkspaceAction.RUN_AGENTS
+    project_policy.require_scope(
+        SqlAlchemyTransaction(db), payload.project_id, user.id, ProjectAction.RUN_AGENTS
     )
     value = create_agent_session(
         db,
@@ -295,22 +295,22 @@ def post_agent_session(
     tags=["agent-sessions"],
 )
 def list_agent_sessions(
-    workspace_id: UUID,
+    project_id: UUID,
     response: Response,
     page: Page,
     db: DbSession,
     user: CurrentUser,
 ) -> list[AgentSessionRead]:
-    scope = workspace_policy.require_scope(
-        SqlAlchemyTransaction(db), workspace_id, user.id, WorkspaceAction.VIEW
+    scope = project_policy.require_scope(
+        SqlAlchemyTransaction(db), project_id, user.id, ProjectAction.VIEW
     )
-    if scope.membership.role is WorkspaceRole.READ_ONLY:
+    if scope.membership.role is ProjectRole.READ_ONLY:
         raise AuthorizationDenied
     values = list(
         db.scalars(
             select(SqlAgentSession)
             .where(
-                SqlAgentSession.project_id == workspace_id,
+                SqlAgentSession.project_id == project_id,
                 SqlAgentSession.created_by_user_id == user.id,
             )
             .order_by(SqlAgentSession.updated_at.desc(), SqlAgentSession.id.desc())
@@ -338,7 +338,7 @@ def list_agent_sessions(
 def get_agent_session(session_id: UUID, db: DbSession, user: CurrentUser) -> AgentSessionRead:
     return _session_read(
         db,
-        _session_scope(db, session_id=session_id, user_id=user.id, action=WorkspaceAction.VIEW),
+        _session_scope(db, session_id=session_id, user_id=user.id, action=ProjectAction.VIEW),
     )
 
 
@@ -351,7 +351,7 @@ def get_agent_session(session_id: UUID, db: DbSession, user: CurrentUser) -> Age
 def list_agent_session_runs(
     session_id: UUID, response: Response, page: Page, db: DbSession, user: CurrentUser
 ) -> list[AgentRunRead]:
-    _session_scope(db, session_id=session_id, user_id=user.id, action=WorkspaceAction.VIEW)
+    _session_scope(db, session_id=session_id, user_id=user.id, action=ProjectAction.VIEW)
     # Ascending immutable queue order keeps offset cursors stable as new turns arrive.
     values = list(
         db.scalars(
@@ -379,7 +379,7 @@ def post_agent_session_archive(
     session_id: UUID, db: DbSession, user: CurrentUser
 ) -> AgentSessionRead:
     value = _session_scope(
-        db, session_id=session_id, user_id=user.id, action=WorkspaceAction.RUN_AGENTS
+        db, session_id=session_id, user_id=user.id, action=ProjectAction.RUN_AGENTS
     )
     return _session_read(db, archive_agent_session(db, session_id=value.id))
 
@@ -397,7 +397,7 @@ def list_agent_session_messages(
     db: DbSession,
     user: CurrentUser,
 ) -> list[AgentMessageRead]:
-    _session_scope(db, session_id=session_id, user_id=user.id, action=WorkspaceAction.VIEW)
+    _session_scope(db, session_id=session_id, user_id=user.id, action=ProjectAction.VIEW)
     values = [
         AgentMessageRead.model_validate(value)
         for value in db.scalars(
@@ -425,7 +425,7 @@ def post_agent_session_message(
 ) -> AgentTurnQueued:
     _agent_execution_enabled(request)
     value = _session_scope(
-        db, session_id=session_id, user_id=user.id, action=WorkspaceAction.RUN_AGENTS
+        db, session_id=session_id, user_id=user.id, action=ProjectAction.RUN_AGENTS
     )
     if payload.requested_authority is not None:
         operations = set(payload.requested_authority.allowed_operations)
@@ -488,7 +488,7 @@ def post_agent_session_message(
     tags=["agent-runs"],
 )
 def get_agent_run(run_id: UUID, db: DbSession, user: CurrentUser) -> AgentRunRead:
-    return _run_read(_run_scope(db, run_id=run_id, user_id=user.id, action=WorkspaceAction.VIEW))
+    return _run_read(_run_scope(db, run_id=run_id, user_id=user.id, action=ProjectAction.VIEW))
 
 
 @router.post(
@@ -499,7 +499,7 @@ def get_agent_run(run_id: UUID, db: DbSession, user: CurrentUser) -> AgentRunRea
     tags=["agent-runs"],
 )
 def post_agent_run_cancel(run_id: UUID, db: DbSession, user: CurrentUser) -> AgentRunRead:
-    run = _run_scope(db, run_id=run_id, user_id=user.id, action=WorkspaceAction.RUN_AGENTS)
+    run = _run_scope(db, run_id=run_id, user_id=user.id, action=ProjectAction.RUN_AGENTS)
     return _run_read(request_cancel(db, run_id=run.id))
 
 
@@ -514,7 +514,7 @@ def post_agent_run_resume(
     run_id: UUID, payload: AgentRunResume, request: Request, db: DbSession, user: CurrentUser
 ) -> AgentRunRead:
     _agent_execution_enabled(request)
-    run = _run_scope(db, run_id=run_id, user_id=user.id, action=WorkspaceAction.RUN_AGENTS)
+    run = _run_scope(db, run_id=run_id, user_id=user.id, action=ProjectAction.RUN_AGENTS)
     deadline = utc_now() + timedelta(seconds=request.app.state.settings.runtime_run_timeout_seconds)
     try:
         successor = resume_run(
@@ -616,7 +616,7 @@ def stream_agent_run_events(
     after: int = Query(default=0, ge=0),
     last_event_id: str | None = Header(default=None, alias="Last-Event-ID"),
 ) -> StreamingResponse:
-    _run_scope(db, run_id=run_id, user_id=user.id, action=WorkspaceAction.VIEW)
+    _run_scope(db, run_id=run_id, user_id=user.id, action=ProjectAction.VIEW)
     cursor = _last_run_cursor(last_event_id, after)
     _consume_sse_reconnect(
         db,
@@ -716,7 +716,7 @@ def stream_agent_session_events(
     user: CurrentUser,
     last_event_id: str | None = Header(default=None, alias="Last-Event-ID"),
 ) -> StreamingResponse:
-    value = _session_scope(db, session_id=session_id, user_id=user.id, action=WorkspaceAction.VIEW)
+    value = _session_scope(db, session_id=session_id, user_id=user.id, action=ProjectAction.VIEW)
     cursor = _last_session_cursor(last_event_id)
     _consume_sse_reconnect(
         db,

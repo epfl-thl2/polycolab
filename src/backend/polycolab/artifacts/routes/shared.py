@@ -44,7 +44,7 @@ from polycolab.research.direct import (
     LibraryDestination,
     MutationResult,
     OutputRead,
-    WorkspaceDestination,
+    ProjectDestination,
     authorize,
     destination_scope,
     mutate,
@@ -52,7 +52,7 @@ from polycolab.research.direct import (
 from polycolab.research.history import visible_query
 from polycolab.research.objects import ResearchNotFound
 from polycolab.research.records import accessible_revision
-from polycolab.research.routes.core import member, workspace
+from polycolab.research.routes.core import member, project
 from polycolab.research.routes.direct import RetryKey
 
 router = APIRouter(
@@ -113,7 +113,7 @@ def artifact_scope(
                 or _aware(credential.expires_at) <= utc_now()
             ):
                 raise ExternalAgentInvalid
-        workspace(session, access, scope.project_id)
+        project(session, access, scope.project_id)
         return row, scope, True
     public._public_artifact(session, artifact_id)
     return row, scope, False
@@ -123,19 +123,19 @@ def attachment_page(
     session: DbSession,
     access: Access,
     page: Pagination,
-    workspace_id: UUID | None,
+    project_id: UUID | None,
     revision_id: UUID | None,
 ) -> Collection[ArtifactAttachmentItem]:
     private_read = False
-    if workspace_id:
-        _, private_read = workspace(session, access, workspace_id)
+    if project_id:
+        _, private_read = project(session, access, project_id)
     if revision_id:
         revision = session.get(SqlObjectRevision, revision_id)
-        if revision is None or (workspace_id and revision.project_id != workspace_id):
+        if revision is None or (project_id and revision.project_id != project_id):
             raise ResearchNotFound
         private_read = bool(revision.project_id and member(session, access, revision.project_id))
         if private_read:
-            workspace(session, access, revision.project_id)
+            project(session, access, revision.project_id)
         else:
             accessible_revision(session, revision_id, None)
     query = (
@@ -144,8 +144,8 @@ def attachment_page(
         .join(SqlObjectRevision, SqlObjectRevision.id == SqlArtifactResearchLink.revision_id)
         .where(SqlArtifact.state == ArtifactState.COMMITTED)
     )
-    if workspace_id:
-        query = query.where(SqlObjectRevision.project_id == workspace_id)
+    if project_id:
+        query = query.where(SqlObjectRevision.project_id == project_id)
     if revision_id:
         query = query.where(SqlObjectRevision.id == revision_id)
     if not private_read:
@@ -160,7 +160,7 @@ def attachment_page(
         session,
         query,
         SqlArtifactResearchLink.id,
-        scope=f"attachments:{access.user_id}:{workspace_id}:{revision_id}",
+        scope=f"attachments:{access.user_id}:{project_id}:{revision_id}",
     )
     items = []
     for link in rows:
@@ -181,18 +181,18 @@ def attachment_page(
 
 
 @router.get(
-    "/workspaces/{workspace_id}/artifacts",
+    "/projects/{project_id}/artifacts",
     response_model=Collection[ArtifactAttachmentItem],
     operation_id="pageArtifactAttachments",
 )
 def attachments(
-    workspace_id: UUID,
+    project_id: UUID,
     session: DbSession,
     access: Access,
     page: Pagination,
     object_version_id: UUID | None = None,
 ) -> Collection[ArtifactAttachmentItem]:
-    return attachment_page(session, access, page, workspace_id, object_version_id)
+    return attachment_page(session, access, page, project_id, object_version_id)
 
 
 @router.get(
@@ -225,7 +225,7 @@ def stage(
         scope = destination_scope(session, destination)
         actor = authorize(session, access, scope)
         from polycolab.platform import mutation_keys
-        from polycolab.workspaces.service import DomainConflict
+        from polycolab.projects.service import DomainConflict
 
         actor_key = (
             f"agent:{actor.external_agent_id}" if actor.external_agent_id else f"human:{user_id}"
@@ -315,7 +315,7 @@ async def upload(
     access: Access,
     sha256: Annotated[str, Query(min_length=64, max_length=64, pattern="^[0-9a-f]{64}$")],
     byte_length: Annotated[int, Query(ge=0, le=16 * 1024 * 1024)],
-    workspace_id: UUID | None = None,
+    project_id: UUID | None = None,
     statement_object_version_id: UUID | None = None,
     retry_key: Annotated[
         str | None, Header(alias="Idempotency-Key", min_length=1, max_length=200)
@@ -328,11 +328,11 @@ async def upload(
     ] = "application/octet-stream",
     source_object_version_id: UUID | None = None,
 ) -> ArtifactRead:
-    if (workspace_id is None) == (statement_object_version_id is None):
+    if (project_id is None) == (statement_object_version_id is None):
         raise HTTPException(422, "exactly_one_destination_required")
     destination = (
-        WorkspaceDestination(kind="workspace", workspace_id=workspace_id)
-        if workspace_id
+        ProjectDestination(kind="project", project_id=project_id)
+        if project_id
         else LibraryDestination(
             kind="library", statement_revision_id=UUID(str(statement_object_version_id))
         )

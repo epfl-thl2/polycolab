@@ -48,9 +48,9 @@ from polycolab.entities.enums import (
     AgentRunEventKind,
     AgentRunStatus,
     PlatformAgentKind,
+    ProjectRole,
+    ProjectVisibility,
     ResearchObjectKind,
-    WorkspaceRole,
-    WorkspaceVisibility,
 )
 from polycolab.entities.time import utc_now
 from polycolab.execution.limits import ExecutionLimits
@@ -111,7 +111,7 @@ def _queue_run(client: TestClient) -> tuple[Any, UUID, UUID, SqlGatewayProfile]:
     session.commit()
     project = SqlProject(
         name="Runtime project",
-        visibility=WorkspaceVisibility.PRIVATE,
+        visibility=ProjectVisibility.PRIVATE,
         created_by_user_id=user.id,
     )
     profile = SqlGatewayProfile(
@@ -126,7 +126,7 @@ def _queue_run(client: TestClient) -> tuple[Any, UUID, UUID, SqlGatewayProfile]:
     )
     session.add_all((project, profile))
     session.commit()
-    session.add(SqlMembership(project_id=project.id, user_id=user.id, role=WorkspaceRole.OWNER))
+    session.add(SqlMembership(project_id=project.id, user_id=user.id, role=ProjectRole.OWNER))
     session.commit()
     agent_session = create_agent_session(
         session,
@@ -665,8 +665,8 @@ def test_internal_tool_gateway_rejects_capability_session_and_tool_scope_mismatc
     assert _internal_tool_call(client, token).status_code == 401
 
 
-def test_internal_tool_gateway_rejects_cross_workspace_object_version(client: TestClient) -> None:
-    from polycolab.workspaces.service import create_workspace
+def test_internal_tool_gateway_rejects_cross_project_object_version(client: TestClient) -> None:
+    from polycolab.projects.service import create_project
 
     app, _, run_id, _ = _queue_run(client)
     session = app.state.session_factory()
@@ -676,7 +676,7 @@ def test_internal_tool_gateway_rejects_cross_workspace_object_version(client: Te
         user = session.get(SqlUser, run.requested_by_user_id)
         assert user is not None
         session.add(
-            SqlResearchScope(scope_kind=ResearchScopeKind.WORKSPACE, project_id=run.project_id)
+            SqlResearchScope(scope_kind=ResearchScopeKind.PROJECT, project_id=run.project_id)
         )
         session.flush()
         _, permitted = create_object(
@@ -690,11 +690,11 @@ def test_internal_tool_gateway_rejects_cross_workspace_object_version(client: Te
         )
         run.requested_context_revision_ids = [str(permitted.id)]
         session.commit()
-        project = create_workspace(
+        project = create_project(
             SqlAlchemyTransaction(session),
             name="Other project",
             description=None,
-            visibility=WorkspaceVisibility.PRIVATE,
+            visibility=ProjectVisibility.PRIVATE,
             creator=user,
         )
         _, revision = create_object(

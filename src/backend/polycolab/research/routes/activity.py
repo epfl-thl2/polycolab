@@ -51,18 +51,18 @@ def scoped_attempts(
     object_id: UUID,
     session: DbSession,
     access: Access,
-    workspace_id: UUID | None = None,
+    project_id: UUID | None = None,
     scope: Literal["public", "member"] = "public",
     target_object_version_id: UUID | None = None,
     limit: Limit = 25,
     cursor: Cursor = None,
 ) -> ObjectVersionPage:
-    workspace_id = collection_scope(session, access, scope, workspace_id)
+    project_id = collection_scope(session, access, scope, project_id)
     return attempts.history(
         session,
         target_object_id=object_id,
         target_revision_id=target_object_version_id,
-        project_id=workspace_id,
+        project_id=project_id,
         limit=limit,
         cursor=cursor,
     )
@@ -94,10 +94,10 @@ def get_human_note(
     object_id: UUID,
     session: DbSession,
     actor: CurrentActor,
-    workspace_id: UUID | None = None,
+    project_id: UUID | None = None,
 ) -> HumanNoteRead:
     return research_activity.get_human_note(
-        session, actor=actor, object_id=object_id, project_id=workspace_id
+        session, actor=actor, object_id=object_id, project_id=project_id
     )
 
 
@@ -110,7 +110,7 @@ def human_note_history(
     object_id: UUID,
     session: DbSession,
     actor: CurrentActor,
-    workspace_id: UUID | None = None,
+    project_id: UUID | None = None,
     limit: Limit = 25,
     cursor: Cursor = None,
 ) -> HumanNotePage:
@@ -118,7 +118,7 @@ def human_note_history(
         session,
         actor=actor,
         object_id=object_id,
-        project_id=workspace_id,
+        project_id=project_id,
         limit=limit,
         cursor=cursor,
     )
@@ -150,10 +150,10 @@ def get_summary(
     object_id: UUID,
     session: DbSession,
     actor: CurrentActor,
-    workspace_id: UUID | None = None,
+    project_id: UUID | None = None,
 ) -> ResearchSummaryRead:
     return research_activity.get_summary(
-        session, actor=actor, object_id=object_id, project_id=workspace_id
+        session, actor=actor, object_id=object_id, project_id=project_id
     )
 
 
@@ -166,7 +166,7 @@ def summary_history(
     object_id: UUID,
     session: DbSession,
     actor: CurrentActor,
-    workspace_id: UUID | None = None,
+    project_id: UUID | None = None,
     limit: Limit = 25,
     cursor: Cursor = None,
 ) -> ResearchSummaryPage:
@@ -174,7 +174,7 @@ def summary_history(
         session,
         actor=actor,
         object_id=object_id,
-        project_id=workspace_id,
+        project_id=project_id,
         limit=limit,
         cursor=cursor,
     )
@@ -216,7 +216,7 @@ def progress_history(
     object_id: UUID,
     session: DbSession,
     actor: CurrentActor,
-    workspace_id: UUID | None = None,
+    project_id: UUID | None = None,
     object_version_id: UUID | None = None,
     limit: Limit = 25,
     cursor: Cursor = None,
@@ -225,7 +225,7 @@ def progress_history(
         session,
         actor=actor,
         object_id=object_id,
-        project_id=workspace_id,
+        project_id=project_id,
         revision_id=object_version_id,
         limit=limit,
         cursor=cursor,
@@ -267,7 +267,7 @@ def comment_history(
     object_id: UUID,
     session: DbSession,
     actor: CurrentActor,
-    workspace_id: UUID | None = None,
+    project_id: UUID | None = None,
     object_version_id: UUID | None = None,
     limit: Limit = 25,
     cursor: Cursor = None,
@@ -276,7 +276,7 @@ def comment_history(
         session,
         actor=actor,
         object_id=object_id,
-        project_id=workspace_id,
+        project_id=project_id,
         revision_id=object_version_id,
         limit=limit,
         cursor=cursor,

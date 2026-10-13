@@ -19,10 +19,10 @@ from sqlalchemy.orm import Session
 
 from polycolab.access.authorization import (
     AuthorizationDenied,
-    WorkspaceAction,
-    WorkspaceNotFound,
-    lock_workspace_authorization,
-    workspace_policy,
+    ProjectAction,
+    ProjectNotFound,
+    lock_project_authorization,
+    project_policy,
 )
 from polycolab.artifacts.service import StoredArtifact
 from polycolab.artifacts.storage import ArtifactIntegrity, new_staging_key
@@ -58,6 +58,7 @@ from polycolab.entities.time import utc_now
 from polycolab.platform import mutation_keys
 from polycolab.platform.config import Settings
 from polycolab.platform.outbox import append_event, canonical_digest
+from polycolab.projects.service import DomainConflict
 from polycolab.research.contributions import human_contribution
 from polycolab.research.objects import ResearchNotFound
 from polycolab.research.records import accessible_revision
@@ -80,7 +81,6 @@ from polycolab.verification.contracts import (
     validate_completion_limits,
 )
 from polycolab.verification.queue import candidate_page
-from polycolab.workspaces.service import DomainConflict
 
 LIVE = (VerificationJobState.QUEUED, VerificationJobState.RUNNING)
 
@@ -100,14 +100,14 @@ def transaction(session: Session) -> Iterator[None]:
 
 
 def _scope(session: Session, project_id: UUID, user_id: UUID, *, write: bool) -> SqlResearchScope:
-    lock_workspace_authorization(
+    lock_project_authorization(
         SqlAlchemyTransaction(session), project_id=project_id, user_id=user_id
     )
-    workspace_policy.require_scope(
+    project_policy.require_scope(
         SqlAlchemyTransaction(session),
         project_id,
         user_id,
-        WorkspaceAction.CREATE_RESEARCH if write else WorkspaceAction.VIEW,
+        ProjectAction.CREATE_RESEARCH if write else ProjectAction.VIEW,
     )
     scope = session.scalar(
         select(SqlResearchScope).where(SqlResearchScope.project_id == project_id).with_for_update()
@@ -634,7 +634,7 @@ def _controller_context(
     scope = session.get(SqlResearchScope, candidate.ownership_scope_id) if candidate else None
     if candidate is None or scope is None or scope.project_id is None:
         raise ResearchNotFound
-    lock_workspace_authorization(
+    lock_project_authorization(
         SqlAlchemyTransaction(session),
         project_id=scope.project_id,
         user_id=candidate.sponsor_user_id,
@@ -650,11 +650,11 @@ def _controller_context(
 
 
 def _authorize_job(session: Session, job: SqlVerificationJob, project_id: UUID) -> None:
-    workspace_policy.require_scope(
+    project_policy.require_scope(
         SqlAlchemyTransaction(session),
         project_id,
         job.sponsor_user_id,
-        WorkspaceAction.CREATE_RESEARCH,
+        ProjectAction.CREATE_RESEARCH,
     )
     _authorize_inputs(session, _submission(session, job, project_id), job.ownership_scope_id)
 
@@ -715,7 +715,7 @@ def claim(session: Session, *, controller_id: str, settings: Settings) -> Contro
                 previous = _attempt(session, job)
                 try:
                     _authorize_job(session, job, project_id)
-                except ResearchNotFound, AuthorizationDenied, WorkspaceNotFound:
+                except ResearchNotFound, AuthorizationDenied, ProjectNotFound:
                     _finish(
                         session, job, VerificationJobState.FAILED, "AUTHORITY_REVOKED", previous
                     )
@@ -762,7 +762,7 @@ def claim(session: Session, *, controller_id: str, settings: Settings) -> Contro
                 job.state = VerificationJobState.RUNNING
                 _event(session, job, "CLAIMED", attempt)
                 return _claim_read(session, job, attempt, project_id)
-        except ResearchNotFound, AuthorizationDenied, WorkspaceNotFound:
+        except ResearchNotFound, AuthorizationDenied, ProjectNotFound:
             continue
     return None
 
@@ -811,7 +811,7 @@ def recover(session: Session, *, limit: int = 100) -> int:
             assert candidate is not None
             scope = session.get(SqlResearchScope, candidate.ownership_scope_id)
             assert scope is not None and scope.project_id is not None
-            lock_workspace_authorization(
+            lock_project_authorization(
                 SqlAlchemyTransaction(session),
                 project_id=scope.project_id,
                 user_id=candidate.sponsor_user_id,
@@ -827,7 +827,7 @@ def recover(session: Session, *, limit: int = 100) -> int:
             reason = None
             try:
                 _authorize_job(session, job, scope.project_id)
-            except ResearchNotFound, AuthorizationDenied, WorkspaceNotFound:
+            except ResearchNotFound, AuthorizationDenied, ProjectNotFound:
                 reason = "AUTHORITY_REVOKED"
             if reason or utc(job.deadline_at) <= utc_now():
                 _finish(

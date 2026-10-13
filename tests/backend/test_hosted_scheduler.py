@@ -78,7 +78,7 @@ def claim(client: TestClient, worker: str, capacity: int = 4, tenant: int = 2) -
             lease_seconds=30,
             capacity=capacity,
             user_capacity=tenant,
-            workspace_capacity=tenant,
+            project_capacity=tenant,
         )
         return result.id if result else None
 
@@ -146,7 +146,7 @@ def test_executor_identity_and_quarantine_fence(hosted_client: TestClient) -> No
                 lease_seconds=30,
                 capacity=4,
                 user_capacity=2,
-                workspace_capacity=2,
+                project_capacity=2,
                 image_digest="0" * 64,
             )
 
@@ -224,4 +224,4 @@ def test_merge_upgrade_preserves_existing_branch_data(
         assert retained is not None and retained.subject == "retained-account"
     from alembic.script import ScriptDirectory
 
-    assert ScriptDirectory.from_config(config).get_heads() == ["20260916_merge_hosted_main"]
+    assert ScriptDirectory.from_config(config).get_heads() == ["20261012_projects"]

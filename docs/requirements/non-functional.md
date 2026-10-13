@@ -38,5 +38,5 @@ Implementation and operational details belong in the [architecture](../architect
 ## Performance and capacity
 
 Search, lists, history, and relationship exploration must remain usable as research grows.
-Load supporting content as needed rather than fetching the entire workspace.
+Load supporting content as needed rather than fetching the entire project.
 Long-running work shows progress and does not block ordinary reading or editing.

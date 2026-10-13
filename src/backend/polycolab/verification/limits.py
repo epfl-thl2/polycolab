@@ -58,9 +58,9 @@ def admit(
         (
             SqlVerificationReservation.ownership_scope_id,
             scope_id,
-            settings.verification_workspace_concurrent_jobs,
-            settings.verification_workspace_daily_cpu_seconds,
-            settings.verification_workspace_daily_memory_byte_seconds,
+            settings.verification_project_concurrent_jobs,
+            settings.verification_project_daily_cpu_seconds,
+            settings.verification_project_daily_memory_byte_seconds,
         ),
     ):
         active = (

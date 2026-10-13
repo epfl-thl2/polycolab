@@ -13,7 +13,7 @@ test('discovery pages share heading geometry, meaningful titles and accessible f
   await page.route('**/api/v1/discovery?*', (route) =>
     route.fulfill({ json: { items: [], next_cursor: null } }),
   );
-  await page.route('**/api/v1/workspaces?*', (route) =>
+  await page.route('**/api/v1/projects?*', (route) =>
     route.fulfill({ json: { items: [], next_cursor: null } }),
   );
   for (const width of [1280, 390]) {

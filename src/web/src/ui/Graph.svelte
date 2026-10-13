@@ -5,7 +5,7 @@
   import { reviewSummaries } from '../lib/reviews-api';
   import { relationshipEndpoints } from '../lib/relationship-view';
   import { Search, Maximize, LocateFixed, UserRound, Sparkles } from '@lucide/svelte';
-  import WorkspaceMapViewport from './WorkspaceMapViewport.svelte';
+  import ProjectMapViewport from './ProjectMapViewport.svelte';
   import LoadingState from './LoadingState.svelte';
   import * as Alert from '../lib/components/ui/alert';
   import { Button } from '../lib/components/ui/button';
@@ -22,15 +22,15 @@
     type Edge,
   } from '@xyflow/svelte';
   import '@xyflow/svelte/dist/style.css';
-  import { workspace, explain } from '../svelte-lib/context';
-  import { loadWorkspaceMap, objectDiagram, type WorkspaceMap } from '../lib/workspace-map';
-  import WorkspaceMapBrowser from './WorkspaceMapBrowser.svelte';
-  import WorkspaceMapNode from './WorkspaceMapNode.svelte';
-  import WorkspaceMapEdge from './WorkspaceMapEdge.svelte';
+  import { projectContext, explain } from '../svelte-lib/context';
+  import { loadProjectMap, objectDiagram, type ProjectMap } from '../lib/project-map';
+  import ProjectMapBrowser from './ProjectMapBrowser.svelte';
+  import ProjectMapNode from './ProjectMapNode.svelte';
+  import ProjectMapEdge from './ProjectMapEdge.svelte';
   import MapNodeShape from './MapNodeShape.svelte';
   import { objectKindVisual, objectKinds } from '../lib/object-kind-visual';
-  const edgeTypes = { relationship: WorkspaceMapEdge };
-  const nodeTypes = { object: WorkspaceMapNode };
+  const edgeTypes = { relationship: ProjectMapEdge };
+  const nodeTypes = { object: ProjectMapNode };
   import DenseGraph from './DenseGraph.svelte';
   let {
     projectId,
@@ -45,7 +45,7 @@
     publicRead?: boolean;
     objectId?: string;
     initialFocusId?: string;
-    ondata?: (data: WorkspaceMap | undefined) => void;
+    ondata?: (data: ProjectMap | undefined) => void;
     onreview?: (objectId: string) => void;
     onfocus?: (objectId: string) => void;
   } = $props();
@@ -54,17 +54,17 @@
   let mapActions = $state<{ fitAll: () => void; centerFocused: () => void }>();
   let hoveredEdgeId = $state<string>();
   let objectBrowser = $state<{ focusSearch: () => void }>();
-  const { api, query } = workspace();
+  const { api, query } = projectContext();
   const graph = createQuery(
     toStore(() => ({
-      queryKey: ['workspace-map', projectId, publicRead, 'layout'],
+      queryKey: ['project-map', projectId, publicRead, 'layout'],
       queryFn: async () => {
         const data = await query.fetchQuery({
-          queryKey: ['workspace-map', projectId, publicRead, 'data'],
-          queryFn: () => loadWorkspaceMap(api, projectId, publicRead),
+          queryKey: ['project-map', projectId, publicRead, 'data'],
+          queryFn: () => loadProjectMap(api, projectId, publicRead),
           staleTime: 30_000,
         });
-        const { layoutMap } = await import('../lib/workspace-map-layout-browser');
+        const { layoutMap } = await import('../lib/project-map-layout-browser');
         const diagram = objectDiagram(data);
         return { ...data, diagram, layout: await layoutMap(diagram) };
       },
@@ -199,11 +199,11 @@
 </script>
 
 <h1 class="sr-only">Map</h1>
-{#if $graph.isPending}<LoadingState>Loading workspace map…</LoadingState>
+{#if $graph.isPending}<LoadingState>Loading project map…</LoadingState>
 {:else if $graph.isError}<Alert.Root variant="destructive" role="alert"
     >{explain($graph.error)}</Alert.Root
   ><Button onclick={() => $graph.refetch()}>Retry map</Button>
-{:else if !$graph.data?.objects.length}<p>This workspace has no research objects yet.</p>
+{:else if !$graph.data?.objects.length}<p>This project has no research objects yet.</p>
 {:else}
   {#if $summaries.isError}<p class="muted" role="status">
       Review signals unavailable. <button onclick={() => $summaries.refetch()}>Retry</button>
@@ -253,7 +253,7 @@
           )}
         ><Background gap={24} size={1} patternColor="var(--border)" /><Controls
           showFitView={false}
-        /><WorkspaceMapViewport
+        /><ProjectMapViewport
           layout={$graph.data!.layout}
           focusedIds={focused ? [...linked] : []}
           focusedRevisionId={focused?.current_object_version.id}
@@ -304,7 +304,7 @@
         <span class="map-legend-item">Line label names the relationship</span>
       </div>{/if}
   </section>
-  <WorkspaceMapBrowser
+  <ProjectMapBrowser
     summaries={$summaries.data ?? []}
     {onreview}
     bind:this={objectBrowser}

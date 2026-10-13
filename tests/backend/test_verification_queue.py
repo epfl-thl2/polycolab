@@ -73,7 +73,7 @@ def test_busy_sponsor_cannot_fill_discovery_page(
     assert page.index(quiet) < page.index(busy[1])
 
 
-def test_many_workspaces_do_not_multiply_sponsor_first_positions(
+def test_many_projects_do_not_multiply_sponsor_first_positions(
     queue: tuple[Session, Table],
 ) -> None:
     user = uuid4()
@@ -82,7 +82,7 @@ def test_many_workspaces_do_not_multiply_sponsor_first_positions(
     assert candidate_page(queue[0], limit=2) == [busy[0], quiet]
 
 
-def test_one_workspace_with_many_users_does_not_hide_another(
+def test_one_project_with_many_users_does_not_hide_another(
     queue: tuple[Session, Table],
 ) -> None:
     scope = uuid4()
@@ -112,11 +112,11 @@ def test_claim_reaches_quiet_user_behind_full_page_of_cooling_retries(
     app, user, submission = setup_job(client)
     settings = app.state.settings
     settings.verification_user_concurrent_jobs = 100
-    settings.verification_workspace_concurrent_jobs = 200
+    settings.verification_project_concurrent_jobs = 200
     settings.verification_user_daily_cpu_seconds = 100_000
-    settings.verification_workspace_daily_cpu_seconds = 100_000
+    settings.verification_project_daily_cpu_seconds = 100_000
     settings.verification_user_daily_memory_byte_seconds = 10**18
-    settings.verification_workspace_daily_memory_byte_seconds = 10**18
+    settings.verification_project_daily_memory_byte_seconds = 10**18
     add_member(client, str(submission.project_id), "contributor", "CONTRIBUTOR")
     quiet_user = UUID(current_user_id(client, "contributor"))
     for index in range(100):

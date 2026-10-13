@@ -54,7 +54,7 @@ class GarageService:
         return docker(
             "compose",
             "--project-name",
-            self.workspace,
+            self.project,
             "--file",
             str(profile),
             *args,
@@ -187,18 +187,18 @@ def test_authenticated_artifact_api_uses_real_garage(storage: GarageStorage) -> 
     try:
         with TestClient(app) as client:
             auth = {"Authorization": "Bearer owner"}
-            project = client.post("/api/v1/workspaces", headers=auth, json={"name": "Artifacts"})
+            project = client.post("/api/v1/projects", headers=auth, json={"name": "Artifacts"})
             assert project.status_code == 201, project.text
             project_id = project.json()["id"]
             target = client.post(
-                f"/api/v1/workspaces/{project_id}/objects",
+                f"/api/v1/projects/{project_id}/objects",
                 headers=auth,
                 json={"kind": "CLAIM", "title": "Claim", "content_md": "Claim"},
             )
             assert target.status_code == 201, target.text
             data = b"<html><script>not executable</script></html>"
             response = client.post(
-                f"/api/v1/workspaces/{project_id}/artifacts",
+                f"/api/v1/projects/{project_id}/artifacts",
                 headers=auth,
                 content=data,
                 params={
@@ -209,7 +209,7 @@ def test_authenticated_artifact_api_uses_real_garage(storage: GarageStorage) -> 
             )
             assert response.status_code == 201, response.text
             artifact = response.json()["id"]
-            base = f"/api/v1/workspaces/{project_id}/artifacts/{artifact}"
+            base = f"/api/v1/projects/{project_id}/artifacts/{artifact}"
             assert client.get(f"{base}/content", headers=auth).status_code == 404
             response = client.post(
                 f"{base}/attachments",

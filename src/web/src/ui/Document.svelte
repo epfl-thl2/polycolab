@@ -14,7 +14,7 @@
   import { page } from '$app/state';
   import { beforeNavigate, goto } from '$app/navigation';
   import { untrack } from 'svelte';
-  import { workspace, explain, type Draft } from '../svelte-lib/context';
+  import { projectContext, explain, type Draft } from '../svelte-lib/context';
   import type { ResearchObject, ObjectVersion } from '../lib/research-api';
   import { ApiError } from '../lib/research-api';
   import { editableVersionSnapshot } from '../lib/version-snapshot';
@@ -32,7 +32,7 @@
     routeUrl?: URL;
     onState?: (state: { label?: string; dirty: boolean }) => void;
   } = $props();
-  const { api, query, drafts } = workspace();
+  const { api, query, drafts } = projectContext();
   const object = createQuery(
     toStore(() => ({
       queryKey: ['object', projectId, objectId],
@@ -195,7 +195,7 @@
   <Button type="button" onclick={() => $exactVersion.refetch()}>Retry exact version</Button>
 {:else}
   <article class="document">
-    <a href={`/workspaces/${projectId}/research`}>← Research</a>
+    <a href={`/projects/${projectId}/research`}>← Research</a>
     <div class="heading mt-6">
       <div>
         <ObjectKindBadge kind={$object.data.kind} />
@@ -222,7 +222,7 @@
           >Return to current version</Button
         >
       </p>{/if}
-    <div class="tabs workspace-information-tabs" aria-label="Document views">
+    <div class="tabs project-information-tabs" aria-label="Document views">
       {#each [['read', 'Body'], ['edit', 'Edit'], ['history', 'History'], ['discussion', 'Discussion'], ['progress', 'Progress'], ['reviews', 'Reviews'], ['relations', 'Relationships']] as [id, label] (id)}{#if id !== 'edit' || canWrite}<Button
             type="button"
             variant="ghost"
@@ -240,13 +240,13 @@
     {#if tab === 'read'}<Markdown content={revision?.content.content_md ?? ''} />
       <p>
         <a
-          href={`/workspaces/${projectId}/records/${revision?.id ?? $object.data.current_object_version_id}`}
+          href={`/projects/${projectId}/records/${revision?.id ?? $object.data.current_object_version_id}`}
           >Read typed record details, outcomes, and exact statement targets</a
         >
       </p>
     {:else if tab === 'reviews' && revision}<ObjectReviews
         versionId={revision.id}
-        workspaceId={projectId}
+        {projectId}
         canReview={canWrite}
       />
     {:else if tab === 'edit' && draft && canWrite}<form onsubmit={save}>

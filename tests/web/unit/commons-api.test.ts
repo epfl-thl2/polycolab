@@ -51,8 +51,8 @@ it('sends private discovery scope and filters only to the authenticated endpoint
   await createRecordsApi({
     baseUrl: 'https://api.example.test',
     getAccessToken: () => 'private-token',
-  }).workspaceSearch({
-    workspace_id: 'workspace',
+  }).projectSearch({
+    project_id: 'project',
     scope: 'member',
     q: 'failed induction',
     status: 'FAILED',
@@ -61,7 +61,7 @@ it('sends private discovery scope and filters only to the authenticated endpoint
   });
   expect(new URL(request!.url).pathname).toBe('/api/v1/discovery');
   expect(Object.fromEntries(new URL(request!.url).searchParams)).toEqual({
-    workspace_id: 'workspace',
+    project_id: 'project',
     scope: 'member',
     q: 'failed induction',
     status: 'FAILED',
@@ -71,7 +71,7 @@ it('sends private discovery scope and filters only to the authenticated endpoint
   expect(request!.headers.get('Authorization')).toBe('Bearer private-token');
 });
 
-it('searches exact cross-workspace references through public discovery', async () => {
+it('searches exact cross-project references through public discovery', async () => {
   let request: Request | undefined;
   globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
     request = new Request(input);
@@ -100,10 +100,10 @@ it('keeps pin history scoped and sends an exact base for explicit upgrades', asy
     });
   });
   const records = createRecordsApi({ baseUrl: 'https://api.example.test' });
-  await records.references('workspace', 'next-page', 'reference');
+  await records.references('project', 'next-page', 'reference');
   const query = new URL(requests[0]!.url).searchParams;
   expect(Object.fromEntries(query)).toEqual({
-    workspace_id: 'workspace',
+    project_id: 'project',
     cursor: 'next-page',
     reference_id: 'reference',
   });
@@ -114,9 +114,7 @@ it('keeps pin history scoped and sends an exact base for explicit upgrades', asy
   };
   await records.upgrade('reference', body, 'retry-key');
   expect(requests[1]!.method).toBe('POST');
-  expect(new URL(requests[1]!.url).pathname).toBe(
-    '/api/v1/workspace-references/reference/versions',
-  );
+  expect(new URL(requests[1]!.url).pathname).toBe('/api/v1/project-references/reference/versions');
   expect(requests[1]!.headers.get('Idempotency-Key')).toBe('retry-key');
   expect(await requests[1]!.json()).toEqual(body);
 });
@@ -139,7 +137,7 @@ it('authenticates discovery when a token is supplied and uses the generated retr
   expect(requests[1]?.headers.get('Idempotency-Key')).toBe('stable-key');
   expect(await requests[1]?.json()).toMatchObject({
     object_version_id: 'revision',
-    workspace_name: 'Private exploration',
+    project_name: 'Private exploration',
   });
 });
 
@@ -179,7 +177,7 @@ it('expires authentication for unauthorized shared requests', async () => {
   };
 
   await expect(
-    createRecordsApi(options).workspaceSearch({ workspace_id: 'workspace' }),
+    createRecordsApi(options).projectSearch({ project_id: 'project' }),
   ).rejects.toMatchObject({ status: 401 });
   expect(onUnauthorized).toHaveBeenCalledTimes(1);
 

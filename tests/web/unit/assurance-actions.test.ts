@@ -25,7 +25,7 @@ it('retains a failed endorsement draft and reuses its retry key', async () => {
 
   await waitFor(() => expect(endorse).toHaveBeenCalledTimes(2));
   expect(endorse.mock.calls[0]![0]).toEqual({
-    workspace_id: undefined,
+    project_id: undefined,
     object_version_id: 'proof-r2',
     active: true,
     rationale: 'The argument is clear.',
@@ -38,7 +38,7 @@ it('records correspondence independently against the selected exact statement', 
   render(AssuranceActions, {
     props: {
       revisionId: 'formalization-r4',
-      projectId: 'workspace-1',
+      projectId: 'project-1',
       statementTargets: [
         { revisionId: 'claim-r2', title: 'Earlier formulation' },
         { revisionId: 'claim-r3', title: 'Current formulation' },
@@ -62,7 +62,7 @@ it('records correspondence independently against the selected exact statement', 
   await screen.findByRole('status');
   expect(assessCorrespondence).toHaveBeenCalledWith(
     {
-      workspace_id: 'workspace-1',
+      project_id: 'project-1',
       object_version_id: 'formalization-r4',
       statement_object_version_id: 'claim-r3',
       status: 'PARTIAL',

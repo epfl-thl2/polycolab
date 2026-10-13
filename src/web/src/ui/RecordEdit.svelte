@@ -8,16 +8,16 @@
   import type { RecordRead } from '../lib/records-api';
   import type { VersionCreate } from '../lib/research-api';
   import { editableVersionSnapshot } from '../lib/version-snapshot';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import Markdown from './Markdown.svelte';
   let {
     record,
     projectId,
     canWrite = true,
   }: { record: RecordRead; projectId?: string; canWrite?: boolean } = $props();
-  const { records, api, query } = workspace();
+  const { records, api, query } = projectContext();
   const revisionLink = (revisionId: string) =>
-    projectId ? `/workspaces/${projectId}/records/${revisionId}` : `/commons/records/${revisionId}`;
+    projectId ? `/projects/${projectId}/records/${revisionId}` : `/commons/records/${revisionId}`;
   let draft = $state<VersionCreate>();
   let versions = $state<RecordRead[]>([]);
   let cursor = $state<string | null>(null);
@@ -45,7 +45,7 @@
         cursor: more ? (cursor ?? undefined) : undefined,
       };
       const page = projectId
-        ? await records.workspaceList({ ...filters, workspace_id: projectId })
+        ? await records.projectList({ ...filters, project_id: projectId })
         : await records.list(filters);
       versions = more ? [...versions, ...page.items] : page.items;
       cursor = page.next_cursor;
@@ -78,7 +78,7 @@
   <h2>History and editing</h2>
   <p>
     {projectId
-      ? 'Workspace write access and editing permission are checked on every save.'
+      ? 'Project write access and editing permission are checked on every save.'
       : 'Editing requires authorship or moderation authority. Official catalogue formulations use the statement editor instead.'}
   </p>
   {#if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>{/if}

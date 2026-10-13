@@ -26,7 +26,7 @@ def test_agent_activity_uses_object_version_contract_and_preserves_retry(
     payload: dict[str, object] = {
         "object_id": entry["entry_id"],
         "object_version_id": entry["object_version_id"],
-        "workspace_id": None,
+        "project_id": None,
         **(
             {"body_md": "Review this exact formulation"}
             if operation == "COMMENT"
@@ -86,7 +86,7 @@ def test_agent_complete_snapshot_retry_and_exact_read(client: TestClient, public
             "statement_object_version_id": entry["object_version_id"],
         }
         if public
-        else {"kind": "workspace", "workspace_id": project["id"]},
+        else {"kind": "project", "project_id": project["id"]},
         "snapshot": value,
     }
     with app.state.session_factory() as session:

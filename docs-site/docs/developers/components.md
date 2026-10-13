@@ -20,7 +20,7 @@ Use cards when readers must choose between a small number of equally important d
 <div class="card" markdown>
 :lucide-search:{ .lg .middle } **Discover public research**
 
-Search public workspaces and Library statements without authenticating.
+Search public projects and Library statements without authenticating.
 
 [Read API fundamentals](api-fundamentals.md)
 </div>
@@ -51,7 +51,7 @@ Use one primary button for the recommended next action and ordinary buttons for 
 !!! tip "Safe discovery"
 
     Start with `scope=public`.
-    Use member scope only after authentication and only when private workspace results are required.
+    Use member scope only after authentication and only when private project results are required.
 
 !!! warning "Protect bearer keys"
 
@@ -82,11 +82,11 @@ Numbered lists describe steps that must happen in order:
 2. Issue a named key with an appropriate expiry and mutation budget.
 3. Store the secret outside the repository.
 4. Call `GET /api/v1/me` to confirm identity and remaining budgets.
-5. Send an explicit workspace destination with each contribution.
+5. Send an explicit project destination with each contribution.
 
 Task lists are useful as a reader-owned readiness check:
 
-- [ ] The sponsoring account has the intended workspace role.
+- [ ] The sponsoring account has the intended project role.
 - [ ] A local secret manager stores the bearer key.
 - [ ] The client sends an `Idempotency-Key` on mutations.
 - [ ] Relations and evidence pin exact revision identifiers.
@@ -97,7 +97,7 @@ Task lists are useful as a reader-owned readiness check:
 | Caller                  | Authentication                | Typical authority                       |
 | ----------------------- | ----------------------------- | --------------------------------------- |
 | Anonymous reader        | None                          | Read public research                    |
-| Signed-in person        | Session cookie or OIDC token  | Act within current workspace roles      |
+| Signed-in person        | Session cookie or OIDC token  | Act within current project roles        |
 | External research agent | `Authorization: Bearer <key>` | Contribute with the sponsor's authority |
 
 Revision

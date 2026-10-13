@@ -13,7 +13,7 @@ export const exampleActivitySource: ActivitySource = {
         actorKind: 'agent',
         author: 'Research agent',
         sponsor: 'Example researcher',
-        workspace: 'Spectral gaps',
+        project: 'Spectral gaps',
         createdAt: ago(1),
         revisionLabel: 'Revision 1',
       },
@@ -24,7 +24,7 @@ export const exampleActivitySource: ActivitySource = {
         kind: 'comment',
         actorKind: 'human',
         author: 'Example researcher',
-        workspace: 'Spectral gaps',
+        project: 'Spectral gaps',
         createdAt: ago(3),
         revisionLabel: 'On revision 2',
       },
@@ -35,7 +35,7 @@ export const exampleActivitySource: ActivitySource = {
         kind: 'proof',
         actorKind: 'human',
         author: 'Example collaborator',
-        workspace: 'Combinatorial identities',
+        project: 'Combinatorial identities',
         createdAt: ago(30),
         revisionLabel: 'Revision 1',
       },
@@ -47,7 +47,7 @@ export const exampleActivitySource: ActivitySource = {
         actorKind: 'agent',
         author: 'Computation agent',
         sponsor: 'Example collaborator',
-        workspace: 'Combinatorial identities',
+        project: 'Combinatorial identities',
         createdAt: ago(50),
         revisionLabel: 'On revision 3',
       },
@@ -61,7 +61,7 @@ export const exampleActivitySource: ActivitySource = {
       ),
     };
   },
-  async workspaces(window) {
+  async projects(window) {
     const day = window === 'day';
     return {
       items: [

@@ -4,12 +4,12 @@ from pathlib import Path
 
 import pytest
 import test_hosted_repository as hosted
-import test_workspace_repository as cases
+import test_project_repository as cases
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy.engine import Engine
-from test_sessions_api import create_profile, create_workspace, headers
+from test_sessions_api import create_profile, create_project, headers
 
 from polycolab.accounts.authentication import MappingIdentityVerifier
 from polycolab.app.application import create_app
@@ -31,7 +31,7 @@ def test_repository_postgresql(
             database_url=url,
             web_dist_dir="/missing-web-dist",
             feature_agent_execution_enabled=True,
-            workspace_repository_directory=tmp_path / "repos",
+            project_repository_directory=tmp_path / "repos",
         ),
         identity_verifier,
     )
@@ -41,12 +41,12 @@ def test_repository_postgresql(
                 hosted.test_hosted_checkout_save_completion_and_fencing(pg_client, tmp_path, False)
             else:
                 created = pg_client.post(
-                    "/api/v1/workspaces",
+                    "/api/v1/projects",
                     headers=cases.OWNER,
                     json={"name": "Files", "visibility": "PUBLIC"},
                 )
                 assert created.status_code == 201, created.text
-                fixture = (pg_client, f"/api/v1/workspaces/{created.json()['id']}/repository")
+                fixture = (pg_client, f"/api/v1/projects/{created.json()['id']}/repository")
                 if scenario == "save":
                     cases.test_files_history_retry_and_stale_save(fixture)
                 else:
@@ -56,13 +56,13 @@ def test_repository_postgresql(
 
 
 @pytest.mark.parametrize("scenario", ["task_privacy", "task_runs", "task_claim_race"])
-def test_workspace_tasks_postgresql(
+def test_project_tasks_postgresql(
     pg_schema: tuple[Engine, Config, str],
     identity_verifier: MappingIdentityVerifier,
     tmp_path: Path,
     scenario: str,
 ) -> None:
-    import test_workspace_tasks as tasks
+    import test_project_tasks as tasks
 
     _, config, url = pg_schema
     command.upgrade(config, "head")
@@ -71,20 +71,20 @@ def test_workspace_tasks_postgresql(
             database_url=url,
             web_dist_dir="/missing-web-dist",
             feature_agent_execution_enabled=True,
-            workspace_repository_directory=tmp_path / "repos",
+            project_repository_directory=tmp_path / "repos",
         ),
         identity_verifier,
     )
     try:
         with TestClient(app) as pg_client:
-            workspace_id = str(create_workspace(pg_client)["id"])
+            project_id = str(create_project(pg_client)["id"])
             if scenario == "task_privacy":
                 tasks.test_task_working_copy_retry_archive_and_member_privacy(
-                    (pg_client, workspace_id)
+                    (pg_client, project_id)
                 )
             elif scenario == "task_runs":
                 tasks.test_task_serializes_runs_across_private_chats_and_pins_shared_branch(
-                    (pg_client, workspace_id)
+                    (pg_client, project_id)
                 )
             else:
                 from concurrent.futures import ThreadPoolExecutor
@@ -94,10 +94,10 @@ def test_workspace_tasks_postgresql(
 
                 from polycolab.agents.sessions import claim_next_run
 
-                task = tasks.create_task(pg_client, workspace_id)
+                task = tasks.create_task(pg_client, project_id)
                 profile = create_profile(pg_client, "owner")
                 for _ in range(2):
-                    chat = tasks.task_chat(pg_client, workspace_id, task["id"])
+                    chat = tasks.task_chat(pg_client, project_id, task["id"])
                     response = pg_client.post(
                         f"/api/v1/agent-sessions/{chat['id']}/messages",
                         headers=headers("owner"),
@@ -136,7 +136,7 @@ def test_native_worktrees_postgresql(
 
     import test_native_worktrees as native
 
-    from polycolab.workspaces.git_storage import GitRepository
+    from polycolab.projects.git_storage import GitRepository
 
     _, config, url = pg_schema
     command.upgrade(config, "head")
@@ -145,7 +145,7 @@ def test_native_worktrees_postgresql(
             database_url=url,
             web_dist_dir="/missing-web-dist",
             feature_agent_execution_enabled=True,
-            workspace_repository_directory=tmp_path / "repos",
+            project_repository_directory=tmp_path / "repos",
         ),
         identity_verifier,
     )
@@ -156,8 +156,8 @@ def test_native_worktrees_postgresql(
                     client, tmp_path
                 )
                 return
-            workspace_id = str(create_workspace(client)["id"])
-            fixture = (client, workspace_id, GitRepository(tmp_path / "repos", UUID(workspace_id)))
+            project_id = str(create_project(client)["id"])
+            fixture = (client, project_id, GitRepository(tmp_path / "repos", UUID(project_id)))
             if scenario == "files":
                 native.test_save_commit_discard_and_remove(fixture)
             elif scenario == "migration":
@@ -166,7 +166,7 @@ def test_native_worktrees_postgresql(
                 from concurrent.futures import ThreadPoolExecutor
                 from threading import Barrier
 
-                root = f"/api/v1/workspaces/{workspace_id}/worktrees"
+                root = f"/api/v1/projects/{project_id}/worktrees"
                 main = client.get(root, headers=headers("owner")).json()[0]
                 barrier = Barrier(2)
 

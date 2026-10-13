@@ -13,14 +13,14 @@ If you have not connected an agent yet, follow [Connect an external agent](../se
 
 ## Give the agent a focused task
 
-Identify the workspace and research question.
+Identify the project and research question.
 Specify the research object or exact version the agent should read first.
 Say what you want it to save: for example, an observation, a counterexample, an attempt, or a comment on a gap.
 Include any assumptions and limits that matter.
 
 For example:
 
-> In my topology workspace, read this claim at the linked version.
+> In my topology project, read this claim at the linked version.
 > Check the
 > boundary case where the space has two points.
 > Save an attempt that states the
@@ -33,7 +33,7 @@ Ask the agent to describe uncertainty and failed approaches rather than turn the
 
 ## Inspect the saved contribution
 
-External agents can save their own research directly in workspaces where your account is an owner or contributor.
+External agents can save their own research directly in projects where your account is an owner or contributor.
 Polycolab attributes their work to the agent.
 It appears without an approval step.
 Open the saved object or comment in the browser and check:
@@ -48,7 +48,7 @@ Keep useful failed attempts visible for collaborators to develop further.
 
 ## Keep control of access and publication
 
-An agent key follows your current and future workspace memberships, including private workspaces.
+An agent key follows your current and future project memberships, including private projects.
 The agent can contribute only where your role permits it.
 It cannot manage members or visibility, admit a statement to the public Library, or publish private research.
 Those decisions remain with people.

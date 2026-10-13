@@ -28,7 +28,7 @@ from polycolab.db.models import (
     SqlRuntimeSessionBinding,
     SqlRunToolCapability,
 )
-from polycolab.db.models.workspace_tasks import SqlWorkspaceTask
+from polycolab.db.models.project_tasks import SqlProjectTask
 from polycolab.entities.enums import (
     AgentMessageRole,
     AgentRunEventKind,
@@ -190,18 +190,18 @@ def create_agent_session(
 
     if task_id is None:
         task_id = session.scalar(
-            select(SqlWorkspaceTask.id).where(
-                SqlWorkspaceTask.workspace_id == project_id, SqlWorkspaceTask.branch == "main"
+            select(SqlProjectTask.id).where(
+                SqlProjectTask.project_id == project_id, SqlProjectTask.branch == "main"
             )
         )
     if task_id is not None:
         task = session.scalar(
-            select(SqlWorkspaceTask)
-            .where(SqlWorkspaceTask.id == task_id, SqlWorkspaceTask.workspace_id == project_id)
+            select(SqlProjectTask)
+            .where(SqlProjectTask.id == task_id, SqlProjectTask.project_id == project_id)
             .with_for_update()
         )
         if task is None:
-            raise RepositoryError("workspace_task_not_found", 404)
+            raise RepositoryError("project_task_not_found", 404)
         if task.archived_at is not None:
             raise RepositoryError("task_archived")
     agent_version = platform_agent_version(session, agent_kind=agent_kind, version=version)
@@ -226,8 +226,8 @@ def _locked_session(session: Session, session_id: UUID) -> SqlAgentSession:
     )
     if task_id is not None:
         session.scalar(
-            select(SqlWorkspaceTask)
-            .where(SqlWorkspaceTask.id == task_id)
+            select(SqlProjectTask)
+            .where(SqlProjectTask.id == task_id)
             .with_for_update()
             .execution_options(populate_existing=True)
         )
@@ -285,7 +285,7 @@ def append_user_message_and_queue_run(
     if parent.status is not AgentSessionStatus.ACTIVE:
         raise SessionStateError("session is archived")
     if parent.task_id is not None:
-        task = session.get(SqlWorkspaceTask, parent.task_id)
+        task = session.get(SqlProjectTask, parent.task_id)
         if task is None or task.archived_at is not None:
             raise RepositoryError("task_archived")
     if parent.created_by_user_id != requested_by_user_id:
@@ -580,9 +580,9 @@ def claim_next_run_in_transaction(
             or_(
                 SqlAgentSession.task_id.is_(None),
                 exists(
-                    select(SqlWorkspaceTask.id).where(
-                        SqlWorkspaceTask.id == SqlAgentSession.task_id,
-                        SqlWorkspaceTask.archived_at.is_(None),
+                    select(SqlProjectTask.id).where(
+                        SqlProjectTask.id == SqlAgentSession.task_id,
+                        SqlProjectTask.archived_at.is_(None),
                     )
                 ),
             ),
@@ -1106,7 +1106,7 @@ def resume_run(
     if parent.status is not AgentSessionStatus.ACTIVE:
         raise SessionStateError("session is archived")
     if parent.task_id is not None:
-        task = session.get(SqlWorkspaceTask, parent.task_id)
+        task = session.get(SqlProjectTask, parent.task_id)
         if task is None or task.archived_at is not None:
             raise RepositoryError("task_archived")
     if (

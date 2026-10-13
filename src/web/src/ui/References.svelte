@@ -7,11 +7,11 @@
   import { Textarea } from '../lib/components/ui/textarea';
   import { onMount } from 'svelte';
   import type { components } from '$lib/api-client';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import ImportedStatement from './ImportedStatement.svelte';
-  type Reference = components['schemas']['WorkspaceReferenceRead'];
+  type Reference = components['schemas']['ProjectReferenceRead'];
   let { projectId, canWrite }: { projectId: string; canWrite: boolean } = $props();
-  const { records } = workspace();
+  const { records } = projectContext();
   let items = $state<Reference[]>([]);
   let cursor = $state<string | null>(null);
   let selected = $state<Reference>();
@@ -117,7 +117,7 @@
   </article>
 {:else}<p>
     No Library entries imported yet. <a href="/library">Find a statement or question in Library</a> and
-    choose “Copy to workspace” to create an editable research object.
+    choose “Copy to project” to create an editable research object.
   </p>{/each}
 {#if cursor}<Button type="submit" disabled={busy} onclick={() => load(true)}>Load more pins</Button
   >{/if}

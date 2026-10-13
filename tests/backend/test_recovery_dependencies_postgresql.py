@@ -7,7 +7,7 @@ from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy.engine import Engine
-from test_research_domain import create_object, create_workspace
+from test_research_domain import create_object, create_project
 
 from polycolab.accounts.authentication import MappingIdentityVerifier
 from polycolab.app.application import create_app
@@ -37,7 +37,7 @@ def test_postgresql_restored_research_semantics_are_verified_read_only(
     )
     try:
         with TestClient(app) as pg_client:
-            project_id = create_workspace(pg_client)
+            project_id = create_project(pg_client)
             created = create_object(pg_client, project_id)
         revision_id = UUID(cast(str, created["current_object_version_id"]))
         with app.state.session_factory() as session:

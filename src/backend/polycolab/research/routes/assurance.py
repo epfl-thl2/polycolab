@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Query
 from polycolab.app.access import Access
 from polycolab.app.dependencies import CurrentActor, DbSession
 from polycolab.catalogue.routes.catalogue import RetryKey, no_store
+from polycolab.projects.service import DomainConflict
 from polycolab.research import assurance
 from polycolab.research.assurance_schemas import (
     ObjectVersionAssuranceRead,
@@ -18,7 +19,6 @@ from polycolab.research.assurance_schemas import (
     ObjectVersionEndorsementWrite,
 )
 from polycolab.research.read_access import revision_scope
-from polycolab.workspaces.service import DomainConflict
 
 router = APIRouter(prefix="/api/v1", tags=["assurance"], dependencies=[Depends(no_store)])
 Limit = Annotated[int, Query(ge=1, le=100)]
@@ -73,17 +73,17 @@ def scoped_history(
     object_version_id: UUID,
     session: DbSession,
     access: Access,
-    workspace_id: UUID | None = None,
+    project_id: UUID | None = None,
     limit: Limit = 50,
     cursor: Cursor = None,
     after: LegacyAfter = None,
 ) -> ObjectVersionAssuranceRead:
     _reject_legacy_cursor(after)
-    workspace_id = revision_scope(session, access, object_version_id, workspace_id)
+    project_id = revision_scope(session, access, object_version_id, project_id)
     result = assurance.history(
         session,
         revision_id=object_version_id,
-        project_id=workspace_id,
+        project_id=project_id,
         limit=limit,
         cursor=cursor,
     )
@@ -99,15 +99,15 @@ def scoped_current(
     object_version_id: UUID,
     session: DbSession,
     access: Access,
-    workspace_id: UUID | None = None,
+    project_id: UUID | None = None,
     limit: Limit = 50,
     cursor: Cursor = None,
 ) -> ObjectVersionCurrentAssuranceRead:
-    workspace_id = revision_scope(session, access, object_version_id, workspace_id)
+    project_id = revision_scope(session, access, object_version_id, project_id)
     result = assurance.current(
         session,
         revision_id=object_version_id,
-        project_id=workspace_id,
+        project_id=project_id,
         limit=limit,
         cursor=cursor,
     )

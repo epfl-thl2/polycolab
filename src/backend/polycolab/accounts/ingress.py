@@ -109,8 +109,6 @@ class CoreBodyLimitMiddleware(RegistrationBodyLimitMiddleware):
             scope["type"] == "http"
             and scope.get("method") in {"POST", "PUT", "PATCH"}
             and path.startswith("/api/v1/")
-            and not re.fullmatch(
-                r"/api/v1/(?:artifacts|(?:workspaces|projects)/[^/]+/artifacts)", path
-            )
+            and not re.fullmatch(r"/api/v1/(?:artifacts|projects/[^/]+/artifacts)", path)
             and not path.startswith("/api/v1/private/")
         )

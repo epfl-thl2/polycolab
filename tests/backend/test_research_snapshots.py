@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
-from test_research_domain import create_object, create_workspace, headers
+from test_research_domain import create_object, create_project, headers
 
 from polycolab.db.models import SqlRecordModeration, SqlRecordRevision, SqlResearchObject, SqlUser
 from polycolab.db.stores.research import SqlResearchReadStore
@@ -35,7 +35,7 @@ def queries(engine: Engine) -> Iterator[list[str]]:
 
 def test_snapshots_batch_children_and_work_after_session_close(client: TestClient) -> None:
     app = cast(FastAPI, client.app)
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     statement = create_object(client, project_id)
     proof = create_object(client, project_id, kind="PROOF_SKETCH")
     statement_id = UUID(statement["current_object_version_id"])
@@ -63,7 +63,7 @@ def test_snapshots_batch_children_and_work_after_session_close(client: TestClien
 
 
 def test_history_is_complete_batched_and_preserves_previous_content(client: TestClient) -> None:
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     proof = create_object(client, project_id, kind="PROOF_SKETCH")
     first_id = proof["current_object_version_id"]
     original = proof["current_object_version"]
@@ -114,7 +114,7 @@ def test_history_is_complete_batched_and_preserves_previous_content(client: Test
 
 @pytest.mark.parametrize("kind", [ResearchObjectKind.PROOF, ResearchObjectKind.ATTEMPT])
 def test_pre_structure_rows_remain_readable(client: TestClient, kind: ResearchObjectKind) -> None:
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     obj = create_object(client, project_id, kind="NOTE")
     app = cast(FastAPI, client.app)
     # The SQLite fixture represents a PROOF persisted before migration 0012;
@@ -163,13 +163,13 @@ def test_public_history_does_not_expose_hidden_structural_targets(client: TestCl
     from test_catalogue_api import enable
 
     enable(client)
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     target = create_object(client, project_id)
     response = client.post(
         "/api/v1/objects",
         headers=headers("owner"),
         json={
-            "destination": {"kind": "workspace", "workspace_id": project_id},
+            "destination": {"kind": "project", "project_id": project_id},
             "snapshot": {
                 "kind": "NOTE",
                 "content": {
@@ -199,7 +199,7 @@ def test_public_history_does_not_expose_hidden_structural_targets(client: TestCl
         for row in response.json()["outputs"]
         if row["entity_type"] == "OBJECT_VERSION"
     )
-    selection = {"workspace_id": project_id, "object_version_ids": [version_id]}
+    selection = {"project_id": project_id, "object_version_ids": [version_id]}
     preview = client.post("/api/v1/publication/preview", headers=headers("owner"), json=selection)
     assert preview.status_code == 200, preview.text
     published = client.post(

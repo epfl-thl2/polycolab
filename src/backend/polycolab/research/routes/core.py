@@ -8,7 +8,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql.elements import ColumnElement
 
-from polycolab.access.authorization import WorkspaceAction, workspace_policy
+from polycolab.access.authorization import ProjectAction, project_policy
 from polycolab.app.access import Access, ResearchAccess
 from polycolab.app.cursors import Collection, Pagination
 from polycolab.app.dependencies import DbSession, RequestTransaction
@@ -23,7 +23,14 @@ from polycolab.db.models import (
 )
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.object_kinds import ObjectKind
-from polycolab.entities.workspaces import Workspace as WorkspaceEntity
+from polycolab.entities.projects import Project as ProjectEntity
+from polycolab.projects.routes import project as human
+from polycolab.projects.schemas import (
+    ProjectCollection,
+    ProjectMemberRead,
+    PublicProjectRead,
+)
+from polycolab.projects.service import count_visible, list_visible, member_counts
 from polycolab.research.history import visible_query
 from polycolab.research.objects import ResearchNotFound
 from polycolab.research.records import public_condition
@@ -39,42 +46,35 @@ from polycolab.research.version_schemas import (
     ObjectVersionRelationshipRead,
     VersionedObjectRead,
 )
-from polycolab.workspaces.routes import workspace as human
-from polycolab.workspaces.schemas import (
-    PublicWorkspaceRead,
-    WorkspaceCollection,
-    WorkspaceMemberRead,
-)
-from polycolab.workspaces.service import count_visible, list_visible, member_counts
 
 router = APIRouter(prefix="/api/v1", tags=["research"])
 ObjectView = VersionedObjectRead
 RevisionView = RevisionRead | PublicRevisionRead
 RelationView = ObjectVersionRelationshipRead
 CommentView = CommentRead | PublicCommentRead
-WorkspaceView = WorkspaceMemberRead | PublicWorkspaceRead
+ProjectView = ProjectMemberRead | PublicProjectRead
 
 
-def member(session: DbSession, access: ResearchAccess, workspace_id: UUID) -> SqlMembership | None:
+def member(session: DbSession, access: ResearchAccess, project_id: UUID) -> SqlMembership | None:
     if access.user_id is None:
         return None
     return session.scalar(
         select(SqlMembership).where(
-            SqlMembership.project_id == workspace_id, SqlMembership.user_id == access.user_id
+            SqlMembership.project_id == project_id, SqlMembership.user_id == access.user_id
         )
     )
 
 
-def workspace(
-    session: DbSession, access: ResearchAccess, workspace_id: UUID
-) -> tuple[SqlProject | WorkspaceEntity, bool]:
-    membership = member(session, access, workspace_id)
+def project(
+    session: DbSession, access: ResearchAccess, project_id: UUID
+) -> tuple[SqlProject | ProjectEntity, bool]:
+    membership = member(session, access, project_id)
     if membership:
-        scope = workspace_policy.require_scope(
-            SqlAlchemyTransaction(session), workspace_id, membership.user_id, WorkspaceAction.VIEW
+        scope = project_policy.require_scope(
+            SqlAlchemyTransaction(session), project_id, membership.user_id, ProjectAction.VIEW
         )
-        return scope.workspace, True
-    return human._public_project(session, workspace_id), False
+        return scope.project, True
+    return human._public_project(session, project_id), False
 
 
 def object_scope(
@@ -84,7 +84,7 @@ def object_scope(
     if obj is None:
         raise ResearchNotFound
     if member(session, access, obj.project_id):
-        workspace(session, access, obj.project_id)
+        project(session, access, obj.project_id)
         return obj, True
     if not session.scalar(
         select(SqlObjectRevision.id)
@@ -95,8 +95,8 @@ def object_scope(
     return obj, False
 
 
-@router.get("/workspaces", response_model=WorkspaceCollection, operation_id="listWorkspaces")
-def workspaces(
+@router.get("/projects", response_model=ProjectCollection, operation_id="listProjects")
+def projects(
     transaction: RequestTransaction,
     access: Access,
     page: Pagination,
@@ -104,10 +104,10 @@ def workspaces(
     q: Annotated[str | None, Query(max_length=500)] = None,
     category: Literal["active", "owned", "shared", "archived"] | None = None,
     sort: Literal["updated", "name", "name_desc", "relevance"] = "updated",
-) -> WorkspaceCollection:
+) -> ProjectCollection:
     if scope == "member":
         access.require_user_id()
-    cursor_scope = f"workspaces:{scope}:{access.user_id}:{q}:{category}:{sort}"
+    cursor_scope = f"projects:{scope}:{access.user_id}:{q}:{category}:{sort}"
     rows = list_visible(
         transaction,
         user_id=access.user_id,
@@ -119,8 +119,8 @@ def workspaces(
         limit=page.limit + 1,
     )
     selected = rows[: page.limit]
-    counts = member_counts(transaction, [row.workspace.id for row in selected if row.membership])
-    return WorkspaceCollection(
+    counts = member_counts(transaction, [row.project.id for row in selected if row.membership])
+    return ProjectCollection(
         total=count_visible(
             transaction,
             user_id=access.user_id,
@@ -129,21 +129,21 @@ def workspaces(
             category=category,
         ),
         items=[
-            human._member_read(row.workspace, row.membership, counts[row.workspace.id])
+            human._member_read(row.project, row.membership, counts[row.project.id])
             if row.membership
-            else human._public_project_read(row.workspace)
+            else human._public_project_read(row.project)
             for row in selected
         ],
-        next_cursor=page.next_uuid(selected[-1].workspace.id, scope=cursor_scope)
+        next_cursor=page.next_uuid(selected[-1].project.id, scope=cursor_scope)
         if len(rows) > page.limit
         else None,
     )
 
 
-@router.get("/workspaces/{workspace_id}", response_model=WorkspaceView, operation_id="getWorkspace")
-def get_workspace(workspace_id: UUID, session: DbSession, access: Access) -> WorkspaceView:
-    row, _ = workspace(session, access, workspace_id)
-    membership = member(session, access, workspace_id)
+@router.get("/projects/{project_id}", response_model=ProjectView, operation_id="getProject")
+def get_project(project_id: UUID, session: DbSession, access: Access) -> ProjectView:
+    row, _ = project(session, access, project_id)
+    membership = member(session, access, project_id)
     return (
         human._member_read(
             row, membership, member_counts(SqlAlchemyTransaction(session), [row.id])[row.id]
@@ -154,19 +154,19 @@ def get_workspace(workspace_id: UUID, session: DbSession, access: Access) -> Wor
 
 
 @router.get(
-    "/workspaces/{workspace_id}/objects",
+    "/projects/{project_id}/objects",
     response_model=Collection[ObjectView],
     operation_id="listResearchObjects",
 )
 def objects(
-    workspace_id: UUID,
+    project_id: UUID,
     session: DbSession,
     access: Access,
     page: Pagination,
     kind: ObjectKind | None = None,
 ) -> Collection[ObjectView]:
-    _, private = workspace(session, access, workspace_id)
-    query = select(SqlResearchObject).where(SqlResearchObject.project_id == workspace_id)
+    _, private = project(session, access, project_id)
+    query = select(SqlResearchObject).where(SqlResearchObject.project_id == project_id)
     if not private:
         query = query.where(
             SqlResearchObject.id.in_(
@@ -179,7 +179,7 @@ def objects(
         session,
         query,
         SqlResearchObject.id,
-        scope=f"objects:{workspace_id}:{access.user_id}:{kind}",
+        scope=f"objects:{project_id}:{access.user_id}:{kind}",
     )
     return Collection(
         items=[object_read(session, row, public=not private) for row in rows],
@@ -307,7 +307,7 @@ def search(
     page: Pagination,
     q: Annotated[str, Query(min_length=1, max_length=500)],
     scope: Literal["public", "member"] = "public",
-    workspace_id: UUID | None = None,
+    project_id: UUID | None = None,
     kind: ObjectKind | None = None,
 ) -> Collection[ObjectView]:
     if scope == "public":
@@ -345,15 +345,15 @@ def search(
         )
     else:
         query = query.where(public_condition(SqlObjectRevision.id))
-    if workspace_id:
-        query = query.where(SqlResearchObject.project_id == workspace_id)
+    if project_id:
+        query = query.where(SqlResearchObject.project_id == project_id)
     if kind:
         query = query.where(SqlResearchObject.canonical_kind == kind)
     rows, cursor = page.select(
         session,
         query,
         SqlResearchObject.id,
-        scope=f"search:{scope}:{access.user_id}:{workspace_id}:{kind}:{q}",
+        scope=f"search:{scope}:{access.user_id}:{project_id}:{kind}:{q}",
     )
     return Collection(
         items=[object_read(session, row, public=scope != "member") for row in rows],

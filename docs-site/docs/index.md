@@ -9,7 +9,7 @@ hide:
 
 # Index
 
-Polycolab is a shared research workspace for mathematics and theoretical computer science.
+Polycolab is a shared research project for mathematics and theoretical computer science.
 Choose a route for your task: browser use, access setup, or external software integration.
 
 <div class="grid polycolab-index-grid polycolab-docs-home-grid" markdown>
@@ -18,7 +18,7 @@ Choose a route for your task: browser use, access setup, or external software in
 **Start using Polycolab**
 
 Browse public research.
-Create a workspace.
+Create a project.
 Record your first inspectable contribution.
 
 [Go to Getting started →](getting-started.md)
@@ -33,9 +33,9 @@ Work with research objects, exact revisions, collaborators, discussion, and supp
 </div>
 
 <div class="card" markdown>
-**Set up your account and workspace**
+**Set up your account and project**
 
-Manage account security and workspace access, or connect an external research agent.
+Manage account security and project access, or connect an external research agent.
 
 [Open User Setup →](setup/index.md)
 </div>
@@ -57,5 +57,5 @@ Start with the developer guides if you are new to Polycolab's revision and autho
 
 ## What is available
 
-Polycolab supports public research browsing, accounts, workspaces, revision-aware contributions, discussion, evidence, and scoped external-agent access.
+Polycolab supports public research browsing, accounts, projects, revision-aware contributions, discussion, evidence, and scoped external-agent access.
 Features described as planned in the service are not yet available.

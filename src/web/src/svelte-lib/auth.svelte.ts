@@ -116,7 +116,7 @@ function clearCachedAuthConfiguration() {
 
 export type ExternalAuthProvider = NonNullable<Configuration['social_providers']>[number];
 
-export function externalAuthStartUrl(provider: ExternalAuthProvider, returnTo = '/workspaces') {
+export function externalAuthStartUrl(provider: ExternalAuthProvider, returnTo = '/projects') {
   const baseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
   const query = new URLSearchParams({ return_to: safeReturnPath(returnTo) });
   return `${baseUrl}/auth/${provider}/start?${query}`;
@@ -317,7 +317,7 @@ export class Auth {
       state: { returnTo: accountReturnPath(returnTo) },
     });
   }
-  async signUp(returnTo = '/workspaces') {
+  async signUp(returnTo = '/projects') {
     await this.manager?.signinRedirect({
       state: { returnTo: accountReturnPath(returnTo) },
       extraQueryParams: { screen_hint: 'signup' },

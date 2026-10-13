@@ -9,7 +9,7 @@ from sqlalchemy import event, func, select
 
 import polycolab.research.contributions as contribution_domain
 from polycolab.access.actors import ActorOperation, agent_actor, human_actor
-from polycolab.access.authorization import AuthorizationDenied, WorkspaceNotFound
+from polycolab.access.authorization import AuthorizationDenied, ProjectNotFound
 from polycolab.db.models import (
     SqlContributionEntityLink,
     SqlContributionEnvelope,
@@ -31,7 +31,7 @@ from polycolab.research.objects import create_object
 
 def _project_and_scope(client: TestClient) -> tuple[Any, SqlUser, SqlResearchScope]:
     response = client.post(
-        "/api/v1/workspaces",
+        "/api/v1/projects",
         headers={"Authorization": "Bearer owner"},
         json={"name": "Contribution test", "visibility": "PRIVATE"},
     )
@@ -300,7 +300,7 @@ def test_contribution_composition_rechecks_membership_and_archive(client: TestCl
     session, user, scope = _project_and_scope(client)
     outsider = client.get("/api/v1/users/me", headers={"Authorization": "Bearer outsider"}).json()
     with session:
-        with pytest.raises(WorkspaceNotFound):
+        with pytest.raises(ProjectNotFound):
             record_contribution(
                 session,
                 actor=human_actor(UUID(outsider["id"])),
@@ -312,7 +312,7 @@ def test_contribution_composition_rechecks_membership_and_archive(client: TestCl
             )
         session.rollback()
         client.patch(
-            f"/api/v1/workspaces/{scope.project_id}",
+            f"/api/v1/projects/{scope.project_id}",
             headers={"Authorization": "Bearer owner"},
             json={"archived": True},
         )

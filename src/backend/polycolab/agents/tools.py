@@ -15,10 +15,10 @@ from polycolab.access.actors import Actor, ActorOperation, agent_actor
 from polycolab.access.authorization import (
     ROLE_ACTIONS,
     AuthorizationDenied,
-    WorkspaceAction,
-    lock_workspace_authorization,
+    ProjectAction,
+    lock_project_authorization,
+    project_policy,
     require_proposal_submission,
-    workspace_policy,
 )
 from polycolab.agents import grants as run_grants
 from polycolab.agents.context import (
@@ -251,11 +251,11 @@ def issue_tool_capability(
         or run.lease_owner is None
         or run.lease_expires_at is None
         or _expired(run.lease_expires_at)
-        or not workspace_policy.can(
+        or not project_policy.can(
             SqlAlchemyTransaction(session),
             run.project_id,
             run.requested_by_user_id,
-            WorkspaceAction.RUN_AGENTS,
+            ProjectAction.RUN_AGENTS,
         )
     ):
         raise ToolCapabilityInvalid
@@ -285,9 +285,9 @@ def issue_tool_capability(
 
 
 def _locked_current_scope(
-    session: Session, *, project_id: UUID, user_id: UUID, action: WorkspaceAction
+    session: Session, *, project_id: UUID, user_id: UUID, action: ProjectAction
 ) -> bool:
-    project, membership = lock_workspace_authorization(
+    project, membership = lock_project_authorization(
         SqlAlchemyTransaction(session), project_id=project_id, user_id=user_id
     )
     return (
@@ -315,7 +315,7 @@ def authorize_tool(
     if candidate is None:
         raise ToolCapabilityInvalid
     # Match project mutation ordering before taking runtime/capability locks.
-    lock_workspace_authorization(
+    lock_project_authorization(
         SqlAlchemyTransaction(session), project_id=candidate.project_id, user_id=candidate.user_id
     )
     if tool_name in DIRECT_TOOL_NAMES:
@@ -379,13 +379,13 @@ def authorize_tool(
             session,
             project_id=run.project_id,
             user_id=run.requested_by_user_id,
-            action=WorkspaceAction.RUN_AGENTS,
+            action=ProjectAction.RUN_AGENTS,
         )
         or not _locked_current_scope(
             session,
             project_id=run.project_id,
             user_id=parent.created_by_user_id,
-            action=WorkspaceAction.VIEW,
+            action=ProjectAction.VIEW,
         )
     ):
         raise ToolCapabilityInvalid
@@ -562,7 +562,7 @@ def execute_tool(
                 pinned[str(revision_id)] = accessible_revision(
                     session,
                     revision_id,
-                    run.project_id if authority.destination == "WORKSPACE" else None,
+                    run.project_id if authority.destination == "PROJECT" else None,
                 )
             output_artifacts = run_artifacts(session, run=run, limit=50)
             known_artifacts = {item.id for item in pinned_artifacts}
@@ -573,7 +573,7 @@ def execute_tool(
         raise ToolCapabilityInvalid from exc
 
     read_project_id = (
-        run.project_id if authority is None or authority.destination == "WORKSPACE" else None
+        run.project_id if authority is None or authority.destination == "PROJECT" else None
     )
 
     def read_fields(revision: SqlObjectRevision) -> dict[str, object]:

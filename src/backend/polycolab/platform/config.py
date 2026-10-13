@@ -7,7 +7,7 @@ from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import AnyUrl, Field, SecretStr, field_validator, model_validator
+from pydantic import AliasChoices, AnyUrl, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Source checkouts share deploy/docker/.env. Installed containers use only
@@ -55,7 +55,9 @@ class KmsProvider(StrEnum):
 class Settings(BaseSettings):
     """Settings loaded from environment variables, never from application code."""
 
-    model_config = SettingsConfigDict(env_file=_env_file, env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        populate_by_name=True, env_file=_env_file, env_file_encoding="utf-8", extra="ignore"
+    )
 
     app_env: Environment = Environment.LOCAL
     service_name: str = "polycolab-api"
@@ -156,7 +158,14 @@ class Settings(BaseSettings):
     runtime_max_model_rounds: int = Field(default=4, ge=1, le=16)
     hosted_agent_capacity: int = Field(default=4, ge=0, le=64)
     hosted_agent_user_capacity: int = Field(default=2, ge=1, le=32)
-    hosted_agent_workspace_capacity: int = Field(default=2, ge=1, le=32)
+    hosted_agent_project_capacity: int = Field(
+        validation_alias=AliasChoices(
+            "HOSTED_AGENT_PROJECT_CAPACITY", "HOSTED_AGENT_WORKSPACE_CAPACITY"
+        ),
+        default=2,
+        ge=1,
+        le=32,
+    )
     runtime_codex_image: str | None = Field(default=None, pattern=r"^[^\s]+@sha256:[0-9a-f]{64}$")
     runtime_run_timeout_seconds: int = Field(default=300, ge=10, le=3600)
     runtime_sse_poll_seconds: float = Field(default=0.25, gt=0, le=5)
@@ -176,14 +185,29 @@ class Settings(BaseSettings):
     runtime_api_max_request_bytes: int = Field(default=400_000, ge=1, le=10_000_000)
     runtime_api_max_response_bytes: int = Field(default=1_000_000, ge=1, le=20_000_000)
     runtime_worker_poll_seconds: float = Field(default=0.25, gt=0, le=5)
-    # Human moderation of public workspaces is separate from Library moderation.
-    public_workspace_moderator_subjects: list[str] = Field(default_factory=list)
+    # Human moderation of public projects is separate from Library moderation.
+    public_project_moderator_subjects: list[str] = Field(
+        validation_alias=AliasChoices(
+            "PUBLIC_PROJECT_MODERATOR_SUBJECTS", "PUBLIC_WORKSPACE_MODERATOR_SUBJECTS"
+        ),
+        default_factory=list,
+    )
     external_agent_credential_ttl_seconds: int = Field(default=2_592_000, ge=3600, le=31_536_000)
     external_agent_max_requests: int = Field(default=10_000, ge=1, le=1_000_000)
     external_agent_max_mutations: int = Field(default=1_000, ge=1, le=100_000)
-    workspace_repository_directory: Path | None = None
-    workspace_repository_max_bytes: int = Field(
-        default=64 * 1024 * 1024, ge=1024 * 1024, le=1024 * 1024 * 1024
+    project_repository_directory: Path | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "PROJECT_REPOSITORY_DIRECTORY", "WORKSPACE_REPOSITORY_DIRECTORY"
+        ),
+    )
+    project_repository_max_bytes: int = Field(
+        validation_alias=AliasChoices(
+            "PROJECT_REPOSITORY_MAX_BYTES", "WORKSPACE_REPOSITORY_MAX_BYTES"
+        ),
+        default=64 * 1024 * 1024,
+        ge=1024 * 1024,
+        le=1024 * 1024 * 1024,
     )
     artifact_local_directory: Path | None = None
     artifact_s3_endpoint: AnyUrl | None = None
@@ -208,14 +232,32 @@ class Settings(BaseSettings):
     verification_controller_previous_token_expires_at: datetime | None = None
     verification_queue_capacity: int = Field(default=1000, ge=1, le=100_000)
     verification_user_concurrent_jobs: int = Field(default=2, ge=1, le=100)
-    verification_workspace_concurrent_jobs: int = Field(default=8, ge=1, le=1000)
+    verification_project_concurrent_jobs: int = Field(
+        validation_alias=AliasChoices(
+            "VERIFICATION_PROJECT_CONCURRENT_JOBS", "VERIFICATION_WORKSPACE_CONCURRENT_JOBS"
+        ),
+        default=8,
+        ge=1,
+        le=1000,
+    )
     verification_user_daily_cpu_seconds: int = Field(default=28_800, ge=1)
-    verification_workspace_daily_cpu_seconds: int = Field(default=115_200, ge=1)
+    verification_project_daily_cpu_seconds: int = Field(
+        validation_alias=AliasChoices(
+            "VERIFICATION_PROJECT_DAILY_CPU_SECONDS", "VERIFICATION_WORKSPACE_DAILY_CPU_SECONDS"
+        ),
+        default=115_200,
+        ge=1,
+    )
     verification_user_daily_memory_byte_seconds: int = Field(
         default=8 * 1024 * 1024 * 1024 * 3600, ge=1
     )
-    verification_workspace_daily_memory_byte_seconds: int = Field(
-        default=32 * 1024 * 1024 * 1024 * 3600, ge=1
+    verification_project_daily_memory_byte_seconds: int = Field(
+        validation_alias=AliasChoices(
+            "VERIFICATION_PROJECT_DAILY_MEMORY_BYTE_SECONDS",
+            "VERIFICATION_WORKSPACE_DAILY_MEMORY_BYTE_SECONDS",
+        ),
+        default=32 * 1024 * 1024 * 1024 * 3600,
+        ge=1,
     )
     verification_max_attempts: int = Field(default=2, ge=1, le=5)
     verification_lease_seconds: int = Field(default=30, ge=5, le=300)
@@ -387,10 +429,10 @@ class Settings(BaseSettings):
                 "OPERATOR_DIAGNOSTICS_SUBJECTS is required when diagnostics are enabled"
             )
         if (
-            self.workspace_repository_directory is not None
-            and not self.workspace_repository_directory.is_absolute()
+            self.project_repository_directory is not None
+            and not self.project_repository_directory.is_absolute()
         ):
-            raise ValueError("WORKSPACE_REPOSITORY_DIRECTORY must be absolute")
+            raise ValueError("PROJECT_REPOSITORY_DIRECTORY must be absolute")
         if self.artifact_local_directory is not None:
             if self.app_env is not Environment.LOCAL or not self.database_url.startswith("sqlite"):
                 raise ValueError("filesystem artifacts require local SQLite mode")
@@ -556,7 +598,9 @@ class Settings(BaseSettings):
 class WorkerSettings(BaseSettings):
     """Worker-only configuration; deliberately has no database setting."""
 
-    model_config = SettingsConfigDict(env_file=_env_file, env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        populate_by_name=True, env_file=_env_file, env_file_encoding="utf-8", extra="ignore"
+    )
 
     app_env: Environment = Environment.LOCAL
     runtime_internal_api_url: str = "http://127.0.0.1:8000"
@@ -584,7 +628,9 @@ class WorkerSettings(BaseSettings):
 class VerificationControllerSettings(BaseSettings):
     """Controller-only configuration; deliberately has no database setting."""
 
-    model_config = SettingsConfigDict(env_file=_env_file, env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        populate_by_name=True, env_file=_env_file, env_file_encoding="utf-8", extra="ignore"
+    )
 
     app_env: Environment = Environment.LOCAL
     verification_internal_api_url: str = "http://127.0.0.1:8000"

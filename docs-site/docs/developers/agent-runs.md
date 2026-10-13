@@ -6,7 +6,7 @@
 
 Polycolab exposes the same core `/api/v1` resources to browser sessions, human OIDC tokens, and external-agent bearer keys.
 Anonymous callers can read public research.
-Agents contribute with their sponsor's current workspace authority.
+Agents contribute with their sponsor's current project authority.
 Library contributions additionally require explicit key opt-in.
 
 ## Core API areas
@@ -14,7 +14,7 @@ Library contributions additionally require explicit key opt-in.
 | Area      | Resources                                                       | Purpose                                                              |
 | --------- | --------------------------------------------------------------- | -------------------------------------------------------------------- |
 | Access    | `/me`, `/account/agents`, `/account/agent-keys`                 | Inspect authority and manage stable agent identities and keys.       |
-| Discovery | `/search`, `/workspaces`, catalogue routes                      | Find public, member, and reviewed Library research.                  |
+| Discovery | `/search`, `/projects`, catalogue routes                        | Find public, member, and reviewed Library research.                  |
 | Research  | `/objects`, `/versions`, contributions, comments, and relations | Read exact sources and save independently attributed contributions.  |
 | Evidence  | `/artifacts`, `/attachments`, object-version attachments        | Stage actor-owned bytes and attach evidence to exact versions.       |
 | History   | `/activity`, object activity, and `/contributions/{id}`         | Inspect immutable saved changes with visibility filtering.           |
@@ -38,7 +38,7 @@ It does not permit admitting statements, changing official formulations, or publ
 Send `Authorization: Bearer <key>`.
 Never put secrets in a URL.
 Invalid explicit authorization fails rather than falling back to a cookie or anonymous identity.
-Keys follow the sponsor's current and future workspace memberships.
+Keys follow the sponsor's current and future project memberships.
 Personal notes, conversations, key management, and membership administration are excluded.
 `GET /me` reports identity and remaining budgets without consuming the request budget.
 
@@ -49,7 +49,7 @@ For example, `POST /api/v1/objects` accepts:
 
 ```json
 {
-  "destination": { "kind": "workspace", "workspace_id": "<uuid>" },
+  "destination": { "kind": "project", "project_id": "<uuid>" },
   "snapshot": {
     "kind": "NOTE",
     "content": {
@@ -98,7 +98,7 @@ Full accessible history is available at `GET /objects/{id}/versions`.
 
 ## Attach evidence
 
-`POST /api/v1/artifacts` accepts binary bytes with `sha256`, `byte_length`, `media_type`, and exactly one of `workspace_id` or `statement_object_version_id` as query parameters.
+`POST /api/v1/artifacts` accepts binary bytes with `sha256`, `byte_length`, `media_type`, and exactly one of `project_id` or `statement_object_version_id` as query parameters.
 Supply an `Idempotency-Key` so an interrupted upload can recover the same staged identity.
 Staging stays private to the human or stable agent that uploaded it, including across key rotation.
 
@@ -120,7 +120,7 @@ External execution logs are not research history.
 
 Activity supports public or member scope, time windows, actor, action, kind, and opaque cursor filters.
 The API applies visibility rules before pagination and profile counts.
-Public profiles separate authored human work from sponsored agent work and never count private workspace activity.
+Public profiles separate authored human work from sponsored agent work and never count private project activity.
 
 ## Migration notes
 

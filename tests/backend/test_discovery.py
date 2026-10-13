@@ -13,7 +13,7 @@ def test_search_finds_failed_attempts_and_filters_private_and_hidden(client: Tes
     app = enable(client)
     entry = admit(client)
     project = client.post(
-        "/api/v1/workspaces", headers=headers(), json={"visibility": "PRIVATE", "name": "Private"}
+        "/api/v1/projects", headers=headers(), json={"visibility": "PRIVATE", "name": "Private"}
     ).json()
     for key, scope in (("public", None), ("private", project["id"])):
         payload = attempt_payload(entry["object_version_id"], project_id=scope)
@@ -33,13 +33,13 @@ def test_search_finds_failed_attempts_and_filters_private_and_hidden(client: Tes
     private = client.get(
         "/api/v1/discovery",
         headers=headers(),
-        params={"scope": "member", "workspace_id": project["id"], "q": "induction"},
+        params={"scope": "member", "project_id": project["id"], "q": "induction"},
     )
     assert len(private.json()["items"]) == 1
     assert client.get(
         "/api/v1/discovery",
         headers=headers("outsider"),
-        params={"scope": "member", "workspace_id": project["id"]},
+        params={"scope": "member", "project_id": project["id"]},
     ).status_code in (403, 404)
     first = client.get("/api/v1/discovery", params={"limit": 1}).json()
     source_result = client.get("/api/v1/discovery", params={"q": "Conjecture"}).json()
@@ -62,38 +62,38 @@ def test_search_finds_failed_attempts_and_filters_private_and_hidden(client: Tes
     assert client.get("/api/v1/discovery", params={"q": "induction"}).json()["items"] == []
 
 
-def test_anonymous_workspace_search_filters_scope_and_private_records(client: TestClient) -> None:
+def test_anonymous_project_search_filters_scope_and_private_records(client: TestClient) -> None:
     enable(client)
     entry = admit(client)
-    workspaces = []
+    projects = []
     for index, visibility in enumerate(["PUBLIC", "PUBLIC", "PRIVATE"]):
         project = client.post(
-            "/api/v1/workspaces",
+            "/api/v1/projects",
             headers=headers(),
-            json={"visibility": visibility, "name": f"Workspace {index}"},
+            json={"visibility": visibility, "name": f"Project {index}"},
         ).json()
-        workspaces.append(project["id"])
+        projects.append(project["id"])
         response = client.post(
             "/api/v1/objects",
             headers=headers(key=f"scoped-record-{index}"),
             json=attempt_payload(entry["object_version_id"], project_id=project["id"]),
         )
         assert response.status_code == 201, response.text
-    for project_id in workspaces[:2]:
+    for project_id in projects[:2]:
         response = client.get(
-            "/api/v1/discovery", params={"workspace_id": project_id, "q": "induction"}
+            "/api/v1/discovery", params={"project_id": project_id, "q": "induction"}
         )
         assert response.status_code == 200, response.text
         hits = response.json()["items"]
         assert len(hits) == 1
         exact = client.get(f"/api/v1/records/{hits[0]['object_version']['id']}")
         assert exact.status_code == 200, exact.text
-    private = client.get("/api/v1/discovery", params={"workspace_id": workspaces[2]})
+    private = client.get("/api/v1/discovery", params={"project_id": projects[2]})
     assert private.status_code == 200
     assert private.json()["items"] == []
     assert (
         client.get(
-            "/api/v1/discovery", params={"scope": "member", "workspace_id": workspaces[0]}
+            "/api/v1/discovery", params={"scope": "member", "project_id": projects[0]}
         ).status_code
         == 401
     )

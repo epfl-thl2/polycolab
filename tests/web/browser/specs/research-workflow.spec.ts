@@ -60,7 +60,7 @@ function memberObject() {
   const current_object_version = revision();
   return {
     id: objectId,
-    workspace_id: projectId,
+    project_id: projectId,
     kind: 'STATEMENT',
     current_object_version_id: revisionId,
     current_object_version,
@@ -104,7 +104,7 @@ async function mockResearchApi(
         contentType: 'application/json',
         body: JSON.stringify(object),
       });
-    if (isPublic && path.endsWith(`/workspaces/${projectId}`))
+    if (isPublic && path.endsWith(`/projects/${projectId}`))
       return route.fulfill({
         contentType: 'application/json',
         body: JSON.stringify({
@@ -150,7 +150,7 @@ async function mockResearchApi(
         contentType: 'application/json',
         body: JSON.stringify({ revision_id: revisionId, relations: [], nodes: [] }),
       });
-    if (path.endsWith(`/workspaces/${projectId}`))
+    if (path.endsWith(`/projects/${projectId}`))
       return route.fulfill({
         contentType: 'application/json',
         body: JSON.stringify(memberProject(role)),
@@ -193,7 +193,7 @@ test('contributor creates, edits, and receives an actionable stale-revision conf
   await mockResearchApi(page);
   await page.goto(`/projects/${projectId}/research`);
   await expect(
-    page.getByRole('region', { name: 'Research workbench' }).getByRole('heading', {
+    page.getByRole('complementary', { name: 'Research objects panel' }).getByRole('heading', {
       name: 'Research objects',
       exact: true,
     }),
@@ -213,7 +213,7 @@ test('contributor creates, edits, and receives an actionable stale-revision conf
   await draft.fill('My revised proof draft.');
   await page.getByRole('button', { name: 'Save new version' }).click();
   await expect(
-    page.getByRole('alert').filter({ hasText: 'changed while you were editing' }),
+    page.getByRole('main').getByRole('alert').filter({ hasText: 'changed while you were editing' }),
   ).toBeVisible();
   await expect(draft).toHaveValue('My revised proof draft.');
   await expect(page.getByRole('button', { name: 'Compare latest version' })).toBeVisible();
@@ -223,7 +223,10 @@ test('read-only controls are absent', async ({ page }) => {
   await authenticate(page);
   await mockResearchApi(page, 'READ_ONLY');
   await page.goto(`/projects/${projectId}/objects/${objectId}`);
-  await expect(page.getByText('permits reading but not changing research')).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Infinitely many primes', level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Edit', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Save new version' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Discussion' }).click();
   await expect(page.getByRole('heading', { name: 'Discussion' })).toHaveCount(1);
@@ -234,7 +237,7 @@ test('version editor sends a complete snapshot and retains its draft on conflict
 }) => {
   await authenticate(page);
   await mockResearchApi(page);
-  await page.goto(`/workspaces/${projectId}/objects/${objectId}`);
+  await page.goto(`/projects/${projectId}/objects/${objectId}`);
   await page.getByRole('button', { name: 'Edit', exact: true }).click();
   const draft = page.getByLabel('Markdown', { exact: true });
   await draft.fill('My retained proof draft.');
@@ -253,10 +256,12 @@ test('version editor sends a complete snapshot and retains its draft on conflict
       change_summary: null,
     },
   });
-  await expect(page.getByRole('alert')).toContainText('changed while you were editing');
+  await expect(page.getByRole('main').getByRole('alert')).toContainText(
+    'changed while you were editing',
+  );
   await expect(draft).toHaveValue('My retained proof draft.');
   await expect(page.getByRole('heading', { name: 'Latest saved version 1' })).toBeVisible();
   await page.getByRole('button', { name: 'Use latest version as base, keep my draft' }).click();
   await expect(draft).toHaveValue('My retained proof draft.');
-  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(page.getByRole('main').getByRole('alert')).toHaveCount(0);
 });

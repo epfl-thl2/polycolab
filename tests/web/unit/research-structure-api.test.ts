@@ -57,20 +57,20 @@ it('uses generated private routes, pagination and stable mutation keys', async (
     getAccessToken: () => 'human-token',
   });
   await api.attempts('object-a', {
-    workspace_id: 'project-a',
+    project_id: 'project-a',
     target_object_version_id: 'revision-r2',
     cursor: 'attempt-next',
   });
   await api.currentAssurance('revision-r2', 'project-a', 25, 'current-next');
   await api.writeHumanNote(
     'object-a',
-    { workspace_id: 'project-a', base_revision_id: 'note-r1', body_md: 'private' },
+    { project_id: 'project-a', base_revision_id: 'note-r1', body_md: 'private' },
     'note-key',
   );
   await api.reportProgress(
     'object-a',
     {
-      workspace_id: 'project-a',
+      project_id: 'project-a',
       object_version_id: 'revision-r2',
       status: 'PARTIAL',
       detail_md: 'work',
@@ -79,7 +79,7 @@ it('uses generated private routes, pagination and stable mutation keys', async (
   );
   await api.endorse(
     {
-      workspace_id: 'project-a',
+      project_id: 'project-a',
       object_version_id: 'revision-r2',
       active: true,
       rationale: 'reviewed',
@@ -93,7 +93,7 @@ it('uses generated private routes, pagination and stable mutation keys', async (
   expect(new URL(requests[0]!.url).searchParams.get('cursor')).toBe('attempt-next');
   expect(new URL(requests[1]!.url).pathname).toBe('/api/v1/assurance/revision-r2/current');
   expect(Object.fromEntries(new URL(requests[1]!.url).searchParams)).toEqual({
-    workspace_id: 'project-a',
+    project_id: 'project-a',
     limit: '25',
     cursor: 'current-next',
   });
@@ -120,7 +120,7 @@ it('resolves exact revision displays through one authenticated bounded request',
   });
 
   await api.objectVersionDisplays({
-    workspace_id: 'project-a',
+    project_id: 'project-a',
     object_version_ids: ['claim-r2', 'lemma-r4'],
   });
 
@@ -129,7 +129,7 @@ it('resolves exact revision displays through one authenticated bounded request',
   expect(requests[0]!.method).toBe('POST');
   expect(requests[0]!.headers.get('Authorization')).toBe('Bearer human-token');
   expect(await requests[0]!.json()).toEqual({
-    workspace_id: 'project-a',
+    project_id: 'project-a',
     object_version_ids: ['claim-r2', 'lemma-r4'],
   });
 });

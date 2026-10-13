@@ -6,7 +6,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from polycolab.access.authorization import AuthorizationDenied, WorkspaceAction, workspace_policy
+from polycolab.access.authorization import AuthorizationDenied, ProjectAction, project_policy
 from polycolab.agents.schemas import RunAuthorityRequest
 from polycolab.db.models import (
     SqlAgentRun,
@@ -17,6 +17,7 @@ from polycolab.db.models import (
 )
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.platform.outbox import canonical_digest
+from polycolab.platform.project_history import grant_request
 from polycolab.research.records import accessible_revision, public_revision
 
 
@@ -27,7 +28,7 @@ def requested(session: Session, run_id: UUID) -> RunAuthorityRequest | None:
     if grant.request_digest != canonical_digest(grant.request):
         raise AuthorizationDenied("invalid run authority")
     try:
-        return RunAuthorityRequest.model_validate(grant.request)
+        return RunAuthorityRequest.model_validate(grant_request(grant.request))
     except ValidationError as exc:
         raise AuthorizationDenied("invalid run authority") from exc
 
@@ -44,18 +45,18 @@ def validate(
     version = session.get(SqlPlatformAgentVersion, agent_version_id)
     if version is None or version.version != 2:
         raise AuthorizationDenied("this agent version has no direct contribution tools")
-    workspace_policy.require_scope(
-        SqlAlchemyTransaction(session), project_id, user_id, WorkspaceAction.RUN_AGENTS
+    project_policy.require_scope(
+        SqlAlchemyTransaction(session), project_id, user_id, ProjectAction.RUN_AGENTS
     )
-    if authority.destination == "WORKSPACE":
-        workspace_policy.require_scope(
-            SqlAlchemyTransaction(session), project_id, user_id, WorkspaceAction.CREATE_RESEARCH
+    if authority.destination == "PROJECT":
+        project_policy.require_scope(
+            SqlAlchemyTransaction(session), project_id, user_id, ProjectAction.CREATE_RESEARCH
         )
     inputs = {
         revision_id: accessible_revision(
             session,
             revision_id,
-            project_id if authority.destination == "WORKSPACE" else None,
+            project_id if authority.destination == "PROJECT" else None,
         )
         for revision_id in context_ids
     }
@@ -70,7 +71,7 @@ def validate(
             or obj.created_by_user_id != user_id
             or session.get(SqlCatalogueEntry, object_id) is not None
             or not any(row.object_id == object_id for row in inputs.values())
-            or (authority.destination == "WORKSPACE" and obj.project_id != project_id)
+            or (authority.destination == "PROJECT" and obj.project_id != project_id)
             or (authority.destination == "PUBLIC" and obj.project_id is not None)
         ):
             raise AuthorizationDenied("record is outside editing authority; use a suggestion")

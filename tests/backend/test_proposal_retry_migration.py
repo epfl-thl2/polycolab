@@ -10,7 +10,7 @@ from sqlalchemy import select
 from test_catalogue_api import enable
 from test_proposal_version_application import submit
 from test_proposals_api import headers
-from test_research_domain import create_workspace
+from test_research_domain import create_project
 from test_version_api import create_versioned, snapshot
 
 from polycolab.agents.proposals import BatchDecisionInput, accept_change, decide_changes_atomically
@@ -30,7 +30,7 @@ def test_projected_historical_edit_replays_without_rewriting_audit(
     client: TestClient, batch: bool, kind: str
 ) -> None:
     enable(client)
-    project = create_workspace(client)
+    project = create_project(client)
     first = create_versioned(client, project, snapshot())
     second = create_versioned(client, project, snapshot())
     legacy: dict[str, Any]

@@ -25,7 +25,7 @@ def test_version_job_roundtrip_preserves_stored_specification_and_controller_ide
     wire = VersionJobSubmission.from_stored(submission)
     assert wire.historical_command() == submission
     assert request_digest(wire.historical_command()) == request_digest(submission)
-    url = f"/api/v1/workspaces/{submission.project_id}/verification-jobs"
+    url = f"/api/v1/projects/{submission.project_id}/verification-jobs"
     payload = {
         "retry_key": "retained-job",
         "submission": wire.model_dump(mode="json", by_alias=True),

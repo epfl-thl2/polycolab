@@ -85,9 +85,9 @@ export function createProposalApi(
   return {
     listProjectProposals: (projectId, cursor) =>
       unwrapPage(
-        client.GET('/api/v1/workspaces/{workspace_id}/proposals', {
+        client.GET('/api/v1/projects/{project_id}/proposals', {
           params: {
-            path: { workspace_id: projectId },
+            path: { project_id: projectId },
             query: { limit: 25, ...(cursor ? { cursor } : {}) },
           },
         }),

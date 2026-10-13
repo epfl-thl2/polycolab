@@ -3,14 +3,14 @@
   import { onMount } from 'svelte';
   import type { components } from '$lib/api-client';
   import type { CatalogueEntry } from '../lib/catalogue-api';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import Markdown from './Markdown.svelte';
   import LibraryBasis from './LibraryBasis.svelte';
   let {
     reference,
     canWrite,
-  }: { reference: components['schemas']['WorkspaceReferenceRead']; canWrite: boolean } = $props();
-  const { catalogue } = workspace();
+  }: { reference: components['schemas']['ProjectReferenceRead']; canWrite: boolean } = $props();
+  const { catalogue } = projectContext();
   let entry = $state<CatalogueEntry>();
   let error = $state('');
   async function load() {
@@ -25,7 +25,7 @@
     void load();
   });
   const href = (kind: string) =>
-    `/workspaces/${reference.workspace_id}/records?import=${reference.object_version_id}&kind=${kind}`;
+    `/projects/${reference.project_id}/records?import=${reference.object_version_id}&kind=${kind}`;
 </script>
 
 {#if error}<p class="muted">

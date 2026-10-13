@@ -26,7 +26,7 @@ test('MVP-1 collaboration runs through PostgreSQL, API, built-in worker, and bro
   page,
   request,
 }) => {
-  const project = await api<{ id: string }>(request, 'post', '/api/v1/workspaces', {
+  const project = await api<{ id: string }>(request, 'post', '/api/v1/projects', {
     data: { name: `Integration project ${Date.now()}`, visibility: 'PRIVATE' },
   });
   expect(project.status).toBe(201);
@@ -34,7 +34,7 @@ test('MVP-1 collaboration runs through PostgreSQL, API, built-in worker, and bro
   const source = await api<{ id: string; current_revision_id: string }>(
     request,
     'post',
-    `/api/v1/workspaces/${projectId}/objects`,
+    `/api/v1/projects/${projectId}/objects`,
     { data: { kind: 'CLAIM', title: 'Exact source r1', content_md: 'r1 only: source context' } },
   );
   expect(source.status).toBe(201);
@@ -89,7 +89,7 @@ test('MVP-1 collaboration runs through PostgreSQL, API, built-in worker, and bro
   const sessions = await api<Array<{ id: string }>>(
     request,
     'get',
-    `/api/v1/agent-sessions?workspace_id=${projectId}`,
+    `/api/v1/agent-sessions?project_id=${projectId}`,
   );
   expect(sessions.status).toBe(200);
   const sessionId = sessions.body[0]?.id;
@@ -129,7 +129,7 @@ test('MVP-1 collaboration runs through PostgreSQL, API, built-in worker, and bro
   const proposals = await api<Array<{ id: string }>>(
     request,
     'get',
-    `/api/v1/workspaces/${projectId}/proposals`,
+    `/api/v1/projects/${projectId}/proposals`,
   );
   expect(proposals.status).toBe(200);
   const proposalId = proposals.body[0]?.id;
@@ -150,11 +150,11 @@ test('MVP-1 collaboration runs through PostgreSQL, API, built-in worker, and bro
   await page.getByRole('button', { name: 'Apply 3 selected decisions' }).click();
   await expect(page.getByText('Selected decisions applied together.')).toBeVisible();
 
-  const publicized = await api(request, 'patch', `/api/v1/workspaces/${projectId}`, {
+  const publicized = await api(request, 'patch', `/api/v1/projects/${projectId}`, {
     data: { visibility: 'PUBLIC' },
   });
   expect(publicized.status).toBe(422);
-  const accepted = await api(request, 'get', `/api/v1/workspaces/${projectId}/objects`);
+  const accepted = await api(request, 'get', `/api/v1/projects/${projectId}/objects`);
   expect(JSON.stringify(accepted.body)).toContain('Accepted finding');
   expect(JSON.stringify(accepted.body)).toContain('Edited finding');
   expect(JSON.stringify(accepted.body)).not.toContain('Rejected finding');

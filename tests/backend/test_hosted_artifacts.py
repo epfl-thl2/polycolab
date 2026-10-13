@@ -23,7 +23,7 @@ def hosted_claim(client: TestClient) -> tuple[Any, UUID, dict[str, Any]]:
         run = session.get(SqlAgentRun, run_id)
         session.get(SqlUser, run.requested_by_user_id).subject = "owner"
         session.add(
-            SqlResearchScope(scope_kind=ResearchScopeKind.WORKSPACE, project_id=run.project_id)
+            SqlResearchScope(scope_kind=ResearchScopeKind.PROJECT, project_id=run.project_id)
         )
         run.runtime_spec = spec().model_dump(mode="json")
         run.deadline_at = utc_now() + timedelta(minutes=5)

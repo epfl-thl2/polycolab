@@ -2,7 +2,7 @@ import type { components } from '$lib/api-client';
 
 export type RunAuthority = components['schemas']['RunObjectVersionAuthorityRequest'];
 export type TurnDraft = {
-  destination: 'REVIEW' | 'WORKSPACE' | 'PUBLIC';
+  destination: 'REVIEW' | 'PROJECT' | 'PUBLIC';
   privateMessage: string;
   publicTask: string;
   privateRevisions: string[];

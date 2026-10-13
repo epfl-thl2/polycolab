@@ -14,8 +14,8 @@ The [external-agent API guide](external-agent-api.md) summarizes delegated HTTPS
 ## API conventions
 
 - Mutation request schemas reject unknown fields with 422, including caller-supplied actor/authority fields.
-  New workspaces default to public.
-  Callers can explicitly create private workspaces.
+  New projects default to public.
+  Callers can explicitly create private projects.
   Owners can change visibility.
   Creation and reads enforce the current visibility and access policy.
 
@@ -113,9 +113,9 @@ Invalid, expired, revoked and replayed codes share `invalid_registration_invitat
 The stable registration errors are `registration_closed` (403), `setup_required` (409), `registration_conflict` (409), `invalid_registration_invitation` (400), `registration_request_invalid` or `validation_error` (422), `registration_request_too_large` (413), and `registration_rate_limited` (429 with `Retry-After`).
 Dependency failures use the normal content-free internal error.
 
-### Workspace membership
+### Project membership
 
-`POST /api/v1/workspaces/{workspace_id}/members` accepts `role` and exactly one of the existing canonical `user_id` or an exact built-in `username`.
+`POST /api/v1/projects/{project_id}/members` accepts `role` and exactly one of the existing canonical `user_id` or an exact built-in `username`.
 Username input uses the same trim, case-fold and syntax normalization as registration, then performs one server-side equality lookup against the unique built-in-account index.
 An unknown or invalid username returns the same `invalid_member` response.
 There is no account search, suggestion or public-directory endpoint.
@@ -159,21 +159,21 @@ Stale claim generations cannot acknowledge a new lease.
 Delivery, cancellation, expiry and terminal failure erase ciphertext and wrapped keys.
 Retries retain them only until the token expiry and maximum attempt bound.
 
-### Workspace visibility and external agents
+### Project visibility and external agents
 
-Public and private workspaces share one API.
+Public and private projects share one API.
 Creation defaults to public.
 Owners can change visibility.
 Public research uses safe projections and never exposes memberships, credentials, private notes or conversations.
 See the [application configuration contract](application-configuration.md) for capability settings, browser behavior and the public configuration endpoint.
 
-Public workspace moderation uses `PUBLIC_WORKSPACE_MODERATOR_SUBJECTS` independently of catalogue moderation.
+Public project moderation uses `PUBLIC_PROJECT_MODERATOR_SUBJECTS` independently of catalogue moderation.
 It retains exact-version checks, idempotency and audit.
-Account-wide external-agent keys use the [shared research API](external-agent-api.md) and follow live sponsor memberships, including private workspaces.
+Account-wide external-agent keys use the [shared research API](external-agent-api.md) and follow live sponsor memberships, including private projects.
 
 ## Schema foundations
 
-The `20260905_baseline` migration creates workspace/commons ownership, immutable typed revisions, exact-release storage, general provenance, mutation receipts, and an outbox.
+The `20260905_baseline` migration creates project/commons ownership, immutable typed revisions, exact-release storage, general provenance, mutation receipts, and an outbox.
 Later migrations extend these foundations for direct writes, selective publication, artifacts, and job lifecycle.
 Production language runners remain unfinished.
 The [catalogue endpoints](catalogue.md) support admission and public reads.
@@ -191,15 +191,15 @@ These are not accepted legacy write aliases.
 Record creation uses complete `/objects` commands.
 Dedicated note and summary histories retain independent revision fields.
 
-Records, public record reads, scoped relations, and workspace references have no deployment feature gate.
+Records, public record reads, scoped relations, and project references have no deployment feature gate.
 Typed records support exact statement attachments, retained failure explanations, immutable revisions, author/moderator edit policy, and required `Idempotency-Key` headers.
 Record pages return `{items, next_cursor}`.
 Bounded relation lists use `X-Next-Cursor`.
 Public reads omit private incoming relations and disappear when their catalogue ancestry is hidden.
 These responses, including errors, use `no-store`.
 
-`POST /api/v1/workspace-references` pins an exact `object_version_id` without copying a public statement.
-New workspaces default to public.
+`POST /api/v1/project-references` pins an exact `object_version_id` without copying a public statement.
+New projects default to public.
 The Work privately action explicitly selects private visibility.
 `POST /{reference_id}/versions` under that prefix requires `expected_current_reference_version_id`.
 GET lists current pins or a reference's history.
@@ -209,10 +209,10 @@ The API returns no source title or content for an unavailable pin.
 
 Reference events remain private.
 
-`POST /api/v1/workspace-copies` instead creates an independent editable object from the frozen Library projection selected by `source_object_version_id`.
-It returns `workspace_id`, `object_id`, `object_version_id`, and `source_object_version_id`.
+`POST /api/v1/project-copies` instead creates an independent editable object from the frozen Library projection selected by `source_object_version_id`.
+It returns `project_id`, `object_id`, `object_version_id`, and `source_object_version_id`.
 The initial snapshot retains an exact attachment to its source.
-Neither later Library edits nor workspace edits change the other object.
+Neither later Library edits nor project edits change the other object.
 Existing copy retry receipts retain their original internal encoding.
 
 Runs may explicitly pin accessible public inputs.
@@ -242,7 +242,7 @@ Neither path copies independent assurance.
 
 The service rechecks attachment availability under the commons lock before committing.
 Unavailable targets reject the edit without losing its existing history.
-Private revision edits require the object's author as well as current workspace write access, matching the typed-record endpoint.
+Private revision edits require the object's author as well as current project write access, matching the typed-record endpoint.
 Use the typed editor to deliberately change assumptions, outcomes, or explanations.
 
 Public record history with an explicit `object_id` includes accessible official catalogue revisions as well as attached research revisions.
@@ -258,11 +258,11 @@ The exact-record browser page lists research attached to that statement revision
 Official revisions do not offer generic record editing or duplicate catalogue promotion controls.
 
 `GET /api/v1/discovery` searches public research and catalogue sources.
-`GET /api/v1/discovery?workspace_id=...` searches only the authorized workspace.
+`GET /api/v1/discovery?project_id=...` searches only the authorized project.
 Both return `{items, next_cursor}` with SQL-applied filters and limits.
 PostgreSQL uses the `simple` full-text configuration.
 SQLite tests use substring matching.
-Public discovery and authenticated member-workspace discovery are always available.
+Public discovery and authenticated member-project discovery are always available.
 
 Scope and membership checks prevent private records from leaking into public results.
 `PUT /api/v1/community/{entry_id}/follow` and `/interest` independently set a human's intent with `{active: boolean}`.
@@ -283,9 +283,9 @@ The application-owned community consumer processes canonical outbox events in bo
 Notification delivery is idempotent.
 Cached summaries and notifications recheck moderation and reference access before returning data.
 
-Shared research supports public and member workspace projections according to live access.
+Shared research supports public and member project projections according to live access.
 Replaced `/api/v1/projects/...` routes are removed.
-Browser workspace URLs are unchanged.
+Browser project URLs are unchanged.
 Research tables retain their project identity along with ownership scopes and immutable revisions.
 Reviewed proposal acceptance writes one agent contribution envelope with typed output FKs in its research transaction.
 Direct human research also creates contribution/output/outbox rows.
@@ -356,7 +356,7 @@ A trusted verification result is required for machine assurance.
 
 ### Selective publication
 
-Only a human workspace owner can call `POST /api/v1/publication/preview`.
+Only a human project owner can call `POST /api/v1/publication/preview`.
 It accepts exact selected revisions and optional authored-summary revisions, comments, progress updates, and relations.
 The response computes a bounded required revision closure, including record attachments, proof-sketch conclusions/premises, attempt targets/evidence/results, summary sources, comment and progress targets, and selected relation endpoints.
 Its digest binds the original selection, required closure, and complete sanitized public fields.
@@ -371,9 +371,9 @@ Public exact-record reads use the immutable released field snapshot after rechec
 Later private revisions are not released implicitly, and the publication does not admit statements to the catalogue.
 Dedicated human notes, private conversations, internal events, and unselected associated activity have no public manifest field.
 
-Authenticated workspace members use `/api/v1/workspaces/{workspace_id}/artifacts` to stage bounded binary uploads, read safe metadata, commit an exact research attachment and download verified committed bytes.
+Authenticated project members use `/api/v1/projects/{project_id}/artifacts` to stage bounded binary uploads, read safe metadata, commit an exact research attachment and download verified committed bytes.
 Upload declarations bind lowercase SHA-256, length, media type and an optional source revision.
-The service rechecks current workspace authority around storage I/O.
+The service rechecks current project authority around storage I/O.
 It never exposes storage keys or raw filenames.
 It serves untrusted content only as generic downloads with restrictive headers.
 
@@ -391,7 +391,7 @@ Staging and deletion states remain absent.
 Project and optional revision authorization occur before the scope-filtered query, and downloads are separately reauthorized.
 
 Publication selection now accepts up to 32 exact `artifact_ids`.
-Preview requires each artifact to be committed in the selected workspace.
+Preview requires each artifact to be committed in the selected project.
 It snapshots all current exact research bindings for each artifact.
 It adds those bindings and the optional source revision to the required revision closure.
 It verifies the stored bytes before returning.
@@ -400,15 +400,15 @@ The digest binds the ordered artifact selection, sanitized SHA-256/length/media,
 Confirmation rechecks the same bytes before the existing locked preview/manifest/release transaction and inserts typed artifact membership only after the required exact releases exist.
 Missing, corrupt, inaccessible, uncommitted or newly rebound artifacts fail without partial publication.
 
-`GET /api/v1/artifacts/{artifact_id}` and its `/content` child resolve artifacts selected by a still-readable publication manifest or committed and attached to currently readable public-workspace research.
+`GET /api/v1/artifacts/{artifact_id}` and its `/content` child resolve artifacts selected by a still-readable publication manifest or committed and attached to currently readable public-project research.
 The service verifies anonymous content on every storage read.
 It serves this content as `application/octet-stream` with download, nosniff, sandbox and no-store headers.
 It rechecks moderation after retrieval.
-Uncommitted, unattached, hidden-workspace and later private bindings remain private.
+Uncommitted, unattached, hidden-project and later private bindings remain private.
 
-The verification service registers authenticated human submission, inspection, event replay, cancellation and exact-manifest rerun under `/api/v1/workspaces/{workspace_id}/verification-jobs`.
+The verification service registers authenticated human submission, inspection, event replay, cancellation and exact-manifest rerun under `/api/v1/projects/{project_id}/verification-jobs`.
 Its generated contract exposes those human operations.
-Authenticated members may discover only currently available curated versions through the UUID-cursor-paginated `/api/v1/workspaces/{workspace_id}/verification-environments`.
+Authenticated members may discover only currently available curated versions through the UUID-cursor-paginated `/api/v1/projects/{project_id}/verification-environments`.
 The response contains exact image/toolchain/dependency/build/platform identity and finite supported ceilings, never credentials or runner configuration.
 Discovery remains available while submission is disabled and does not imply execution readiness.
 OpenAPI excludes the separate `/internal/verification` controller boundary, which requires a deployment-managed credential.
@@ -439,7 +439,7 @@ Version-2 `get_context` and `get_object_version` results include a whitelisted `
 
 A queued private turn may also name up to 32 committed artifact IDs.
 The immutable manifest stores typed artifact FKs and binds them into its digest.
-Each use rechecks current workspace access.
+Each use rechecks current project access.
 `get_context` returns only ID, digest, byte length and media type.
 Byte retrieval remains controller/API-owned.
 
@@ -478,7 +478,7 @@ The base allowlist is `get_context`, `get_object_version`, `get_dependencies`, a
 Version-2 runs with explicit contribution authority can also receive grant-filtered `write_object_version`, `create_relation`, `write_summary`, `comment_on_object_version`, and `report_progress` tools.
 Reads return only inputs from the manifest and outputs from the same run.
 Scoped direct contributions require no deployment flag.
-An independent human-approved `RUN_VERIFICATION` workspace grant may add `submit_verification`, `inspect_verification` and `cancel_verification` while the submission flag is enabled.
+An independent human-approved `RUN_VERIFICATION` project grant may add `submit_verification`, `inspect_verification` and `cancel_verification` while the submission flag is enabled.
 Record/relation edit grants never imply computation authority.
 
 Verification mutations validate the canonical `TOOL_REQUESTED` event cursor and retain run/session/context provenance.
@@ -513,7 +513,7 @@ The configuration disables persistence of authorization, the embedded client/tes
 The read-only layout maps Scalar's native variables onto Polycolab's shared EPFL and accessible-extension color tokens.
 It renders curated guidance from the canonical OpenAPI description.
 The guidance covers quick start, authentication, pagination, errors and immutable IDs.
-Representative public discovery, public exact-read, private workspace and scoped agent-session operations carry curated summaries and examples.
+Representative public discovery, public exact-read, private project and scoped agent-session operations carry curated summaries and examples.
 This documentation adds no API capability.
 The browser asset is an exact `@scalar/api-reference@1.62.6` CDN URL protected by a SHA-384 subresource-integrity hash.
 
@@ -534,7 +534,7 @@ The introduction covers authentication, permissions, pagination, errors, budgets
 The sidebar groups operations into these sections:
 
 - Identity and API keys.
-- Workspaces.
+- Projects.
 - Shared research.
 - Artifacts.
 - External runs.

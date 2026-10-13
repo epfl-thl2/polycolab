@@ -11,10 +11,10 @@ from sqlalchemy.orm import Session
 
 from polycolab.access.actors import Actor, ActorKind, ActorOperation
 from polycolab.access.authorization import (
-    WorkspaceAction,
-    lock_workspace_authorization,
-    require_workspace_write,
-    workspace_policy,
+    ProjectAction,
+    lock_project_authorization,
+    project_policy,
+    require_project_write,
 )
 from polycolab.db.models import (
     SqlContributionEntityLink,
@@ -156,7 +156,7 @@ def record_contribution(
 
     New content must be created by create_outputs with commit=False research
     primitives, so retries never execute the content mutation a second time.
-    M0 exposes this composition only for authorized human workspace writes;
+    M0 exposes this composition only for authorized human project writes;
     direct agent writes need the run/output policy introduced in M1.
     """
 
@@ -177,7 +177,7 @@ def record_contribution(
     scope = session.get(SqlResearchScope, ownership_scope_id) if ownership_scope_id else None
     if (
         scope is None
-        or scope.scope_kind is not ResearchScopeKind.WORKSPACE
+        or scope.scope_kind is not ResearchScopeKind.PROJECT
         or scope.project_id is None
     ):
         raise ContributionConflict
@@ -185,19 +185,19 @@ def record_contribution(
     if authority_user_id is None:
         raise ContributionConflict
     if actor.kind is ActorKind.AGENT:
-        require_workspace_write(actor, project_id=scope.project_id)
+        require_project_write(actor, project_id=scope.project_id)
         if ActorOperation.CONTRIBUTION_CREATE not in actor.operation_scope:
             raise ContributionConflict
         if actor.ownership_scope_id != scope.id:
             raise ContributionConflict
-    lock_workspace_authorization(
+    lock_project_authorization(
         SqlAlchemyTransaction(session), project_id=scope.project_id, user_id=authority_user_id
     )
-    workspace_policy.require_scope(
+    project_policy.require_scope(
         SqlAlchemyTransaction(session),
         scope.project_id,
         authority_user_id,
-        WorkspaceAction.CREATE_RESEARCH,
+        ProjectAction.CREATE_RESEARCH,
     )
     if proposal_change_id is not None or decided_by_user_id is not None or source_event_cursors:
         raise ContributionConflict
@@ -394,7 +394,7 @@ def actor_contribution(
 
             require_public_participation(actor, ownership_scope_id=scope.id)
         else:
-            require_workspace_write(actor, project_id=scope.project_id)
+            require_project_write(actor, project_id=scope.project_id)
         if actor.ownership_scope_id != scope.id:
             raise ContributionConflict
     values = _envelope_values(actor)

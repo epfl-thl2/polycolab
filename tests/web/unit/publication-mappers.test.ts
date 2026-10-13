@@ -41,7 +41,7 @@ it('splits local exact choices into the landed typed selection', () => {
       ['proof-r2', 'comment-a', 'artifact-a'],
     ),
   ).toEqual({
-    workspace_id: 'project-a',
+    project_id: 'project-a',
     object_version_ids: ['proof-r2'],
     summary_revision_ids: [],
     comment_ids: ['comment-a'],
@@ -55,7 +55,7 @@ it('splits local exact choices into the landed typed selection', () => {
 it('maps only server-returned sanitized fields and required closure', () => {
   const preview = mapPublicationPreview({
     preview_digest: 'digest-a',
-    selection: { workspace_id: 'project-a', object_version_ids: ['proof-r2'] },
+    selection: { project_id: 'project-a', object_version_ids: ['proof-r2'] },
     required_object_version_ids: ['claim-r3'],
     public_fields: fields,
   });
@@ -68,11 +68,11 @@ it('maps only server-returned sanitized fields and required closure', () => {
 
   const manifest = mapPublicationManifest({
     id: 'manifest-a',
-    workspace_id: 'project-a',
+    project_id: 'project-a',
     preview_digest: 'digest-a',
     created_at: '2026-09-07T00:00:00Z',
     publisher_display_name: 'Ada',
-    selection: { workspace_id: 'project-a', object_version_ids: ['proof-r2'] },
+    selection: { project_id: 'project-a', object_version_ids: ['proof-r2'] },
     required_object_version_ids: ['claim-r3'],
     public_fields: fields,
   });
@@ -85,7 +85,7 @@ it('maps only server-returned sanitized fields and required closure', () => {
 it('renders equivalence from equal endpoints without requiring a source', () => {
   const preview = mapPublicationPreview({
     preview_digest: 'digest-equivalence',
-    selection: { workspace_id: 'project-a', object_version_ids: ['proof-r2'] },
+    selection: { project_id: 'project-a', object_version_ids: ['proof-r2'] },
     required_object_version_ids: ['claim-r3'],
     public_fields: {
       ...fields,
@@ -107,7 +107,7 @@ it('renders equivalence from equal endpoints without requiring a source', () => 
   });
   expect(preview.selected.find((item) => item.id === 'equivalence-a')).toMatchObject({
     title: 'EQUIVALENT_TO relationship',
-    href: '/workspaces/project-a/records/claim-r3',
+    href: '/projects/project-a/records/claim-r3',
   });
   expect(preview.publicFields).toContainEqual({
     label: 'Relation · EQUIVALENT_TO',

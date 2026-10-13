@@ -1,6 +1,6 @@
 # Web application
 
-The interactive workspace is a Vite-built Svelte 5 single-page application using SvelteKit's static adapter.
+The interactive project is a Vite-built Svelte 5 single-page application using SvelteKit's static adapter.
 Run it locally with `pnpm run web:dev`.
 Vite proxies `/api`, `/auth`, `/health`, and `/public` to the local FastAPI process.
 Browser requests use the generated API client and relative same-origin paths in production.
@@ -23,7 +23,7 @@ The brand opens public search at `/`.
 Primary navigation uses this order:
 
 1. Library (`/library`).
-2. Workspaces (`/workspaces` when signed in, `/workspaces?scope=public` otherwise).
+2. Projects (`/projects` when signed in, `/projects?scope=public` otherwise).
 3. Activity (`/activity`).
 4. Chat (`/chat`).
 5. Docs, which links to the documentation index.
@@ -37,7 +37,7 @@ The shared account menu displays the account name and username.
 Its actions use this order:
 
 1. Profile.
-2. Your workspaces.
+2. Your projects.
 3. Settings.
 4. Security.
 5. Getting started.
@@ -51,8 +51,8 @@ Its actions use this order:
 Account entry links preserve a same-origin `returnTo` through sign-in/signup switches.
 Successful local sign-in or registration returns to that page.
 Provider flows receive the same destination in their existing state.
-Direct account entry defaults to Workspaces.
-External destinations and authentication loops fall back to Workspaces.
+Direct account entry defaults to Projects.
+External destinations and authentication loops fall back to Projects.
 Protected pages also keep their inline authentication flow.
 
 Account settings uses compact, borderless navigation and content columns with a Groseille active-section treatment.
@@ -93,29 +93,29 @@ Titles wrap as needed.
 Rows have no excerpts or per-row action buttons.
 Titles open `/library/{entry_id}` for the complete statement, assumptions, source, review, revision history and copy actions.
 Exact revision URLs remain directly accessible.
-**Copy to workspace** calls `POST /api/v1/workspace-copies`, creating an independent editable object and opening its workspace object page.
+**Copy to project** calls `POST /api/v1/project-copies`, creating an independent editable object and opening its project object page.
 
 The copy retains the exact source revision as provenance.
 It does not inherit Library admission or status.
-Workspace creation and copying share one transaction and retry receipt.
+Project creation and copying share one transaction and retry receipt.
 Legacy reference pins remain available through existing APIs/routes, without a Library imports sidebar entry.
-The member Workspaces page keeps the heading **Workspaces** for every category.
+The member Projects page keeps the heading **Projects** for every category.
 Its creation action and search use the same placement as Library, while the results use a distinct project-card grid.
 
 Each card shows purpose, visibility, role and updated date.
-The entire live card opens its workspace.
+The entire live card opens its project.
 Cards use two columns on wide screens and tablets, and one on mobile.
 Library retains its dense statement catalogue table.
 Desktop category tabs become a select on mobile.
 Search is explicitly submitted and query/category parameters survive reload.
 
-Public workspace discovery uses the same Workspaces heading, search placement and responsive card grid as the member directory.
+Public project discovery uses the same Projects heading, search placement and responsive card grid as the member directory.
 Both public and member search run on the server across names and descriptions, with member category filters applied before pagination.
 
 Directory pages show at most 20 cards with Previous/Next controls.
 Changing scope, query or category resets pagination.
 Member categories and role/member-count metadata remain scoped to membership.
-Member workspaces use `WorkspaceWorkbench`; visitors retain the public workspace
+Member projects use `ProjectWorkbench`; visitors retain the public project
 shell in `Project`. The member shell uses a fixed-width icon rail with accessible
 labels and shared tooltips on hover or keyboard focus. The rail chooses a page
 layout rather than creating a content tab. Project opens the overview with project
@@ -123,18 +123,18 @@ navigation and details on the left. Research objects, Map, and Activity share th
 selection-panel layout: controls and guidance on the left, content in the center,
 and selection details on the right. The shell uses one selection-panel configuration,
 open/close handler, header, and content container for all three modes.
-`WorkspaceSectionPanel` renders their mode-specific details.
-Workspace restores the worktree panel, unified content tabs, and a right panel that
+`ProjectSectionPanel` renders their mode-specific details.
+Project restores the worktree panel, unified content tabs, and a right panel that
 switches between Explorer, Source control, and Details. Open chats, research
 objects, and file drafts remain mounted while another layout is selected.
 Left and right panels resize with pointer or keyboard controls and can collapse.
 Narrow screens expose navigation and the selected layout's panel in drawers.
 The member shell has no full-width product header: the shared brand wordmark and
-workspace name sit above the left panel. Collapsed panels reopen from the main
-view's toolbar. Workspace chrome uses the shared Groseille sidebar/selection
+project name sit above the left panel. Collapsed panels reopen from the main
+view's toolbar. Project chrome uses the shared Groseille sidebar/selection
 colors and Canard tool/agent-status accents, with a white editing surface.
 
-Workspace cards, section navigation and panel controls use the shared 16px Lucide outline style, with distinct icons for each section.
+Project cards, section navigation and panel controls use the shared 16px Lucide outline style, with distinct icons for each section.
 
 Map follows Overview.
 One Research navigation item covers objects and their saved revisions.
@@ -143,7 +143,7 @@ routes and saved data remain available.
 
 Research objects prioritizes in-page search and a compact semantic table.
 The columns show object titles, type, version (formatted as v1), last updated date, and a four-character object ID prefix.
-Workspace Activity uses the same single-line density with submission number, contributor, type, change, version, and relative time.
+Project Activity uses the same single-line density with submission number, contributor, type, change, version, and relative time.
 Both use 7px vertical cell padding, 13px titles, and 12px metadata, with internal horizontal scrolling when needed.
 
 Research object row clicks or keyboard-activated title buttons open the selection preview in the right panel (a drawer on mobile).
@@ -175,13 +175,13 @@ Create object opens one modal form with these controls:
   Existing revision URLs still work.
   User-facing copy refers to research, objects, and revisions rather than records.
 
-Member workspace root routes open New chat when the current member can write and
+Member project root routes open New chat when the current member can write and
 agent execution is enabled; otherwise they open Overview. The left panel lists Main
 and named worktrees, with the current user's conversations nested underneath.
 Left-panel titles follow the selected rail mode: Project stays Project when
 opening Overview, Agent connect, or Settings. Main content titles follow the
 selected page. Left-panel views share a 13px semibold header, a 28px minimum header height,
-12px outer padding, and a 12px gap before content. The left panel omits the product wordmark and workspace name; project identity is
+12px outer padding, and a 12px gap before content. The left panel omits the product wordmark and project name; project identity is
 available in Overview. Overview shows the project name, description, and a compact
 visibility/access line and no sidebar details card. Overview, Agent connect,
 Settings, Research objects, Map, and Activity omit the main-panel title bar;
@@ -207,24 +207,24 @@ The tab-strip plus creates a conversation in the selected worktree. Each worktre
 row also has a New conversation action. Main conversations have no task binding;
 named worktrees use their existing saved-branch binding. These actions create independent draft tabs;
 a draft query identifier keeps each composer distinct until it creates a session.
-`WorkspacePage` keeps opened route components mounted behind inactive tabs;
-`WorkspaceFiles` owns the shared file editor state. Chat drafts and object edits
-report dirty state to the shell. Dirty closes ask before discarding; workspace
+`ProjectPage` keeps opened route components mounted behind inactive tabs;
+`ProjectFiles` owns the shared file editor state. Chat drafts and object edits
+report dirty state to the shell. Dirty closes ask before discarding; project
 exit and browser unload also protect drafts. Route-backed tabs preserve query
 parameters for their own content instead of reading the active page's query.
 Layout preferences and validated route-tab URLs are stored per account and
-workspace in local storage. Draft text, file content, file tabs, and diff tabs are
+project in local storage. Draft text, file content, file tabs, and diff tabs are
 not persisted there. Closing a tab destroys its component and stream lifecycle;
 inactive chat tabs pause their session event streams and run polling. Reactivating
 a chat refreshes messages and runs, then resumes events from its retained cursor
 without discarding its draft. Chat context controls are
 moved into the active Details host by `chat-panel-portal`.
 
-Agent connect opens a setup guide for the workspace.
-It includes account key setup and copyable instructions containing the workspace URL and ID.
+Agent connect opens a setup guide for the project.
+It includes account key setup and copyable instructions containing the project URL and ID.
 It also links to SKILL.md and external-agent documentation.
 Visitors can read the guide.
-It explains that keys follow account memberships and are not restricted to this workspace.
+It explains that keys follow account memberships and are not restricted to this project.
 
 New chat keeps a compact Customize bar above the composer.
 The message surface owns hover and focus emphasis independently of that bar.
@@ -233,8 +233,8 @@ New chat silently defaults to the first available gateway profile.
 
 The anchored Customize popover presents a prototype-only context scope and response style and discloses the implemented Hosted Codex system-prompt customization.
 Context scope and response style remain presentation state and are not submitted to the API.
-The workspace uses shared heading sizes, 14px navigation/body text, 16px research prose and standard buttons.
-The overview leads with the workspace name and description.
+The project uses shared heading sizes, 14px navigation/body text, 16px research prose and standard buttons.
+The overview leads with the project name and description.
 Members see visibility in the Project layout’s left panel; visitors see it in the right panel.
 The main overview presents the project description as readable Markdown, with an explicit empty state.
 
@@ -247,24 +247,24 @@ The project details panel shows visibility, access, and archive status.
 
 Other sections provide relevant guidance and links.
 Activity shows the selected submission’s contributor, readable action, local timestamp, excerpt, and exact revision link.
-Workspace navigation and context tools omit proposal review.
-Verification jobs is also omitted from workspace navigation for now.
+Project navigation and context tools omit proposal review.
+Verification jobs is also omitted from project navigation for now.
 Existing direct routes and underlying services remain implemented.
-Visitors can read the workspace map and search its Research records without signing in.
+Visitors can read the project map and search its Research records without signing in.
 
-Public discovery accepts a workspace filter while retaining public visibility and moderation filters.
+Public discovery accepts a project filter while retaining public visibility and moderation filters.
 Member search still requires membership.
 Visitors can read public objects and their history, discussion, relations and evidence within that shell.
 Contribution and management controls follow membership and role permissions.
 Existing cursor pagination is unchanged.
-Member-workspace text filtering still covers only loaded pages.
+Member-project text filtering still covers only loaded pages.
 
-Member workspace links use `/workspaces/{workspace_id}`.
+Member project links use `/projects/{project_id}`.
 `/projects` and its detail paths remain compatibility aliases.
-Anonymous workspace browsing uses `/workspaces?scope=public` and `/workspaces/{workspace_id}`.
+Anonymous project browsing uses `/projects?scope=public` and `/projects/{project_id}`.
 
-HTTP API paths retain `/api/v1/workspaces?scope=member` and `/api/v1/workspaces?scope=public`.
-Workspaces is visible to anonymous and signed-in readers and retains its workspace breadcrumb behavior.
+HTTP API paths retain `/api/v1/projects?scope=member` and `/api/v1/projects?scope=public`.
+Projects is visible to anonymous and signed-in readers and retains its project breadcrumb behavior.
 The API link opens `/docs/api`, which reuses the product navbar above an isolated Scalar frame served by FastAPI at `/api/reference/content`.
 The mobile menu uses the same destination order.
 The legacy `/api/reference` URL redirects to `/docs/api` under the same access policy.
@@ -274,17 +274,17 @@ The legacy `/connect` route continues to show the connection guide.
 
 Activity is visible in desktop and mobile navigation for anonymous and signed-in readers.
 `/activity` and `/activity/recent` open Recent submissions.
-`/activity/workspaces` opens Active workspaces.
+`/activity/projects` opens Active projects.
 These pages serve normally before any sign-in gate.
 
 Recent submissions uses `/api/v1/activity?recent=true` through the shared generated client.
-It shows the latest 500 visible research events across active public workspaces, newest first without a date cutoff.
+It shows the latest 500 visible research events across active public projects, newest first without a date cutoff.
 The human/agent filter applies within that set.
 
 Contribution types remain visible in the table, without a separate type filter.
 Each page contains up to 50 single-line rows in a bordered table.
-Labeled columns show permanent submission index, contributor, workspace, object type, submission, version and time.
-Type uses the same colored object-kind labels as workspaces.
+Labeled columns show permanent submission index, contributor, project, object type, submission, version and time.
+Type uses the same colored object-kind labels as projects.
 Submission combines a plain-language action (such as Created, Revised or Commented on) with the linked object title.
 
 Submission timestamps use `YYYY-MM-DD HH:mm:ss` in the device time zone, detected after mount, with UTC as the fallback.
@@ -305,7 +305,7 @@ Previous/Next controls replace rows rather than appending.
 On narrower screens, the table scrolls horizontally and truncates long titles.
 The feed excludes private, archived, deleted and Library-only containers.
 The Activity navigation no longer has a Planned badge.
-Active workspaces retains its time-window filters and shows a matching compact bordered table with workspace names, contributor and submission counts, and local timestamps.
+Active projects retains its time-window filters and shows a matching compact bordered table with project names, contributor and submission counts, and local timestamps.
 A muted segmented control switches between views, with a raised selected segment and matching icons.
 
 Its filter sits inline on desktop and wraps below on narrow screens.
@@ -324,7 +324,7 @@ Relative timestamps expose the exact date accessibly.
 
 Example ordering is explicitly illustrative.
 Fixtures never appear as live data.
-Library and Workspaces remain direct destinations.
+Library and Projects remain direct destinations.
 Commons is not a navigation group.
 Internal scope names and `/commons` compatibility routes remain, with the latter labelled Public research in the interface.
 
@@ -344,7 +344,7 @@ Unlinking cannot remove the last login method.
 
 Built-in username/password registration is separately operator-selected as `closed` (default), `open`, or `invitation`.
 FastAPI advertises and enforces the effective mode, requires a deployment-bootstrapped administrator and exact Origin, and creates only an ordinary account plus session.
-Core registration collects no email or terms evidence and grants no workspace membership.
+Core registration collects no email or terms evidence and grants no project membership.
 
 Operators deliver invitation codes.
 The service stores only their digests.
@@ -365,7 +365,7 @@ The [API contract](api.md#built-in-social-auth-browser-contract) documents direc
 Browser controls use configured provider availability.
 Live-provider consent and deployment acceptance require separate verification.
 
-Public and private workspaces use the same Svelte routes and generated API contract.
+Public and private projects use the same Svelte routes and generated API contract.
 Anonymous reads use permission-filtered public projections.
 Membership and ownership govern private reads and writes.
 FastAPI serves the Vite bundle and SPA fallback in production.
@@ -374,7 +374,7 @@ Library and public research pages require JavaScript but do not require a member
 ## Frontend migration
 
 Production routes now use a Svelte shell with Tailwind styling and independently loaded research, graph, session, review, and settings views.
-The workspace retains the original three-pane research room: session navigation, central work surface, and contextual tools.
+The project retains the original three-pane research room: session navigation, central work surface, and contextual tools.
 Panels support resizing and collapse, with dialogs on mobile.
 
 Navigation defaults to a fixed 280px width.
@@ -382,8 +382,8 @@ After navigation and dividers, the center and right Panel share the remaining wi
 Resizing the right divider changes its share (20–60%) and preserves that ratio across browser resizing.
 Collapsed rails remain 64px.
 
-Graphs use Svelte Flow and open with all accessible workspace objects, including isolated objects.
-The map loads paginated objects and relations with at most four concurrent object traversals, deduplicates relations, and includes referenced historical workspace revisions.
+Graphs use Svelte Flow and open with all accessible project objects, including isolated objects.
+The map loads paginated objects and relations with at most four concurrent object traversals, deduplicates relations, and includes referenced historical project revisions.
 External revision connections remain in the readable relationship list.
 Maps over 50 revisions use a canvas overview.
 Smaller maps use compact rounded rectangles with a type badge and title, side connection points, and brand-colored selection.
@@ -392,9 +392,9 @@ Long titles truncate with a full-title tooltip.
 Type badges share distinct icons, explicit labels, and subtle palette colors across map nodes, object cards, and the right Panel.
 Type color is separate from the brand selection border and does not indicate verification status.
 Revision details remain in the right Panel.
-Workspace Activity uses compact bordered rows with permanent submission numbers, contributors, object types, readable actions, exact revision links, and device-local timestamps with a UTC fallback.
+Project Activity uses compact bordered rows with permanent submission numbers, contributors, object types, readable actions, exact revision links, and device-local timestamps with a UTC fallback.
 Selecting a submission number opens its details.
-Workspace activity retains its existing 30-day scope and pagination.
+Project activity retains its existing 30-day scope and pagination.
 
 Directed edges connect node boundaries with arrowheads at the target.
 Interactive nodes use flat pale type fills, thin borders, and up to two lines of 13px title text.
@@ -458,7 +458,7 @@ Account changes clear cached research and drafts.
 Drafts survive internal navigation, not a browser reload.
 
 The browser application uses Svelte.
-The retired `/demo`, `/workspaces/demo`, `/library/demo`, and `/profile/demo` routes and their child paths show the page-not-found view.
+The retired `/demo`, `/projects/demo`, `/library/demo`, and `/profile/demo` routes and their child paths show the page-not-found view.
 They do not load research data.
 Library, scoped direct contributions, and human publication use the implemented backend services.
 Optional hosted execution and verification retain separate capability gates.
@@ -467,8 +467,8 @@ See the [roadmap](../roadmap.md) for remaining work and acceptance requirements.
 Build output remains `src/web/dist`.
 `index.html` is the SPA fallback and `/_app` serves Svelte assets with real missing-file responses.
 Anonymous research uses the same application routes and API resources as signed-in readers.
-`/workspaces?scope=public` browses public investigations.
-Workspace detail URLs select member controls only after an authorized membership read.
+`/projects?scope=public` browses public investigations.
+Project detail URLs select member controls only after an authorized membership read.
 Standalone public HTML handlers and `/public/*` URLs are removed.
 
 ## Public documentation authoring
@@ -580,7 +580,7 @@ Browser Back restores the previous search.
 Below the search bar, a primary-colored Getting started button opens `/docs/getting-started/`.
 SKILL.md opens the canonical external-agent skill file at `/SKILL.md`.
 Chat with built-in agent is Planned and opens `/chat`.
-A three-step introduction below covers starting with a question, collaborating in a public or private workspace, and optionally connecting an external agent.
+A three-step introduction below covers starting with a question, collaborating in a public or private project, and optionally connecting an external agent.
 Whitespace and a divider separate the introduction from the search area.
 
 The former mission page is `/about`, linked from the footer.
@@ -588,14 +588,14 @@ The About page uses `About.svelte` for paragraph-based content without additiona
 It uses the shared page heading and spacing with 14px body copy and a readable text width.
 
 `/search` normalizes to `/` with replacement navigation.
-The public GET form stores the query in `q` and result type in `type=all|research|workspaces`.
+The public GET form stores the query in `q` and result type in `type=all|research|projects`.
 It supports reload/back navigation.
 It accepts up to 200 characters, the narrower limit of the two existing search contracts.
-The page calls public research discovery and public workspace search through the generated-client adapters.
+The page calls public research discovery and public project search through the generated-client adapters.
 
 Each result list has independent loading, retry and cursor pagination.
 The page ignores late responses for replaced queries.
-Library hits link to `/library`, other research hits to exact public record revisions, and workspace hits to public workspace pages.
+Library hits link to `/library`, other research hits to exact public record revisions, and project hits to public project pages.
 Private research is not included.
 A missing search endpoint shows a 404 message in its result section without hiding successful results from the other endpoint.
 Other failures retain retry controls.
@@ -614,15 +614,15 @@ Working Search and external-agent connections are not marked planned.
 The shared navigation uses a mobile menu below 900px.
 Intermediate widths compact brand and account controls while retaining every research destination.
 
-Workspace headers retain every primary navigation link in the same position as the workspace directory, with a separate, non-clickable workspace breadcrumb in the available space.
+Project headers retain every primary navigation link in the same position as the project directory, with a separate, non-clickable project breadcrumb in the available space.
 Docs retains its native search, compacted at intermediate widths.
 
 Chat centers the conversation area with collapsed-by-default history and session setup panels.
 It previews starter prompts, a disabled composer, and harness/provider/model/role/context/destination concepts.
 It collects no messages or credentials and makes no execution calls.
-Working links lead to external-agent connections and public workspaces.
+Working links lead to external-agent connections and public projects.
 Copy distinguishes private conversation from explicitly saved public research.
-General chat persistence, harness/model selection, tool execution and save/continue-in-workspace remain future work.
+General chat persistence, harness/model selection, tool execution and save/continue-in-project remain future work.
 
 Execution also requires native acceptance.
 This preview does not enable hosted execution.
@@ -631,7 +631,7 @@ This preview does not enable hosted execution.
 
 `/people` is an anonymous-accessible frontend directory preview, accessible by direct URL but omitted from desktop and mobile navigation.
 Its default state says the directory is not connected.
-Explicit example mode supports name/handle/interest search and public-profile/workspace inspection using fictional profiles and no real account data.
+Explicit example mode supports name/handle/interest search and public-profile/project inspection using fictional profiles and no real account data.
 A side panel becomes full-width on mobile, handles profile loading and errors in place, closes with Escape and restores focus.
 Query, selected profile and explicit example mode persist in the URL through reload and browser history.
 
@@ -651,11 +651,11 @@ Results titles include the current query and update with browser history.
 Documentation retains its own page-specific titles.
 Search, Activity, People and Chat share content width, heading typography, description spacing and mobile padding through discovery-page styles.
 Each keeps its own result, preview and interaction layouts.
-Library and public/ signed-in workspace directories also use this heading rhythm.
+Library and public/ signed-in project directories also use this heading rhythm.
 
-Workspace category controls appear below the heading: category buttons above 700px and a dropdown at mobile widths.
+Project category controls appear below the heading: category buttons above 700px and a dropdown at mobile widths.
 Both controls share the same selection when resizing.
-Loaded Library statements, workspaces and public research details supply their names as browser titles.
+Loaded Library statements, projects and public research details supply their names as browser titles.
 Working discovery pages use shared loading indicators and empty/error panels with retry or search recovery actions.
 Public-directory retry preserves the applied query without a full reload.
 
@@ -665,7 +665,7 @@ Removing the decorative treatment does not remove those research details.
 
 ## Personal profile
 
-`/profile` presents a researcher identity and public contribution history, without account management, private workspace or agent-connection shortcuts.
+`/profile` presents a researcher identity and public contribution history, without account management, private project or agent-connection shortcuts.
 Settings remain available through the shared account menu.
 Desktop uses a compact summary sidebar.
 Mobile presents the feed before the summary.
@@ -695,14 +695,14 @@ The page uses existing profile endpoints and has no public sharing route.
 
 ## Agent API keys
 
-The workspace **Agent connect** page at `/workspaces/{id}/agent-connect` opens the existing account key creation dialog in place.
+The project **Agent connect** page at `/projects/{id}/agent-connect` opens the existing account key creation dialog in place.
 It links to account-wide key settings.
-It provides a copyable prompt with the deployment origin, canonical `/SKILL.md` URL, workspace ID, and workspace URL.
-The prompt contains no key, treats the workspace name as data, and asks the agent to wait for a specific research task before writing.
+It provides a copyable prompt with the deployment origin, canonical `/SKILL.md` URL, project ID, and project URL.
+The prompt contains no key, treats the project name as data, and asks the agent to wait for a specific research task before writing.
 
-Readable public workspaces expose the page to visitors with a sign-in link that returns to the same workspace.
+Readable public projects expose the page to visitors with a sign-in link that returns to the same project.
 Contribution still requires an active owner or contributor role.
-The page makes clear that a key follows all current and future memberships, not just the workspace shown in the prompt.
+The page makes clear that a key follows all current and future memberships, not just the project shown in the prompt.
 
 Account Settings includes `/settings/api-keys` for named account-wide keys, repeatable secret reveal/copy, server policy/usage/expiry, and confirmed revocation.
 A shared Settings heading spans the navigation and content.
@@ -726,26 +726,26 @@ Older hash-only keys remain usable but require replacement to enable reveal.
 Revocation uses a row menu and confirmation dialog.
 Connection instructions are collapsed below the table.
 
-`/agents` links to key settings and retains workspace run history.
+`/agents` links to key settings and retains project run history.
 The component holds the secret only in memory.
 It clears the secret when the dialog closes or navigation/account changes.
 See the [shared API contract](external-agent-api.md) for live membership reach, private shared research, immutable run destinations, and human-only boundaries.
 
-Workspace cards show the current member count alongside the update date.
-Member workspace API projections include an aggregate `member_count`.
+Project cards show the current member count alongside the update date.
+Member project API projections include an aggregate `member_count`.
 Anonymous public projections omit it.
 
-Workspace navigation includes Activity at `/workspaces/:id/activity`.
-It uses the existing activity endpoint, which filters results by permission, workspace, and the last 30 days.
+Project navigation includes Activity at `/projects/:id/activity`.
+It uses the existing activity endpoint, which filters results by permission, project, and the last 30 days.
 Visitors receive public reads, and members receive member reads.
 The page shows research event titles, actors, actions, times and exact revision links, with refresh, retry and cursor pagination.
-This is recent research activity, not a full workspace settings audit.
+This is recent research activity, not a full project settings audit.
 
-Workspace Overview uses a compact workspace header, visibility badge, Map and Activity shortcuts, and compact creation actions.
+Project Overview uses a compact project header, visibility badge, Map and Activity shortcuts, and compact creation actions.
 Its research cards show shared object-kind badges, revision numbers, Markdown/math previews and author/time metadata.
 Research object routes retain their creation workflows.
 
-Workspace maps use ELK.js layered layout with left-to-right direction, orthogonal edge routing and rounded SVG corners.
+Project maps use ELK.js layered layout with left-to-right direction, orthogonal edge routing and rounded SVG corners.
 The map loads ELK on demand and runs it in a worker.
 It terminates the worker after layout.
 
@@ -757,16 +757,16 @@ Selection does not trigger layout.
 Graph-data changes do.
 Crossing minimization does not guarantee a crossing-free graph.
 
-The workspace directory keeps Public and Yours scope links visible when signed out.
+The project directory keeps Public and Yours scope links visible when signed out.
 Yours shows a sign-in prompt in the directory and makes no member-list request.
 The sign-in return URL preserves the member scope.
 
-Workspace directory cards have a consistent 160px height, or 180px on mobile to fit wrapped metadata.
+Project directory cards have a consistent 160px height, or 180px on mobile to fit wrapped metadata.
 A 6px gap separates two-line titles from compact, muted, two-line descriptions.
 Metadata aligns with the bottom of each card.
 Visibility appears in the footer on every card.
 
-The workspace directory labels member categories All / Owned / Shared / Archived.
+The project directory labels member categories All / Owned / Shared / Archived.
 The server offers these sort orders:
 
 - Recently updated (default).
@@ -775,20 +775,20 @@ The server offers these sort orders:
 - Search relevance: exact title, title prefix, title match, then description match.
   Recent updates resolve ties.
   Cursors are bound to the sort and filters.
-  The API returns the total matching workspace count using the same visibility and category/search filters before pagination.
-  Pages display ranges such as “1-20 of 146 workspaces”.
+  The API returns the total matching project count using the same visibility and category/search filters before pagination.
+  Pages display ranges such as “1-20 of 146 projects”.
   Page changes show result ranges and return focus and scroll to the results heading.
 
 Sorting resets to page one and persists in the URL.
 
-Workspace scope switches preserve the submitted search, sort order, and member category, while resetting pagination.
+Project scope switches preserve the submitted search, sort order, and member category, while resetting pagination.
 The search field has a clear control, and searched result counts use “matches”.
 During sorting, searching, and pagination within a scope, the previous cards and their corresponding counts remain visible.
 An Updating indicator remains until the next result arrives.
 The view disables pagination during that request.
 Previous results are not carried between public and member scopes.
 
-## Workspace file workbench
+## Project file workbench
 
 The member workbench's right panel switches between Explorer, Source control,
 and Details. Explorer supplies filename filtering and collapsible folders;
@@ -796,10 +796,10 @@ Source control lists saved uncommitted changes and supplies full-diff commit rev
 discard, history, and merge actions. Files open in the same middle tab strip as chats,
 research objects, and pages. History and merge review open diff tabs.
 
-`WorkspaceFiles` remains mounted for the member workspace, supplies editor and
-navigator snippets to `WorkspaceWorkbench`, and owns separate in-memory file
+`ProjectFiles` remains mounted for the member project, supplies editor and
+navigator snippets to `ProjectWorkbench`, and owns separate in-memory file
 drafts. Switching content tabs or collapsing tools preserves those drafts.
-Worktree switches retain drafts and tabs separately. Dirty closes and workspace
+Worktree switches retain drafts and tabs separately. Dirty closes and project
 exit ask before discarding.
 Cmd/Ctrl+S saves the active file; Markdown preview and the enhanced source editor
 remain available. No autosave or browser storage persists file content.
@@ -817,4 +817,4 @@ Focused helper tests cover restored tab validation, query preservation, route
 identity, and bounded local storage restoration. Session API/store tests cover
 latest-run summaries, batching, and private requester access. These checks do not
 establish real-service browser behavior or deployment verification for the new
-shell. See [workspace files](workspace-files.md) for persistence and authority.
+shell. See [project files](project-files.md) for persistence and authority.

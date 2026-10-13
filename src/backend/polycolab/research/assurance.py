@@ -24,6 +24,7 @@ from polycolab.db.models import (
     SqlUser,
 )
 from polycolab.platform import mutation_keys
+from polycolab.projects.service import DomainConflict
 from polycolab.research.contracts import (
     AssuranceCurrentRead,
     AssuranceRead,
@@ -35,7 +36,6 @@ from polycolab.research.contracts import (
 from polycolab.research.contributions import human_contribution
 from polycolab.research.objects import ResearchNotFound
 from polycolab.research.records import accessible_revision, project_access
-from polycolab.workspaces.service import DomainConflict
 
 AssuranceKind = Literal["endorsement", "correspondence"]
 AssuranceCursor = tuple[datetime, AssuranceKind, UUID]

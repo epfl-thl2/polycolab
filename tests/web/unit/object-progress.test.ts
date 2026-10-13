@@ -10,7 +10,7 @@ function setup(version = proofVersion(), canWrite = true) {
   const createVersion = vi.fn().mockResolvedValue({ current_object_version: version });
   const onsaved = vi.fn();
   render(ObjectProgress, {
-    props: { version, projectId: 'workspace', canWrite, onsaved },
+    props: { version, projectId: 'project', canWrite, onsaved },
     context: new Map([
       [
         contextKey,
@@ -69,7 +69,7 @@ it('allows failed progress without an explanation', async () => {
   const version = claimVersion();
   const createVersion = vi.fn().mockResolvedValue({ current_object_version: version });
   render(ObjectProgress, {
-    props: { version, projectId: 'workspace', canWrite: true },
+    props: { version, projectId: 'project', canWrite: true },
     context: new Map([
       [
         contextKey,

@@ -7,11 +7,11 @@
   import { onMount } from 'svelte';
   import type { RecordRead } from '../lib/records-api';
   import type { CatalogueRevision } from '../lib/catalogue-api';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import Markdown from './Markdown.svelte';
   import FormulationFields from './FormulationFields.svelte';
   let { record }: { record: RecordRead } = $props();
-  const { records, auth } = workspace();
+  const { records, auth } = projectContext();
   let decision = $state<Awaited<ReturnType<typeof records.decision>>>();
   let edited = $state<CatalogueRevision>();
   let action = $state<'ACCEPT' | 'EDIT_AND_ACCEPT' | 'REJECT'>('ACCEPT');

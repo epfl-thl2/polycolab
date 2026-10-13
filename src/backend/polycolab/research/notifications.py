@@ -18,12 +18,12 @@ from polycolab.db.models import (
     SqlObjectRevision,
     SqlOutboxEvent,
     SqlProject,
+    SqlProjectReference,
     SqlPublicRelease,
     SqlPublicResearchAnchor,
     SqlResearchNotification,
     SqlResearchObject,
     SqlResearchProgressSummary,
-    SqlWorkspaceReference,
 )
 from polycolab.entities.time import utc_now
 from polycolab.platform.outbox import canonical_digest
@@ -37,10 +37,10 @@ def recipients(entry_id: UUID, object_id: UUID) -> Subquery:
     )
     references = (
         select(SqlMembership.user_id)
-        .join(SqlWorkspaceReference, SqlWorkspaceReference.project_id == SqlMembership.project_id)
+        .join(SqlProjectReference, SqlProjectReference.project_id == SqlMembership.project_id)
         .join(SqlProject, SqlProject.id == SqlMembership.project_id)
         .where(
-            SqlWorkspaceReference.object_id.in_([entry_id, object_id]),
+            SqlProjectReference.object_id.in_([entry_id, object_id]),
             SqlProject.deleted_at.is_(None),
             SqlProject.archived_at.is_(None),
         )
@@ -210,13 +210,13 @@ def read_notifications(
         )
     )
     referenced = exists(
-        select(SqlWorkspaceReference.id)
-        .join(SqlMembership, SqlMembership.project_id == SqlWorkspaceReference.project_id)
-        .join(SqlProject, SqlProject.id == SqlWorkspaceReference.project_id)
+        select(SqlProjectReference.id)
+        .join(SqlMembership, SqlMembership.project_id == SqlProjectReference.project_id)
+        .join(SqlProject, SqlProject.id == SqlProjectReference.project_id)
         .where(
             or_(
-                SqlWorkspaceReference.object_id == SqlResearchNotification.entry_id,
-                SqlWorkspaceReference.object_id
+                SqlProjectReference.object_id == SqlResearchNotification.entry_id,
+                SqlProjectReference.object_id
                 == select(SqlObjectRevision.object_id)
                 .where(SqlObjectRevision.id == SqlResearchNotification.revision_id)
                 .correlate(SqlResearchNotification)

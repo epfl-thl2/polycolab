@@ -10,10 +10,10 @@ from sqlalchemy import select
 
 from polycolab.access.actors import human_actor
 from polycolab.access.authorization import (
-    WorkspaceAction,
-    WorkspaceNotFound,
+    ProjectAction,
+    ProjectNotFound,
+    project_policy,
     require_proposal_review,
-    workspace_policy,
 )
 from polycolab.agents.context import manifest_artifacts, manifest_object_versions
 from polycolab.agents.proposals import (
@@ -89,9 +89,9 @@ def _review_scope(db: DbSession, *, proposal_id: UUID, user_id: UUID) -> SqlProp
     require_proposal_review(human_actor(user_id))
     value = db.get(SqlProposal, proposal_id)
     if value is None:
-        raise WorkspaceNotFound
-    workspace_policy.require_scope(
-        SqlAlchemyTransaction(db), value.project_id, user_id, WorkspaceAction.REVIEW_PROPOSALS
+        raise ProjectNotFound
+    project_policy.require_scope(
+        SqlAlchemyTransaction(db), value.project_id, user_id, ProjectAction.REVIEW_PROPOSALS
     )
     return proposal_in_project(db, proposal_id=value.id, project_id=value.project_id)
 
@@ -102,9 +102,9 @@ def _private_manifest_scope(
     # Reviewing a proposal does not grant access to another member's private
     # chat or its attached context.  The requesting run owner may inspect it.
     if proposal.requested_by_user_id != user_id:
-        raise WorkspaceNotFound
-    workspace_policy.require_scope(
-        SqlAlchemyTransaction(db), proposal.project_id, user_id, WorkspaceAction.RUN_AGENTS
+        raise ProjectNotFound
+    project_policy.require_scope(
+        SqlAlchemyTransaction(db), proposal.project_id, user_id, ProjectAction.RUN_AGENTS
     )
     run = db.get(SqlAgentRun, proposal.run_id)
     parent = db.get(SqlAgentSession, proposal.session_id)
@@ -117,7 +117,7 @@ def _private_manifest_scope(
         or run.requested_by_user_id != user_id
         or manifest.run_id != run.id
     ):
-        raise WorkspaceNotFound
+        raise ProjectNotFound
     return manifest
 
 
@@ -126,14 +126,14 @@ def _private_run_manifest_scope(
 ) -> SqlContextManifest:
     run = db.get(SqlAgentRun, run_id)
     if run is None or run.requested_by_user_id != user_id:
-        raise WorkspaceNotFound
-    workspace_policy.require_scope(
-        SqlAlchemyTransaction(db), run.project_id, user_id, WorkspaceAction.RUN_AGENTS
+        raise ProjectNotFound
+    project_policy.require_scope(
+        SqlAlchemyTransaction(db), run.project_id, user_id, ProjectAction.RUN_AGENTS
     )
     parent = db.get(SqlAgentSession, run.session_id)
     manifest = db.scalar(select(SqlContextManifest).where(SqlContextManifest.run_id == run.id))
     if parent is None or manifest is None or parent.created_by_user_id != user_id:
-        raise WorkspaceNotFound
+        raise ProjectNotFound
     return manifest
 
 
@@ -148,21 +148,21 @@ def get_agent_run_context(run_id: UUID, db: DbSession, user: CurrentUser) -> Con
 
 
 @router.get(
-    "/workspaces/{workspace_id}/proposals",
+    "/projects/{project_id}/proposals",
     response_model=list[ProposalRead],
-    operation_id="listWorkspaceProposals",
+    operation_id="listProjectProposals",
     tags=["proposals"],
 )
 def list_project_proposals(
-    workspace_id: UUID, response: Response, page: Page, db: DbSession, user: CurrentUser
+    project_id: UUID, response: Response, page: Page, db: DbSession, user: CurrentUser
 ) -> list[ProposalRead]:
-    workspace_policy.require_scope(
-        SqlAlchemyTransaction(db), workspace_id, user.id, WorkspaceAction.REVIEW_PROPOSALS
+    project_policy.require_scope(
+        SqlAlchemyTransaction(db), project_id, user.id, ProjectAction.REVIEW_PROPOSALS
     )
     values = list(
         db.scalars(
             select(SqlProposal)
-            .where(SqlProposal.project_id == workspace_id)
+            .where(SqlProposal.project_id == project_id)
             .order_by(SqlProposal.created_at.desc(), SqlProposal.id.desc())
         )
     )
@@ -228,7 +228,7 @@ def post_accept_proposal_change(
     except ProposalInvalid:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT) from None
     except ProposalNotFound:
-        raise WorkspaceNotFound from None
+        raise ProjectNotFound from None
 
 
 @router.post(
@@ -259,7 +259,7 @@ def post_reject_proposal_change(
             ),
         )
     except ProposalNotFound:
-        raise WorkspaceNotFound from None
+        raise ProjectNotFound from None
 
 
 @router.post(
@@ -300,4 +300,4 @@ def post_proposal_decisions(
     except ProposalInvalid:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT) from None
     except ProposalNotFound:
-        raise WorkspaceNotFound from None
+        raise ProjectNotFound from None

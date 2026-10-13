@@ -50,7 +50,7 @@
   --canvas: var(--background);
   --panel: var(--card);
   --panel-muted: var(--muted);
-  --workspace-divider: #d4d4d4;
+  --project-divider: #d4d4d4;
   --panel-strong: var(--polycolab-surface-strong);
   --line: var(--border);
   --line-strong: var(--input);

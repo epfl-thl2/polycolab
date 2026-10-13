@@ -19,7 +19,7 @@ export function createPublicationApi(options: CommonsClientOptions = {}) {
     history: (projectId: string, limit = 25, cursor?: string) =>
       result(
         client.GET('/api/v1/publication/history', {
-          params: { query: { workspace_id: projectId, limit, cursor } },
+          params: { query: { project_id: projectId, limit, cursor } },
         }),
       ),
     publicManifest: (manifestId: string) =>

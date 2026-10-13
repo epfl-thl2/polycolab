@@ -9,7 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Query, Request, Response
 from starlette.concurrency import run_in_threadpool
 
-from polycolab.access.authorization import WorkspaceAction, workspace_policy
+from polycolab.access.authorization import ProjectAction, project_policy
 from polycolab.agents.routes.runtime import (
     LeaseRequest,
     RuntimeApiConflict,
@@ -21,8 +21,8 @@ from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.enums import AgentRunStatus
 from polycolab.entities.repositories import RepositoryError
 from polycolab.entities.time import utc_now
-from polycolab.workspaces.git_storage import TRANSFER_LIMIT
-from polycolab.workspaces.routes.repository import service
+from polycolab.projects.git_storage import TRANSFER_LIMIT
+from polycolab.projects.routes.repository import service
 
 router = APIRouter(include_in_schema=False)
 
@@ -58,13 +58,13 @@ def _save(request: Request, run_id: UUID, payload: LeaseRequest, data: bytes) ->
         run = _lease_or_conflict(
             db, run_id, payload, request.app.state.settings.runtime_lease_seconds
         )
-        workspace_id, user_id = run.project_id, run.requested_by_user_id
+        project_id, user_id = run.project_id, run.requested_by_user_id
         db.commit()
-        instance = service(request, db, workspace_id, user_id)
+        instance = service(request, db, project_id, user_id)
 
         def authority() -> None:
-            workspace_policy.require_scope(
-                SqlAlchemyTransaction(db), workspace_id, user_id, WorkspaceAction.RUN_AGENTS
+            project_policy.require_scope(
+                SqlAlchemyTransaction(db), project_id, user_id, ProjectAction.RUN_AGENTS
             )
             current = _locked_run(db, run_id)
             try:

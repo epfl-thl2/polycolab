@@ -139,7 +139,7 @@ def test_equivalence_requires_independent_destination_and_symmetric_endpoints() 
         "relationship_type": "EQUIVALENT_TO",
         "first_object_version_id": second,
         "second_object_version_id": first,
-        "destination": {"kind": "workspace", "workspace_id": uuid4()},
+        "destination": {"kind": "project", "project_id": uuid4()},
     }
     adapter: TypeAdapter[ObjectVersionDeclarationCreate] = TypeAdapter(
         ObjectVersionDeclarationCreate

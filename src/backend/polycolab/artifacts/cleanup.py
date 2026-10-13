@@ -8,8 +8,8 @@ from polycolab.artifacts.storage import ArtifactStorage
 from polycolab.entities.artifacts import ArtifactStorageError, StoredArtifact
 from polycolab.entities.enums import ArtifactState
 from polycolab.entities.time import utc_now
+from polycolab.projects.service import DomainConflict
 from polycolab.transaction import Transaction, TransactionFactory
-from polycolab.workspaces.service import DomainConflict
 
 
 def claim_expired(

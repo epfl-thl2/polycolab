@@ -138,7 +138,7 @@
         Researchers will choose what to share about their interests and public work. Account and
         contact details will not be listed automatically.
       </p>
-      <a href="/workspaces?scope=public">Meet collaborators through public workspaces</a>
+      <a href="/projects?scope=public">Meet collaborators through public projects</a>
     </section>
   {:else}
     {#if error}<div class="notice" role="alert">
@@ -221,12 +221,11 @@
           {#each person.interests as interest (interest)}<Badge variant="outline">{interest}</Badge
             >{/each}
         </div>
-        <h2>Public workspaces</h2>
+        <h2>Public projects</h2>
         <ul>
-          {#each person.workspaces as workspace (workspace.name)}<li>
-              {#if workspace.href}<a href={workspace.href}>{workspace.name}</a
-                >{:else}{workspace.name}{/if}
-            </li>{:else}<li>No public workspaces listed.</li>{/each}
+          {#each person.projects as project (project.name)}<li>
+              {#if project.href}<a href={project.href}>{project.name}</a>{:else}{project.name}{/if}
+            </li>{:else}<li>No public projects listed.</li>{/each}
         </ul>
         <h2>Public contributions</h2>
         {#if person.contributions?.length}<ul>

@@ -6,7 +6,7 @@ export function accountReturnPath(value: string | null | undefined) {
     value.includes('\\') ||
     [...value].some((character) => character.charCodeAt(0) <= 32)
   )
-    return '/workspaces';
+    return '/projects';
   const origin = 'https://polycolab.invalid';
   try {
     const url = new URL(value, origin);
@@ -15,14 +15,14 @@ export function accountReturnPath(value: string | null | undefined) {
       url.pathname.startsWith('//') ||
       /^\/(signin|signup|auth|oidc)(\/|$)/.test(decodeURIComponent(url.pathname))
     )
-      return '/workspaces';
-    return url.pathname + url.search + url.hash;
+      return '/projects';
+    return url.pathname.replace(/^\/workspaces(?=\/|$)/, '/projects') + url.search + url.hash;
   } catch {
-    return '/workspaces';
+    return '/projects';
   }
 }
 
 export function accountHref(mode: 'signin' | 'signup', destination?: string) {
   const returnTo = accountReturnPath(destination);
-  return `/${mode}${returnTo === '/workspaces' ? '' : `?${new URLSearchParams({ returnTo })}`}`;
+  return `/${mode}${returnTo === '/projects' ? '' : `?${new URLSearchParams({ returnTo })}`}`;
 }

@@ -38,8 +38,8 @@ from polycolab.db.models import (
 from polycolab.entities.enums import (
     AgentRunStatus,
     PlatformAgentKind,
-    WorkspaceRole,
-    WorkspaceVisibility,
+    ProjectRole,
+    ProjectVisibility,
 )
 from polycolab.platform.observability import metrics
 
@@ -52,7 +52,7 @@ def _queue_run(client: TestClient) -> tuple[Any, UUID]:
     session.commit()
     project = SqlProject(
         name="Runtime API project",
-        visibility=WorkspaceVisibility.PRIVATE,
+        visibility=ProjectVisibility.PRIVATE,
         created_by_user_id=user.id,
     )
     profile = SqlGatewayProfile(
@@ -67,7 +67,7 @@ def _queue_run(client: TestClient) -> tuple[Any, UUID]:
     )
     session.add_all((project, profile))
     session.commit()
-    session.add(SqlMembership(project_id=project.id, user_id=user.id, role=WorkspaceRole.OWNER))
+    session.add(SqlMembership(project_id=project.id, user_id=user.id, role=ProjectRole.OWNER))
     session.commit()
     agent_session = create_agent_session(
         session,

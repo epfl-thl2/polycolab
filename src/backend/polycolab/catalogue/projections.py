@@ -1,4 +1,4 @@
-"""Explicit release-only public catalogue projections, never workspace DTOs."""
+"""Explicit release-only public catalogue projections, never project DTOs."""
 
 from __future__ import annotations
 

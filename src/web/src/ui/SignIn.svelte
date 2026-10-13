@@ -9,7 +9,7 @@
   let {
     auth,
     mode = 'signin',
-    returnTo = '/workspaces',
+    returnTo = '/projects',
     onSignedIn,
   }: {
     auth: Auth;

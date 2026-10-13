@@ -28,14 +28,14 @@ test('M1 real worker writes publicly without private transcript or research disc
     reported_status: 'OPEN',
     reason: 'Human admission',
   });
-  const reference = await post(request, '/api/v1/workspace-references', {
+  const reference = await post(request, '/api/v1/project-references', {
     object_version_id: entry.object_version_id,
-    workspace_name: 'M1 private investigation',
+    project_name: 'M1 private investigation',
     reason: 'Investigate privately',
   });
   const privateMarker = `PRIVATE-CONTEXT-${crypto.randomUUID()}`;
   const privateReceipt = await post(request, '/api/v1/objects', {
-    destination: { kind: 'workspace', workspace_id: reference.workspace_id },
+    destination: { kind: 'project', project_id: reference.project_id },
     snapshot: {
       kind: 'NOTE',
       content: {
@@ -57,7 +57,7 @@ test('M1 real worker writes publicly without private transcript or research disc
       output.entity_type === 'RESEARCH_OBJECT',
   ).entity_id;
   const session = await post(request, '/api/v1/agent-sessions', {
-    workspace_id: reference.workspace_id,
+    project_id: reference.project_id,
     agent_kind: 'RESEARCHER',
     agent_version: 2,
   });
@@ -92,7 +92,7 @@ test('M1 real worker writes publicly without private transcript or research disc
   });
   await completed(privateTurn.run.id);
   const proposalsResponse = await request.get(
-    `${apiUrl}/api/v1/workspaces/${reference.workspace_id}/proposals`,
+    `${apiUrl}/api/v1/projects/${reference.project_id}/proposals`,
     { headers: human },
   );
   expect(proposalsResponse.ok(), await proposalsResponse.text()).toBeTruthy();
@@ -165,12 +165,12 @@ test('M1 real worker writes publicly without private transcript or research disc
       privateMarker,
       privateObjectId,
       privateVersionId,
-      reference.workspace_id,
+      reference.project_id,
       session.id,
     ])
       expect(value).not.toContain(secret);
   }
-  for (const field of ['session_id', 'run_id', 'workspace_id', 'context_manifest_id'])
+  for (const field of ['session_id', 'run_id', 'project_id', 'context_manifest_id'])
     expect(record).not.toHaveProperty(field);
   expect((await request.get(`${apiUrl}/api/v1/versions/${privateVersionId}`)).status()).toBe(404);
   await page.goto(`/commons/records/${record.id}`);

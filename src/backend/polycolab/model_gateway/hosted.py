@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
-from polycolab.access.authorization import WorkspaceAction, workspace_policy
+from polycolab.access.authorization import ProjectAction, project_policy
 from polycolab.agents.runtime.spec import RuntimeSpec
 from polycolab.agents.sessions import _append_event_locked, _require_live_lease
 from polycolab.db.models import (
@@ -159,11 +159,11 @@ def prepare(
             .with_for_update()
         )
         _require_live_lease(run, worker_id=worker_id, lease_generation=generation, now=utc_now())
-        if run.status != AgentRunStatus.RUNNING or not workspace_policy.can(
+        if run.status != AgentRunStatus.RUNNING or not project_policy.can(
             SqlAlchemyTransaction(session),
             run.project_id,
             run.requested_by_user_id,
-            WorkspaceAction.RUN_AGENTS,
+            ProjectAction.RUN_AGENTS,
         ):
             raise ProviderFailure("authorization_revoked")
         spec = RuntimeSpec.model_validate(run.runtime_spec)
@@ -247,11 +247,11 @@ def authorize_delivery(request: Request, run_id: UUID, worker_id: str, generatio
             or profile is None
             or profile.deleted_at is not None
             or profile.credential_version != run.gateway_credential_version
-            or not workspace_policy.can(
+            or not project_policy.can(
                 SqlAlchemyTransaction(session),
                 run.project_id,
                 run.requested_by_user_id,
-                WorkspaceAction.RUN_AGENTS,
+                ProjectAction.RUN_AGENTS,
             )
         ):
             raise ProviderFailure("authorization_revoked")

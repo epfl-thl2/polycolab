@@ -1,4 +1,4 @@
-import { plainFileEditor } from '../helpers/workspace-editor';
+import { plainFileEditor } from '../helpers/project-editor';
 import { expect, test } from '@playwright/test';
 import { createHash } from 'node:crypto';
 
@@ -15,14 +15,14 @@ test('local service supports accounts, research, Library copies, activity and up
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByLabel('Confirm password', { exact: true }).fill(password);
   await page.getByRole('main').getByRole('button', { name: 'Create account', exact: true }).click();
-  await expect(page).toHaveURL(/\/workspaces$/);
-  const headers = { Origin: baseURL!, 'Idempotency-Key': `workspace-${username}` };
-  const workspace = await page.request.post('/api/v1/workspaces', {
+  await expect(page).toHaveURL(/\/projects$/);
+  const headers = { Origin: baseURL!, 'Idempotency-Key': `project-${username}` };
+  const projectResponse = await page.request.post('/api/v1/projects', {
     headers,
     data: { name: 'Local browser research', visibility: 'PUBLIC' },
   });
-  expect(workspace.status()).toBe(201);
-  const project = await workspace.json();
+  expect(projectResponse.status()).toBe(201);
+  const project = await projectResponse.json();
   const snapshot = {
     kind: 'STATEMENT',
     content: {
@@ -38,7 +38,7 @@ test('local service supports accounts, research, Library copies, activity and up
   const record = await page.request.post('/api/v1/objects', {
     headers,
     data: {
-      destination: { kind: 'workspace', workspace_id: project.id },
+      destination: { kind: 'project', project_id: project.id },
       snapshot,
     },
   });
@@ -49,7 +49,7 @@ test('local service supports accounts, research, Library copies, activity and up
     id: outputs.find((output) => output.entity_type === 'RESEARCH_OBJECT')!.entity_id,
     object_version_id: outputs.find((output) => output.entity_type === 'OBJECT_VERSION')!.entity_id,
   };
-  await page.goto(`/workspaces/${project.id}/objects/${object.id}`);
+  await page.goto(`/projects/${project.id}/objects/${object.id}`);
   await expect(
     page.getByRole('heading', { name: 'Persistent browser claim', exact: true }).first(),
   ).toBeVisible();
@@ -72,7 +72,7 @@ test('local service supports accounts, research, Library copies, activity and up
   const current = await (await page.request.get(`/api/v1/objects/${object.id}`)).json();
   const bytes = Buffer.from('Local browser evidence');
   const upload = await page.request.post(
-    `/api/v1/artifacts?workspace_id=${project.id}&sha256=${createHash('sha256').update(bytes).digest('hex')}&byte_length=${bytes.length}`,
+    `/api/v1/artifacts?project_id=${project.id}&sha256=${createHash('sha256').update(bytes).digest('hex')}&byte_length=${bytes.length}`,
     { headers, data: bytes },
   );
   expect(upload.status()).toBe(201);
@@ -102,9 +102,9 @@ test('local service supports accounts, research, Library copies, activity and up
   });
   expect(admission.status()).toBe(201);
   const entry = await admission.json();
-  const copy = await page.request.post('/api/v1/workspace-copies', {
+  const copy = await page.request.post('/api/v1/project-copies', {
     headers,
-    data: { workspace_id: project.id, source_object_version_id: entry.object_version_id },
+    data: { project_id: project.id, source_object_version_id: entry.object_version_id },
   });
   expect(copy.status()).toBe(201);
   expect((await copy.json()).object_id).not.toBe(entry.entry_id);
@@ -114,7 +114,7 @@ test('local service supports accounts, research, Library copies, activity and up
   await expect(page.getByText('Edited browser claim', { exact: true }).first()).toBeVisible();
   // A separate cookie jar cannot read an unattached staging artifact.
   const staging = await page.request.post(
-    `/api/v1/artifacts?workspace_id=${project.id}&sha256=${createHash('sha256').update(bytes).digest('hex')}&byte_length=${bytes.length}`,
+    `/api/v1/artifacts?project_id=${project.id}&sha256=${createHash('sha256').update(bytes).digest('hex')}&byte_length=${bytes.length}`,
     { headers: { ...headers, 'Idempotency-Key': `staging-${username}` }, data: bytes },
   );
   const staged = await staging.json();
@@ -131,15 +131,15 @@ test('native worktrees save without committing, retain drafts, and commit explic
   await page.getByLabel('Password', { exact: true }).fill('local-browser-test-password');
   await page.getByLabel('Confirm password', { exact: true }).fill('local-browser-test-password');
   await page.getByRole('main').getByRole('button', { name: 'Create account', exact: true }).click();
-  await expect(page).toHaveURL(/\/workspaces$/);
-  const created = await page.request.post('/api/v1/workspaces', {
+  await expect(page).toHaveURL(/\/projects$/);
+  const created = await page.request.post('/api/v1/projects', {
     headers: { Origin: baseURL! },
     data: { name: 'Native worktrees', visibility: 'PRIVATE' },
   });
   expect(created.status(), await created.text()).toBe(201);
   const project = await created.json();
-  const root = `/api/v1/workspaces/${project.id}/worktrees`;
-  await page.goto(`/workspaces/${project.id}/files`);
+  const root = `/api/v1/projects/${project.id}/worktrees`;
+  await page.goto(`/projects/${project.id}/files`);
   await page.getByRole('button', { name: 'New worktree', exact: true }).click();
   await page.getByLabel('Worktree name', { exact: true }).fill('Experiment');
   await expect(page.getByLabel('Branch name', { exact: true })).toHaveValue('experiment');

@@ -46,9 +46,9 @@ from polycolab.entities.enums import (
 )
 from polycolab.platform.config import Settings
 from polycolab.platform.outbox import append_event, canonical_digest
+from polycolab.projects.service import DomainConflict
 from polycolab.research.contributions import human_contribution, link_output
 from polycolab.research.objects import ResearchNotFound, add_revision_metadata, create_object
-from polycolab.workspaces.service import DomainConflict
 
 
 def _human(session: Session, actor: Actor) -> SqlUser:

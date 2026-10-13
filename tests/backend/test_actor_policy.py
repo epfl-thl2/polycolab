@@ -18,11 +18,11 @@ from polycolab.access.authorization import (
     require_manage_credentials,
     require_manage_members,
     require_moderation,
+    require_project_management,
+    require_project_write,
     require_proposal_review,
     require_public_participation,
     require_publication,
-    require_workspace_management,
-    require_workspace_write,
 )
 from polycolab.accounts.authentication import Principal, human_actor_from_verified_principal
 from polycolab.db.models import SqlUser
@@ -50,7 +50,7 @@ def delegated_agent(*operations: ActorOperation, project_id: UUID | None = None)
         require_catalogue_promotion,
         require_catalogue_edit,
         require_publication,
-        require_workspace_management,
+        require_project_management,
         require_manage_members,
         require_manage_credentials,
         require_moderation,
@@ -76,11 +76,11 @@ def test_agent_never_inherits_human_only_authority(
 
 def test_scoped_agent_operations_require_the_granted_operation_and_project() -> None:
     project_id = uuid4()
-    agent = delegated_agent(ActorOperation.WORKSPACE_WRITE, project_id=project_id)
-    require_workspace_write(agent, project_id=project_id)
+    agent = delegated_agent(ActorOperation.PROJECT_WRITE, project_id=project_id)
+    require_project_write(agent, project_id=project_id)
 
     with pytest.raises(AuthorizationDenied):
-        require_workspace_write(agent, project_id=uuid4())
+        require_project_write(agent, project_id=uuid4())
     with pytest.raises(AuthorizationDenied):
         require_contribution_creation(agent, project_id=project_id)
     with pytest.raises(AuthorizationDenied):
@@ -116,7 +116,7 @@ def test_human_actor_is_constructed_from_verified_identity_only() -> None:
 
 def test_request_actor_kind_is_rejected_at_http_boundaries(client: TestClient) -> None:
     project = client.post(
-        "/api/v1/workspaces",
+        "/api/v1/projects",
         headers={"Authorization": "Bearer owner"},
         json={"visibility": "PRIVATE", "name": "authority", "actor_kind": "AGENT"},
     )
@@ -146,7 +146,7 @@ def test_shared_research_writer_rejects_a_delegated_actor(client: TestClient) ->
                     issuer="https://issuer.example",
                     subject="sponsor",
                 ),
-                actor=delegated_agent(ActorOperation.WORKSPACE_WRITE),
+                actor=delegated_agent(ActorOperation.PROJECT_WRITE),
             )
     finally:
         session.close()

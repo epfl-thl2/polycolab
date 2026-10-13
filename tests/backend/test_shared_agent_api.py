@@ -9,8 +9,8 @@ from polycolab.db.models import SqlExternalAgentCredential, SqlExternalResearchR
 
 
 def test_retained_run_history_uses_object_version_inputs(client: TestClient) -> None:
-    workspace, secret = setup(client)
-    response = client.post("/api/v1/objects", headers=headers(secret), json=body(workspace["id"]))
+    project, secret = setup(client)
+    response = client.post("/api/v1/objects", headers=headers(secret), json=body(project["id"]))
     assert response.status_code == 201, response.text
     version_id = next(
         output["entity_id"]
@@ -21,7 +21,7 @@ def test_retained_run_history_uses_object_version_inputs(client: TestClient) -> 
         credential = session.query(SqlExternalAgentCredential).one()
         historical = SqlExternalResearchRun(
             credential_id=credential.id,
-            project_id=UUID(workspace["id"]),
+            project_id=UUID(project["id"]),
             sponsor_user_id=credential.sponsor_user_id,
             client_request_id=uuid4(),
             input_revision_ids=[version_id],
@@ -49,12 +49,12 @@ def headers(token: str = "owner", key: str = "write") -> dict[str, str]:
 
 
 def setup(client: TestClient) -> tuple[dict[str, Any], str]:
-    workspace = client.post(
-        "/api/v1/workspaces",
+    project = client.post(
+        "/api/v1/projects",
         headers=headers(),
         json={"visibility": "PRIVATE", "name": "Private research"},
     )
-    assert workspace.status_code == 201
+    assert project.status_code == 201
     identity = client.post(
         "/api/v1/account/agents", headers=headers(), json={"name": "Research agent"}
     )
@@ -64,12 +64,12 @@ def setup(client: TestClient) -> tuple[dict[str, Any], str]:
         json={"name": "Key", "agent_id": identity.json()["id"]},
     )
     assert key.status_code == 201, key.text
-    return cast(dict[str, Any], workspace.json()), str(key.json()["secret"])
+    return cast(dict[str, Any], project.json()), str(key.json()["secret"])
 
 
-def body(workspace: str) -> dict[str, Any]:
+def body(project: str) -> dict[str, Any]:
     return {
-        "destination": {"kind": "workspace", "workspace_id": workspace},
+        "destination": {"kind": "project", "project_id": project},
         "snapshot": {
             "kind": "STATEMENT",
             "content": {
@@ -86,12 +86,12 @@ def body(workspace: str) -> dict[str, Any]:
 
 
 def test_account_key_reads_future_memberships_and_writes_without_run(client: TestClient) -> None:
-    workspace, secret = setup(client)
+    project, secret = setup(client)
     future = client.post(
-        "/api/v1/workspaces", headers=headers(), json={"visibility": "PRIVATE", "name": "Future"}
+        "/api/v1/projects", headers=headers(), json={"visibility": "PRIVATE", "name": "Future"}
     ).json()
-    listed = client.get("/api/v1/workspaces?scope=member", headers=headers(secret))
-    assert {row["id"] for row in listed.json()["items"]} == {workspace["id"], future["id"]}
+    listed = client.get("/api/v1/projects?scope=member", headers=headers(secret))
+    assert {row["id"] for row in listed.json()["items"]} == {project["id"], future["id"]}
     written = client.post("/api/v1/objects", headers=headers(secret), json=body(future["id"]))
     assert written.status_code == 201, written.text
     assert written.json()["contribution_id"]
@@ -99,8 +99,8 @@ def test_account_key_reads_future_memberships_and_writes_without_run(client: Tes
 
 
 def test_replay_conflict_and_revocation_authorize_before_receipt(client: TestClient) -> None:
-    workspace, secret = setup(client)
-    payload = body(workspace["id"])
+    project, secret = setup(client)
+    payload = body(project["id"])
     first = client.post("/api/v1/objects", headers=headers(secret), json=payload)
     assert first.status_code == 201
     before = client.get("/api/v1/me", headers=headers(secret)).json()
@@ -141,7 +141,7 @@ def test_exhaustion_is_429_but_identity_remains_available(client: TestClient) ->
         assert key
         key.request_count = key.max_requests
         session.commit()
-    assert client.get("/api/v1/workspaces", headers=headers(secret)).status_code == 429
+    assert client.get("/api/v1/projects", headers=headers(secret)).status_code == 429
     assert client.get("/api/v1/me", headers=headers(secret)).status_code == 200
 
 
@@ -178,15 +178,15 @@ def test_keys_and_identities_are_human_owned(client: TestClient) -> None:
 def test_invalid_bearer_never_downgrades_to_anonymous(client: TestClient) -> None:
     setup(client)
     for token in ["pca_invalid", "unknown"]:
-        assert client.get("/api/v1/workspaces", headers=headers(token)).status_code == 401
+        assert client.get("/api/v1/projects", headers=headers(token)).status_code == 401
 
 
 def test_history_cursor_is_bound_to_filters(client: TestClient) -> None:
-    workspace, secret = setup(client)
+    project, secret = setup(client)
     for index in range(3):
         assert (
             client.post(
-                "/api/v1/objects", headers=headers(secret, str(index)), json=body(workspace["id"])
+                "/api/v1/objects", headers=headers(secret, str(index)), json=body(project["id"])
             ).status_code
             == 201
         )
@@ -209,11 +209,11 @@ def test_history_cursor_is_bound_to_filters(client: TestClient) -> None:
 
 
 def test_external_run_creation_and_closure_are_retired(client: TestClient) -> None:
-    workspace, secret = setup(client)
+    project, secret = setup(client)
     assert client.post(
         "/api/v1/runs",
         headers=headers(secret),
-        json={"workspace_id": workspace["id"], "client_request_id": str(uuid4())},
+        json={"project_id": project["id"], "client_request_id": str(uuid4())},
     ).status_code in {404, 405}
     assert client.post(
         f"/api/v1/runs/{uuid4()}/close", headers=headers(secret), json={"status": "COMPLETED"}
@@ -222,7 +222,7 @@ def test_external_run_creation_and_closure_are_retired(client: TestClient) -> No
         client.post(
             "/api/v1/objects",
             headers={"Authorization": f"Bearer {secret}"},
-            json=body(workspace["id"]),
+            json=body(project["id"]),
         ).status_code
         == 422
     )
@@ -231,14 +231,14 @@ def test_external_run_creation_and_closure_are_retired(client: TestClient) -> No
 def test_membership_loss_filters_history_and_denies_replay(client: TestClient) -> None:
     from test_research_domain import current_user_id
 
-    workspace, secret = setup(client)
+    project, secret = setup(client)
     other = client.post(
-        "/api/v1/workspaces",
+        "/api/v1/projects",
         headers=headers("contributor"),
         json={"visibility": "PRIVATE", "name": "Other"},
     ).json()
     owner = current_user_id(client, "owner")
-    member_path = f"/api/v1/workspaces/{other['id']}/members"
+    member_path = f"/api/v1/projects/{other['id']}/members"
     assert (
         client.post(
             member_path,
@@ -262,17 +262,17 @@ def test_membership_loss_filters_history_and_denies_replay(client: TestClient) -
     assert (
         client.post(
             "/api/v1/objects",
-            headers=headers(secret, "other-workspace"),
-            json=body(workspace["id"]),
+            headers=headers(secret, "other-project"),
+            json=body(project["id"]),
         ).status_code
         == 201
     )
 
 
 def test_contribution_outputs_are_exact_and_private(client: TestClient) -> None:
-    workspace, secret = setup(client)
+    project, secret = setup(client)
     receipt = client.post(
-        "/api/v1/objects", headers=headers(secret), json=body(workspace["id"])
+        "/api/v1/objects", headers=headers(secret), json=body(project["id"])
     ).json()
     path = f"/api/v1/contributions/{receipt['contribution_id']}"
     read = client.get(path, headers=headers(secret))
@@ -291,12 +291,12 @@ def test_staging_is_owned_by_stable_agent_across_key_rotation(client: TestClient
 
     from polycolab.artifacts.storage import GarageStorage
 
-    workspace, secret = setup(client)
+    project, secret = setup(client)
     app = cast(Any, client.app)
     app.state.artifact_storage = GarageStorage(MemoryS3(), "test")
     identity = client.get("/api/v1/me", headers=headers(secret)).json()["agent_id"]
     params = {
-        "workspace_id": workspace["id"],
+        "project_id": project["id"],
         "sha256": hashlib.sha256(b"abc").hexdigest(),
         "byte_length": 3,
     }
@@ -324,16 +324,16 @@ def test_staging_is_owned_by_stable_agent_across_key_rotation(client: TestClient
 
 
 def test_archiving_preserves_member_history_and_denies_new_writes(client: TestClient) -> None:
-    workspace, secret = setup(client)
+    project, secret = setup(client)
     assert (
         client.post(
-            "/api/v1/objects", headers=headers(secret), json=body(workspace["id"])
+            "/api/v1/objects", headers=headers(secret), json=body(project["id"])
         ).status_code
         == 201
     )
     assert (
         client.patch(
-            f"/api/v1/workspaces/{workspace['id']}", headers=headers(), json={"archived": True}
+            f"/api/v1/projects/{project['id']}", headers=headers(), json={"archived": True}
         ).status_code
         == 200
     )
@@ -343,7 +343,7 @@ def test_archiving_preserves_member_history_and_denies_new_writes(client: TestCl
     )
     assert (
         client.post(
-            "/api/v1/objects", headers=headers(secret, "after-archive"), json=body(workspace["id"])
+            "/api/v1/objects", headers=headers(secret, "after-archive"), json=body(project["id"])
         ).status_code
         == 403
     )

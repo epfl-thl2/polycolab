@@ -6,14 +6,14 @@
   import { Textarea } from '../lib/components/ui/textarea';
   import { toStore } from 'svelte/store';
   import { createInfiniteQuery } from '@tanstack/svelte-query';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import Markdown from './Markdown.svelte';
   let {
     objectId,
     revisionId,
     canWrite,
   }: { objectId: string; revisionId: string; canWrite: boolean } = $props();
-  const { api, query } = workspace();
+  const { api, query } = projectContext();
   let text = $state('');
   let busy = $state(false);
   let error = $state('');

@@ -33,7 +33,7 @@
     | 'activity'
     | 'explore'
     | 'docs'
-    | 'workspaces'
+    | 'projects'
     | 'profile'
     | 'settings'
     | 'moderation';
@@ -43,18 +43,18 @@
     active,
     projectName,
     projectVisibility,
-    workspaceSidebarWidth,
-    workspaceRightWidth,
-    workspaceRightHandle = 0,
-    workspacePanelMaximized = false,
-    workspaceResizing = false,
+    projectSidebarWidth,
+    projectRightWidth,
+    projectRightHandle = 0,
+    projectPanelMaximized = false,
+    projectResizing = false,
     sidebarCollapsed = false,
     onToggleSidebar,
     onToggleRightPanel,
-    workspaceSettingsHref,
-    workspaceSettingsActive = false,
-    workspaceAgentConnectHref,
-    workspaceAgentConnectActive = false,
+    projectSettingsHref,
+    projectSettingsActive = false,
+    projectAgentConnectHref,
+    projectAgentConnectActive = false,
     children,
     currentPath,
   }: {
@@ -63,18 +63,18 @@
     active?: Destination;
     projectName?: string;
     projectVisibility?: string;
-    workspaceSidebarWidth?: number;
-    workspaceRightWidth?: number;
-    workspaceRightHandle?: number;
-    workspacePanelMaximized?: boolean;
-    workspaceResizing?: boolean;
+    projectSidebarWidth?: number;
+    projectRightWidth?: number;
+    projectRightHandle?: number;
+    projectPanelMaximized?: boolean;
+    projectResizing?: boolean;
     sidebarCollapsed?: boolean;
     onToggleSidebar?: () => void;
     onToggleRightPanel?: () => void;
-    workspaceSettingsHref?: string;
-    workspaceSettingsActive?: boolean;
-    workspaceAgentConnectHref?: string;
-    workspaceAgentConnectActive?: boolean;
+    projectSettingsHref?: string;
+    projectSettingsActive?: boolean;
+    projectAgentConnectHref?: string;
+    projectAgentConnectActive?: boolean;
     currentPath?: string;
   } = $props();
 
@@ -89,9 +89,9 @@
     return () => clearTimeout(docsMenuCloseTimer);
   });
   const destination = $derived(currentPath ?? initialPath);
-  const returnTo = $derived(destination === '/' ? '/workspaces' : destination);
-  const workspaceMode = $derived(Boolean(projectName));
-  const workspacesHref = $derived(auth.signedIn ? '/workspaces' : '/workspaces?scope=public');
+  const returnTo = $derived(destination === '/' ? '/projects' : destination);
+  const projectMode = $derived(Boolean(projectName));
+  const projectsHref = $derived(auth.signedIn ? '/projects' : '/projects?scope=public');
   const initials = $derived(
     auth.label
       .split(/\s+/)
@@ -122,8 +122,8 @@
                         ? 'Profile'
                         : active === 'moderation'
                           ? 'Moderation'
-                          : active === 'workspaces'
-                            ? 'Workspaces'
+                          : active === 'projects'
+                            ? 'Projects'
                             : 'Home'),
   );
 
@@ -151,24 +151,22 @@
 
 <header
   class="product-header"
-  class:product-header-workspace={workspaceMode}
-  class:product-header-workspace-collapsed={workspaceMode && sidebarCollapsed}
-  class:product-header-workspace-resizing={workspaceMode && workspaceResizing}
-  class:product-header-workspace-maximized={workspaceMode && workspacePanelMaximized}
+  class:product-header-project={projectMode}
+  class:product-header-project-collapsed={projectMode && sidebarCollapsed}
+  class:product-header-project-resizing={projectMode && projectResizing}
+  class:product-header-project-maximized={projectMode && projectPanelMaximized}
 >
   <div
     class="product-header-inner"
-    class:product-header-inner-workspace={workspaceMode}
+    class:product-header-inner-project={projectMode}
     class:product-header-with-search={Boolean(children)}
-    style:--workspace-sidebar-width={workspaceSidebarWidth
-      ? `${workspaceSidebarWidth}px`
+    style:--project-sidebar-width={projectSidebarWidth ? `${projectSidebarWidth}px` : undefined}
+    style:--project-right-width={projectRightWidth !== undefined
+      ? `${projectRightWidth}px`
       : undefined}
-    style:--workspace-right-width={workspaceRightWidth !== undefined
-      ? `${workspaceRightWidth}px`
-      : undefined}
-    style:--workspace-right-handle={`${workspaceRightHandle}px`}
+    style:--project-right-handle={`${projectRightHandle}px`}
   >
-    <div class="product-header-brand" class:product-workspace-brand={workspaceMode}>
+    <div class="product-header-brand" class:product-project-brand={projectMode}>
       <a
         class="product-brand"
         href="/"
@@ -180,11 +178,11 @@
         </span>
         <BrandWordmark descriptionId="product-development-status" />
       </a>
-      {#if workspaceMode && onToggleSidebar}<Button
+      {#if projectMode && onToggleSidebar}<Button
           type="button"
           variant="ghost"
           size="icon-sm"
-          class="product-workspace-collapse"
+          class="product-project-collapse"
           aria-label={sidebarCollapsed ? 'Expand left sidebar' : 'Collapse left sidebar'}
           title={sidebarCollapsed ? 'Expand navigation' : 'Collapse navigation'}
           aria-expanded={!sidebarCollapsed}
@@ -192,16 +190,16 @@
         >{/if}
     </div>
 
-    {#if workspaceMode}
-      <nav class="product-breadcrumb" aria-label="Workspace breadcrumb">
-        <a href={workspacesHref}>Workspaces</a><span aria-hidden="true">/</span>
+    {#if projectMode}
+      <nav class="product-breadcrumb" aria-label="Project breadcrumb">
+        <a href={projectsHref}>Projects</a><span aria-hidden="true">/</span>
         <strong>{projectName}</strong>
         {#if projectVisibility}<span class="product-visibility">{projectVisibility}</span>{/if}
         {#if onToggleRightPanel}<Button
             type="button"
             variant="ghost"
             size="icon-sm"
-            class="product-workspace-expand-panel"
+            class="product-project-expand-panel"
             aria-label="Expand panel"
             title="Expand panel"
             onclick={onToggleRightPanel}
@@ -220,10 +218,9 @@
         {@render children()}
       </div>{/if}
 
-    {#if !workspaceMode}<nav class="product-navigation" aria-label="Main navigation">
+    {#if !projectMode}<nav class="product-navigation" aria-label="Main navigation">
         <a href="/library" aria-current={active === 'explore' ? 'page' : undefined}>Library</a>
-        <a href={workspacesHref} aria-current={active === 'workspaces' ? 'page' : undefined}
-          >Workspaces</a
+        <a href={projectsHref} aria-current={active === 'projects' ? 'page' : undefined}>Projects</a
         >
         <a href="/activity" aria-current={active === 'activity' ? 'page' : undefined}>Activity</a>
         <a href="/chat" aria-current={active === 'chat' ? 'page' : undefined}
@@ -272,21 +269,21 @@
       </nav>{/if}
 
     <div class="product-header-account">
-      {#if workspaceMode && workspaceAgentConnectHref}<a
-          class="product-workspace-settings"
-          href={workspaceAgentConnectHref}
+      {#if projectMode && projectAgentConnectHref}<a
+          class="product-project-settings"
+          href={projectAgentConnectHref}
           title={sidebarCollapsed ? 'Agent connect' : undefined}
-          aria-current={workspaceAgentConnectActive ? 'page' : undefined}
+          aria-current={projectAgentConnectActive ? 'page' : undefined}
           ><Plug class="size-4 shrink-0" aria-hidden="true" /><span>Agent connect</span></a
         >{/if}
-      {#if workspaceMode && workspaceSettingsHref}<a
-          class="product-workspace-settings"
-          href={workspaceSettingsHref}
-          title={sidebarCollapsed ? 'Workspace settings' : undefined}
-          aria-current={workspaceSettingsActive ? 'page' : undefined}
-          ><Settings class="size-4 shrink-0" aria-hidden="true" /><span>Workspace settings</span></a
+      {#if projectMode && projectSettingsHref}<a
+          class="product-project-settings"
+          href={projectSettingsHref}
+          title={sidebarCollapsed ? 'Project settings' : undefined}
+          aria-current={projectSettingsActive ? 'page' : undefined}
+          ><Settings class="size-4 shrink-0" aria-hidden="true" /><span>Project settings</span></a
         >{/if}
-      <div class="product-workspace-account-box">
+      <div class="product-project-account-box">
         {#if !auth.loaded}
           <div class="product-account-loading" role="status" aria-label="Checking account">
             <span class="product-account-placeholder" aria-hidden="true"></span>
@@ -302,15 +299,14 @@
               <Avatar.Root class="size-7" aria-hidden="true"
                 ><Avatar.Fallback class="text-xs">{initials}</Avatar.Fallback></Avatar.Root
               >
-              {#if workspaceMode}<span class="product-workspace-account-label">{auth.label}</span
-                >{/if}
+              {#if projectMode}<span class="product-project-account-label">{auth.label}</span>{/if}
             </DropdownMenu.Trigger>
 
             <DropdownMenu.Content
               class="w-60"
-              side={workspaceMode ? 'top' : 'bottom'}
+              side={projectMode ? 'top' : 'bottom'}
               sideOffset={8}
-              align={workspaceMode ? 'start' : 'end'}
+              align={projectMode ? 'start' : 'end'}
               preventScroll={false}
             >
               <AccountMenu {auth} {active} {destination} onSignOut={() => void signOut()} />
@@ -318,7 +314,7 @@
           </DropdownMenu.Root>
         {:else}
           <div class="product-auth-actions">
-            {#if workspaceMode}
+            {#if projectMode}
               <Button
                 href={accountHref('signin', returnTo)}
                 variant="ghost"
@@ -363,7 +359,7 @@
               >Navigate</DropdownMenu.GroupHeading
             >
             {@render menuLink('/library', 'Library', active === 'explore')}
-            {@render menuLink(workspacesHref, 'Workspaces', active === 'workspaces')}
+            {@render menuLink(projectsHref, 'Projects', active === 'projects')}
             {@render menuLink('/activity', 'Activity', active === 'activity')}
             {@render menuLink('/chat', 'Chat', active === 'chat')}
             <DropdownMenu.Separator />
@@ -410,7 +406,7 @@
             aria-hidden="true"
           />{:else if href === '/moderation'}<ShieldCheck
             aria-hidden="true"
-          />{:else if href === '/workspaces'}<FolderOpen
+          />{:else if href === '/projects'}<FolderOpen
             aria-hidden="true"
           />{:else if href === '/agents'}<Bot
             aria-hidden="true"

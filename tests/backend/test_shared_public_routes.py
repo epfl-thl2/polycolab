@@ -33,7 +33,7 @@ def test_route_inventory_has_no_public_namespace_or_duplicate_operations(
         "/api/v1/public/catalogue",
         "/api/v1/public/records",
         "/api/v1/public/discovery",
-        "/public/workspaces",
+        "/public/projects",
         "/public/catalogue/example",
         "/public/records/example",
     ],
@@ -49,9 +49,9 @@ def test_public_and_member_reads_share_routes_without_sharing_private_data(
 ) -> None:
     enable(client)
     entry = admit(client)
-    workspace, secret = setup(client)
+    project, secret = setup(client)
     created = client.post(
-        "/api/v1/objects", headers=headers(secret), json=body(workspace["id"])
+        "/api/v1/objects", headers=headers(secret), json=body(project["id"])
     ).json()
     object_id, revision_id = [row["entity_id"] for row in created["outputs"]]
     for path in [
@@ -71,13 +71,11 @@ def test_public_and_member_reads_share_routes_without_sharing_private_data(
     assert client.get(exact, headers=headers("outsider")).status_code == 404
     assert client.get(exact, headers=headers(secret)).status_code == 200
     assert (
-        client.get(
-            exact, headers=headers(secret), params={"workspace_id": str(uuid4())}
-        ).status_code
+        client.get(exact, headers=headers(secret), params={"project_id": str(uuid4())}).status_code
         == 404
     )
     for path in ["/api/v1/records", "/api/v1/discovery"]:
-        params = {"scope": "member", "workspace_id": workspace["id"]}
+        params = {"scope": "member", "project_id": project["id"]}
         assert client.get(path, params=params).status_code == 401
         assert client.get(path, params=params, headers=headers("outsider")).status_code in (
             403,

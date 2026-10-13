@@ -4,12 +4,12 @@
   import { Button } from '../lib/components/ui/button';
   import { onMount } from 'svelte';
   import type { components } from '$lib/api-client';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import { mapPublicationFields, mapPublicPublicationManifest } from '../lib/publication-mappers';
   import PublicationHistory from './PublicationHistory.svelte';
 
   let { manifestId }: { manifestId: string } = $props();
-  const { publication } = workspace();
+  const { publication } = projectContext();
   let manifest = $state<components['schemas']['PublicPublicationVersionManifestRead']>();
   let error = $state('');
 

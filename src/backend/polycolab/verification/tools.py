@@ -122,7 +122,7 @@ def authorize(
         run.requested_by_user_id != user_id
         or run.project_id != project_id
         or grant is None
-        or grant.destination != "WORKSPACE"
+        or grant.destination != "PROJECT"
         or "RUN_VERIFICATION" not in grant.allowed_operations
     ):
         raise AuthorizationDenied("verification destination not granted")

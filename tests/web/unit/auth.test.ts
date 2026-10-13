@@ -160,7 +160,7 @@ describe('OIDC return paths', () => {
     expect(safeReturnPath(value, 'https://polycolab.example')).toBe(expected);
   });
 
-  it('requests the identity provider signup screen and returns to workspaces', async () => {
+  it('requests the identity provider signup screen and returns to projects', async () => {
     const signinRedirect = vi.fn().mockResolvedValue(undefined);
     const auth = new Auth(() => {});
     auth.manager = { signinRedirect } as unknown as NonNullable<typeof auth.manager>;
@@ -168,7 +168,7 @@ describe('OIDC return paths', () => {
     await auth.signUp();
 
     expect(signinRedirect).toHaveBeenCalledWith({
-      state: { returnTo: '/workspaces' },
+      state: { returnTo: '/projects' },
       extraQueryParams: { screen_hint: 'signup' },
     });
   });

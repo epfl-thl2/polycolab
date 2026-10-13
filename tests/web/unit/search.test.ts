@@ -34,16 +34,16 @@ it('paginates submitted queries independently of unsubmitted edits', async () =>
   expect(view.search).toHaveBeenLastCalledWith({ q: 'geometry', cursor: 'next' });
 });
 
-it('keeps workspace results usable when research search returns 404', async () => {
+it('keeps project results usable when research search returns 404', async () => {
   const view = setup();
   view.search.mockRejectedValue({ status: 404 });
   view.listPublicProjects.mockResolvedValue({
-    items: [{ id: 'workspace-1', name: 'Spectral gaps', description: 'Expansion' }],
+    items: [{ id: 'project-1', name: 'Spectral gaps', description: 'Expansion' }],
   });
   await view.rerender({ query: 'spectral' });
   expect((await screen.findByRole('alert')).textContent).toContain('404');
   expect(screen.getByRole('link', { name: 'Spectral gaps' }).getAttribute('href')).toBe(
-    '/workspaces/workspace-1',
+    '/projects/project-1',
   );
   expect(screen.queryByText('No matching research')).toBeNull();
 });
@@ -60,7 +60,7 @@ it('ignores stale results when the URL query changes', async () => {
   await view.rerender({ query: 'old' });
   await waitFor(() => expect(view.listPublicProjects).toHaveBeenCalledWith('old', undefined));
   await view.rerender({ query: 'new' });
-  await waitFor(() => expect(screen.getByText('No matching workspaces')).toBeTruthy());
+  await waitFor(() => expect(screen.getByText('No matching projects')).toBeTruthy());
   resolveOld({ items: [{ id: 'old', name: 'Obsolete result' }] });
   await Promise.resolve();
   expect(screen.queryByText('Obsolete result')).toBeNull();

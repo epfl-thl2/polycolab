@@ -1,4 +1,4 @@
-"""Git workspace helpers inside the untrusted guest; never hold service credentials."""
+"""Git project helpers inside the untrusted guest; never hold service credentials."""
 
 from __future__ import annotations
 
@@ -15,10 +15,10 @@ def git(directory: Path, *arguments: str) -> str:
         "GIT_CONFIG_NOSYSTEM": "1",
         "GIT_CONFIG_GLOBAL": os.devnull,
         "GIT_TERMINAL_PROMPT": "0",
-        "GIT_AUTHOR_NAME": "Workspace agent",
+        "GIT_AUTHOR_NAME": "Project agent",
         "GIT_AUTHOR_EMAIL": "agent@polycolab.invalid",
         "GIT_COMMITTER_NAME": "Polycolab",
-        "GIT_COMMITTER_EMAIL": "workspace@polycolab.invalid",
+        "GIT_COMMITTER_EMAIL": "project@polycolab.invalid",
     }
     return (
         subprocess.run(
@@ -46,42 +46,42 @@ def git(directory: Path, *arguments: str) -> str:
 
 
 def checkout(
-    inputs: Path = Path("/inputs"), workspace: Path = Path("/workspace")
+    inputs: Path = Path("/inputs"), project: Path = Path("/workspace")
 ) -> dict[str, str] | None:
     metadata = inputs / "workspace.json"
     if not metadata.exists():
         return None
     value: dict[str, str] = json.loads(metadata.read_text())
     branch, commit = value["branch"], value["commit"]
-    git(inputs, "clone", "--no-local", str(inputs / "workspace.bundle"), str(workspace))
+    git(inputs, "clone", "--no-local", str(inputs / "workspace.bundle"), str(project))
     git(
-        workspace,
+        project,
         "fetch",
         "--no-tags",
         str(inputs / "workspace.bundle"),
         "refs/polycolab-checkout/input",
     )
-    git(workspace, "checkout", "-B", branch, commit)
-    git(workspace, "config", "user.name", "Workspace agent")
-    git(workspace, "config", "user.email", "agent@polycolab.invalid")
-    if git(workspace, "rev-parse", "HEAD") != commit:
+    git(project, "checkout", "-B", branch, commit)
+    git(project, "config", "user.name", "Project agent")
+    git(project, "config", "user.email", "agent@polycolab.invalid")
+    if git(project, "rev-parse", "HEAD") != commit:
         raise ValueError("repository_input_mismatch")
     if value.get("revision"):
         # Restore the saved overlay while keeping HEAD and the index at the human commit.
-        git(workspace, "read-tree", "--reset", "-u", value["revision"])
-        git(workspace, "reset", "--mixed", commit)
+        git(project, "read-tree", "--reset", "-u", value["revision"])
+        git(project, "reset", "--mixed", commit)
     return value
 
 
 def checkpoint(
-    value: dict[str, str], workspace: Path = Path("/workspace"), output: Path = Path("/outputs")
+    value: dict[str, str], project: Path = Path("/workspace"), output: Path = Path("/outputs")
 ) -> str:
     branch = value["branch"]
-    if git(workspace, "symbolic-ref", "--short", "HEAD") != branch:
+    if git(project, "symbolic-ref", "--short", "HEAD") != branch:
         raise ValueError("repository_branch_changed")
-    git(workspace, "merge-base", "--is-ancestor", value["commit"], "HEAD")
-    git(workspace, "add", "-A", "--", ".")
-    if git(workspace, "status", "--porcelain"):
-        git(workspace, "commit", "-m", "Save agent workspace files")
-    git(workspace, "bundle", "create", str(output / "workspace.bundle"), f"refs/heads/{branch}")
-    return git(workspace, "rev-parse", "HEAD")
+    git(project, "merge-base", "--is-ancestor", value["commit"], "HEAD")
+    git(project, "add", "-A", "--", ".")
+    if git(project, "status", "--porcelain"):
+        git(project, "commit", "-m", "Save agent project files")
+    git(project, "bundle", "create", str(output / "workspace.bundle"), f"refs/heads/{branch}")
+    return git(project, "rev-parse", "HEAD")

@@ -19,13 +19,13 @@ export type SubmissionView = {
   author: string;
   authorHref?: string;
   sponsor?: string;
-  workspace: string;
+  project: string;
   createdAt: string;
   revisionLabel: string;
   revisionHref?: string;
-  workspaceHref?: string;
+  projectHref?: string;
 };
-export type ActiveWorkspaceView = {
+export type ActiveProjectView = {
   id: string;
   name: string;
   description: string;
@@ -39,7 +39,7 @@ export type ActiveWorkspaceView = {
 export type ActivityPage<T> = { items: T[]; nextCursor?: string };
 export interface ActivitySource {
   submissions(filters: ActivityFilters, cursor?: string): Promise<ActivityPage<SubmissionView>>;
-  workspaces(window: ActivityWindow, cursor?: string): Promise<ActivityPage<ActiveWorkspaceView>>;
+  projects(window: ActivityWindow, cursor?: string): Promise<ActivityPage<ActiveProjectView>>;
 }
 export const activityKinds: Record<ActivityKind, string> = {
   statement: 'Statement',

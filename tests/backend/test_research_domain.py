@@ -28,9 +28,9 @@ def headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}", "Idempotency-Key": str(uuid4())}
 
 
-def create_workspace(client: TestClient, *, visibility: str = "PRIVATE") -> str:
+def create_project(client: TestClient, *, visibility: str = "PRIVATE") -> str:
     response = client.post(
-        "/api/v1/workspaces",
+        "/api/v1/projects",
         headers=headers("owner"),
         json={"name": "Research", "visibility": visibility},
     )
@@ -46,7 +46,7 @@ def current_user_id(client: TestClient, token: str) -> str:
 
 def add_member(client: TestClient, project_id: str, token: str, role: str) -> None:
     response = client.post(
-        f"/api/v1/workspaces/{project_id}/members",
+        f"/api/v1/projects/{project_id}/members",
         headers=headers("owner"),
         json={"user_id": current_user_id(client, token), "role": role},
     )
@@ -111,7 +111,7 @@ def create_object(
         headers=headers("owner"),
         json={
             "snapshot": payload,
-            "destination": {"kind": "workspace", "workspace_id": project_id},
+            "destination": {"kind": "project", "project_id": project_id},
         },
     )
     assert response.status_code == 201, response.text
@@ -141,7 +141,7 @@ def create_object(
 def test_all_committed_kinds_create_an_initial_human_revision(
     client: TestClient, kind: str
 ) -> None:
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     created = create_object(client, project_id, kind=kind)
     assert created["kind"] == {
         "CLAIM": "STATEMENT",
@@ -158,7 +158,7 @@ def test_all_committed_kinds_create_an_initial_human_revision(
 
 
 def test_revisions_are_append_only_and_stale_writes_preserve_history(client: TestClient) -> None:
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     created = create_object(client, project_id, title="r1", content="old")
     object_id = created["id"]
     original = created["current_object_version"]
@@ -223,7 +223,7 @@ def test_revisions_are_append_only_and_stale_writes_preserve_history(client: Tes
 def test_two_independent_sessions_allow_one_append_and_reject_the_stale_writer(
     client: TestClient,
 ) -> None:
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     created = create_object(client, project_id, title="r1")
     object_id = UUID(cast(str, created["id"]))
     base = created["current_object_version"]
@@ -272,7 +272,7 @@ def test_two_independent_sessions_allow_one_append_and_reject_the_stale_writer(
 def test_failed_initial_revision_flush_rolls_back_the_stable_object(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     author_id = UUID(current_user_id(client, "owner"))
     app = cast(Any, client.app)
     session = app.state.session_factory()
@@ -315,7 +315,7 @@ def test_failed_initial_revision_flush_rolls_back_the_stable_object(
 def test_exact_pinned_relations_allow_cycles_and_reject_cross_project_revisions(
     client: TestClient,
 ) -> None:
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     source = create_object(client, project_id, title="A")
     target = create_object(client, project_id, title="B")
     source_revision = source["current_object_version"]
@@ -327,7 +327,7 @@ def test_exact_pinned_relations_allow_cycles_and_reject_cross_project_revisions(
         headers=headers("owner"),
         json={
             "direction": "UNIDIRECTIONAL",
-            "destination": {"kind": "workspace", "workspace_id": project_id},
+            "destination": {"kind": "project", "project_id": project_id},
             "source_object_version_id": source_revision["id"],
             "target_object_version_id": target_revision["id"],
             "relationship_type": "DEPENDS_ON",
@@ -341,7 +341,7 @@ def test_exact_pinned_relations_allow_cycles_and_reject_cross_project_revisions(
         headers=headers("owner"),
         json={
             "direction": "UNIDIRECTIONAL",
-            "destination": {"kind": "workspace", "workspace_id": project_id},
+            "destination": {"kind": "project", "project_id": project_id},
             "source_object_version_id": target_revision["id"],
             "target_object_version_id": source_revision["id"],
             "relationship_type": "DEPENDS_ON",
@@ -371,7 +371,7 @@ def test_exact_pinned_relations_allow_cycles_and_reject_cross_project_revisions(
         for item in relations.json()["items"]
     )
 
-    other_project = create_workspace(client)
+    other_project = create_project(client)
     foreign = create_object(client, other_project, title="private")
     foreign_revision = foreign["current_object_version"]
     assert isinstance(foreign_revision, dict)
@@ -381,7 +381,7 @@ def test_exact_pinned_relations_allow_cycles_and_reject_cross_project_revisions(
         headers=headers("owner"),
         json={
             "direction": "UNIDIRECTIONAL",
-            "destination": {"kind": "workspace", "workspace_id": project_id},
+            "destination": {"kind": "project", "project_id": project_id},
             "source_object_version_id": source_revision["id"],
             "target_object_version_id": foreign_revision["id"],
             "relationship_type": "USES",
@@ -392,7 +392,7 @@ def test_exact_pinned_relations_allow_cycles_and_reject_cross_project_revisions(
 
 
 def test_database_rejects_a_cross_object_revision_base(client: TestClient) -> None:
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     first = create_object(client, project_id, title="first")
     second = create_object(client, project_id, title="second")
     first_revision = first["current_object_version"]
@@ -419,7 +419,7 @@ def test_database_rejects_a_cross_object_revision_base(client: TestClient) -> No
 
 
 def test_neighborhood_and_dependents_use_the_selected_exact_revision(client: TestClient) -> None:
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     source = create_object(client, project_id, title="source")
     target = create_object(client, project_id, title="target")
     source_id = cast(str, source["id"])
@@ -433,7 +433,7 @@ def test_neighborhood_and_dependents_use_the_selected_exact_revision(client: Tes
         headers=headers("owner"),
         json={
             "direction": "UNIDIRECTIONAL",
-            "destination": {"kind": "workspace", "workspace_id": project_id},
+            "destination": {"kind": "project", "project_id": project_id},
             "source_object_version_id": source_revision["id"],
             "target_object_version_id": target_revision["id"],
             "relationship_type": "PROVES",
@@ -526,7 +526,7 @@ def test_neighborhood_and_dependents_use_the_selected_exact_revision(client: Tes
 def test_comments_are_revision_pinned_and_archiving_or_role_removal_stops_writes(
     client: TestClient,
 ) -> None:
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     add_member(client, project_id, "contributor", "CONTRIBUTOR")
     add_member(client, project_id, "reader", "READ_ONLY")
     created = create_object(client, project_id)
@@ -554,7 +554,7 @@ def test_comments_are_revision_pinned_and_archiving_or_role_removal_stops_writes
     contributor_id = current_user_id(client, "contributor")
     assert (
         client.delete(
-            f"/api/v1/workspaces/{project_id}/members/{contributor_id}", headers=headers("owner")
+            f"/api/v1/projects/{project_id}/members/{contributor_id}", headers=headers("owner")
         ).status_code
         == 204
     )
@@ -567,7 +567,7 @@ def test_comments_are_revision_pinned_and_archiving_or_role_removal_stops_writes
 
     assert (
         client.patch(
-            f"/api/v1/workspaces/{project_id}", headers=headers("owner"), json={"archived": True}
+            f"/api/v1/projects/{project_id}", headers=headers("owner"), json={"archived": True}
         ).status_code
         == 200
     )
@@ -576,7 +576,7 @@ def test_comments_are_revision_pinned_and_archiving_or_role_removal_stops_writes
             "/api/v1/objects",
             headers=headers("owner"),
             json={
-                "destination": {"kind": "workspace", "workspace_id": project_id},
+                "destination": {"kind": "project", "project_id": project_id},
                 "snapshot": {
                     "kind": "STATEMENT",
                     "content": {**revision["content"], "title": "blocked"},
@@ -588,17 +588,17 @@ def test_comments_are_revision_pinned_and_archiving_or_role_removal_stops_writes
         == 403
     )
     assert (
-        client.get(f"/api/v1/workspaces/{project_id}/objects", headers=headers("owner")).status_code
+        client.get(f"/api/v1/projects/{project_id}/objects", headers=headers("owner")).status_code
         == 200
     )
 
 
-def test_owner_can_make_workspace_research_public(client: TestClient) -> None:
-    project_id = create_workspace(client)
+def test_owner_can_make_project_research_public(client: TestClient) -> None:
+    project_id = create_project(client)
     created = create_object(client, project_id, title="Private claim", content="private body")
     assert (
         client.patch(
-            f"/api/v1/workspaces/{project_id}",
+            f"/api/v1/projects/{project_id}",
             headers=headers("owner"),
             json={"visibility": "PUBLIC"},
         ).status_code

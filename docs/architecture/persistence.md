@@ -31,28 +31,27 @@ Composition creates database adapters and injects the application interface.
 Application services must not construct SQLAlchemy adapters themselves once converted.
 There is no separate `ports/` package.
 
-## Workspace vocabulary
+## Project vocabulary
 
-Application code calls the resource `Workspace`.
-`WorkspaceAccess` combines it with optional caller membership for listings.
-`WorkspaceMemberAccess` combines it with required membership after authorization.
-Both expose `.workspace`.
-`WorkspacePolicy`, `WorkspaceAction`, and `WorkspaceNotFound` use the same vocabulary.
-Stores expose `workspace()` and `create_workspace()`.
+Application code calls the resource `Project`.
+`ProjectAccess` combines it with optional caller membership for listings.
+`ProjectMemberAccess` combines it with required membership after authorization.
+Both expose `.project`.
+`ProjectPolicy`, `ProjectAction`, and `ProjectNotFound` use the same vocabulary.
+Stores expose `project()` and `create_project()`.
 
-Application creation uses `create_workspace()` too.
+Application creation uses `create_project()` too.
 
-Public API schemas use `WorkspaceRole`, `WorkspaceVisibility`, and workspace request/response names.
-Public fields and query parameters use `workspace_id`.
-Workspace-scoped endpoints use `/api/v1/workspaces/{workspace_id}`.
+Public API schemas use `ProjectRole`, `ProjectVisibility`, and project request/response names.
+Public fields and query parameters use `project_id`.
+Project-scoped endpoints use `/api/v1/projects/{project_id}`.
 The generated client and browser adapters use the same names.
 
-SQL model/table names and persisted encodings retain their historical project names.
-Shared Pydantic schemas map the historical `project_id` field to `workspace_id` at the HTTP boundary.
-Ordinary `model_dump()` retains historical keys for stored payloads and retry digests.
-Existing internal constructors and stored payload decoders continue to accept those names.
-The live verification submission applies the same wire mapping without changing stored execution specifications.
-This change needs no database migration.
+The public API and current schema use `project_id` and Project terminology.
+Request models reject obsolete Workspace fields; browser bookmark redirects do not alias API routes.
+Forward PostgreSQL and SQLite migrations rename product metadata without changing identities or immutable history.
+The historical adapter preserves known receipt operation names and canonical digest fields, and projects old grants and credential rights at read boundaries.
+See the [Project cutover](external-agent-api.md#project-terminology-cutover) for deployment and compatibility requirements.
 
 ## Transactions
 
@@ -98,10 +97,10 @@ The following operations have application boundaries:
 - Password authentication.
 - Browser sessions and registration.
 - Project and membership authorization.
-- Workspace creation.
+- Project creation.
 - Membership and invitation operations.
-- The shared paginated workspace listing.
-  Workspace projections combine project and membership rows.
+- The shared paginated project listing.
+  Project projections combine project and membership rows.
   Invitation snapshots omit persisted token digests.
   Actor and artifact values also live in the application entity package.
   Timestamp converters normalize UTC consistently across PostgreSQL and lightweight SQLite tests.
@@ -111,7 +110,7 @@ Stable identities load without version content.
 Complete record reads and object history use materialized version snapshots.
 Exact relationships have one canonical table, with read-only typed projections for existing proof/attempt/attachment consumers.
 Write helpers share their caller's transaction and preserve structural insertion boundaries and attribution.
-Research read stores translate SQLAlchemy failures through the same persistence error boundary as account and workspace stores.
+Research read stores translate SQLAlchemy failures through the same persistence error boundary as account and project stores.
 
 Their batch queries load the rows needed by query-free, typed research converters.
 Artifact and verification workflows share one artifact converter, including UTC timestamp normalization.
@@ -154,7 +153,7 @@ The remaining work must preserve these properties:
 
 Static checks protect application entities, converted services, store interfaces, model dependencies, and the private-worker boundary.
 Adapter tests cover multi-table snapshots after session closure, rollback, savepoints, constraint translation, and omission of private persistence fields.
-PostgreSQL tests cover fresh migration/metadata agreement, integrity and stale writes, concurrent owner demotion, and rollback across account/workspace stores.
+PostgreSQL tests cover fresh migration/metadata agreement, integrity and stale writes, concurrent owner demotion, and rollback across account/project stores.
 HTTP contract checks ensure generated OpenAPI/client output remains current.
 
 ## Docker-free local development

@@ -2,22 +2,22 @@
 
 The interface helps researchers find a problem, understand existing work, develop an idea, and resume an investigation.
 Support researchers with different levels of programming experience.
-Conversation and direct editing are two ways to work in the same workspace.
+Conversation and direct editing are two ways to work in the same project.
 
 ## Find and begin work
 
-Let anyone browse public workspaces and Library entries.
+Let anyone browse public projects and Library entries.
 Provide search and filters for relevant statements and supporting work.
 Show assumptions, sources, status, and authorship before asking a reader to contribute.
 
-After sign-in, let researchers create a workspace or copy a Library entry into an existing workspace.
+After sign-in, let researchers create a project or copy a Library entry into an existing project.
 Explain visibility before creation.
 Make the private option easy to choose.
 Preserve the intended destination through sign-in.
 
 ## Develop research
 
-Keep the current workspace and task clear.
+Keep the current project and task clear.
 Provide research lists and a relationship map, with readable titles and meaningful links.
 Keep objects accessible through lists as well as the map.
 
@@ -35,12 +35,12 @@ Explain conflicts without discarding the user's changes.
 Before deletion, identify the object and explain its effect on history, references, and published copies.
 Require confirmation.
 
-## Workspace panes and tabs
+## Project panes and tabs
 
-The workspace uses four panes. A thin navigation rail at the far left provides
-icons for existing workspace pages at a fixed width, with accessible labels and
+The project uses four panes. A thin navigation rail at the far left provides
+icons for existing project pages at a fixed width, with accessible labels and
 tooltips. Hover and keyboard focus do not expand it. Rail selections switch page
-layouts. In the Workspace layout, the left panel lists Main and named worktrees,
+layouts. In the Project layout, the left panel lists Main and named worktrees,
 with the current user's conversations nested beneath each. The middle panel holds unified tabs
 for chats, files, research objects, and diffs, with New chat as the default view.
 The right panel switches between Explorer, Source control, and Details.
@@ -107,14 +107,14 @@ Make clear which exact research revision a result checks.
 ## Collaborate and share
 
 Make owner, contributor, and read-only permissions understandable.
-Keep workspace membership separate from personal account settings.
+Keep project membership separate from personal account settings.
 Show who contributed research and whether an actor is human or an agent.
 
 Let researchers inspect and endorse saved work.
 Where suggestions require review, provide accept, edit and accept, and reject actions.
 Explain stale suggestions before applying them.
 
-Before changing workspace visibility, explain the audience.
+Before changing project visibility, explain the audience.
 Require confirmation.
 For selective publication, preview the chosen records and required dependencies.
 Explain any private dependency that prevents publication.

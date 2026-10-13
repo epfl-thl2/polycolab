@@ -138,7 +138,7 @@ def test_no_application_routes_or_request_bodies(
             "/auth/login",
             "/docs",
             "/openapi.json",
-            "/api/v1/workspaces",
+            "/api/v1/projects",
             "/",
         ]:
             response = client.get(path)

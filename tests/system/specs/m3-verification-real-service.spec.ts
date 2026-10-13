@@ -35,12 +35,12 @@ test('M3 real browser discovers, submits, inspects and cancels an exact queued j
   test.setTimeout(90_000);
   await authenticate(page);
 
-  const project = await post(page.request, '/api/v1/workspaces', {
-    name: 'M3 verification workspace',
+  const project = await post(page.request, '/api/v1/projects', {
+    name: 'M3 verification project',
   });
   const projectId = project.id as string;
   const target = await post(page.request, '/api/v1/records', {
-    workspace_id: projectId,
+    project_id: projectId,
     kind: 'CLAIM',
     title: 'Exact bounded-computation target',
     content_md: 'The bounded computation checks this exact target.',
@@ -50,7 +50,7 @@ test('M3 real browser discovers, submits, inspects and cancels an exact queued j
     reason: 'Create the verification acceptance target',
   });
   const source = await post(page.request, '/api/v1/records', {
-    workspace_id: projectId,
+    project_id: projectId,
     kind: 'COMPUTATION',
     title: 'Exact Python acceptance source',
     content_md: 'print("bounded acceptance")',

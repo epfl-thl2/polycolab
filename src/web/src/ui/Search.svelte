@@ -9,7 +9,7 @@
   import SearchExcerpt from './SearchExcerpt.svelte';
   import { searchQuery, type NavigateQuery, type readSearch } from '../lib/ui-location';
   import { tick, untrack } from 'svelte';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import type { components } from '$lib/api-client';
   import type { PublicProject } from '../lib/research-api';
   import { Button } from '../lib/components/ui/button';
@@ -24,7 +24,7 @@
     resultType?: ReturnType<typeof readSearch>['type'];
     onNavigate?: NavigateQuery;
   } = $props();
-  const { catalogue, api } = workspace();
+  const { catalogue, api } = projectContext();
   let draft = $state('');
   let searchInput = $state<HTMLInputElement | null>(null);
   async function clearSearch() {
@@ -133,7 +133,7 @@
       }}
     >
       <input type="hidden" name="type" value={resultType} />
-      <label class="sr-only" for="research-search">Search public research and workspaces</label>
+      <label class="sr-only" for="research-search">Search public research and projects</label>
       <div class="search-controls">
         <Input
           id="research-search"
@@ -143,7 +143,7 @@
           bind:value={draft}
           maxlength={200}
           required
-          placeholder="Search public research and workspaces"
+          placeholder="Search public research and projects"
           class="home-search-input"
         />
         {#if draft || term}<Button
@@ -168,7 +168,7 @@
   {:else if !term}<div class="homepage-secondary"><HomepageContent /></div>
   {:else}
     <nav class="search-types" aria-label="Search result types">
-      {#each [['all', 'All'], ['research', 'Research'], ['workspaces', 'Workspaces']] as [value, label] (value)}<a
+      {#each [['all', 'All'], ['research', 'Research'], ['projects', 'Projects']] as [value, label] (value)}<a
           href={`/?${searchQuery(term, value as typeof resultType)}`}
           data-sveltekit-noscroll
           data-sveltekit-keepfocus
@@ -179,12 +179,9 @@
     <p class="sr-only" role="status">
       {researchBusy || projectBusy
         ? 'Searching…'
-        : `${research.length} research results and ${projects.length} workspaces loaded.`}
+        : `${research.length} research results and ${projects.length} projects loaded.`}
     </p>
-    {#if resultType !== 'workspaces'}<section
-        aria-label="Research results"
-        aria-busy={researchBusy}
-      >
+    {#if resultType !== 'projects'}<section aria-label="Research results" aria-busy={researchBusy}>
         <h2>Research</h2>
         {#if researchError}<DiscoveryState
             kind="error"
@@ -234,24 +231,24 @@
           >{/if}
       </section>
     {/if}
-    {#if resultType !== 'research'}<section aria-label="Workspace results" aria-busy={projectBusy}>
-        <h2>Workspaces</h2>
+    {#if resultType !== 'research'}<section aria-label="Project results" aria-busy={projectBusy}>
+        <h2>Projects</h2>
         {#if projectError}<DiscoveryState
             kind="error"
             level="h3"
-            title="Could not search workspace"
+            title="Could not search project"
             description={projectError}
           >
             <Button variant="outline" onclick={() => loadProjects(Boolean(projects.length))}
-              >Retry workspace search</Button
+              >Retry project search</Button
             ></DiscoveryState
           >{/if}
-        {#if projectBusy}<LoadingState>Searching workspaces…</LoadingState>{/if}
+        {#if projectBusy}<LoadingState>Searching projects…</LoadingState>{/if}
         <ul class="list">
           {#each projects as project (project.id)}
             <li>
               <h3>
-                <a href={`/workspaces/${project.id}`}
+                <a href={`/projects/${project.id}`}
                   ><HighlightedText text={project.name} query={term} /></a
                 >
               </h3>
@@ -261,13 +258,13 @@
         </ul>
         {#if !projectBusy && !projectError && !projects.length}<DiscoveryState
             level="h3"
-            title="No matching workspaces"
+            title="No matching projects"
             description="Try different words or a broader search."
           />{/if}
         {#if projectCursor}<Button
             variant="outline"
             disabled={projectBusy}
-            onclick={() => loadProjects(true)}>Load more workspaces</Button
+            onclick={() => loadProjects(true)}>Load more projects</Button
           >{/if}
       </section>{/if}
   {/if}

@@ -54,7 +54,7 @@ def main() -> int:
             "APP_ENV": "local",
             "AUTH_MODE": "local",
             "DATABASE_URL": f"sqlite+pysqlite:///{database}",
-            "WORKSPACE_REPOSITORY_DIRECTORY": str(directory / "repositories"),
+            "PROJECT_REPOSITORY_DIRECTORY": str(directory / "repositories"),
             "ARTIFACT_LOCAL_DIRECTORY": str(directory / "artifacts"),
             "REGISTRATION_MODE": "open",
             "PUBLIC_APP_ORIGIN": origin,

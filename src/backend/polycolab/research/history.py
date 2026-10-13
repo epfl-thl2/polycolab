@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, aliased
 
 from polycolab.app.access import ResearchAccess
 from polycolab.db.models import (
+    ProjectVisibility,
     SqlArtifactResearchLink,
     SqlCatalogueAudit,
     SqlContributionEnvelope,
@@ -29,7 +30,6 @@ from polycolab.db.models import (
     SqlResearchScope,
     SqlResearchSummaryRevision,
     SqlSummarySourceRevision,
-    WorkspaceVisibility,
 )
 from polycolab.db.models.relationships import SqlObjectVersionRelationship
 from polycolab.research.records import public_condition
@@ -213,14 +213,14 @@ def visible_query(access: ResearchAccess, scope: str) -> Any:
     else:
         query = query.where(public_condition(SqlObjectRevision.id))
     # A public exact revision does not publish all discussion/evidence in its
-    # private workspace. Only explicitly selected ancillary records are public.
+    # private project. Only explicitly selected ancillary records are public.
     if scope != "member":
         public_container = or_(
             SqlResearchScope.project_id.is_(None),
             exists(
                 select(SqlProject.id).where(
                     SqlProject.id == SqlResearchScope.project_id,
-                    SqlProject.visibility == WorkspaceVisibility.PUBLIC,
+                    SqlProject.visibility == ProjectVisibility.PUBLIC,
                     SqlProject.deleted_at.is_(None),
                     SqlProject.archived_at.is_(None),
                 )
@@ -315,13 +315,13 @@ def visible_query(access: ResearchAccess, scope: str) -> Any:
 
 
 def recent_public_submissions(access: ResearchAccess) -> Any:
-    """Latest 500 visible events in active public workspaces, before UI filters."""
+    """Latest 500 visible events in active public projects, before UI filters."""
     latest = (
         visible_query(access, "public")
         .where(
             SqlResearchScope.project_id.in_(
                 select(SqlProject.id).where(
-                    SqlProject.visibility == WorkspaceVisibility.PUBLIC,
+                    SqlProject.visibility == ProjectVisibility.PUBLIC,
                     SqlProject.deleted_at.is_(None),
                     SqlProject.archived_at.is_(None),
                 )

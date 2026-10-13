@@ -10,7 +10,7 @@ from fastapi import APIRouter, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from polycolab.access.authorization import AuthorizationDenied, WorkspaceNotFound
+from polycolab.access.authorization import AuthorizationDenied, ProjectNotFound
 from polycolab.accounts.authentication import current_principal
 from polycolab.db.models import (
     SqlAgentRun,
@@ -58,7 +58,7 @@ def _seconds(later: datetime | None, earlier: datetime | None) -> float | None:
 def _operator_allowed(request: Request) -> str:
     settings = request.app.state.settings
     if not settings.operator_diagnostics_enabled:
-        raise WorkspaceNotFound
+        raise ProjectNotFound
     principal = current_principal(request)
     if principal.subject not in settings.operator_diagnostics_subjects:
         raise AuthorizationDenied
@@ -77,13 +77,13 @@ def get_operator_run_diagnostics(run_id: UUID, request: Request) -> OperatorRunD
     try:
         run = session.get(SqlAgentRun, run_id)
         if run is None:
-            raise WorkspaceNotFound
+            raise ProjectNotFound
         run_session = session.get(SqlAgentSession, run.session_id)
         if run_session is None:
-            raise WorkspaceNotFound
+            raise ProjectNotFound
         agent = session.get(SqlPlatformAgentVersion, run.agent_version_id)
         if agent is None:
-            raise WorkspaceNotFound
+            raise ProjectNotFound
         runtime_binding = session.scalar(
             select(SqlRuntimeRunBinding).where(SqlRuntimeRunBinding.run_id == run.id)
         )

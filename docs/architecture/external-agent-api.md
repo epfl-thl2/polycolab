@@ -2,7 +2,7 @@
 
 Polycolab exposes the same core `/api/v1` resources to browser sessions, human OIDC tokens and external-agent bearer keys.
 Anonymous callers can read public research.
-Agents contribute with their sponsor's current workspace authority.
+Agents contribute with their sponsor's current project authority.
 Public Library contributions additionally require explicit key opt-in.
 
 ## Shared URLs
@@ -10,7 +10,7 @@ Public Library contributions additionally require explicit key opt-in.
 The development cutover removes every `/api/v1/public/*` endpoint without aliases or redirects.
 Anonymous and authenticated callers use the same resource URLs.
 Collections default to `scope=public`.
-Workspace-scoped discovery, records, and attempt lists require `scope=member` and an authorized `workspace_id`.
+Project-scoped discovery, records, and attempt lists require `scope=member` and an authorized `project_id`.
 Exact reads resolve the caller's current membership before choosing a member or public projection.
 Explicit invalid credentials fail even when a resource is public.
 
@@ -19,7 +19,7 @@ Community aggregate counts use `/community/{entry_id}`.
 Human personal state uses `/community/{entry_id}/me`.
 Recovery calls use `/account/email/verify` and `/auth/password-reset/request` or `/auth/password-reset/confirm` under `/api/v1`.
 
-Browser workspace lists share `/workspaces?scope=public|member`, with public as the anonymous default and member as the signed-in default.
+Browser project lists share `/projects?scope=public|member`, with public as the anonymous default and member as the signed-in default.
 Both scopes share detail URLs.
 The old standalone public HTML documents are removed: Library pages live under `/library/{id}` and exact records under `/commons/records/{object_version_id}`.
 These application pages require JavaScript.
@@ -31,14 +31,14 @@ The URL cutover needs no database migration.
 | Module    | Resources                                                                                                     | Purpose                                                                        |
 | --------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | Access    | `/me`, `/account/agents`, `/account/agent-keys`                                                               | Inspect authority. Humans manage stable agent identities and keys.             |
-| Discovery | `/search`, `/workspaces`, existing catalogue routes                                                           | Find public/member research and reviewed Library statements.                   |
+| Discovery | `/search`, `/projects`, existing catalogue routes                                                             | Find public/member research and reviewed Library statements.                   |
 | Research  | `/objects`, `/objects/{id}/versions`, `/versions/{id}`, `/objects/{id}/contributions`, comments and relations | Read exact sources and save independently attributed contributions.            |
 | Evidence  | `/artifacts`, `/attachments`, `/versions/{id}/attachments`                                                    | Stage actor-owned bytes and attach verified evidence to exact object versions. |
-| History   | `/activity`, `/activity/workspaces`, `/objects/{id}/activity`, `/contributions/{id}`                          | Inspect immutable saved changes with live visibility filtering.                |
+| History   | `/activity`, `/activity/projects`, `/objects/{id}/activity`, `/contributions/{id}`                            | Inspect immutable saved changes with live visibility filtering.                |
 | Profiles  | `/profiles/{user_id}`, `/agent-profiles/{agent_id}`, each with `/activity`                                    | Public authored and sponsored contributions by stable identity.                |
 
 The API reference nests these sections under six core modules.
-Human account, workspace and publication administration follows them.
+Human account, project and publication administration follows them.
 Hosted agents, execution, verification and historical external-run reads remain separate.
 This change does not rename all existing research and catalogue URLs.
 
@@ -60,7 +60,7 @@ Existing keys receive no new public-write authority.
 Send `Authorization: Bearer <key>`.
 Never put secrets in a URL.
 Invalid explicit Authorization fails instead of falling back to a cookie or anonymous identity.
-Keys follow the sponsor's current and future workspace memberships.
+Keys follow the sponsor's current and future project memberships.
 Agent keys grant no access to personal notes, conversations, key management or membership administration.
 `GET /me` reports identity and remaining budgets without consuming request budget.
 
@@ -71,7 +71,7 @@ For example, `POST /api/v1/objects` accepts:
 
 ```json
 {
-  "destination": { "kind": "workspace", "workspace_id": "<uuid>" },
+  "destination": { "kind": "project", "project_id": "<uuid>" },
   "snapshot": {
     "kind": "NOTE",
     "content": {
@@ -120,11 +120,11 @@ A different agent cannot revise another agent's work.
 `GET /versions/{id}` returns exact content, assumptions, proof/attempt structure, attachments and stable author attribution.
 `GET /objects/{id}/contributions` returns readable research attached to its exact statement versions.
 Version responses include a predecessor ID only when that predecessor is readable in the caller's authorized scope.
-Publishing a version does not expose its private predecessor to anonymous readers or keys without workspace membership.
+Publishing a version does not expose its private predecessor to anonymous readers or keys without project membership.
 
 ## Evidence
 
-`POST /api/v1/artifacts` accepts binary bytes with `sha256`, `byte_length`, `media_type`, and exactly one of `workspace_id` or `statement_object_version_id` as query parameters.
+`POST /api/v1/artifacts` accepts binary bytes with `sha256`, `byte_length`, `media_type`, and exactly one of `project_id` or `statement_object_version_id` as query parameters.
 Supply an `Idempotency-Key` to recover the same staged identity after an interrupted response.
 Staging stays private to the human or stable agent that uploaded it, including across that agent's key rotation.
 Matching bytes do not grant another actor access.
@@ -151,7 +151,7 @@ Activity supports public or member scope, time windows, actor/action/kind filter
 The API applies visibility rules before pagination and profile counts.
 Private discussion around a selectively published version stays private unless selected for publication.
 Moderation and membership changes affect subsequent reads without rewriting historical events.
-Public profiles separate authored human work from sponsored agent work, and never count private workspace activity.
+Public profiles separate authored human work from sponsored agent work, and never count private project activity.
 
 ## Migration and rollout
 
@@ -193,3 +193,51 @@ Existing hash-only keys cannot be recovered and need replacement for this featur
 Apply the database migration before running the updated API.
 Backups must retain access to the credential wrapping keys, including historical versions.
 Losing them prevents reveal but does not change digest authentication.
+
+## Project terminology cutover
+
+Deploy migration `20261012_projects` with the matching API, browser, worker and
+bundled external client. Persistent local SQLite uses `local_20261012_projects`.
+Mixed application versions are unsupported. The existing `projects` and
+`project_id` identities remain unchanged; reference tables are now
+`project_references` and `project_reference_versions`.
+
+External clients must replace `/workspaces` segments with `/projects`,
+`/workspace-copies` with `/project-copies`, and `/workspace-references` with
+`/project-references`. This includes activity, moderation, membership and run
+routes. Use `project_id`, `project_name`, `project_visibility`,
+`create_new_project`, destination `kind: "project"`, requested authority
+`PROJECT`, and right `PROJECT_WRITE`. The CLI uses `--project-id`.
+Old API paths return errors; obsolete body and query fields are rejected.
+Browser bookmarks redirect, preserving queries and fragments, including demo
+routes and the renamed published guides. Saved browser layouts migrate once.
+
+Set `HOSTED_AGENT_PROJECT_CAPACITY`, `PUBLIC_PROJECT_MODERATOR_SUBJECTS`,
+`VERIFICATION_PROJECT_CONCURRENT_JOBS`, `VERIFICATION_PROJECT_DAILY_CPU_SECONDS`
+and `VERIFICATION_PROJECT_DAILY_MEMORY_BYTE_SECONDS`. Their former `WORKSPACE`
+names remain environment fallbacks; the new names take precedence. Quotas and
+moderation authority do not change.
+
+The historical adapter in `src/backend/polycolab/platform/project_history.py`
+preserves retry operation identities (`workspace.copy`,
+`workspace_record.moderate`) and version-1 canonical digest fields. Known
+protocol fields are translated; user-authored content and names are never
+rewritten. Omitted autogenerated names retain the old default in receipt
+serialization while new projects receive the new default name. Authorization
+still applies on retries, and changed bodies conflict. Immutable grant JSON,
+credential rights, research snapshots, publication manifests and event bytes
+retain their original data and hashes. Grant digests are checked before
+projecting historical destinations; old credential rights are projected when
+read. Pending historical events remain processable without changing their bytes.
+
+Before cutover, back up the database and drain writers and active worker
+operations. Apply migrations, deploy matching builds, smoke-test project reads,
+writes, permissions, imports and retries, then reopen traffic. For recovery,
+restore the matching pre-upgrade backup and application version. Do not run old
+binaries against the renamed schema. No deployment is performed by the rename.
+
+Repository and task metadata use `project_repositories`, `project_tasks`, and `project_id`; Git repository paths, worktree identities, existing refs, commit hashes, and recovery journals remain unchanged. Back up repository storage together with the database. `PROJECT_REPOSITORY_DIRECTORY` and `PROJECT_REPOSITORY_MAX_BYTES` accept their old `WORKSPACE_` equivalents as lower-priority fallbacks.
+
+The sandbox mount `/workspace` and its `workspace.bundle` / `workspace.json` transfer filenames remain stable worker-protocol identifiers. Pending manifests and Git history must not be rewritten. New generated names and Git author metadata use Project terminology.
+
+The Compose volume key `workspace-repositories` is a historical storage identity and remains unchanged so existing installations reuse their repository volume.

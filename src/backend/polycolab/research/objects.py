@@ -12,10 +12,10 @@ from sqlalchemy.orm import Session
 from polycolab.access.actors import Actor, ActorKind, human_actor
 from polycolab.access.authorization import (
     AuthorizationDenied,
-    WorkspaceAction,
+    ProjectAction,
+    project_policy,
     require_human_actor,
-    require_workspace_write,
-    workspace_policy,
+    require_project_write,
 )
 from polycolab.db.models import (
     SqlContributionEnvelope,
@@ -41,9 +41,9 @@ from polycolab.entities.enums import (
     ResearchScopeKind,
 )
 from polycolab.entities.research import KIND_DEFINITIONS, StructuralRole
+from polycolab.projects.service import DomainConflict
 from polycolab.research.contributions import human_contribution, link_output
 from polycolab.research.schemas import ProofStructureRequest, ResearchAttemptRequest
-from polycolab.workspaces.service import DomainConflict
 
 
 class ResearchNotFound(Exception):
@@ -62,11 +62,11 @@ def _authorize_write(
         if actor.human_user_id != author.id:
             raise AuthorizationDenied
     else:
-        require_workspace_write(actor, project_id=project_id)
+        require_project_write(actor, project_id=project_id)
         if actor.sponsor_user_id != author.id:
             raise AuthorizationDenied
-    workspace_policy.require_scope(
-        SqlAlchemyTransaction(session), project_id, author.id, WorkspaceAction.CREATE_RESEARCH
+    project_policy.require_scope(
+        SqlAlchemyTransaction(session), project_id, author.id, ProjectAction.CREATE_RESEARCH
     )
 
 
@@ -78,11 +78,11 @@ def _commit(session: Session) -> None:
         raise DomainConflict from error
 
 
-def _workspace_scope_id(session: Session, project_id: UUID) -> UUID:
+def _project_scope_id(session: Session, project_id: UUID) -> UUID:
     scope_id = session.scalar(
         select(SqlResearchScope.id).where(
             SqlResearchScope.project_id == project_id,
-            SqlResearchScope.scope_kind == ResearchScopeKind.WORKSPACE,
+            SqlResearchScope.scope_kind == ResearchScopeKind.PROJECT,
         )
     )
     if scope_id is None:
@@ -163,10 +163,10 @@ def create_object(
         raise DomainConflict("new proof approaches must use PROOF_SKETCH")
     if project_id is not None:
         _authorize_write(session, project_id, author, actor)
-        workspace_scope = _workspace_scope_id(session, project_id)
-        if ownership_scope_id is not None and ownership_scope_id != workspace_scope:
+        project_scope = _project_scope_id(session, project_id)
+        if ownership_scope_id is not None and ownership_scope_id != project_scope:
             raise ResearchNotFound
-        ownership_scope_id = workspace_scope
+        ownership_scope_id = project_scope
     else:
         trusted_actor = actor or human_actor(author.id)
         require_human_actor(trusted_actor, action="commons research creation")
@@ -433,23 +433,23 @@ def create_relation(
     _authorize_write(session, project_id, author, actor)
     from polycolab.research.records import accessible_revision
 
-    # The assertion itself belongs to the destination workspace. Its source must
+    # The assertion itself belongs to the destination project. Its source must
     # therefore be destination-owned, while its exact target may be any public
-    # revision. This permits public cross-workspace dependencies without granting
-    # write authority in the target workspace.
+    # revision. This permits public cross-project dependencies without granting
+    # write authority in the target project.
     if relation_type is RelationType.EQUIVALENT_TO:
         accessible_revision(session, source_revision_id, project_id)
     else:
         revision_in_project(session, project_id=project_id, revision_id=source_revision_id)
     accessible_revision(session, target_revision_id, project_id)
-    scope_id = _workspace_scope_id(session, project_id)
+    scope_id = _project_scope_id(session, project_id)
     contribution = contribution or human_contribution(
         session, user_id=author.id, scope_id=scope_id, operation="CREATE_RELATION_ASSERTION"
     )
     relation = add_declaration(
         session,
         contribution_id=contribution.id,
-        ownership_scope_id=_workspace_scope_id(session, project_id),
+        ownership_scope_id=_project_scope_id(session, project_id),
         source_revision_id=source_revision_id,
         target_revision_id=target_revision_id,
         relation_type=relation_type,
@@ -489,13 +489,13 @@ def create_comment(
     revision_in_project(
         session, project_id=project_id, revision_id=revision_id, object_id=object_id
     )
-    scope_id = _workspace_scope_id(session, project_id)
+    scope_id = _project_scope_id(session, project_id)
     contribution = contribution or human_contribution(
         session, user_id=author.id, scope_id=scope_id, operation="CREATE_RESEARCH_COMMENT"
     )
     comment = SqlResearchComment(
         contribution_id=contribution.id,
-        ownership_scope_id=_workspace_scope_id(session, project_id),
+        ownership_scope_id=_project_scope_id(session, project_id),
         object_id=object_id,
         revision_id=revision_id,
         body_md=body_md,

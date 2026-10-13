@@ -16,6 +16,7 @@ from polycolab.app.cursors import Collection, Pagination
 from polycolab.app.dependencies import DbSession
 from polycolab.app.schemas import ApiModel
 from polycolab.db.models import (
+    ProjectVisibility,
     SqlContributionEntityLink,
     SqlContributionEnvelope,
     SqlExternalAgentIdentity,
@@ -26,7 +27,6 @@ from polycolab.db.models import (
     SqlResearchObject,
     SqlResearchScope,
     SqlUser,
-    WorkspaceVisibility,
 )
 from polycolab.entities.object_kinds import canonical_kind
 from polycolab.research.contracts import RecordRead
@@ -59,8 +59,8 @@ class ActivityRead(ApiModel):
     title: str
     excerpt_md: str
     object_kind: str
-    workspace_id: UUID | None
-    workspace_name: str | None = None
+    project_id: UUID | None
+    project_name: str | None = None
     object_version_number: int | None = None
     occurred_at: datetime
     reconstructed: bool
@@ -72,8 +72,8 @@ class ProfileRead(ApiModel):
     sponsored_contributions: int
 
 
-class WorkspaceActivityRead(ApiModel):
-    workspace_id: UUID
+class ProjectActivityRead(ApiModel):
+    project_id: UUID
     name: str
     description: str | None
     submissions: int
@@ -133,17 +133,17 @@ def read_event(
         )
     ):
         previous_id = None
-    workspace_id = scope.project_id if member_read else None
+    project_id = scope.project_id if member_read else None
     if not member_read and scope.project_id:
         project = session.get(SqlProject, scope.project_id)
         if (
             project is not None
-            and project.visibility == WorkspaceVisibility.PUBLIC
+            and project.visibility == ProjectVisibility.PUBLIC
             and project.deleted_at is None
             and project.archived_at is None
         ):
-            workspace_id = scope.project_id
-    workspace = session.get(SqlProject, workspace_id) if workspace_id else None
+            project_id = scope.project_id
+    project = session.get(SqlProject, project_id) if project_id else None
     return ActivityRead(
         id=row.id,
         submission_number=row.submission_number,
@@ -156,8 +156,8 @@ def read_event(
         title=released.title if released is not None else revision.title,
         excerpt_md=(released.content_md if released is not None else revision.content_md)[:4000],
         object_kind=canonical_kind(obj.kind).value,
-        workspace_id=workspace_id,
-        workspace_name=workspace.name if workspace else None,
+        project_id=project_id,
+        project_name=project.name if project else None,
         object_version_number=revision.number,
         occurred_at=row.occurred_at,
         reconstructed=row.reconstructed,
@@ -234,7 +234,7 @@ def activity(
     actor: Literal["all", "human", "agent"] = "all",
     action: str | None = None,
     kind: str | None = None,
-    workspace_id: UUID | None = None,
+    project_id: UUID | None = None,
     user_id: UUID | None = None,
     agent_id: UUID | None = None,
 ) -> Collection[ActivityRead]:
@@ -264,8 +264,8 @@ def activity(
             if kind in {"STATEMENT", "RECORD"}
             else SqlResearchObject.kind == kind
         )
-    if workspace_id:
-        query = query.where(SqlResearchScope.project_id == workspace_id)
+    if project_id:
+        query = query.where(SqlResearchScope.project_id == project_id)
     if user_id:
         query = query.where(SqlResearchActivityEvent.actor_user_id == user_id)
     if agent_id:
@@ -274,7 +274,7 @@ def activity(
         session,
         query,
         page,
-        f"activity:{recent}:{access.user_id}:{scope}:{window}:{actor}:{action}:{kind}:{workspace_id}:{user_id}:{agent_id}",
+        f"activity:{recent}:{access.user_id}:{scope}:{window}:{actor}:{action}:{kind}:{project_id}:{user_id}:{agent_id}",
         member_read=scope == "member",
     )
 
@@ -461,17 +461,17 @@ def contribution(contribution_id: UUID, session: DbSession, access: Access) -> C
 
 
 @router.get(
-    "/activity/workspaces",
-    response_model=Collection[WorkspaceActivityRead],
-    operation_id="listWorkspaceActivity",
+    "/activity/projects",
+    response_model=Collection[ProjectActivityRead],
+    operation_id="listProjectActivity",
 )
-def workspace_activity(
+def project_activity(
     session: DbSession,
     access: Access,
     page: Pagination,
     scope: Literal["public", "member"] = "public",
     window: Literal["day", "week", "month"] = "week",
-) -> Collection[WorkspaceActivityRead]:
+) -> Collection[ProjectActivityRead]:
     events = (
         visible_query(access, scope)
         .where(
@@ -500,20 +500,20 @@ def workspace_activity(
         .join(SqlResearchScope, SqlResearchScope.project_id == SqlProject.id)
         .join(events, events.c.ownership_scope_id == SqlResearchScope.id)
         .where(SqlProject.deleted_at.is_(None))
-        .where(SqlProject.visibility == WorkspaceVisibility.PUBLIC if scope == "public" else true())
+        .where(SqlProject.visibility == ProjectVisibility.PUBLIC if scope == "public" else true())
         .group_by(SqlProject.id)
     )
     rows, cursor = page.select(
         session,
         query,
         SqlProject.id,
-        scope=f"active-workspaces:{access.user_id}:{scope}:{window}",
+        scope=f"active-projects:{access.user_id}:{scope}:{window}",
         scalars=False,
     )
     return Collection(
         items=[
-            WorkspaceActivityRead(
-                workspace_id=row.id,
+            ProjectActivityRead(
+                project_id=row.id,
                 name=row.name,
                 description=row.description,
                 submissions=row.submissions,

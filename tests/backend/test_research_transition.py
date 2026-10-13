@@ -18,14 +18,14 @@ from polycolab.db.models import (
 def test_new_project_research_has_typed_revision_and_scope(client: TestClient) -> None:
     headers = {"Authorization": "Bearer owner"}
     project = client.post(
-        "/api/v1/workspaces", headers=headers, json={"visibility": "PRIVATE", "name": "Private"}
+        "/api/v1/projects", headers=headers, json={"visibility": "PRIVATE", "name": "Private"}
     ).json()
     response = post_research(
         client,
         "/api/v1/objects",
         headers=headers,
         json={
-            "destination": {"kind": "workspace", "workspace_id": project["id"]},
+            "destination": {"kind": "project", "project_id": project["id"]},
             "snapshot": {
                 "kind": "STATEMENT",
                 "content": {
@@ -52,20 +52,20 @@ def test_new_project_research_has_typed_revision_and_scope(client: TestClient) -
             db.get(SqlObjectRevision, obj.current_revision_id).contribution_id
             == obj.contribution_id
         )
-        assert "workspace_id" not in SqlResearchObject.__table__.columns
+        assert "project_id" not in SqlResearchObject.__table__.columns
 
 
-def test_private_workspace_reads_require_membership_until_owner_shares(client: TestClient) -> None:
+def test_private_project_reads_require_membership_until_owner_shares(client: TestClient) -> None:
     headers = {"Authorization": "Bearer owner"}
     project = client.post(
-        "/api/v1/workspaces", headers=headers, json={"visibility": "PRIVATE", "name": "Private"}
+        "/api/v1/projects", headers=headers, json={"visibility": "PRIVATE", "name": "Private"}
     ).json()
     created = post_research(
         client,
         "/api/v1/objects",
         headers=headers,
         json={
-            "destination": {"kind": "workspace", "workspace_id": project["id"]},
+            "destination": {"kind": "project", "project_id": project["id"]},
             "snapshot": {
                 "kind": "STATEMENT",
                 "content": {
@@ -80,8 +80,8 @@ def test_private_workspace_reads_require_membership_until_owner_shares(client: T
         },
     ).json()
     routes = (
-        f"/api/v1/workspaces/{project['id']}",
-        f"/api/v1/workspaces/{project['id']}/objects",
+        f"/api/v1/projects/{project['id']}",
+        f"/api/v1/projects/{project['id']}/objects",
         f"/api/v1/objects/{created['id']}",
         f"/api/v1/objects/{created['id']}/versions",
         f"/api/v1/versions/{created['current_object_version_id']}",
@@ -93,7 +93,7 @@ def test_private_workspace_reads_require_membership_until_owner_shares(client: T
         assert "Private draft" not in response.text
     assert (
         client.patch(
-            f"/api/v1/workspaces/{project['id']}", headers=headers, json={"visibility": "PUBLIC"}
+            f"/api/v1/projects/{project['id']}", headers=headers, json={"visibility": "PUBLIC"}
         ).status_code
         == 200
     )
@@ -102,8 +102,8 @@ def test_private_workspace_reads_require_membership_until_owner_shares(client: T
         response = client.get(route)
         assert response.status_code == 200, (route, response.text)
         responses.append(response.json())
-    workspace, objects, obj, versions, version, relations = responses
-    assert workspace["id"] == project["id"]
+    project, objects, obj, versions, version, relations = responses
+    assert project["id"] == project["id"]
     assert [item["id"] for item in objects["items"]] == [created["id"]]
     assert obj["id"] == created["id"]
     assert [item["id"] for item in versions["items"]] == [created["current_object_version_id"]]

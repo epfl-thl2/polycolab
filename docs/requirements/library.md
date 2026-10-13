@@ -1,7 +1,7 @@
 # Shared Library
 
 The Library is a shared bank of statements, definitions, and questions.
-Researchers discover public work and copy exact revisions into workspaces for further development.
+Researchers discover public work and copy exact revisions into projects for further development.
 
 ## Admission and status
 
@@ -31,11 +31,11 @@ Anonymous readers can:
 - Inspect exact revisions and history.
 - Share revision links.
 
-Library discovery includes admitted entries rather than ordinary workspace records.
+Library discovery includes admitted entries rather than ordinary project records.
 Hidden entries remain subject to moderation when searched or opened directly.
 
-Copying requires a signed-in human with write permission in an active destination workspace.
-New workspaces default to public and may explicitly be private.
+Copying requires a signed-in human with write permission in an active destination project.
+New projects default to public and may explicitly be private.
 A copy is a new editable research object with its own identity and revision history.
 It preserves the formulation, assumptions, explanation and an exact source revision link.
 Library status, admission and verification are not inherited.
@@ -43,7 +43,7 @@ Future source updates do not change the copy, and editing the copy does not chan
 
 Retrying a completed copy must not create a duplicate.
 A new copy action creates a separate object.
-Creating a workspace with its first copy succeeds or fails together.
+Creating a project with its first copy succeeds or fails together.
 
 Existing references to exact Library revisions remain readable.
 Changing a pinned reference is explicit.

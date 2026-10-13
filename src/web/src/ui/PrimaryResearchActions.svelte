@@ -16,7 +16,7 @@
     {
       id: 'PROBLEM_OR_CLAIM',
       title: 'State a problem or claim',
-      detail: 'Describe the question or assertion that the workspace will investigate.',
+      detail: 'Describe the question or assertion that the project will investigate.',
     },
     {
       id: 'ATTEMPT',

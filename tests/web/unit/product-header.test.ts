@@ -38,7 +38,7 @@ it('keeps unresolved authentication neutral in desktop and mobile account contro
 });
 
 it('uses clear global destinations and exposes account destinations from the avatar menu', async () => {
-  render(ProductHeader, { props: { auth: signedInAuth(), active: 'workspaces' } });
+  render(ProductHeader, { props: { auth: signedInAuth(), active: 'projects' } });
 
   const brand = screen.getByRole('link', { name: 'Polycolab home' });
   expect(brand.querySelector('img')?.getAttribute('src')).toBe('/brand/polycolab-mark.png');
@@ -54,21 +54,21 @@ it('uses clear global destinations and exposes account destinations from the ava
     within(navigation)
       .getAllByRole('link')
       .map((link) => link.textContent?.trim()),
-  ).toEqual(['Library', 'Workspaces', 'Activity', 'Chat Planned', 'Docs']);
+  ).toEqual(['Library', 'Projects', 'Activity', 'Chat Planned', 'Docs']);
   expect(
     within(navigation)
       .getByRole('link', { name: /^Activity/ })
       .getAttribute('href'),
   ).toBe('/activity');
   expect(
-    within(navigation).getByRole('link', { name: 'Workspaces' }).getAttribute('aria-current'),
+    within(navigation).getByRole('link', { name: 'Projects' }).getAttribute('aria-current'),
   ).toBe('page');
   expect(within(navigation).queryByRole('link', { name: 'Settings' })).toBeNull();
 
   await fireEvent.click(screen.getByRole('button', { name: 'Open account menu for Ada Lovelace' }));
   for (const item of [
     'Profile',
-    'Your workspaces',
+    'Your projects',
     'Settings',
     'Password and authentication',
     'Getting started',
@@ -87,25 +87,25 @@ it('uses clear global destinations and exposes account destinations from the ava
   ).toContain('AL');
 });
 
-it('keeps the workspace breadcrumb focused on its name and directory link', () => {
+it('keeps the project breadcrumb focused on its name and directory link', () => {
   render(ProductHeader, {
     props: {
       auth: signedInAuth(),
-      active: 'workspaces',
+      active: 'projects',
       projectName: 'Spectral gaps',
       projectVisibility: 'PRIVATE',
     },
   });
 
-  const breadcrumb = screen.getByRole('navigation', { name: 'Workspace breadcrumb' });
-  expect(within(breadcrumb).getByRole('link', { name: 'Workspaces' }).getAttribute('href')).toBe(
-    '/workspaces',
+  const breadcrumb = screen.getByRole('navigation', { name: 'Project breadcrumb' });
+  expect(within(breadcrumb).getByRole('link', { name: 'Projects' }).getAttribute('href')).toBe(
+    '/projects',
   );
   expect(within(breadcrumb).getByText('Spectral gaps', { exact: true })).toBeTruthy();
   expect(screen.queryByRole('navigation', { name: 'Main navigation' })).toBeNull();
 });
 
-it('links anonymous desktop and mobile navigation to public workspaces', async () => {
+it('links anonymous desktop and mobile navigation to public projects', async () => {
   render(ProductHeader, { props: { auth: signedOutAuth(), active: 'explore' } });
 
   const navigation = screen.getByRole('navigation', { name: 'Main navigation' });
@@ -116,8 +116,8 @@ it('links anonymous desktop and mobile navigation to public workspaces', async (
     '/library',
   );
   expect(within(navigation).getByRole('button', { name: 'Open Docs menu' })).toBeTruthy();
-  expect(within(navigation).getByRole('link', { name: 'Workspaces' }).getAttribute('href')).toBe(
-    '/workspaces?scope=public',
+  expect(within(navigation).getByRole('link', { name: 'Projects' }).getAttribute('href')).toBe(
+    '/projects?scope=public',
   );
   expect(
     within(navigation)
@@ -128,8 +128,8 @@ it('links anonymous desktop and mobile navigation to public workspaces', async (
   expect(screen.getByRole('link', { name: 'Create account' }).getAttribute('href')).toBe('/signup');
 
   await fireEvent.click(screen.getByRole('button', { name: 'Open navigation and account menu' }));
-  expect((await screen.findByRole('menuitem', { name: 'Workspaces' })).getAttribute('href')).toBe(
-    '/workspaces?scope=public',
+  expect((await screen.findByRole('menuitem', { name: 'Projects' })).getAttribute('href')).toBe(
+    '/projects?scope=public',
   );
   expect(screen.getByRole('menuitem', { name: 'Docs' }).getAttribute('href')).toBe('/docs/');
   expect(screen.getByRole('menuitem', { name: 'Getting started' }).getAttribute('href')).toBe(
@@ -152,7 +152,7 @@ it('marks Docs as the current public destination', () => {
 it('keeps the account available after sign-out fails', async () => {
   const auth = signedInAuth();
   vi.spyOn(auth, 'signOut').mockRejectedValueOnce(new Error('offline'));
-  render(ProductHeader, { props: { auth, active: 'workspaces' } });
+  render(ProductHeader, { props: { auth, active: 'projects' } });
 
   await fireEvent.click(screen.getByRole('button', { name: 'Open account menu for Ada Lovelace' }));
   await fireEvent.click(await screen.findByRole('menuitem', { name: 'Sign out' }));

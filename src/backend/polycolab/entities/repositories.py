@@ -1,4 +1,4 @@
-"""Application values for workspace Git history."""
+"""Application values for project Git history."""
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -14,7 +14,7 @@ class RepositoryError(Exception):
 @dataclass(frozen=True)
 class RepositoryReceipt:
     id: UUID
-    workspace_id: UUID
+    project_id: UUID
     user_id: UUID
     key: str
     digest: str
@@ -28,7 +28,7 @@ class RepositoryReceipt:
 @dataclass(frozen=True)
 class RepositorySession:
     session_id: UUID
-    workspace_id: UUID
+    project_id: UUID
     owner_id: UUID
     enabled: bool
     active: bool
@@ -47,9 +47,9 @@ class RepositoryRun:
 
 
 @dataclass(frozen=True)
-class WorkspaceTask:
+class ProjectTask:
     id: UUID
-    workspace_id: UUID
+    project_id: UUID
     title: str
     branch: str
     created_by_user_id: UUID

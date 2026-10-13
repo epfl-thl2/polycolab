@@ -7,10 +7,10 @@
   import { goto } from '$app/navigation';
   import { createAccountRecoveryApi } from '../lib/account-recovery-api';
   import { ApiError } from '../lib/research-api';
-  import { workspace } from '../svelte-lib/context';
+  import { projectContext } from '../svelte-lib/context';
 
   let { mode }: { mode: 'verify' | 'request' | 'confirm' } = $props();
-  const { auth } = workspace();
+  const { auth } = projectContext();
   const recovery = createAccountRecoveryApi();
   let email = $state('');
   let token = $state(

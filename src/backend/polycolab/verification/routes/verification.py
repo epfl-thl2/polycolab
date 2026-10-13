@@ -25,14 +25,14 @@ def enabled(request: Request, response: Response) -> None:
 
 
 router = APIRouter(
-    prefix="/api/v1/workspaces/{workspace_id}/verification-jobs",
+    prefix="/api/v1/projects/{project_id}/verification-jobs",
     tags=["verification"],
     route_class=VerificationRoute,
     dependencies=[Depends(enabled)],
 )
 
 environment_router = APIRouter(
-    prefix="/api/v1/workspaces/{workspace_id}/verification-environments",
+    prefix="/api/v1/projects/{project_id}/verification-environments",
     tags=["verification"],
     route_class=VerificationRoute,
     dependencies=[Depends(enabled)],
@@ -70,7 +70,7 @@ def _environment_read(value: SqlVerificationEnvironment) -> VerificationEnvironm
     operation_id="discoverVerificationEnvironments",
 )
 def environments(
-    workspace_id: UUID,
+    project_id: UUID,
     user: CurrentUser,
     session: DbSession,
     after: UUID | None = None,
@@ -79,7 +79,7 @@ def environments(
 ) -> VerificationEnvironmentPage:
     items, next_after = verification_environments.available(
         session,
-        project_id=workspace_id,
+        project_id=project_id,
         user_id=user.id,
         after=after,
         limit=limit,
@@ -94,13 +94,13 @@ def environments(
     "", response_model=VersionJobRead, status_code=201, operation_id="submitVerificationJob"
 )
 def submit(
-    workspace_id: UUID,
+    project_id: UUID,
     payload: VersionJobSubmitRequest,
     request: Request,
     user: CurrentUser,
     session: DbSession,
 ) -> VersionJobRead:
-    if workspace_id != payload.submission.project_id:
+    if project_id != payload.submission.project_id:
         raise HTTPException(422, "verification_project_mismatch")
     try:
         result = verification.submit(
@@ -119,10 +119,10 @@ def submit(
 
 @router.get("/{job_id}", response_model=VersionJobRead, operation_id="getVerificationJob")
 def inspect(
-    workspace_id: UUID, job_id: UUID, user: CurrentUser, session: DbSession
+    project_id: UUID, job_id: UUID, user: CurrentUser, session: DbSession
 ) -> VersionJobRead:
     return VersionJobRead.from_stored(
-        verification.inspect(session, job_id=job_id, project_id=workspace_id, user_id=user.id)
+        verification.inspect(session, job_id=job_id, project_id=project_id, user_id=user.id)
     )
 
 
@@ -130,7 +130,7 @@ def inspect(
     "/{job_id}/events", response_model=tuple[EventRead, ...], operation_id="getVerificationEvents"
 )
 def events(
-    workspace_id: UUID,
+    project_id: UUID,
     job_id: UUID,
     request: Request,
     user: CurrentUser,
@@ -141,7 +141,7 @@ def events(
     return verification.events(
         session,
         job_id=job_id,
-        project_id=workspace_id,
+        project_id=project_id,
         user_id=user.id,
         after=after_sequence,
         limit=limit,
@@ -152,11 +152,9 @@ def events(
 @router.post(
     "/{job_id}/cancel", response_model=VersionJobRead, operation_id="cancelVerificationJob"
 )
-def cancel(
-    workspace_id: UUID, job_id: UUID, user: CurrentUser, session: DbSession
-) -> VersionJobRead:
+def cancel(project_id: UUID, job_id: UUID, user: CurrentUser, session: DbSession) -> VersionJobRead:
     return VersionJobRead.from_stored(
-        verification.cancel(session, job_id=job_id, project_id=workspace_id, user_id=user.id)
+        verification.cancel(session, job_id=job_id, project_id=project_id, user_id=user.id)
     )
 
 
@@ -167,7 +165,7 @@ def cancel(
     operation_id="rerunVerificationJob",
 )
 def rerun(
-    workspace_id: UUID,
+    project_id: UUID,
     job_id: UUID,
     payload: RetryRequest,
     request: Request,
@@ -178,7 +176,7 @@ def rerun(
         result = verification.rerun(
             session,
             job_id=job_id,
-            project_id=workspace_id,
+            project_id=project_id,
             user_id=user.id,
             retry_key=payload.retry_key,
             settings=request.app.state.settings,

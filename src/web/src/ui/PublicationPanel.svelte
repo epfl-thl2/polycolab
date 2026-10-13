@@ -5,7 +5,7 @@
   import { Button } from '../lib/components/ui/button';
   import { onMount } from 'svelte';
   import type { components } from '$lib/api-client';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import {
     mapPublicationManifest,
     mapPublicationPreview,
@@ -40,7 +40,7 @@
     artifacts?: ArtifactView[];
     canPublish: boolean;
   } = $props();
-  const { publication, records } = workspace();
+  const { publication, records } = projectContext();
   let reviews = $state<Review[]>([]);
   let reviewCursor = $state<string>();
   let relations = $state<RelationRead[]>([]);
@@ -62,7 +62,7 @@
               ? 'PROOF'
               : 'RESEARCH_REVISION',
         title: record.content.title,
-        href: `/workspaces/${projectId}/records/${record.id}`,
+        href: `/projects/${projectId}/records/${record.id}`,
         description: 'Exact research version',
       },
     ];
@@ -72,7 +72,7 @@
         revisionId: summary.current_revision.id,
         kind: 'AUTHORED_SUMMARY',
         title: `Authored summary revision ${summary.current_revision.number}`,
-        href: `/workspaces/${projectId}/records/${record.id}`,
+        href: `/projects/${projectId}/records/${record.id}`,
       });
     items.push(
       ...comments.map((comment) => ({
@@ -80,20 +80,20 @@
         revisionId: comment.object_version_id,
         kind: 'COMMENT' as const,
         title: `Comment by ${comment.author_display_name ?? comment.agent_display_name ?? 'Unknown contributor'}`,
-        href: `/workspaces/${projectId}/records/${comment.object_version_id}`,
+        href: `/projects/${projectId}/records/${comment.object_version_id}`,
       })),
       ...progress.map((item) => ({
         id: item.id,
         revisionId: item.object_version_id,
         kind: 'PROGRESS' as const,
         title: `${item.status} progress`,
-        href: `/workspaces/${projectId}/records/${item.object_version_id}`,
+        href: `/projects/${projectId}/records/${item.object_version_id}`,
       })),
       ...relations.map((relation) => ({
         id: relation.id,
         kind: 'RELATION' as const,
         title: `${relation.relationship_type} relationship`,
-        href: `/workspaces/${projectId}/records/${relation.direction === 'BIDIRECTIONAL' ? relation.first_object_version_id : relation.source_object_version_id}`,
+        href: `/projects/${projectId}/records/${relation.direction === 'BIDIRECTIONAL' ? relation.first_object_version_id : relation.source_object_version_id}`,
       })),
       ...artifacts
         .filter((artifact) => artifact.state === 'COMMITTED')
@@ -112,7 +112,7 @@
         revisionId: review.object_version_id,
         kind: 'REVIEW' as const,
         title: `${review.actor_kind === 'HUMAN' ? 'Human' : 'AI'} review by ${review.reviewer_name}`,
-        href: `/workspaces/${projectId}/objects/${record.object_id}?panel=reviews`,
+        href: `/projects/${projectId}/objects/${record.object_id}?panel=reviews`,
         description: `${review.withdrawn ? 'Withdrawn' : review.outcome} · ${review.scope}`,
       })),
     );

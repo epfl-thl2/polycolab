@@ -3,7 +3,7 @@
 Fresh installations apply the complete Alembic chain from `20260905_baseline` to `head`.
 Existing post-reset installations also upgrade to `head` without resetting accounts or research.
 The unification migration removes only sample installation bookkeeping.
-It never changes workspace visibility or deletes tutorial research.
+It never changes project visibility or deletes tutorial research.
 
 Databases from before the 2026-09-05 prototype reset remain unsupported and must not be stamped as current.
 No application command resets data automatically.
@@ -22,7 +22,7 @@ The default consumer command remains listener-free.
 `docker/compose.yml` starts PostgreSQL, Garage, a migration job, FastAPI, and the community consumer.
 Use `--profile execution` for the private built-in worker.
 FastAPI is the production web service and serves the compiled Svelte bundle and JSON API.
-Public workspaces, Library, agent keys, artifacts, and scoped direct contributions are standard features with no enable/disable flags.
+Public projects, Library, agent keys, artifacts, and scoped direct contributions are standard features with no enable/disable flags.
 Local browser development runs Vite separately with `pnpm run web:dev`.
 The Compose file deliberately uses local-only credentials and loopback ports.
 
@@ -136,14 +136,14 @@ Staging and production should run migrations as a dedicated deployment job, not 
 
 ## Local deployment
 
-The Library and workspace imports are always available.
+The Library and project imports are always available.
 Apply the migration through `20260915_submission_numbers` before running this version.
 The migration preserves existing literature and status values.
 This migration assigns permanent numbers to existing research activity and initializes the counter for new submissions.
 
 The `/library` route uses catalogue-only search.
-`/workspaces?scope=member` opens the member working area.
-`/workspaces?scope=public` browses public investigations.
+`/projects?scope=member` opens the member working area.
+`/projects?scope=public` browses public investigations.
 No community consumer or hosted execution service is required for the Library.
 
 Scoped version-2 agent tools require explicit per-run write authority, not a deployment feature switch.
@@ -160,7 +160,7 @@ Moderator assignment requires an explicit JSON list of verified human subjects i
 It defaults to `[]`.
 The local Compose service supplies these variables.
 See the [catalogue contract](../docs/architecture/catalogue.md) for endpoints and authority.
-The Svelte Library supplies discovery, admission, revision history and workspace imports.
+The Svelte Library supplies discovery, admission, revision history and project imports.
 
 Local browser and integration tests do not establish deployment acceptance for the combined src/web/API image.
 
@@ -193,7 +193,7 @@ Registration defaults closed.
 Bootstrap the administrator using the existing private bootstrap password setting.
 Before exposing public ingress:
 
-1. Configure `PUBLIC_WORKSPACE_MODERATOR_SUBJECTS`.
+1. Configure `PUBLIC_PROJECT_MODERATOR_SUBJECTS`.
 2. Run `python -m polycolab.deployment_preflight --live`.
 
 Library moderation retains its separate operator settings.
@@ -253,23 +253,23 @@ Production uses the configured KMS provider.
 Retain access to historical wrapping keys.
 Existing hash-only agent keys still work but cannot be revealed.
 
-## Persistent workspace files
+## Persistent project files
 
-The API mounts `workspace-repositories` at `/var/lib/polycolab/repositories`.
-Set `WORKSPACE_REPOSITORY_DIRECTORY` to this absolute path in the private
+The API mounts `project-repositories` at `/var/lib/polycolab/repositories`.
+Set `PROJECT_REPOSITORY_DIRECTORY` to this absolute path in the private
 production environment file; the production overlay resets local environment
 entries. Docker-free development uses `.local/repositories`. Git must be
 installed on the API host (the application image includes it).
 
 For a host directory, replace the API volume mapping with
-`/absolute/host/workspace-repositories:/var/lib/polycolab/repositories` and grant
+`/absolute/host/project-repositories:/var/lib/polycolab/repositories` and grant
 the container API user read/write access. Keep it on one host with local POSIX
 file locking. Sandboxes receive clones through the API; they never mount this
 volume. This initial deployment does not support independent repository volumes
 on multiple API hosts.
 
-Apply migrations to `20261006_workspace_files` before serving the new routes.
+Apply migrations to `20261006_project_files` before serving the new routes.
 Browser files can ship first; rebuild and verify the protocol-3 hosted controller
 and curated image before enabling agent checkout. See the
-[workspace-file contract](../docs/architecture/workspace-files.md) for coordinated
+[project-file contract](../docs/architecture/project-files.md) for coordinated
 SQL/Git backups, restore checks, quotas, and rollback.

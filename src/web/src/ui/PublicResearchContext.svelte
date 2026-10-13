@@ -5,7 +5,7 @@
   import { Button } from '../lib/components/ui/button';
   import { onMount, untrack } from 'svelte';
   import type { components } from '$lib/api-client';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import {
     exactRevision,
     mapProofSketch,
@@ -20,7 +20,7 @@
   type AssuranceCurrentRead = components['schemas']['ObjectVersionCurrentAssuranceRead'];
 
   let { record }: { record: RecordRead } = $props();
-  const { researchStructure } = workspace();
+  const { researchStructure } = projectContext();
   let attempts = $state<AttemptPage>({ items: [], next_cursor: null });
   let assurance = $state<AssuranceRead>({
     object_version_id: untrack(() => record.id),

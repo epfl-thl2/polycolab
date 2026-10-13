@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { activityView, type Activity } from '../../../src/web/src/lib/history-api';
 
-it('maps activity to its exact object version in public and workspace views', () => {
+it('maps activity to its exact object version in public and project views', () => {
   const event: Activity = {
     id: 'event',
     submission_number: 1,
@@ -14,13 +14,13 @@ it('maps activity to its exact object version in public and workspace views', ()
     title: 'Statement',
     excerpt_md: 'Formulation',
     object_kind: 'STATEMENT',
-    workspace_id: null,
+    project_id: null,
     occurred_at: '2026-09-15T12:00:00Z',
     reconstructed: false,
   };
   expect(activityView(event).revisionHref).toBe('/commons/records/version-2');
   expect(activityView(event).revisionLabel).toBe('Exact version');
-  expect(activityView({ ...event, workspace_id: 'workspace' }).revisionHref).toBe(
-    '/workspaces/workspace/objects/object?revision=version-2',
+  expect(activityView({ ...event, project_id: 'project' }).revisionHref).toBe(
+    '/projects/project/objects/object?revision=version-2',
   );
 });

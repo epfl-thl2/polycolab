@@ -5,7 +5,7 @@
   import * as Field from '../lib/components/ui/field';
   import * as Dialog from '../lib/components/ui/dialog';
   import { onMount } from 'svelte';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import type { CatalogueEntry } from '../lib/catalogue-api';
   import SignIn from './SignIn.svelte';
   let {
@@ -17,7 +17,7 @@
     variant?: 'default' | 'outline' | 'ghost';
     size?: 'default' | 'sm';
   } = $props();
-  const { api, records, auth } = workspace();
+  const { api, records, auth } = projectContext();
   let visibility = $state<'PUBLIC' | 'PRIVATE'>('PUBLIC');
   let open = $state(false);
   let projects = $state<Awaited<ReturnType<typeof api.listProjects>>['items']>([]);
@@ -59,14 +59,14 @@
     try {
       const body = {
         source_object_version_id: entry.object_version.id,
-        ...(destination ? { workspace_id: destination } : {}),
-        workspace_name: name.trim() || entry.object_version.content.title.slice(0, 200),
-        workspace_visibility: visibility,
+        ...(destination ? { project_id: destination } : {}),
+        project_name: name.trim() || entry.object_version.content.title.slice(0, 200),
+        project_visibility: visibility,
       };
       const serialized = JSON.stringify(body);
       if (receipt?.body !== serialized) receipt = { body: serialized, key: crypto.randomUUID() };
-      const copy = await records.copyToWorkspace(body, receipt.key);
-      window.location.assign(`/workspaces/${copy.workspace_id}/objects/${copy.object_id}`);
+      const copy = await records.copyToProject(body, receipt.key);
+      window.location.assign(`/projects/${copy.project_id}/objects/${copy.object_id}`);
     } catch (cause) {
       error = explain(cause);
     } finally {
@@ -77,13 +77,13 @@
 
 <Dialog.Root bind:open
   ><Dialog.Trigger
-    >{#snippet child({ props })}<Button {...props} {variant} {size}>Copy to workspace</Button
+    >{#snippet child({ props })}<Button {...props} {variant} {size}>Copy to project</Button
       >{/snippet}</Dialog.Trigger
   >
   <Dialog.Content class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
     <Dialog.Title>Copy “{entry.object_version.content.title}”</Dialog.Title>
     <Dialog.Description
-      >Create an editable copy of this Library version in your workspace.</Dialog.Description
+      >Create an editable copy of this Library version in your project.</Dialog.Description
     >
     {#if !auth.signedIn}<SignIn
         {auth}
@@ -99,8 +99,8 @@
         }}
       >
         <Field.Label
-          >Destination workspace<NativeSelect bind:value={destination} disabled={busy}>
-            <option value="">New workspace</option>
+          >Destination project<NativeSelect bind:value={destination} disabled={busy}>
+            <option value="">New project</option>
             {#each projects as project (project.id)}<option value={project.id}
                 >{project.name}</option
               >{/each}
@@ -110,10 +110,10 @@
             type="button"
             variant="outline"
             disabled={busy}
-            onclick={() => load(true)}>Load more workspaces</Button
+            onclick={() => load(true)}>Load more projects</Button
           >{/if}
         {#if !destination}<Field.Label
-            >Workspace name<Input
+            >Project name<Input
               maxlength={200}
               bind:value={name}
               placeholder={entry.object_version.content.title.slice(0, 200)}
@@ -126,8 +126,8 @@
           >
           <p class="muted">
             {visibility === 'PUBLIC'
-              ? 'Anyone can read this workspace and its saved research.'
-              : 'Only workspace members can read this research.'}
+              ? 'Anyone can read this project and its saved research.'
+              : 'Only project members can read this research.'}
           </p>{/if}
         <p>
           Copying version {entry.object_version.number ?? 1}. Future Library updates will not change
@@ -135,7 +135,7 @@
         </p>
         {#if error}<p role="alert">{error}</p>
           <Button type="button" variant="outline" disabled={busy} onclick={() => load()}
-            >Reload workspaces</Button
+            >Reload projects</Button
           >{/if}
         <Button type="submit" disabled={busy}>{busy ? 'Working…' : 'Create copy'}</Button>
       </form>

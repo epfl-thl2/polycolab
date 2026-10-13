@@ -51,13 +51,13 @@ export function activityView(row: Activity): SubmissionView {
         ? `/profiles/${row.actor.user_id}`
         : undefined,
     sponsor: row.actor.sponsor_user_id ? 'Sponsored agent' : undefined,
-    workspace: row.workspace_name ?? (row.workspace_id ? 'Workspace' : 'Library'),
+    project: row.project_name ?? (row.project_id ? 'Project' : 'Library'),
     createdAt: row.occurred_at,
     revisionLabel: row.object_version_number ? `#${row.object_version_number}` : 'Exact version',
-    revisionHref: row.workspace_id
-      ? `/workspaces/${row.workspace_id}/objects/${row.object_id}?revision=${row.object_version_id}`
+    revisionHref: row.project_id
+      ? `/projects/${row.project_id}/objects/${row.object_id}?revision=${row.object_version_id}`
       : `/commons/records/${row.object_version_id}`,
-    workspaceHref: row.workspace_id ? `/workspaces/${row.workspace_id}` : '/library',
+    projectHref: row.project_id ? `/projects/${row.project_id}` : '/library',
   };
 }
 export function createHistoryApi(options: CommonsClientOptions = {}) {
@@ -98,15 +98,15 @@ export function createHistoryApi(options: CommonsClientOptions = {}) {
       );
       return { items: page.items.map(activityView), nextCursor: page.next_cursor ?? undefined };
     },
-    async workspaces(window, cursor) {
+    async projects(window, cursor) {
       const page = await result(
-        client.GET('/api/v1/activity/workspaces', {
+        client.GET('/api/v1/activity/projects', {
           params: { query: { window, cursor, limit: 25 } },
         }),
       );
       return {
         items: page.items.map((row) => ({
-          id: row.workspace_id,
+          id: row.project_id,
           name: row.name,
           description: row.description ?? '',
           contributors: row.contributors,
@@ -114,7 +114,7 @@ export function createHistoryApi(options: CommonsClientOptions = {}) {
           attempts: 0,
           comments: 0,
           lastActiveAt: row.last_active_at,
-          href: `/workspaces/${row.workspace_id}`,
+          href: `/projects/${row.project_id}`,
         })),
         nextCursor: page.next_cursor ?? undefined,
       };
@@ -122,12 +122,12 @@ export function createHistoryApi(options: CommonsClientOptions = {}) {
   };
   return {
     source,
-    workspaceActivity: (workspaceId: string, publicRead: boolean, cursor?: string) =>
+    projectActivity: (projectId: string, publicRead: boolean, cursor?: string) =>
       result(
         client.GET('/api/v1/activity', {
           params: {
             query: {
-              workspace_id: workspaceId,
+              project_id: projectId,
               scope: publicRead ? 'public' : 'member',
               window: 'month',
               cursor,

@@ -9,10 +9,10 @@ it('keeps exact private endpoints and rotates retries only for changed relations
   const relationPage = vi.fn().mockResolvedValue({ items: [], next_cursor: null });
   const relate = vi.fn().mockRejectedValue({ status: 404 });
   render(ScopedRelations, {
-    props: { revisionId: 'source', projectId: 'workspace', canWrite: true },
+    props: { revisionId: 'source', projectId: 'project', canWrite: true },
     context: new Map([[contextKey, { records: { relationPage, relate } }]]),
   });
-  await waitFor(() => expect(relationPage).toHaveBeenCalledWith('source', undefined, 'workspace'));
+  await waitFor(() => expect(relationPage).toHaveBeenCalledWith('source', undefined, 'project'));
   await fireEvent.click(screen.getByRole('button', { name: 'Add exact-version relationship' }));
   await fireEvent.input(screen.getByLabelText('Exact target version ID'), {
     target: { value: 'public-target' },
@@ -26,7 +26,7 @@ it('keeps exact private endpoints and rotates retries only for changed relations
   await fireEvent.click(save);
   await waitFor(() => expect(relate).toHaveBeenCalledTimes(2));
   expect(relate.mock.calls[0]![0]).toEqual({
-    destination: { kind: 'workspace', workspace_id: 'workspace' },
+    destination: { kind: 'project', project_id: 'project' },
     direction: 'UNIDIRECTIONAL',
     source_object_version_id: 'source',
     target_object_version_id: 'public-target',

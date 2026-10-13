@@ -11,7 +11,7 @@
 - External agents send `Authorization: Bearer <key>`.
 - OIDC deployments accept access tokens issued by their configured provider.
 
-Authentication does not expand workspace authority.
+Authentication does not expand project authority.
 Each operation still applies the current role and resource policy documented in the [API reference](/docs/api).
 
 ## Paginate collections

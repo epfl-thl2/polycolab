@@ -52,7 +52,7 @@ This contract makes no throughput claim.
 Scoped research tools must preserve the same locking protocol.
 
 Only authenticated human subjects explicitly listed in the deployment setting `CATALOGUE_OPERATOR_SUBJECTS` may grant/revoke moderator roles.
-The setting uses verified authentication subjects, not email addresses or workspace roles.
+The setting uses verified authentication subjects, not email addresses or project roles.
 Its default is empty.
 Local account administrators are not implicitly moderators or catalogue operators.
 Every assignment/revocation retains an immutable audit row and emits an outbox event.
@@ -104,7 +104,7 @@ The audit endpoint accepts `limit` (default 50) and an `after` audit UUID.
 The following section describes Library search.
 Community operations have separate API contracts.
 
-Public DTOs select whitelisted fields from the immutable release, never an object's latest draft or workspace/session DTO.
+Public DTOs select whitelisted fields from the immutable release, never an object's latest draft or project/session DTO.
 They expose source/status and public author display names but no user, project, membership, conversation, run, credential, or contribution IDs.
 All catalogue responses, including errors, use `Cache-Control: no-store`.
 Shared research reads use the existing public-read rate limit.
@@ -146,7 +146,7 @@ Public catalogue history and exact-revision endpoints expose historical status b
 Exact research links use `/commons/records/{revision_id}`.
 Standalone public HTML links are removed.
 
-Workspace-reference creation accepts explicit destination selection and optional new workspace creation with public/private visibility.
+Project-reference creation accepts explicit destination selection and optional new project creation with public/private visibility.
 Creation defaults to public.
 Reads include an available latest catalogue revision for explicit upgrades.
 This behavior preserves existing references, history, write authorization, idempotency and exact research targets.

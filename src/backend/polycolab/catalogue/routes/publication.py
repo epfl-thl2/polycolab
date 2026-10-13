@@ -24,7 +24,7 @@ from polycolab.catalogue.publication_schemas import (
 from polycolab.catalogue.routes.catalogue import RetryKey, no_store
 from polycolab.db.models import SqlArtifact
 from polycolab.entities.enums import ArtifactState
-from polycolab.workspaces.service import DomainConflict
+from polycolab.projects.service import DomainConflict
 
 router = APIRouter(prefix="/api/v1", tags=["publication"], dependencies=[Depends(no_store)])
 Limit = Annotated[int, Query(ge=1, le=100)]
@@ -114,7 +114,7 @@ def confirm(
     operation_id="listSelectivePublicationHistory",
 )
 def history(
-    workspace_id: UUID,
+    project_id: UUID,
     session: DbSession,
     actor: CurrentActor,
     limit: Limit = 25,
@@ -123,7 +123,7 @@ def history(
     result = publication.history(
         session,
         actor=actor,
-        project_id=workspace_id,
+        project_id=project_id,
         limit=limit,
         cursor=cursor,
     )

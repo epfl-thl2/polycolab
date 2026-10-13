@@ -92,7 +92,7 @@ class SqlAgentSession(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), index=True)
     task_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("workspace_tasks.id"), nullable=True, index=True
+        ForeignKey("project_tasks.id"), nullable=True, index=True
     )
     agent_version_id: Mapped[UUID] = mapped_column(
         ForeignKey("platform_agent_versions.id"), index=True

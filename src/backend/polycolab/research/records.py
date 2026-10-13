@@ -14,10 +14,10 @@ from sqlalchemy.sql.elements import ColumnElement
 from polycolab.access.actors import Actor, ActorKind, ActorOperation
 from polycolab.access.authorization import (
     AuthorizationDenied,
-    WorkspaceAction,
-    lock_workspace_authorization,
+    ProjectAction,
+    lock_project_authorization,
+    project_policy,
     require_human_actor,
-    workspace_policy,
 )
 from polycolab.catalogue.admission import is_moderator, lock_commons
 from polycolab.catalogue.schemas import CatalogueRevise
@@ -45,10 +45,10 @@ from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.enums import (
     CanonicalEntityType,
     ContributionActorKind,
+    ProjectVisibility,
     ProvenanceKind,
     RelationType,
     ResearchEntityClass,
-    WorkspaceVisibility,
 )
 from polycolab.entities.object_kinds import canonical_kind
 from polycolab.entities.research import (
@@ -59,6 +59,7 @@ from polycolab.entities.research import (
 )
 from polycolab.platform import mutation_keys
 from polycolab.platform.outbox import canonical_digest
+from polycolab.projects.service import DomainConflict
 from polycolab.research.contracts import (
     ObjectVersionDisplayBatchRead,
     ObjectVersionDisplayRead,
@@ -71,7 +72,6 @@ from polycolab.research.contracts import (
 )
 from polycolab.research.contributions import human_contribution, link_output
 from polycolab.research.objects import ResearchNotFound
-from polycolab.workspaces.service import DomainConflict
 
 
 def _provenance_kind(envelope: SqlContributionEnvelope) -> ProvenanceKind:
@@ -117,13 +117,13 @@ def public_condition(
         .join(candidate, candidate.object_id == SqlRecordModeration.object_id)
         .where(candidate.id == revision_id, SqlRecordModeration.hidden.is_(True))
     )
-    workspace_revision = aliased(SqlObjectRevision)
-    public_workspace = exists(
+    project_revision = aliased(SqlObjectRevision)
+    public_project = exists(
         select(SqlProject.id)
-        .join(workspace_revision, workspace_revision.project_id == SqlProject.id)
+        .join(project_revision, project_revision.project_id == SqlProject.id)
         .where(
-            workspace_revision.id == revision_id,
-            SqlProject.visibility == WorkspaceVisibility.PUBLIC,
+            project_revision.id == revision_id,
+            SqlProject.visibility == ProjectVisibility.PUBLIC,
             SqlProject.archived_at.is_(None),
             SqlProject.deleted_at.is_(None),
         )
@@ -131,7 +131,7 @@ def public_condition(
     return and_(
         ~record_hidden,
         or_(
-            public_workspace,
+            public_project,
             and_(released, or_(selectively_published, official, and_(anchored, ~hidden))),
         ),
     )
@@ -177,7 +177,7 @@ def relation_read_condition(project_id: UUID | None) -> ColumnElement[bool]:
             or_(
                 SqlResearchScope.project_id.is_(None),
                 and_(
-                    SqlProject.visibility == WorkspaceVisibility.PUBLIC,
+                    SqlProject.visibility == ProjectVisibility.PUBLIC,
                     SqlProject.archived_at.is_(None),
                     SqlProject.deleted_at.is_(None),
                 ),
@@ -226,14 +226,14 @@ def project_access(
     session: Session, project_id: UUID, user_id: UUID, *, write: bool = False
 ) -> None:
     if write:
-        lock_workspace_authorization(
+        lock_project_authorization(
             SqlAlchemyTransaction(session), project_id=project_id, user_id=user_id
         )
-    workspace_policy.require_scope(
+    project_policy.require_scope(
         SqlAlchemyTransaction(session),
         project_id,
         user_id,
-        WorkspaceAction.CREATE_RESEARCH if write else WorkspaceAction.VIEW,
+        ProjectAction.CREATE_RESEARCH if write else ProjectAction.VIEW,
     )
 
 
@@ -890,7 +890,7 @@ def write_relation(
             and payload.project_id is not None
             and source.project_id != payload.project_id
         ):
-            raise AuthorizationDenied("private relations must originate in their workspace")
+            raise AuthorizationDenied("private relations must originate in their project")
         existing = mutation_keys.receipt(session, actor_key, "relation.write", key, body)
         if existing is not None:
             result = ResourceResult(id=UUID(existing.resource_ids[0]))

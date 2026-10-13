@@ -40,8 +40,8 @@ export function createArtifactApi(options: CommonsClientOptions = {}) {
       query: { object_version_id?: string; limit?: number; cursor?: string } = {},
     ): Promise<ArtifactAttachmentPage> =>
       result(
-        client.GET('/api/v1/workspaces/{workspace_id}/artifacts', {
-          params: { path: { workspace_id: projectId }, query },
+        client.GET('/api/v1/projects/{project_id}/artifacts', {
+          params: { path: { project_id: projectId }, query },
         }),
       ),
     publicAttachments: (
@@ -49,8 +49,8 @@ export function createArtifactApi(options: CommonsClientOptions = {}) {
       query: { object_version_id?: string; limit?: number; cursor?: string } = {},
     ): Promise<ArtifactAttachmentPage> =>
       result(
-        publicClient.GET('/api/v1/workspaces/{workspace_id}/artifacts', {
-          params: { path: { workspace_id: projectId }, query },
+        publicClient.GET('/api/v1/projects/{project_id}/artifacts', {
+          params: { path: { project_id: projectId }, query },
         }),
       ),
     async uploadAndAttach(projectId: string, draft: ArtifactUploadDraft): Promise<ArtifactRead> {
@@ -73,7 +73,7 @@ export function createArtifactApi(options: CommonsClientOptions = {}) {
           params: {
             header: { 'Idempotency-Key': keys.upload },
             query: {
-              workspace_id: projectId,
+              project_id: projectId,
               sha256: digest,
               byte_length: draft.file.size,
               media_type: draft.file.type || 'application/octet-stream',

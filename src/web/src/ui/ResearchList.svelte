@@ -14,7 +14,7 @@
   import { toStore } from 'svelte/store';
   import { createInfiniteQuery, createQuery } from '@tanstack/svelte-query';
   import { goto } from '$app/navigation';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import type { ObjectKind, ObjectVersion, VersionSnapshot } from '../lib/research-api';
   import type { PrimaryResearchAction } from './PrimaryResearchActions.svelte';
   import type { RevisionChoice } from './ResearchRevisionSelector.svelte';
@@ -41,7 +41,7 @@
     selected?: { version: ObjectVersion; searchResult: boolean };
     oninspect?: () => void;
   } = $props();
-  const { api, records, query } = workspace();
+  const { api, records, query } = projectContext();
   let searchDraft = $state('');
   let appliedSearch = $state('');
   const objects = createInfiniteQuery(
@@ -59,8 +59,8 @@
       enabled: Boolean(appliedSearch),
       initialPageParam: undefined as string | undefined,
       queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
-        (publicRead ? records.publicSearch : records.workspaceSearch)({
-          workspace_id: projectId,
+        (publicRead ? records.publicSearch : records.projectSearch)({
+          project_id: projectId,
           q: appliedSearch,
           cursor: pageParam,
         }),
@@ -146,7 +146,7 @@
 
   async function searchRevisions(search: string): Promise<RevisionChoice[]> {
     const pages = await Promise.all([
-      records.workspaceSearch({ workspace_id: projectId, q: search, limit: 25 }),
+      records.projectSearch({ project_id: projectId, q: search, limit: 25 }),
       records.publicSearch({ q: search, limit: 25 }),
     ]);
     const matches = new Map(
@@ -287,7 +287,7 @@
       await query.invalidateQueries({ queryKey: ['objects', projectId] });
       resetForm();
       showCreation = false;
-      await goto(`/workspaces/${projectId}/objects/${object.id}`);
+      await goto(`/projects/${projectId}/objects/${object.id}`);
     } catch (reason) {
       error = `${explain(reason)} Your draft and exact selections are retained.`;
     } finally {
@@ -550,7 +550,7 @@
       {#if !overview}
         <!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard access to horizontally scrollable table.) -->
         <div
-          class="object-table-scroll workspace-data-table"
+          class="object-table-scroll project-data-table"
           role="region"
           aria-label="Research objects table"
           tabindex="0"
@@ -591,13 +591,13 @@
                       >
                       <a
                         class="object-open"
-                        href={`/workspaces/${projectId}/map?object=${encodeURIComponent(row.id)}`}
+                        href={`/projects/${projectId}/map?object=${encodeURIComponent(row.id)}`}
                         aria-label={`Focus on map: ${row.version.content.title}`}
                         title="Focus on map"><LocateFixed size={14} aria-hidden="true" /></a
                       >
                       <a
                         class="object-open"
-                        href={`/workspaces/${projectId}/objects/${row.id}`}
+                        href={`/projects/${projectId}/objects/${row.id}`}
                         aria-label={`Open object: ${row.version.content.title}`}
                         title="Open object"><ArrowUpRight size={14} aria-hidden="true" /></a
                       >
@@ -619,7 +619,7 @@
           {#each rows as row (row.versionId)}<li>
               <div class="object-primary">
                 <h3>
-                  <a href={`/workspaces/${projectId}/objects/${row.id}`}
+                  <a href={`/projects/${projectId}/objects/${row.id}`}
                     >{row.version.content.title}</a
                   >
                 </h3>

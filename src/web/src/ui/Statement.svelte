@@ -7,7 +7,7 @@
   import { Input } from '../lib/components/ui/input';
   import { Textarea } from '../lib/components/ui/textarea';
   import { onMount } from 'svelte';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import Markdown from './Markdown.svelte';
   import type { CatalogueEntry } from '../lib/catalogue-api';
   import type { NewVersionDraft } from '../lib/research-record-draft';
@@ -19,7 +19,7 @@
   import ProofStructureFields from './ProofStructureFields.svelte';
   import SignIn from './SignIn.svelte';
   let { entryId }: { entryId: string } = $props();
-  const { catalogue, records, community, auth } = workspace();
+  const { catalogue, records, community, auth } = projectContext();
   let entry = $state<CatalogueEntry>();
   let page = $state<Awaited<ReturnType<typeof records.list>>>();
   let communityState = $state<Awaited<ReturnType<typeof community.get>>>();
@@ -120,7 +120,7 @@
         { object_version_id: entry.object_version.id },
         referenceKey,
       );
-      window.location.assign(`/workspaces/${ref.workspace_id}`);
+      window.location.assign(`/projects/${ref.project_id}`);
     } catch (cause) {
       error = explain(cause);
     } finally {

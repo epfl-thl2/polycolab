@@ -8,18 +8,16 @@ export function createRecordsApi(options: CommonsClientOptions = {}) {
   return {
     create: (body: components['schemas']['VersionedObjectCreate'], key: string) =>
       result(client.POST('/api/v1/objects', { body, params: { header: retryHeaders(key) } })),
-    workspaceSearch: (
-      query: NonNullable<paths['/api/v1/discovery']['get']['parameters']['query']>,
-    ) =>
+    projectSearch: (query: NonNullable<paths['/api/v1/discovery']['get']['parameters']['query']>) =>
       result(client.GET('/api/v1/discovery', { params: { query: { ...query, scope: 'member' } } })),
     publicSearch: (query: NonNullable<paths['/api/v1/discovery']['get']['parameters']['query']>) =>
       result(client.GET('/api/v1/discovery', { params: { query } })),
-    workspaceList: (query: NonNullable<paths['/api/v1/records']['get']['parameters']['query']>) =>
+    projectList: (query: NonNullable<paths['/api/v1/records']['get']['parameters']['query']>) =>
       result(client.GET('/api/v1/records', { params: { query: { ...query, scope: 'member' } } })),
-    workspaceGet: (projectId: string, revisionId: string) =>
+    projectGet: (projectId: string, revisionId: string) =>
       result(
         client.GET('/api/v1/records/{object_version_id}', {
-          params: { path: { object_version_id: revisionId }, query: { workspace_id: projectId } },
+          params: { path: { object_version_id: revisionId }, query: { project_id: projectId } },
         }),
       ),
     list: (query: NonNullable<paths['/api/v1/records']['get']['parameters']['query']>) =>
@@ -52,7 +50,7 @@ export function createRecordsApi(options: CommonsClientOptions = {}) {
         ? await client.GET('/api/v1/versions/{object_version_id}/relationships', {
             params: {
               path: { object_version_id: revisionId },
-              query: { workspace_id: projectId, cursor },
+              query: { project_id: projectId, cursor },
             },
           })
         : await client.GET('/api/v1/versions/{object_version_id}/relationships', {
@@ -65,30 +63,30 @@ export function createRecordsApi(options: CommonsClientOptions = {}) {
     },
     relate: (body: ScopedRelationWrite, key: string) =>
       result(client.POST('/api/v1/relations', { body, params: { header: retryHeaders(key) } })),
-    copyToWorkspace: (body: components['schemas']['WorkspaceVersionCopyCreate'], key: string) =>
+    copyToProject: (body: components['schemas']['ProjectVersionCopyCreate'], key: string) =>
       result(
-        client.POST('/api/v1/workspace-copies', { body, params: { header: retryHeaders(key) } }),
+        client.POST('/api/v1/project-copies', { body, params: { header: retryHeaders(key) } }),
       ),
-    importToWorkspace: (body: components['schemas']['WorkspaceReferenceCreate'], key: string) =>
+    importToProject: (body: components['schemas']['ProjectReferenceCreate'], key: string) =>
       result(
-        client.POST('/api/v1/workspace-references', {
+        client.POST('/api/v1/project-references', {
           body,
           params: { header: retryHeaders(key) },
         }),
       ),
     workPrivately: (
       body: Pick<
-        components['schemas']['WorkspaceReferenceCreate'],
-        'object_version_id' | 'workspace_id'
+        components['schemas']['ProjectReferenceCreate'],
+        'object_version_id' | 'project_id'
       >,
       key: string,
     ) =>
       result(
-        client.POST('/api/v1/workspace-references', {
+        client.POST('/api/v1/project-references', {
           body: {
-            workspace_name: 'Private exploration',
+            project_name: 'Private exploration',
             reason: 'Work privately',
-            workspace_visibility: 'PRIVATE',
+            project_visibility: 'PRIVATE',
             ...body,
           },
           params: { header: retryHeaders(key) },
@@ -96,17 +94,17 @@ export function createRecordsApi(options: CommonsClientOptions = {}) {
       ),
     references: (projectId: string, cursor?: string, referenceId?: string) =>
       result(
-        client.GET('/api/v1/workspace-references', {
-          params: { query: { workspace_id: projectId, cursor, reference_id: referenceId } },
+        client.GET('/api/v1/project-references', {
+          params: { query: { project_id: projectId, cursor, reference_id: referenceId } },
         }),
       ),
     upgrade: (
       referenceId: string,
-      body: components['schemas']['WorkspaceReferenceUpgrade'],
+      body: components['schemas']['ProjectReferenceUpgrade'],
       key: string,
     ) =>
       result(
-        client.POST('/api/v1/workspace-references/{reference_id}/versions', {
+        client.POST('/api/v1/project-references/{reference_id}/versions', {
           body,
           params: { header: retryHeaders(key), path: { reference_id: referenceId } },
         }),

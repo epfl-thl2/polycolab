@@ -29,15 +29,15 @@ router = APIRouter(prefix="/api/v1", tags=["reviews"])
 def create_review(
     payload: ReviewWrite, session: DbSession, access: Access, key: RetryKey
 ) -> MutationResult:
-    workspace_id = revision_scope(session, access, payload.object_version_id)
+    project_id = revision_scope(session, access, payload.object_version_id)
     revision = session.get(SqlObjectRevision, payload.object_version_id)
     if revision is None:
         raise ResearchNotFound
-    # A public reader reviews in the public commons, not in a private source workspace.
+    # A public reader reviews in the public commons, not in a private source project.
     scope = session.scalar(
         select(SqlResearchScope).where(
-            SqlResearchScope.project_id == workspace_id
-            if workspace_id
+            SqlResearchScope.project_id == project_id
+            if project_id
             else SqlResearchScope.scope_kind == "COMMONS"
         )
     )
@@ -60,13 +60,13 @@ def history(
     object_version_id: UUID,
     session: DbSession,
     access: Access,
-    workspace_id: UUID | None = None,
+    project_id: UUID | None = None,
     current: bool = False,
-    workspace_only: bool = False,
+    project_only: bool = False,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     cursor: Annotated[str | None, Query(max_length=200)] = None,
 ) -> ReviewPage:
-    scope = revision_scope(session, access, object_version_id, workspace_id)
+    scope = revision_scope(session, access, object_version_id, project_id)
     query = (
         reviews.current_query([object_version_id], scope)
         if current
@@ -74,12 +74,12 @@ def history(
             SqlObjectReview.object_version_id == object_version_id, reviews.visible_condition(scope)
         )
     )
-    if workspace_only:
-        if workspace_id is None or scope is None:
+    if project_only:
+        if project_id is None or scope is None:
             raise ResearchNotFound
         query = query.where(
             SqlObjectReview.ownership_scope_id.in_(
-                select(SqlResearchScope.id).where(SqlResearchScope.project_id == workspace_id)
+                select(SqlResearchScope.id).where(SqlResearchScope.project_id == project_id)
             )
         )
     if cursor:
@@ -116,17 +116,17 @@ def history(
     operation_id="summarizeObjectVersionReviews",
 )
 def summary(
-    payload: ReviewBatch, session: DbSession, access: Access, workspace_id: UUID | None = None
+    payload: ReviewBatch, session: DbSession, access: Access, project_id: UUID | None = None
 ) -> list[ReviewSummary]:
-    if workspace_id:
-        project_access(session, workspace_id, access.require_user_id())
+    if project_id:
+        project_access(session, project_id, access.require_user_id())
     visible = set(
         session.scalars(
             select(SqlObjectRevision.id).where(
-                SqlObjectRevision.id.in_(payload.object_version_ids), read_condition(workspace_id)
+                SqlObjectRevision.id.in_(payload.object_version_ids), read_condition(project_id)
             )
         )
     )
     if visible != set(payload.object_version_ids):
         raise ResearchNotFound
-    return reviews.summaries(session, payload.object_version_ids, workspace_id)
+    return reviews.summaries(session, payload.object_version_ids, project_id)

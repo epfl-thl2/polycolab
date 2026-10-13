@@ -24,7 +24,7 @@ export function createResearchStructureApi(options: CommonsClientOptions = {}) {
     attempts: (
       objectId: string,
       query: {
-        workspace_id?: string;
+        project_id?: string;
         target_object_version_id?: string;
         limit?: number;
         cursor?: string;
@@ -34,7 +34,7 @@ export function createResearchStructureApi(options: CommonsClientOptions = {}) {
         client.GET('/api/v1/research/objects/{object_id}/attempts', {
           params: {
             path: { object_id: objectId },
-            query: { ...query, scope: query.workspace_id ? 'member' : 'public' },
+            query: { ...query, scope: query.project_id ? 'member' : 'public' },
           },
         }),
       ),
@@ -54,12 +54,12 @@ export function createResearchStructureApi(options: CommonsClientOptions = {}) {
     humanNote: (objectId: string, projectId?: string) =>
       result(
         client.GET('/api/v1/research/objects/{object_id}/human-note', {
-          params: { path: { object_id: objectId }, query: { workspace_id: projectId } },
+          params: { path: { object_id: objectId }, query: { project_id: projectId } },
         }),
       ),
     humanNoteHistory: (
       objectId: string,
-      query: { workspace_id?: string; limit?: number; cursor?: string } = {},
+      query: { project_id?: string; limit?: number; cursor?: string } = {},
     ) =>
       result(
         client.GET('/api/v1/research/objects/{object_id}/human-note/history', {
@@ -76,12 +76,12 @@ export function createResearchStructureApi(options: CommonsClientOptions = {}) {
     summary: (objectId: string, projectId?: string) =>
       result(
         client.GET('/api/v1/research/objects/{object_id}/summary', {
-          params: { path: { object_id: objectId }, query: { workspace_id: projectId } },
+          params: { path: { object_id: objectId }, query: { project_id: projectId } },
         }),
       ),
     summaryHistory: (
       objectId: string,
-      query: { workspace_id?: string; limit?: number; cursor?: string } = {},
+      query: { project_id?: string; limit?: number; cursor?: string } = {},
     ) =>
       result(
         client.GET('/api/v1/research/objects/{object_id}/summary/history', {
@@ -98,7 +98,7 @@ export function createResearchStructureApi(options: CommonsClientOptions = {}) {
     progress: (
       objectId: string,
       query: {
-        workspace_id?: string;
+        project_id?: string;
         object_version_id?: string;
         limit?: number;
         cursor?: string;
@@ -119,7 +119,7 @@ export function createResearchStructureApi(options: CommonsClientOptions = {}) {
     comments: (
       objectId: string,
       query: {
-        workspace_id?: string;
+        project_id?: string;
         object_version_id?: string;
         limit?: number;
         cursor?: string;
@@ -142,7 +142,7 @@ export function createResearchStructureApi(options: CommonsClientOptions = {}) {
         client.GET('/api/v1/assurance/{object_version_id}', {
           params: {
             path: { object_version_id: revisionId },
-            query: { workspace_id: projectId, limit, cursor },
+            query: { project_id: projectId, limit, cursor },
           },
         }),
       ),
@@ -151,7 +151,7 @@ export function createResearchStructureApi(options: CommonsClientOptions = {}) {
         client.GET('/api/v1/assurance/{object_version_id}/current', {
           params: {
             path: { object_version_id: revisionId },
-            query: { workspace_id: projectId, limit, cursor },
+            query: { project_id: projectId, limit, cursor },
           },
         }),
       ),

@@ -175,7 +175,7 @@ class AgentController:
                                     "Keep the checkout on its original branch. Integrate subagent "
                                     "worktrees before finishing. Ignored files are not saved."
                                     if claim.repository is not None
-                                    else "Other workspace files are discarded after this turn."
+                                    else "Other /workspace files are discarded after this turn."
                                 )
                             ),
                         },

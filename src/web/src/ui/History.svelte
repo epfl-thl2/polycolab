@@ -4,14 +4,14 @@
   import { Button } from '../lib/components/ui/button';
   import { toStore } from 'svelte/store';
   import { createInfiniteQuery } from '@tanstack/svelte-query';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import type { ObjectVersion } from '../lib/research-api';
   let {
     projectId,
     objectId,
     onselect,
   }: { projectId: string; objectId: string; onselect: (version: ObjectVersion) => void } = $props();
-  const { api } = workspace();
+  const { api } = projectContext();
   const history = createInfiniteQuery(
     toStore(() => ({
       queryKey: ['history', projectId, objectId],

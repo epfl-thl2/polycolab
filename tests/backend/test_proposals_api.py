@@ -43,7 +43,7 @@ def version_proposal(title: str, content: str) -> dict[str, Any]:
 
 def _project(client: TestClient) -> dict[str, object]:
     response = client.post(
-        "/api/v1/workspaces", headers=headers("owner"), json={"visibility": "PRIVATE", "name": "P"}
+        "/api/v1/projects", headers=headers("owner"), json={"visibility": "PRIVATE", "name": "P"}
     )
     assert response.status_code == 201
     return cast(dict[str, object], response.json())
@@ -67,7 +67,7 @@ def _profile(client: TestClient, token: str = "owner") -> dict[str, object]:
 def _member(client: TestClient, project_id: str, token: str, role: str) -> None:
     user = client.get("/api/v1/users/me", headers=headers(token)).json()
     response = client.post(
-        f"/api/v1/workspaces/{project_id}/members",
+        f"/api/v1/projects/{project_id}/members",
         headers=headers("owner"),
         json={"user_id": user["id"], "role": role},
     )
@@ -81,7 +81,7 @@ def _proposal_run(
     agent_session = client.post(
         "/api/v1/agent-sessions",
         headers=headers("owner"),
-        json={"workspace_id": project_id, "agent_kind": "RESEARCHER"},
+        json={"project_id": project_id, "agent_kind": "RESEARCHER"},
     ).json()
     queued = client.post(
         f"/api/v1/agent-sessions/{agent_session['id']}/messages",
@@ -220,7 +220,7 @@ def test_stale_revision_proposal_returns_current_base_without_mutating_research(
         "/api/v1/objects",
         headers=headers("owner"),
         json={
-            "destination": {"kind": "workspace", "workspace_id": project_id},
+            "destination": {"kind": "project", "project_id": project_id},
             "snapshot": {
                 "kind": "STATEMENT",
                 "content": {
@@ -325,13 +325,13 @@ def test_removed_member_loses_proposal_list_detail_and_batch_decision_access(
     contributor_id = client.get("/api/v1/users/me", headers=headers("contributor")).json()["id"]
     assert (
         client.delete(
-            f"/api/v1/workspaces/{project_id}/members/{contributor_id}", headers=headers("owner")
+            f"/api/v1/projects/{project_id}/members/{contributor_id}", headers=headers("owner")
         ).status_code
         == 204
     )
     assert (
         client.get(
-            f"/api/v1/workspaces/{project_id}/proposals", headers=headers("contributor")
+            f"/api/v1/projects/{project_id}/proposals", headers=headers("contributor")
         ).status_code
         == 404
     )
@@ -484,7 +484,7 @@ def test_selected_proposal_decisions_are_atomic_and_replay_as_one_batch(client: 
         ).status_code
         == 409
     )
-    objects = client.get(f"/api/v1/workspaces/{project_id}/objects", headers=headers("owner"))
+    objects = client.get(f"/api/v1/projects/{project_id}/objects", headers=headers("owner"))
     assert {
         item["current_object_version"]["content"]["title"] for item in objects.json()["items"]
     } == {
@@ -498,7 +498,7 @@ def test_selected_proposal_decisions_are_atomic_and_replay_as_one_batch(client: 
     )
     assert (
         client.patch(
-            f"/api/v1/workspaces/{project_id}",
+            f"/api/v1/projects/{project_id}",
             headers=headers("owner"),
             json={"visibility": "PUBLIC"},
         ).status_code
@@ -511,7 +511,7 @@ def test_selected_proposal_decisions_are_atomic_and_replay_as_one_batch(client: 
         for value in (str(run_id), str(session_id), "context_manifest", "source_event")
     )
     provenance = client.get(
-        f"/api/v1/workspaces/{project_id}/contributions/RESEARCH_OBJECT/{first_object['id']}",
+        f"/api/v1/projects/{project_id}/contributions/RESEARCH_OBJECT/{first_object['id']}",
         headers=headers("owner"),
     )
     assert provenance.status_code == 200
@@ -522,7 +522,7 @@ def test_selected_proposal_decisions_are_atomic_and_replay_as_one_batch(client: 
         "created_at",
     }
     version_id = first_object["current_object_version_id"]
-    version_path = f"/api/v1/workspaces/{project_id}/contributions/OBJECT_VERSION/{version_id}"
+    version_path = f"/api/v1/projects/{project_id}/contributions/OBJECT_VERSION/{version_id}"
     version_provenance = client.get(version_path, headers=headers("owner"))
     assert version_provenance.status_code == 200, version_provenance.text
     assert version_provenance.json()["canonical_entity_type"] == "OBJECT_VERSION"
@@ -608,7 +608,7 @@ def test_relation_and_comment_proposals_apply_as_canonical_agent_contributions(
         decided.json(), ("OBJECT_VERSION_RELATIONSHIP", "RESEARCH_COMMENT"), strict=True
     ):
         provenance = client.get(
-            f"/api/v1/workspaces/{project_id}/contributions/{entity_type}/{change['applied_entity_id']}",
+            f"/api/v1/projects/{project_id}/contributions/{entity_type}/{change['applied_entity_id']}",
             headers=headers("owner"),
         )
         assert provenance.status_code == 200, provenance.text

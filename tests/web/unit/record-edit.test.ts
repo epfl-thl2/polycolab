@@ -16,7 +16,7 @@ const record: RecordRead = {
     target_object_version_id: 'exact-statement',
     position: null,
     evidence_role: null,
-    ownership_scope_id: 'workspace-scope',
+    ownership_scope_id: 'project-scope',
     description: null,
     created_at: '2026-09-07T00:00:00Z',
     authorship: {
@@ -62,20 +62,20 @@ it('keeps private edit metadata and exact pins through conflict and explicit reb
     .fn()
     .mockRejectedValueOnce({ status: 409 })
     .mockResolvedValue({ current_object_version_id: 'saved' });
-  const workspaceList = vi.fn().mockResolvedValue({
+  const projectList = vi.fn().mockResolvedValue({
     items: [{ ...record, id: 'new', number: 2 }],
     next_cursor: null,
   });
   const list = vi.fn();
   const invalidateQueries = vi.fn();
   render(RecordEdit, {
-    props: { record, projectId: 'workspace' },
+    props: { record, projectId: 'project' },
     context: new Map([
       [
         contextKey,
         {
           api: { createVersion: write },
-          records: { workspaceList, list },
+          records: { projectList, list },
           query: { invalidateQueries },
         },
       ],
@@ -115,18 +115,18 @@ it('keeps private edit metadata and exact pins through conflict and explicit reb
     },
   });
   expect(list).not.toHaveBeenCalled();
-  expect(workspaceList.mock.calls[0]![0]).toMatchObject({
-    workspace_id: 'workspace',
+  expect(projectList.mock.calls[0]![0]).toMatchObject({
+    project_id: 'project',
     object_id: 'object',
   });
   expect(
     (await screen.findByRole('link', { name: 'Read saved version' })).getAttribute('href'),
-  ).toBe('/workspaces/workspace/records/saved');
+  ).toBe('/projects/project/records/saved');
 });
 
-it('offers history but no editing to read-only workspace members', () => {
+it('offers history but no editing to read-only project members', () => {
   render(RecordEdit, {
-    props: { record, projectId: 'workspace', canWrite: false },
+    props: { record, projectId: 'project', canWrite: false },
     context: new Map([[contextKey, { records: {}, query: {} }]]),
   });
   expect(screen.queryByRole('button', { name: 'Edit from this exact version' })).toBeNull();

@@ -59,7 +59,7 @@ services:
       DATABASE_MAX_OVERFLOW: ${POLYCOLAB_API_DATABASE_MAX_OVERFLOW:-5}
       DATABASE_POOL_TIMEOUT_SECONDS: ${POLYCOLAB_API_DATABASE_POOL_TIMEOUT_SECONDS:-30}
       ALLOWED_ORIGINS: '${ALLOWED_ORIGINS:-["http://localhost:8000", "http://localhost:5173"]}'
-      WORKSPACE_REPOSITORY_DIRECTORY: /var/lib/polycolab/repositories
+      PROJECT_REPOSITORY_DIRECTORY: /var/lib/polycolab/repositories
       ARTIFACT_S3_ENDPOINT: ${POLYCOLAB_COMPOSE_ARTIFACT_S3_ENDPOINT:-http://garage:3900}
       ARTIFACT_S3_BUCKET: ${ARTIFACT_S3_BUCKET:-polycolab-artifacts}
       ARTIFACT_S3_REGION: ${ARTIFACT_S3_REGION:-garage}
@@ -163,4 +163,5 @@ volumes:
   garage-metadata:
   garage-data:
   postgres-data:
+  # Historical storage identity: changing this key would create an empty volume.
   workspace-repositories:

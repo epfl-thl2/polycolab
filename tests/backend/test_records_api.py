@@ -103,7 +103,7 @@ def test_full_snapshot_edits_preserve_explicit_metadata_and_exact_targets(
     enable(client)
     entry = admit(client)
     project = client.post(
-        "/api/v1/workspaces", headers=headers(), json={"visibility": "PRIVATE", "name": "Private"}
+        "/api/v1/projects", headers=headers(), json={"visibility": "PRIVATE", "name": "Private"}
     ).json()
     body = attempt_payload(entry["object_version_id"], project_id=project["id"])
     snapshot = body["snapshot"]
@@ -149,7 +149,7 @@ def test_full_snapshot_edits_preserve_explicit_metadata_and_exact_targets(
         headers=headers(),
         params={
             "scope": "member",
-            "workspace_id": project["id"],
+            "project_id": project["id"],
             "status": "FAILED",
             "kind": kind,
         },
@@ -159,7 +159,7 @@ def test_full_snapshot_edits_preserve_explicit_metadata_and_exact_targets(
         response = client.get(
             f"/api/v1/records/{revision_id}",
             headers=headers(),
-            params={"workspace_id": project["id"]},
+            params={"project_id": project["id"]},
         )
         assert response.status_code == 200, response.text
         value = response.json()
@@ -191,12 +191,12 @@ def test_full_snapshot_edits_preserve_explicit_metadata_and_exact_targets(
 def test_older_editor_cannot_bypass_record_authorship(client: TestClient) -> None:
     enable(client)
     project = client.post(
-        "/api/v1/workspaces", headers=headers(), json={"visibility": "PRIVATE", "name": "Private"}
+        "/api/v1/projects", headers=headers(), json={"visibility": "PRIVATE", "name": "Private"}
     ).json()
     other = client.get("/api/v1/users/me", headers=headers("contributor")).json()
     assert (
         client.post(
-            f"/api/v1/workspaces/{project['id']}/members",
+            f"/api/v1/projects/{project['id']}/members",
             headers=headers(),
             json={
                 "user_id": other["id"],
@@ -239,7 +239,7 @@ def test_records_scope_history_promotion_and_paging(client: TestClient) -> None:
     public = client.get(f"/api/v1/records/{first['current_object_version_id']}")
     assert public.json()["content"]["reported_outcome"] == "FAILED"
     assert "The step requires a stronger hypothesis" in public.text
-    for field in ("workspace_id", "session_id", "run_id"):
+    for field in ("project_id", "session_id", "run_id"):
         assert field not in public.text
     assert public.json()["authorship"]["contribution_id"] is None
     payload["snapshot"]["content"]["title"] = "Reconsidered induction"
@@ -290,7 +290,7 @@ def test_private_public_relation_matrix(client: TestClient) -> None:
     private_ids = []
     for key in ("one", "two"):
         project = client.post(
-            "/api/v1/workspaces", headers=headers(), json={"visibility": "PRIVATE", "name": key}
+            "/api/v1/projects", headers=headers(), json={"visibility": "PRIVATE", "name": key}
         ).json()
         response = post_research(
             client,
@@ -315,7 +315,7 @@ def test_private_public_relation_matrix(client: TestClient) -> None:
             "/api/v1/relations",
             headers=headers(key=f"rel-{index}"),
             json={
-                "destination": {"kind": "workspace", "workspace_id": project}
+                "destination": {"kind": "project", "project_id": project}
                 if project
                 else {"kind": "library", "statement_object_version_id": source},
                 "direction": "UNIDIRECTIONAL",

@@ -9,10 +9,10 @@ from sqlalchemy.orm import Session
 
 from polycolab.access.actors import Actor, ActorKind
 from polycolab.access.authorization import (
-    WorkspaceAction,
-    lock_workspace_authorization,
+    ProjectAction,
+    lock_project_authorization,
+    project_policy,
     require_publication,
-    workspace_policy,
 )
 from polycolab.artifacts.contracts import PublishedArtifactLinkRead, PublishedArtifactRead
 from polycolab.db.models import (
@@ -49,6 +49,7 @@ from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.enums import ArtifactState
 from polycolab.platform import mutation_keys
 from polycolab.platform.outbox import canonical_digest
+from polycolab.projects.service import DomainConflict
 from polycolab.research.activity import (
     _comment_read,
     _progress_read,
@@ -69,7 +70,6 @@ from polycolab.research.contributions import human_contribution
 from polycolab.research.objects import ResearchNotFound
 from polycolab.research.records import decode_cursor, encode_cursor, record_read
 from polycolab.research.reviews import read as review_read
-from polycolab.workspaces.service import DomainConflict
 
 MAX_CLOSURE = 128
 
@@ -86,11 +86,11 @@ def _authorize(
 ) -> tuple[UUID, SqlResearchScope]:
     user_id = _publisher_id(actor)
     if lock:
-        lock_workspace_authorization(
+        lock_project_authorization(
             SqlAlchemyTransaction(session), project_id=project_id, user_id=user_id
         )
-    workspace_policy.require_scope(
-        SqlAlchemyTransaction(session), project_id, user_id, WorkspaceAction.MANAGE_SETTINGS
+    project_policy.require_scope(
+        SqlAlchemyTransaction(session), project_id, user_id, ProjectAction.MANAGE_SETTINGS
     )
     scope = session.scalar(
         select(SqlResearchScope).where(SqlResearchScope.project_id == project_id)

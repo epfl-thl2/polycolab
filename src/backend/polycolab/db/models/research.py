@@ -59,7 +59,7 @@ class SqlResearchScope(Base):
         ),
         CheckConstraint(
             "(scope_kind = 'COMMONS' AND project_id IS NULL) OR "
-            "(scope_kind = 'WORKSPACE' AND project_id IS NOT NULL)",
+            "(scope_kind = 'PROJECT' AND project_id IS NOT NULL)",
             name="ck_research_scopes_kind_project",
         ),
     )
@@ -732,12 +732,12 @@ class SqlPublicResearchAnchor(Base):
     entry_id: Mapped[UUID] = mapped_column(ForeignKey("catalogue_entries.id"), primary_key=True)
 
 
-class SqlWorkspaceReference(Base):
+class SqlProjectReference(Base):
     """Private identity pointing to a public object without copying its research."""
 
-    __tablename__ = "workspace_references"
+    __tablename__ = "project_references"
     __table_args__ = (
-        UniqueConstraint("project_id", "object_id", name="uq_workspace_reference_target"),
+        UniqueConstraint("project_id", "object_id", name="uq_project_reference_target"),
     )
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), index=True)
@@ -746,17 +746,17 @@ class SqlWorkspaceReference(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
-class SqlWorkspaceReferenceVersion(Base):
-    __tablename__ = "workspace_reference_versions"
+class SqlProjectReferenceVersion(Base):
+    __tablename__ = "project_reference_versions"
     __table_args__ = (
-        UniqueConstraint("reference_id", "number", name="uq_workspace_reference_number"),
-        CheckConstraint("number > 0", name="ck_workspace_reference_number"),
+        UniqueConstraint("reference_id", "number", name="uq_project_reference_number"),
+        CheckConstraint("number > 0", name="ck_project_reference_number"),
     )
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    reference_id: Mapped[UUID] = mapped_column(ForeignKey("workspace_references.id"))
+    reference_id: Mapped[UUID] = mapped_column(ForeignKey("project_references.id"))
     number: Mapped[int] = mapped_column(Integer)
     base_version_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("workspace_reference_versions.id"), nullable=True
+        ForeignKey("project_reference_versions.id"), nullable=True
     )
     revision_id: Mapped[UUID] = mapped_column(ForeignKey("object_revisions.id"))
     created_by_user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
@@ -791,6 +791,6 @@ __all__ = [
     "SqlCorrectionSuggestion",
     "SqlCorrectionDecision",
     "SqlPublicResearchAnchor",
-    "SqlWorkspaceReference",
-    "SqlWorkspaceReferenceVersion",
+    "SqlProjectReference",
+    "SqlProjectReferenceVersion",
 ]

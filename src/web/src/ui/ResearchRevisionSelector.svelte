@@ -7,7 +7,7 @@
     revisionId: string;
     title: string;
     kind: string;
-    workspaceName?: string;
+    projectName?: string;
     revisionNumber?: number;
   };
 
@@ -64,7 +64,7 @@
     <div class="selected-revision" role="status">
       <span><strong>{selected.title}</strong> · {selected.kind}</span>
       <span>
-        {#if selected.workspaceName}{selected.workspaceName} ·
+        {#if selected.projectName}{selected.projectName} ·
         {/if}{#if selected.revisionNumber}version {selected.revisionNumber} ·
         {/if}<code>{selected.revisionId}</code>
       </span>
@@ -104,7 +104,7 @@
             >
               <span><strong>{choice.title}</strong> · {choice.kind}</span>
               <span>
-                {#if choice.workspaceName}{choice.workspaceName} ·
+                {#if choice.projectName}{choice.projectName} ·
                 {/if}{#if choice.revisionNumber}version {choice.revisionNumber} ·
                 {/if}<code>{choice.revisionId}</code>
               </span>

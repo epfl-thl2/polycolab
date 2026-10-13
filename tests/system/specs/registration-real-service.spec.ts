@@ -12,7 +12,7 @@ test('built-in open registration creates an ordinary account and supports login'
   await page.getByLabel('Username', { exact: true }).fill('admin');
   await page.getByLabel('Password', { exact: true }).fill('registration-admin-password');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Workspaces', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Projects', exact: true })).toBeVisible();
 
   const origin = new URL(page.url()).origin;
   const firstLogout = await page.request.post(`${apiUrl}/auth/logout`, {
@@ -39,7 +39,7 @@ test('built-in open registration creates an ordinary account and supports login'
     password: 'new-researcher-password',
     display_name: 'New Researcher',
   });
-  await expect(page.getByRole('heading', { name: 'Workspaces', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Projects', exact: true })).toBeVisible();
 
   const account = await page.request.get(`${apiUrl}/auth/me`);
   expect(account.status()).toBe(200);
@@ -58,5 +58,5 @@ test('built-in open registration creates an ordinary account and supports login'
   await page.getByLabel('Username', { exact: true }).fill('new-researcher');
   await page.getByLabel('Password', { exact: true }).fill('new-researcher-password');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Workspaces', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Projects', exact: true })).toBeVisible();
 });

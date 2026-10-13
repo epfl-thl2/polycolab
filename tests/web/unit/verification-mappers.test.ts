@@ -16,7 +16,7 @@ const job: components['schemas']['VersionJobRead'] = {
   terminal_reason: null,
   submission: {
     version: 1,
-    workspace_id: 'project-a',
+    project_id: 'project-a',
     work_target_object_version_id: 'target-r2',
     research_attempt_object_version_id: 'attempt-r1',
     environment_id: 'environment-a',

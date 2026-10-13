@@ -70,7 +70,7 @@ The expanded read-only restore test also accepts complete proof and attempt stru
 
 These are disposable-database integration checks, not deployment verification.
 
-Scoped equivalence declarations can connect two public versions within a private declaring workspace without owning either endpoint.
+Scoped equivalence declarations can connect two public versions within a private declaring project without owning either endpoint.
 Directed declarations retain the local-source restriction.
 Reads check both endpoints and the declaration's own scope.
 Public endpoints do not make a private declaration public.
@@ -78,7 +78,7 @@ Public endpoints do not make a private declaration public.
 Exact and scoped version reads, embedded object versions, paginated object history, and discovery hits share the kind-discriminated `ObjectVersionRead` contract.
 Attempt-history pages also return that contract and filter exact targets with `target_object_version_id`.
 Browser attempt views derive their structure from canonical pins.
-Public attempts retain released content and masked attribution, including when read alongside private attempts in a member workspace.
+Public attempts retain released content and masked attribution, including when read alongside private attempts in a member project.
 Without an exact target filter, attempt history spans visible target versions.
 A private current head does not hide the history of an already public target.
 
@@ -90,7 +90,7 @@ Public object reads select the latest currently accessible released revision, in
 Public history selects only accessible revisions, masks inaccessible bases, and uses frozen release content.
 Displayed current revision IDs must not reveal a private head.
 Public object search matches the latest visible version before pagination, rather than requiring the actual head to be public.
-Member search still matches the current private head in authorized workspaces.
+Member search still matches the current private head in authorized projects.
 
 New direct research releases use projection version 4.
 Selective publication uses version 5.
@@ -187,7 +187,7 @@ Member feeds retain the authorized chain.
 Stored activity events keep their historical column names.
 Public activity titles and excerpts use released content, loaded in batches for each page.
 
-Member feeds retain their authorized workspace content.
+Member feeds retain their authorized project content.
 Progress-summary titles, excerpts, and reported outcomes use the same frozen release-aware batch reader as exact public versions, rather than raw rows.
 Hosted comment writes use `comment_on_object_version` and `object_version_id`, while retaining the existing granted destination, pinned context, lease and retry checks.
 Historical stored comment encodings are unchanged.
@@ -196,12 +196,12 @@ Uploads to the Library use `statement_object_version_id`.
 
 Exact attachments live at `/versions/{object_version_id}/attachments`.
 Frozen artifact publication models remain separate from live projections, preserving stored fields and digests.
-Workspace references distinguish their own immutable pin history from research history: `reference_version_id` and `previous_reference_version_id` identify the pin history, while `object_version_id` identifies the exact research snapshot.
+Project references distinguish their own immutable pin history from research history: `reference_version_id` and `previous_reference_version_id` identify the pin history, while `object_version_id` identifies the exact research snapshot.
 `latest_object_version_id` reports an available current Library formulation.
 Reference upgrades require `expected_current_reference_version_id`, not a research-object version guard.
 Stored reference rows, event payloads, and retry digests retain their original encoding.
 
-Record moderation commands (Library research and public-workspace operator moderation) require `expected_current_object_version_id`.
+Record moderation commands (Library research and public-project operator moderation) require `expected_current_object_version_id`.
 Their audit responses identify `object_version_id`.
 Moderator authority, stored audit rows, outbox facts, and retry encodings are unchanged.
 Catalogue version creation uses `POST /catalogue/{entry_id}/versions` and `expected_current_object_version_id`.
@@ -229,21 +229,21 @@ Catalogue admission, promotion, version creation, and moderation responses ident
 The internal mutation result and stored retry encoding retain their historical field names.
 Live responses do not include a `revision_id` alias.
 
-Workspace and Library research forms create full snapshots through `/objects`.
+Project and Library research forms create full snapshots through `/objects`.
 The legacy `POST /records` mutation is removed (scoped record reads remain).
 Correction creation supplies `catalogue_suggestion` command metadata outside snapshot content, using `expected_current_object_version_id` for its exact proposed base.
 It remains a public NOTE attached to that admitted Library statement.
 Historical stored correction proposals retain their original encoding.
 Bounded title resolution uses `/research/versions/display`, accepts `object_version_ids`, and returns `object_version_id` on each display entry.
 
-It preserves requested order, rejects duplicate IDs, enforces workspace access, and reads public titles from released projections.
+It preserves requested order, rejects duplicate IDs, enforces project access, and reads public titles from released projections.
 The live relationship wire union has explicit directed and bidirectional endpoint shapes.
 Both write and read contracts accept `EQUIVALENT_TO` only in their bidirectional branch.
-Browser scoped relationship creation uses `/relations` with an explicit workspace or Library destination.
+Browser scoped relationship creation uses `/relations` with an explicit project or Library destination.
 `/scoped-relations` is removed.
 The historical `VersionRelationship` remains an internal compatibility projection, not the canonical attributed relationship entity.
 
-Workspace dependent reads select `object_version_id` and return canonical relationship responses.
+Project dependent reads select `object_version_id` and return canonical relationship responses.
 They include incoming directed declarations, not equivalence declarations.
 Advancing an object's current version does not move links pinned to an earlier version.
 
@@ -257,7 +257,7 @@ Local deterministic-provider checks do not establish deployment acceptance.
 Full version responses already share a kind-discriminated schema across exact, history, and embedded reads.
 The document editor and history panel label research snapshots as versions and display the stable agent name for agent authorship.
 The browser research adapter exposes `createVersion`, `listVersions`, and `ObjectVersion`.
-Document, record-edit, history, and public-workspace consumers use these names directly rather than revision aliases.
+Document, record-edit, history, and public-project consumers use these names directly rather than revision aliases.
 This naming cleanup preserves wire routes, full snapshot payloads, pagination, and retry-key behavior.
 Record-edit controls, Library history, public record headings, graph links, and dependency controls label research snapshots as versions.
 
@@ -337,7 +337,7 @@ The API recognizes a version-shaped retry of a committed historical edit only un
   Tests cover individual and mixed-batch version, equivalence, and comment retries and verify that stored payloads and decision digests remain unchanged.
 
 Agent contribution provenance uses `OBJECT_VERSION` and `OBJECT_VERSION_RELATIONSHIP` in its entity-type path parameter and response.
-The endpoint retains workspace membership authorization and reads existing contribution links without rewriting their historical entity encodings.
+The endpoint retains project membership authorization and reads existing contribution links without rewriting their historical entity encodings.
 Stale proposal errors identify the current research snapshot with `current_object_version_id`.
 The historical `current_revision_id` wire alias is not emitted.
 Separate human-note and summary revision streams retain their own revision terminology.

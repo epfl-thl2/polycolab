@@ -14,12 +14,12 @@ The [research version contract](research-versions.md) defines application snapsh
 | Area                         | Responsibility                                                                                                                                |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | Accounts and authentication  | Built-in accounts, digested browser sessions, registration invitations, immutable social identity bindings, and optional email recovery state |
-| Workspaces                   | Public/private visibility, membership and roles, lifecycle, and ownership scopes                                                              |
+| Projects                     | Public/private visibility, membership and roles, lifecycle, and ownership scopes                                                              |
 | Research identities          | Stable object IDs, canonical kinds, authorship, and current-version pointers                                                                  |
 | Research versions            | Complete immutable typed content, linear predecessor chains, semantic metadata, and contribution attribution                                  |
 | Relationships                | Exact directed or symmetric endpoints. Structural members remain frozen with a version. Independent declarations retain their attribution.    |
 | Contributions                | Human/agent provenance, typed outputs, scoped idempotency receipts, and transactional outbox events                                           |
-| Reviews and research context | Exact-version assessments, dedicated human-note and authored-summary histories, progress, comments, and pinned workspace references           |
+| Reviews and research context | Exact-version assessments, dedicated human-note and authored-summary histories, progress, comments, and pinned project references             |
 | Catalogue and publication    | Human admission, official source/status metadata, immutable released projections, selected publication closures, and moderation audits        |
 | Artifacts                    | Scoped immutable identity and integrity metadata, exact research bindings, lifecycle, and separately stored bytes                             |
 | Jobs and agents              | Session/run history, pinned context, finite budgets, claims, leases, fences, execution attempts, and result/evidence bindings                 |

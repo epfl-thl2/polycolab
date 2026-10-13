@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 from polycolab.access.actors import Actor
 from polycolab.access.authorization import (
     AuthorizationDenied,
+    project_policy,
     require_human_actor,
-    workspace_policy,
 )
 from polycolab.catalogue.admission import is_moderator, lock_commons
 from polycolab.db.models import (
@@ -26,9 +26,9 @@ from polycolab.db.models import (
 from polycolab.platform import mutation_keys
 from polycolab.platform.config import Settings
 from polycolab.platform.outbox import append_event
+from polycolab.projects.service import DomainConflict
 from polycolab.research.contracts import RecordModerationRead, RecordModerationWrite
 from polycolab.research.objects import ResearchNotFound
-from polycolab.workspaces.service import DomainConflict
 
 
 def _audit_read(row: SqlRecordModerationAudit) -> RecordModerationRead:
@@ -132,18 +132,18 @@ def moderate(
         raise
 
 
-def _public_workspace_operator(session: Session, *, actor: Actor, settings: Settings) -> SqlUser:
-    """Resolve an explicitly configured human public-workspace moderation operator."""
+def _public_project_operator(session: Session, *, actor: Actor, settings: Settings) -> SqlUser:
+    """Resolve an explicitly configured human public-project moderation operator."""
 
-    require_human_actor(actor, action="public workspace moderation")
+    require_human_actor(actor, action="public project moderation")
     assert actor.human_user_id is not None
     user = session.get(SqlUser, actor.human_user_id)
-    if user is None or user.subject not in settings.public_workspace_moderator_subjects:
+    if user is None or user.subject not in settings.public_project_moderator_subjects:
         raise AuthorizationDenied
     return user
 
 
-def moderate_public_workspace_record(
+def moderate_public_project_record(
     session: Session,
     *,
     actor: Actor,
@@ -153,9 +153,9 @@ def moderate_public_workspace_record(
     payload: RecordModerationWrite,
     key: str,
 ) -> RecordModerationRead:
-    """Hide or restore one active public-workspace object with an immutable audit."""
+    """Hide or restore one active public-project object with an immutable audit."""
 
-    operator = _public_workspace_operator(session, actor=actor, settings=settings)
+    operator = _public_project_operator(session, actor=actor, settings=settings)
     body = {
         "project_id": str(project_id),
         "object_id": str(object_id),
@@ -163,7 +163,7 @@ def moderate_public_workspace_record(
     }
     body["base_revision_id"] = body.pop("expected_current_object_version_id")
     actor_key = f"human:{operator.id}"
-    operation = "workspace_record.moderate"
+    operation = "project_record.moderate"
     try:
         mutation_keys.lock_key(session, actor_key, operation, key)
         project = session.scalar(
@@ -172,7 +172,7 @@ def moderate_public_workspace_record(
             .with_for_update()
             .execution_options(populate_existing=True)
         )
-        if not workspace_policy.can_read_public(project):
+        if not project_policy.can_read_public(project):
             raise ResearchNotFound
         scope = session.scalar(
             select(SqlResearchScope).where(SqlResearchScope.project_id == project_id)
@@ -213,7 +213,7 @@ def moderate_public_workspace_record(
             mutation_keys.save(session, actor_key, operation, key, body, [audit.id])
             append_event(
                 session,
-                event_type="workspace_record.moderated",
+                event_type="project_record.moderated",
                 aggregate_type="research_object",
                 aggregate_id=obj.id,
                 ownership_scope_id=scope.id if scope is not None else None,
@@ -231,7 +231,7 @@ def moderate_public_workspace_record(
         raise
 
 
-def public_workspace_moderation_history(
+def public_project_moderation_history(
     session: Session,
     *,
     actor: Actor,
@@ -243,7 +243,7 @@ def public_workspace_moderation_history(
 ) -> list[RecordModerationRead]:
     """Return an operator-only immutable audit without making it public research."""
 
-    _public_workspace_operator(session, actor=actor, settings=settings)
+    _public_project_operator(session, actor=actor, settings=settings)
     project = session.get(SqlProject, project_id)
     if project is None or project.deleted_at is not None:
         raise ResearchNotFound

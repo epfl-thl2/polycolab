@@ -34,10 +34,10 @@ for (const signedIn of [false, true]) {
     await expect(
       page.getByRole('heading', { name: 'Testing a bound for regular graphs' }),
     ).toHaveCount(0);
-    await page.getByRole('button', { name: 'Active workspaces', exact: true }).click();
+    await page.getByRole('button', { name: 'Active projects', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Spectral gaps' })).toBeVisible();
     await expect(page.getByRole('columnheader')).toHaveText([
-      'Workspace',
+      'Project',
       'Contributors',
       'Submissions',
       'Last submission (local)',
@@ -87,8 +87,8 @@ test('recent public submissions replace 50 single-line rows per page and stop at
           title: `Submission ${offset + i + 1}`,
           object_kind: 'STATEMENT',
           action: 'object.created',
-          workspace_id: 'public-workspace',
-          workspace_name: 'Public mathematics',
+          project_id: 'public-project',
+          project_name: 'Public mathematics',
           object_version_number: 2,
           actor: { kind: 'human', display_name: 'Ada' },
           occurred_at: '2026-09-15T10:00:00Z',
@@ -102,7 +102,7 @@ test('recent public submissions replace 50 single-line rows per page and stop at
   await expect(page.getByRole('columnheader')).toHaveText([
     '#',
     'Contributor',
-    'Workspace',
+    'Project',
     'Type',
     'Submission',
     'Version',

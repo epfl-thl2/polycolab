@@ -53,7 +53,7 @@ it('uploads declared raw bytes, commits an exact attachment, and downloads as a 
     byte_length: '8',
     media_type: 'text/plain',
     source_object_version_id: 'proof-r2',
-    workspace_id: 'project-a',
+    project_id: 'project-a',
   });
   expect(await requests[1]!.json()).toEqual({
     artifact_id: 'artifact-a',
@@ -86,7 +86,7 @@ it('pages committed artifact attachments for one exact research version', async 
     cursor: 'attachment-next',
   });
 
-  expect(new URL(requests[0]!.url).pathname).toBe('/api/v1/workspaces/project-a/artifacts');
+  expect(new URL(requests[0]!.url).pathname).toBe('/api/v1/projects/project-a/artifacts');
   expect(Object.fromEntries(new URL(requests[0]!.url).searchParams)).toEqual({
     object_version_id: 'proof-r2',
     limit: '25',
@@ -113,7 +113,7 @@ it('discovers and downloads committed public evidence anonymously after reload',
   await api.publicDownload('artifact-a');
 
   expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
-    '/api/v1/workspaces/project-a/artifacts',
+    '/api/v1/projects/project-a/artifacts',
     '/api/v1/artifacts/artifact-a/content',
   ]);
   expect(requests.every((request) => request.headers.get('Authorization') === null)).toBe(true);

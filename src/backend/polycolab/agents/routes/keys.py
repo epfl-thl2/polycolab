@@ -27,6 +27,7 @@ from polycolab.db.models import (
     SqlExternalResearchRun,
     SqlExternalRunInvocation,
 )
+from polycolab.platform.project_history import credential_right
 
 router = APIRouter(prefix="/api/v1", tags=["external agents"])
 
@@ -71,7 +72,7 @@ def identity(request: Request, access: Access) -> IdentityRead:
             credential_id=key.id,
             agent_id=key.agent_id,
             allow_library_contributions=key.allow_library_contributions,
-            fixed_rights=key.fixed_rights,
+            fixed_rights=[credential_right(value) for value in key.fixed_rights],
             expires_at=key.expires_at,
             requests_remaining=max(0, key.max_requests - key.request_count),
             mutations_remaining=max(0, key.max_mutations - key.mutation_count),
@@ -96,7 +97,7 @@ def identity(request: Request, access: Access) -> IdentityRead:
     summary="Create an account-wide agent key",
     description=(
         "Human-only. Creates a named key following current and future "
-        "workspace memberships, including private workspaces. Returns the "
+        "project memberships, including private projects. Returns the "
         "secret, with encrypted storage for later owner-only reveal. "
         "Expiry and budgets are set by the server."
     ),
@@ -207,7 +208,7 @@ Key = Annotated[SqlExternalAgentCredential, Depends(required_key)]
     summary="List runs for this agent key",
     description=(
         "Agent-only paginated history for the authenticated key, filtered "
-        "by current workspace membership. Outputs are fetched separately."
+        "by current project membership. Outputs are fetched separately."
     ),
 )
 def runs(session: DbSession, key: Key, page: Pagination) -> Collection[ExternalRunRead]:
@@ -234,7 +235,7 @@ def runs(session: DbSession, key: Key, page: Pagination) -> Collection[ExternalR
     operation_id="getExternalResearchRun",
     summary="Read an agent run",
     description=(
-        "Agent-only. Requires the owning key and current workspace access. "
+        "Agent-only. Requires the owning key and current project access. "
         "Fetch output history separately from /runs/{run_id}/outputs."
     ),
 )
@@ -250,7 +251,7 @@ def run(run_id: UUID, session: DbSession, key: Key) -> ExternalRunRead:
     summary="List exact run outputs",
     description=(
         "Agent-only separately paginated output identifiers. Requires the "
-        "owning key and current workspace access."
+        "owning key and current project access."
     ),
 )
 def outputs(
@@ -300,7 +301,7 @@ def outputs(
     )
 
 
-class WorkspaceRunRead(BaseModel):
+class ProjectRunRead(BaseModel):
     id: UUID
     title: str | None
     status: str
@@ -309,30 +310,30 @@ class WorkspaceRunRead(BaseModel):
 
 
 @router.get(
-    "/workspaces/{workspace_id}/runs",
-    response_model=Collection[WorkspaceRunRead],
-    operation_id="listWorkspaceRuns",
-    summary="List workspace run summaries",
+    "/projects/{project_id}/runs",
+    response_model=Collection[ProjectRunRead],
+    operation_id="listProjectRuns",
+    summary="List project run summaries",
     description=(
         "Returns paginated public or member-visible summaries without run "
-        "inputs or outputs. Private workspaces require current membership."
+        "inputs or outputs. Private projects require current membership."
     ),
 )
-def workspace_runs(
-    workspace_id: UUID, session: DbSession, access: Access, page: Pagination
-) -> Collection[WorkspaceRunRead]:
-    from polycolab.research.routes.core import workspace
+def project_runs(
+    project_id: UUID, session: DbSession, access: Access, page: Pagination
+) -> Collection[ProjectRunRead]:
+    from polycolab.research.routes.core import project
 
-    workspace(session, access, workspace_id)
+    project(session, access, project_id)
     rows, cursor = page.select(
         session,
-        select(SqlExternalResearchRun).where(SqlExternalResearchRun.project_id == workspace_id),
+        select(SqlExternalResearchRun).where(SqlExternalResearchRun.project_id == project_id),
         SqlExternalResearchRun.id,
-        scope=f"workspace-runs:{access.user_id}:{workspace_id}",
+        scope=f"project-runs:{access.user_id}:{project_id}",
     )
     return Collection(
         items=[
-            WorkspaceRunRead(
+            ProjectRunRead(
                 id=row.id,
                 title=row.title,
                 status=row.status,

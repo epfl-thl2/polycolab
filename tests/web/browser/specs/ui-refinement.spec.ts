@@ -30,11 +30,12 @@ test('Activity URLs preserve filters, aliases and explicit preview through brows
   await expect(
     page.getByRole('heading', { name: 'Testing a bound for regular graphs' }),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Active workspaces', exact: true }).click();
-  await expect(page).toHaveURL(/view=workspaces/);
-  await expect(
-    page.getByRole('button', { name: 'Active workspaces', exact: true }),
-  ).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Active projects', exact: true }).click();
+  await expect(page).toHaveURL(/view=projects/);
+  await expect(page.getByRole('button', { name: 'Active projects', exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   const filter = page.getByRole('combobox', { name: 'Time window' });
   const views = page.getByRole('navigation', { name: 'Activity views' });
   const filterBox = await filter.boundingBox();
@@ -88,14 +89,14 @@ test('People profile deep links restore the directory and focus', async ({ page 
 });
 
 for (const signedIn of [false, true]) {
-  test(`navigation fits app, Docs and workspace headers (${signedIn ? 'member' : 'visitor'})`, async ({
+  test(`navigation fits app, Docs and project headers (${signedIn ? 'member' : 'visitor'})`, async ({
     page,
   }, info) => {
     await account(page, signedIn);
-    await page.route('**/api/v1/workspaces?**', (route) =>
+    await page.route('**/api/v1/projects?**', (route) =>
       route.fulfill({ json: { items: [], next_cursor: null } }),
     );
-    for (const path of signedIn ? ['/', '/docs/', '/workspaces'] : ['/', '/docs/']) {
+    for (const path of signedIn ? ['/', '/docs/', '/projects'] : ['/', '/docs/']) {
       await page.goto(path);
       await expect(page.getByRole('link', { name: 'Polycolab home' })).toBeVisible();
       for (const width of [1440, 1280, 1024, 900, 768, 390]) {
@@ -182,7 +183,7 @@ test('homepage restores result type and renders math without raw markup', async 
       },
     }),
   );
-  await page.route('**/api/v1/workspaces?*', (route) =>
+  await page.route('**/api/v1/projects?*', (route) =>
     route.fulfill({
       json: {
         items: [{ id: 'demo', name: 'Spectral gaps', description: 'Graphs and bounds' }],
@@ -192,14 +193,14 @@ test('homepage restores result type and renders math without raw markup', async 
   );
   await page.goto('/search?q=spectral&type=research');
   await expect(page).toHaveURL(/\/\?q=spectral&type=research$/);
-  await expect(page.getByRole('region', { name: 'Workspace results' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Project results' })).toHaveCount(0);
   await expect(page.locator('.search-excerpt .katex').first()).toBeVisible();
   await expect(page.locator('.search-excerpt mark')).toHaveText('spectral');
   await page
     .getByRole('navigation', { name: 'Search result types' })
-    .getByRole('link', { name: 'Workspaces' })
+    .getByRole('link', { name: 'Projects' })
     .click();
-  await expect(page).toHaveURL(/type=workspaces/);
+  await expect(page).toHaveURL(/type=projects/);
   await page.reload();
   await expect(page.getByRole('region', { name: 'Research results' })).toHaveCount(0);
   await page.goBack();

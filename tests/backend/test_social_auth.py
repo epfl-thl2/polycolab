@@ -174,7 +174,7 @@ def test_social_callback_creates_non_admin_passwordless_account(
 ) -> None:
     _setup(social_client)
     social_client.post("/auth/logout")
-    state = _start(social_client, provider, "/workspaces")
+    state = _start(social_client, provider, "/projects")
     app = _app(social_client)
     with app.state.session_factory() as session:
         transaction = session.scalar(select(SqlSocialAuthTransaction))
@@ -185,7 +185,7 @@ def test_social_callback_creates_non_admin_passwordless_account(
 
     callback = _callback(social_client, provider, state)
     assert callback.status_code == 303
-    assert callback.headers["location"] == "/workspaces?social_auth=success"
+    assert callback.headers["location"] == "/projects?social_auth=success"
     assert callback.headers["cache-control"] == "no-store"
     current = social_client.get("/auth/me").json()
     assert current["authenticated"] is True and current["is_admin"] is False

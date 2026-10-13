@@ -20,7 +20,7 @@ def agent_snapshot_command(request: AgentObjectVersionWrite) -> SnapshotRecordWr
     project_id = (
         None
         if isinstance(request.destination, VersionLibraryDestination)
-        else request.destination.workspace_id
+        else request.destination.project_id
     )
     command = snapshot_command(
         request.snapshot,
@@ -40,7 +40,7 @@ def declaration_command(request: ObjectVersionDeclarationCreate) -> SnapshotRela
     project_id = (
         None
         if isinstance(request.destination, VersionLibraryDestination)
-        else request.destination.workspace_id
+        else request.destination.project_id
     )
     first, second = (
         (request.first_object_version_id, request.second_object_version_id)

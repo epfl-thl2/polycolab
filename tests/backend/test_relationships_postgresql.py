@@ -14,7 +14,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 from test_m0_postgresql import seed
 from test_relationship_scopes import (
-    test_declaration_cannot_reference_another_workspaces_private_version as inaccessible_endpoint,
+    test_declaration_cannot_reference_another_projects_private_version as inaccessible_endpoint,
 )
 from test_relationship_scopes import (
     test_private_equivalence_between_public_versions as scoped_equivalence,

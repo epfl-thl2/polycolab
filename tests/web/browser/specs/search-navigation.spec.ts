@@ -32,10 +32,10 @@ test('public search submits URL queries, reloads results and remains available o
       },
     }),
   );
-  await page.route('**/api/v1/workspaces?*', (route) =>
+  await page.route('**/api/v1/projects?*', (route) =>
     route.fulfill({
       json: {
-        items: [{ id: 'workspace-1', name: 'Spectral gaps', description: 'A research workspace' }],
+        items: [{ id: 'project-1', name: 'Spectral gaps', description: 'A research project' }],
         next_cursor: null,
       },
     }),
@@ -67,7 +67,7 @@ test('public search submits URL queries, reloads results and remains available o
   );
   await expect(page.getByRole('link', { name: 'Spectral gaps' })).toHaveAttribute(
     'href',
-    '/workspaces/workspace-1',
+    '/projects/project-1',
   );
   await page.reload();
   await expect(page.getByRole('searchbox')).toHaveValue('spectral');

@@ -9,7 +9,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import DBAPIError
-from test_m0_postgresql import seed
 from test_shared_agent_api import (
     test_account_key_reads_future_memberships_and_writes_without_run as verify_account_scope,
 )
@@ -27,7 +26,22 @@ def test_upgrade_revokes_legacy_and_new_account_runs_keep_destination(
 ) -> None:
     engine, config, url = pg_schema
     command.upgrade(config, "20260910_credential_rights")
-    user_id, project_id, _ = seed(engine)
+    from sqlalchemy import insert
+
+    from polycolab.db.models import SqlMembership, SqlProject, SqlResearchScope, SqlUser
+
+    user_id, project_id = uuid4(), uuid4()
+    with engine.begin() as connection:
+        connection.execute(insert(SqlUser).values(id=user_id, issuer="test", subject="owner"))
+        connection.execute(
+            insert(SqlProject).values(id=project_id, name="Historical", created_by_user_id=user_id)
+        )
+        connection.execute(
+            insert(SqlMembership).values(project_id=project_id, user_id=user_id, role="OWNER")
+        )
+        connection.execute(
+            insert(SqlResearchScope).values(project_id=project_id, scope_kind="WORKSPACE")
+        )
     credential_id, run_id = uuid4(), uuid4()
     with engine.begin() as connection:
         connection.execute(
@@ -60,7 +74,7 @@ def test_upgrade_revokes_legacy_and_new_account_runs_keep_destination(
             ),
             {"id": credential_id},
         ).one()
-        assert key.scope_kind == "WORKSPACE" and key.revoked_at and key.project_id == project_id
+        assert key.scope_kind == "PROJECT" and key.revoked_at and key.project_id == project_id
         assert key.agent_id == credential_id
         assert key.allow_library_contributions is False
         old_run = connection.execute(
@@ -75,7 +89,7 @@ def test_upgrade_revokes_legacy_and_new_account_runs_keep_destination(
     try:
         with TestClient(app) as pg:
             verify_account_scope(pg)
-            # Independent scenario sees existing workspaces; replay has no count assumptions.
+            # Independent scenario sees existing projects; replay has no count assumptions.
             verify_replay(pg)
     finally:
         app.state.engine.dispose()

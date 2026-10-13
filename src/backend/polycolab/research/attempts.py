@@ -17,13 +17,13 @@ from polycolab.db.models.research import SqlResearchAttemptMetadata
 from polycolab.db.stores.relationships import add_structural_relationship
 from polycolab.entities.enums import ResearchObjectKind
 from polycolab.entities.research import StructuralRole
+from polycolab.projects.service import DomainConflict
 from polycolab.research.contracts import (
     AttemptEvidenceRead,
     ResearchAttemptStructureRead,
 )
 from polycolab.research.schemas import ResearchAttemptRequest
 from polycolab.research.version_schemas import ObjectVersionPage
-from polycolab.workspaces.service import DomainConflict
 
 
 def require_structure(kind: ResearchObjectKind, payload: ResearchAttemptRequest | None) -> None:

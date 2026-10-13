@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onMount, tick, type Snippet } from 'svelte';
-  import { workspaceLayoutKey, parseWorkspaceLayout } from '../lib/workspace-layout';
+  import { projectLayoutKey, readProjectLayout } from '../lib/project-layout';
   import type { ObjectVersion } from '../lib/research-api';
   import type { Activity } from '../lib/history-api';
-  import WorkspaceWorkbench from './WorkspaceWorkbench.svelte';
-  import WorkspaceFiles from './WorkspaceFiles.svelte';
-  import WorkspaceOverview from './WorkspaceOverview.svelte';
-  import WorkspaceSectionPanel from './WorkspaceSectionPanel.svelte';
-  import WorkspaceObjectPanel from './WorkspaceObjectPanel.svelte';
+  import ProjectWorkbench from './ProjectWorkbench.svelte';
+  import ProjectFiles from './ProjectFiles.svelte';
+  import ProjectOverview from './ProjectOverview.svelte';
+  import ProjectSectionPanel from './ProjectSectionPanel.svelte';
+  import ProjectObjectPanel from './ProjectObjectPanel.svelte';
   import LoadingState from './LoadingState.svelte';
   import * as Alert from '../lib/components/ui/alert';
   import { Button, buttonVariants } from '../lib/components/ui/button';
@@ -33,14 +33,14 @@
     ChevronDown,
     MessageSquare,
   } from '@lucide/svelte';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import { accountHref } from '../lib/account-navigation';
   import { canWriteResearch, restrictionMessage } from '../lib/access';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
-  import type { WorkspaceMap } from '../lib/workspace-map';
-  import WorkspaceMapPanel from './WorkspaceMapPanel.svelte';
-  let mapData = $state<WorkspaceMap>();
+  import type { ProjectMap } from '../lib/project-map';
+  import ProjectMapPanel from './ProjectMapPanel.svelte';
+  let mapData = $state<ProjectMap>();
   let mapPanelTab = $state('body');
   let mapObjectId = $state(page.url.searchParams.get('object') ?? '');
   $effect(() => {
@@ -50,7 +50,7 @@
   const mapFocus = $derived(mapData?.objects.find((object) => object.id === mapObjectId));
   import ProductHeader from './ProductHeader.svelte';
   let { projectId, path }: { projectId: string; path: string } = $props();
-  const { api, agents, auth, capabilities } = workspace();
+  const { api, agents, auth, capabilities } = projectContext();
   let leftClosed = $state(false);
   let rightClosed = $state(false);
   let maximized = $state(false);
@@ -58,7 +58,7 @@
     rightClosed = true;
     maximized = false;
     await tick();
-    document.querySelector<HTMLButtonElement>('.product-workspace-expand-panel')?.focus();
+    document.querySelector<HTMLButtonElement>('.product-project-expand-panel')?.focus();
   }
   async function expandRightPanel() {
     rightClosed = false;
@@ -75,7 +75,7 @@
   let layoutReady = $state(false);
   onMount(() => {
     try {
-      const saved = parseWorkspaceLayout(localStorage.getItem(workspaceLayoutKey));
+      const saved = readProjectLayout(localStorage);
       leftWidth = saved.leftWidth;
       rightShare = saved.rightShare;
       leftClosed = saved.leftClosed;
@@ -89,7 +89,7 @@
     const saved = { leftWidth, rightShare, leftClosed, rightClosed };
     if (layoutReady) {
       try {
-        localStorage.setItem(workspaceLayoutKey, JSON.stringify(saved));
+        localStorage.setItem(projectLayoutKey, JSON.stringify(saved));
       } catch {
         /* Keep in-memory controls usable. */
       }
@@ -190,10 +190,10 @@
   const visibleSessions = $derived(
     ($sessions.data?.pages.flatMap((p) => p.items) ?? []).slice(0, 5),
   );
-  let workspaceView = $state({ href: '', label: 'Overview' });
+  let projectView = $state({ href: '', label: 'Overview' });
   $effect(() => {
     if (section !== 'files')
-      workspaceView = {
+      projectView = {
         href: page.url.pathname + page.url.search,
         label:
           nav.find(([id]) => id === section)?.[1] ??
@@ -205,82 +205,82 @@
               ? 'Research object'
               : section === 'settings'
                 ? 'Settings'
-                : 'Workspace'),
+                : 'Project'),
       };
   });
   function openFileEditor() {
     mobileRight = false;
     maximized = false;
-    if (section !== 'files') void goto(`/workspaces/${projectId}/files`);
+    if (section !== 'files') void goto(`/projects/${projectId}/files`);
   }
 </script>
 
-<svelte:head><title>{$project.data?.name ?? 'Workspace'} · Polycolab</title></svelte:head>
+<svelte:head><title>{$project.data?.name ?? 'Project'} · Polycolab</title></svelte:head>
 
 {#if member && $project.data}
-  <WorkspaceWorkbench project={$project.data} {path} />
+  <ProjectWorkbench project={$project.data} {path} />
 {:else}
   <ProductHeader
     {auth}
-    active="workspaces"
-    projectName={$project.data?.name ?? 'Research workspace'}
-    workspaceSidebarWidth={leftClosed ? 64 : leftWidth}
-    workspaceRightWidth={maximized
+    active="projects"
+    projectName={$project.data?.name ?? 'Research project'}
+    projectSidebarWidth={leftClosed ? 64 : leftWidth}
+    projectRightWidth={maximized
       ? rightPanelUnavailable
         ? 0
         : Math.max(0, roomWidth - (leftClosed ? 64 : leftWidth) - (leftClosed ? 0 : 8))
       : rightPanelVisible
         ? rightWidth
         : 0}
-    workspaceRightHandle={!rightPanelVisible || maximized ? 0 : 8}
-    workspacePanelMaximized={maximized && !rightPanelUnavailable}
-    workspaceResizing={resizing?.side === 'left'}
+    projectRightHandle={!rightPanelVisible || maximized ? 0 : 8}
+    projectPanelMaximized={maximized && !rightPanelUnavailable}
+    projectResizing={resizing?.side === 'left'}
     sidebarCollapsed={leftClosed}
     onToggleSidebar={() => (leftClosed = !leftClosed)}
     onToggleRightPanel={rightClosed && !rightPanelUnavailable ? expandRightPanel : undefined}
-    workspaceSettingsHref={canManage ? `/workspaces/${projectId}/settings` : undefined}
-    workspaceSettingsActive={section === 'settings'}
-    workspaceAgentConnectHref={`/workspaces/${projectId}/agent-connect`}
-    workspaceAgentConnectActive={section === 'agent-connect'}
+    projectSettingsHref={canManage ? `/projects/${projectId}/settings` : undefined}
+    projectSettingsActive={section === 'settings'}
+    projectAgentConnectHref={`/projects/${projectId}/agent-connect`}
+    projectAgentConnectActive={section === 'agent-connect'}
   />
   {#if $project.isPending}<main id="main" class="page" tabindex="-1">
-      <LoadingState>Opening research workspace…</LoadingState>
+      <LoadingState>Opening research project…</LoadingState>
     </main>{:else if $project.isError || !$project.data}<main id="main" class="page" tabindex="-1">
-      <h1>Workspace unavailable</h1>
+      <h1>Project unavailable</h1>
       <Alert.Root variant="destructive" role="alert">{explain($project.error)}</Alert.Root>
       <Button type="submit" onclick={() => $project.refetch()}>Retry</Button>
-      <a href={`/workspaces/${projectId}`}>View public workspace</a>
-      <a href="/workspaces">Return to your workspaces</a>
+      <a href={`/projects/${projectId}`}>View public project</a>
+      <a href="/projects">Return to your projects</a>
     </main>{:else}
     {#if member}
-      <WorkspaceFiles
+      <ProjectFiles
         {projectId}
         bind:enabled={filesEnabled}
         active={section === 'files'}
         onFileOpen={openFileEditor}
       >
-        {#snippet workspaceTab()}
+        {#snippet projectTab()}
           <a
-            class="workspace-view-tab"
+            class="project-view-tab"
             role="tab"
             aria-selected={section !== 'files'}
-            href={workspaceView.href || `/workspaces/${projectId}`}>{workspaceView.label}</a
+            href={projectView.href || `/projects/${projectId}`}>{projectView.label}</a
           >
         {/snippet}
-        {#snippet children(editor, navigator, tabs)}{@render workspaceRoom(
+        {#snippet children(editor, navigator, tabs)}{@render projectRoom(
             editor,
             navigator,
             tabs,
           )}{/snippet}
-      </WorkspaceFiles>
+      </ProjectFiles>
     {:else}
-      {@render workspaceRoom()}
+      {@render projectRoom()}
     {/if}
   {/if}
 
-  {#snippet workspaceRoom(fileEditor?: Snippet, fileNavigator?: Snippet, fileTabs?: Snippet)}
+  {#snippet projectRoom(fileEditor?: Snippet, fileNavigator?: Snippet, fileTabs?: Snippet)}
     {#if $project.data}
-      <div class="room-mobile-toolbar" aria-label="Workspace panels">
+      <div class="room-mobile-toolbar" aria-label="Project panels">
         <Sheet.Root bind:open={mobileLeft}
           ><Sheet.Trigger
             class={buttonVariants({ variant: 'outline' })}
@@ -349,7 +349,7 @@
             {#if fileEditor && section === 'files'}
               {@render fileEditor()}
             {:else if section === 'objects' && selectedId && !member}
-              {#await import('./PublicWorkspaces.svelte') then module}{#key selectedId}<module.default
+              {#await import('./PublicProjects.svelte') then module}{#key selectedId}<module.default
                     {projectId}
                     objectId={selectedId}
                     embedded
@@ -363,7 +363,7 @@
                     {canWrite}
                   />{/key}{/await}
             {:else if section === 'overview' || section === 'research'}
-              {#if section === 'overview'}<WorkspaceOverview
+              {#if section === 'overview'}<ProjectOverview
                   name={$project.data.name}
                   description={$project.data.description}
                   visibility={$project.data.visibility}
@@ -380,7 +380,7 @@
                     oninspect={inspectResearch}
                   />{/await}{/if}
             {:else if section === 'records'}
-              {#await import('./WorkspaceRecords.svelte')}<LoadingState
+              {#await import('./ProjectRecords.svelte')}<LoadingState
                   >Loading research…</LoadingState
                 >
               {:then module}{#key selectedId}<module.default
@@ -388,7 +388,7 @@
                     {canWrite}
                     {canPublish}
                     publicRead={!member}
-                    publicWorkspace={$project.data.visibility === 'PUBLIC'}
+                    publicProject={$project.data.visibility === 'PUBLIC'}
                     revisionId={selectedId}
                   />{/key}{/await}
             {:else if section === 'references' && member}
@@ -397,7 +397,7 @@
                 >
               {:then module}<module.default {projectId} {canWrite} />{/await}
             {:else if section === 'activity'}
-              {#await import('./WorkspaceActivity.svelte')}<LoadingState
+              {#await import('./ProjectActivity.svelte')}<LoadingState
                   >Loading activity…</LoadingState
                 >
               {:then module}<module.default
@@ -411,7 +411,7 @@
                 />{/await}
             {:else if section === 'map'}
               {#await import('./Graph.svelte')}<LoadingState>
-                  Loading workspace map…
+                  Loading project map…
                 </LoadingState>{:then module}<module.default
                   {projectId}
                   publicRead={!member}
@@ -434,7 +434,7 @@
                     />{/key}{/await}{:else}<h1>Private sessions</h1>
                 <p>Agent sessions are available to active contributors and owners.</p>{/if}
             {:else if section === 'agent-connect'}
-              {#await import('./WorkspaceAgentConnect.svelte')}<LoadingState
+              {#await import('./ProjectAgentConnect.svelte')}<LoadingState
                   >Loading connection guide…</LoadingState
                 >
               {:then module}<module.default
@@ -452,7 +452,7 @@
                     />{/key}{/await}{:else}<h1>Proposal review unavailable</h1>
                 <p>Review requires an active contributor or owner role.</p>{/if}
             {:else if section === 'verification' && member}
-              {#await import('./VerificationWorkspace.svelte')}<LoadingState>
+              {#await import('./VerificationProject.svelte')}<LoadingState>
                   Opening verification jobs…
                 </LoadingState>{:then module}{#key selectedId}<module.default
                     {projectId}
@@ -528,12 +528,12 @@
     class:room-navigation-compact={compact}
     aria-label="Session navigation"
   >
-    <nav aria-label="Workspace sections">
+    <nav aria-label="Project sections">
       {#if executionEnabled && canWrite}<Button
           variant="ghost"
           class="room-nav-link"
           title={compact ? 'New chat' : undefined}
-          href={`/workspaces/${projectId}/sessions/new`}
+          href={`/projects/${projectId}/sessions/new`}
           aria-current={section === 'sessions' && selectedId === 'new' ? 'page' : undefined}
           onclick={() => (mobileLeft = false)}
           ><SquarePen class="size-4 shrink-0" aria-hidden="true" /><span class:sr-only={compact}
@@ -544,7 +544,7 @@
           variant="ghost"
           class="room-nav-link"
           title={compact ? 'All sessions' : undefined}
-          href={`/workspaces/${projectId}/sessions`}
+          href={`/projects/${projectId}/sessions`}
           aria-current={section === 'sessions' && !selectedId ? 'page' : undefined}
           onclick={() => (mobileLeft = false)}
           ><MessagesSquare class="size-4 shrink-0" aria-hidden="true" /><span
@@ -576,7 +576,7 @@
       {#if !compact && sessionsOpen}
         <div class="room-session-list">
           {#each visibleSessions as session (session.id)}<a
-              href={`/workspaces/${projectId}/sessions/${session.id}`}
+              href={`/projects/${projectId}/sessions/${session.id}`}
               onclick={() => (mobileLeft = false)}
               aria-current={section === 'sessions' && selectedId === session.id
                 ? 'page'
@@ -597,18 +597,18 @@
               <p>Your recent chats will appear here once you start a conversation.</p>
             </div>{/if}
         </div>{/if}{/if}
-    <nav class="room-navigation-footer" aria-label="Workspace tools">
+    <nav class="room-navigation-footer" aria-label="Project tools">
       {@render navigationLink('agent-connect', 'Agent connect', Plug, compact)}
       {#if canManage}
         <Button
           variant="ghost"
           class="room-nav-link"
-          href={`/workspaces/${projectId}/settings`}
-          title={compact ? 'Workspace settings' : undefined}
+          href={`/projects/${projectId}/settings`}
+          title={compact ? 'Project settings' : undefined}
           aria-current={section === 'settings' ? 'page' : undefined}
           onclick={() => (mobileLeft = false)}
           ><Settings class="size-4 shrink-0" aria-hidden="true" /><span class:sr-only={compact}
-            >Workspace settings</span
+            >Project settings</span
           ></Button
         >
       {/if}
@@ -621,7 +621,7 @@
     variant="ghost"
     class="room-nav-link"
     title={compact ? label : undefined}
-    href={`/workspaces/${projectId}${id === 'overview' ? '' : `/${id}`}`}
+    href={`/projects/${projectId}${id === 'overview' ? '' : `/${id}`}`}
     onclick={() => (mobileLeft = false)}
     aria-current={section === id || (id === 'research' && ['objects', 'records'].includes(section))
       ? 'page'
@@ -643,7 +643,7 @@
     </div>
   {:else}
     <div class="room-tools-content">
-      {#if section === 'map'}<WorkspaceMapPanel
+      {#if section === 'map'}<ProjectMapPanel
           canReview={$project.data?.current_user_role === 'OWNER' ||
             $project.data?.current_user_role === 'CONTRIBUTOR'}
           {projectId}
@@ -652,16 +652,16 @@
           bind:objectId={mapObjectId}
         />{/if}
       {#if section === 'sessions'}
-        <div class="workspace-chat-panel-host" data-chat-panel-host={placement}></div>
+        <div class="project-chat-panel-host" data-chat-panel-host={placement}></div>
       {:else if section !== 'map' && $project.data}
         {#if section === 'objects' && selectedId}
-          {#key selectedId}<WorkspaceObjectPanel
+          {#key selectedId}<ProjectObjectPanel
               {projectId}
               objectId={selectedId}
               publicRead={!member}
               bind:activeTab={objectPanelTab}
             />{/key}
-        {:else}<WorkspaceSectionPanel
+        {:else}<ProjectSectionPanel
             project={$project.data}
             {section}
             bind:selected={selectedActivity}
@@ -674,7 +674,7 @@
         >
           {#each [['history', 'Version history'], ['discussion', 'Discussion']] as const as [panel, label] (panel)}<a
               aria-label={label}
-              href={`/workspaces/${projectId}/objects/${selectedId}?panel=${panel}`}
+              href={`/projects/${projectId}/objects/${selectedId}?panel=${panel}`}
               onclick={() => (mobileRight = false)}
               ><span>{label}</span><ArrowRight class="size-4 shrink-0" aria-hidden="true" /></a
             >{/each}
@@ -685,10 +685,10 @@
 
 {#snippet accessNotice()}
   {#if $project.data?.archived_at}<p class="notice">
-      This workspace is archived and cannot be changed.
+      This project is archived and cannot be changed.
     </p>
   {:else if !member}<p class="room-access-note">
-      Contributing requires workspace membership.
+      Contributing requires project membership.
       {#if !auth.signedIn}<Button
           variant="link"
           class="h-auto p-0"
@@ -717,7 +717,7 @@
     overflow: auto;
     border-top: 1px solid var(--border);
   }
-  .workspace-view-tab {
+  .project-view-tab {
     display: flex;
     align-items: center;
     flex-shrink: 0;
@@ -726,7 +726,7 @@
     border-top: 2px solid transparent;
     font-size: 0.75rem;
   }
-  .workspace-view-tab[aria-selected='true'] {
+  .project-view-tab[aria-selected='true'] {
     border-top-color: var(--primary);
     background: var(--background);
   }

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/svelte-query';
-  import '../styles/workspace.css';
+  import '../styles/project.css';
   const client = new QueryClient({
     queryCache: new QueryCache({
       onError(error, query) {

@@ -34,7 +34,7 @@ class SqlPublicationManifest(Base):
         ForeignKeyConstraint(
             ["ownership_scope_id", "project_id"],
             ["research_scopes.id", "research_scopes.project_id"],
-            name="fk_publication_manifest_workspace_scope",
+            name="fk_publication_manifest_project_scope",
         ),
         CheckConstraint("length(preview_digest) = 64", name="ck_publication_preview_digest"),
     )
@@ -308,7 +308,7 @@ class SqlCatalogueModeratorAudit(Base):
 
 
 class SqlExternalAgentCredential(Base):
-    """Opaque delegated identity; historical workspace grants remain immutable."""
+    """Opaque delegated identity; historical project grants remain immutable."""
 
     __tablename__ = "external_agent_credentials"
     __table_args__ = (
@@ -324,7 +324,7 @@ class SqlExternalAgentCredential(Base):
         ),
         CheckConstraint(
             "(scope_kind = 'ACCOUNT' AND project_id IS NULL) OR "
-            "(scope_kind = 'WORKSPACE' AND project_id IS NOT NULL)",
+            "(scope_kind = 'PROJECT' AND project_id IS NOT NULL)",
             name="ck_external_credential_scope",
         ),
         CheckConstraint("length(token_digest) = 64", name="ck_external_agent_token_digest"),

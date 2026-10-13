@@ -18,11 +18,11 @@ it('separates an unavailable service from empty results and explicit examples', 
   await fireEvent.change(screen.getByLabelText('Contributor'), { target: { value: 'human' } });
   await waitFor(() => expect(screen.queryByText('Testing a bound for regular graphs')).toBeNull());
   expect(screen.getByText('A missing assumption in the argument')).toBeTruthy();
-  await fireEvent.click(screen.getByRole('button', { name: 'Active workspaces' }));
+  await fireEvent.click(screen.getByRole('button', { name: 'Active projects' }));
   expect(await screen.findByRole('heading', { name: 'Spectral gaps' })).toBeTruthy();
   expect(screen.queryByLabelText('Contributor')).toBeNull();
   await fireEvent.click(screen.getByRole('button', { name: 'Exit example preview' }));
-  expect(screen.getByText('Workspace activity is coming soon')).toBeTruthy();
+  expect(screen.getByText('Project activity is coming soon')).toBeTruthy();
 });
 
 it('paginates the selected filters and reports source failures without showing an empty state', async () => {
@@ -32,7 +32,7 @@ it('paginates the selected filters and reports source failures without showing a
     ],
     nextCursor: 'next',
   });
-  const source: ActivitySource = { submissions, workspaces: vi.fn() };
+  const source: ActivitySource = { submissions, projects: vi.fn() };
   render(Activity, { props: { source } });
   await fireEvent.click(await screen.findByRole('button', { name: 'Next' }));
   expect(submissions).toHaveBeenLastCalledWith(
@@ -60,10 +60,10 @@ it('does not let a late response replace a newly selected view', async () => {
           resolveOld = resolve;
         }),
     ),
-    workspaces: vi.fn().mockResolvedValue({ items: [] }),
+    projects: vi.fn().mockResolvedValue({ items: [] }),
   };
   render(Activity, { props: { source } });
-  await fireEvent.click(screen.getByRole('button', { name: 'Active workspaces' }));
+  await fireEvent.click(screen.getByRole('button', { name: 'Active projects' }));
   await screen.findByText('No matching activity');
   resolveOld({ items: [], nextCursor: 'stale' });
   await Promise.resolve();

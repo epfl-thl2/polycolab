@@ -14,7 +14,7 @@ def test_verification_features_are_independent_and_disabled_by_default() -> None
     assert settings.feature_verification_execution_enabled is False
     assert settings.verification_queue_capacity > 0
     assert settings.verification_user_daily_cpu_seconds > 0
-    assert settings.verification_workspace_daily_memory_byte_seconds > 0
+    assert settings.verification_project_daily_memory_byte_seconds > 0
     assert "database_url" not in VerificationControllerSettings.model_fields
 
 

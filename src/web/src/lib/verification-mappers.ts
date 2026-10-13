@@ -33,7 +33,7 @@ function exactRevision(
     revisionId,
     kind: display ? coarseKind(display.kind) : 'RECORD',
     title: display?.title ?? `Revision ${revisionId}`,
-    href: `/workspaces/${projectId}/records/${revisionId}`,
+    href: `/projects/${projectId}/records/${revisionId}`,
   };
 }
 
@@ -70,13 +70,13 @@ export function mapVerificationJob(
     manifestDigest: job.manifest_digest,
     workTarget: exactRevision(
       job.submission.work_target_object_version_id,
-      job.submission.workspace_id,
+      job.submission.project_id,
       displays,
     ),
     researchAttempt: job.submission.research_attempt_object_version_id
       ? exactRevision(
           job.submission.research_attempt_object_version_id,
-          job.submission.workspace_id,
+          job.submission.project_id,
           displays,
         )
       : undefined,
@@ -89,7 +89,7 @@ export function mapVerificationJob(
       path: input.path,
       role: input.role,
       revision: input.object_version_id
-        ? exactRevision(input.object_version_id, job.submission.workspace_id, displays)
+        ? exactRevision(input.object_version_id, job.submission.project_id, displays)
         : undefined,
       artifactId: input.artifact_id ?? undefined,
     })),

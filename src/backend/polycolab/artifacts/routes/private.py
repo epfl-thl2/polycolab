@@ -34,7 +34,7 @@ def private_no_store(response: Response) -> None:
 
 
 router = APIRouter(
-    prefix="/api/v1/workspaces/{workspace_id}/artifacts",
+    prefix="/api/v1/projects/{project_id}/artifacts",
     tags=["artifacts"],
     dependencies=[Depends(private_no_store)],
 )
@@ -69,7 +69,7 @@ def _read(row: artifacts.StoredArtifact) -> ArtifactRead:
 
 def _stage(
     request: Request,
-    workspace_id: UUID,
+    project_id: UUID,
     user_id: UUID,
     declaration: ArtifactUploadDeclaration,
     data: bytes,
@@ -79,7 +79,7 @@ def _stage(
     with request.app.state.session_factory() as session:
         row = artifacts.reserve(
             session,
-            project_id=workspace_id,
+            project_id=project_id,
             user_id=user_id,
             declaration=declaration,
             settings=request.app.state.settings,
@@ -95,9 +95,7 @@ def _stage(
         raise HTTPException(status, code) from None
     with request.app.state.session_factory() as session:
         return _read(
-            artifacts.verified(
-                session, project_id=workspace_id, user_id=user_id, artifact_id=row.id
-            )
+            artifacts.verified(session, project_id=project_id, user_id=user_id, artifact_id=row.id)
         )
 
 
@@ -116,7 +114,7 @@ def _stage(
     },
 )
 async def upload(
-    workspace_id: UUID,
+    project_id: UUID,
     request: Request,
     user: CurrentUser,
     session: DbSession,
@@ -136,7 +134,7 @@ async def upload(
         raise HTTPException(422, "artifact_invalid_declaration") from None
     user_id = user.id
     # Authorize before consuming bytes, then release the request transaction.
-    project_access(session, workspace_id, user_id, write=True)
+    project_access(session, project_id, user_id, write=True)
     session.rollback()
     data = bytearray()
     try:
@@ -150,13 +148,13 @@ async def upload(
     if len(data) != byte_length:
         raise HTTPException(422, "artifact_length_mismatch")
     return await run_in_threadpool(
-        _stage, request, workspace_id, user_id, declaration, bytes(data), source_object_version_id
+        _stage, request, project_id, user_id, declaration, bytes(data), source_object_version_id
     )
 
 
 @router.get("", response_model=ArtifactAttachmentPage, operation_id="pageArtifactAttachments")
 def list_attachments(
-    workspace_id: UUID,
+    project_id: UUID,
     user: CurrentUser,
     session: DbSession,
     object_version_id: UUID | None = None,
@@ -165,7 +163,7 @@ def list_attachments(
 ) -> ArtifactAttachmentPage:
     return artifacts.list_attachments(
         session,
-        project_id=workspace_id,
+        project_id=project_id,
         user_id=user.id,
         revision_id=object_version_id,
         limit=limit,
@@ -175,12 +173,12 @@ def list_attachments(
 
 @router.get("/{artifact_id}", response_model=ArtifactRead, operation_id="readArtifact")
 def metadata(
-    workspace_id: UUID, artifact_id: UUID, user: CurrentUser, session: DbSession
+    project_id: UUID, artifact_id: UUID, user: CurrentUser, session: DbSession
 ) -> ArtifactRead:
     return _read(
         artifacts.read(
             session,
-            project_id=workspace_id,
+            project_id=project_id,
             user_id=user.id,
             artifact_id=artifact_id,
             include_staging=True,
@@ -194,7 +192,7 @@ def metadata(
     operation_id="attachArtifact",
 )
 def attach(
-    workspace_id: UUID,
+    project_id: UUID,
     artifact_id: UUID,
     payload: ArtifactAttachmentWrite,
     user: CurrentUser,
@@ -203,7 +201,7 @@ def attach(
     return ArtifactAttachmentRead(
         id=artifacts.attach(
             session,
-            project_id=workspace_id,
+            project_id=project_id,
             user_id=user.id,
             artifact_id=artifact_id,
             revision_id=payload.object_version_id,
@@ -226,10 +224,10 @@ def attach(
     },
 )
 def download(
-    workspace_id: UUID, artifact_id: UUID, request: Request, user: CurrentUser, session: DbSession
+    project_id: UUID, artifact_id: UUID, request: Request, user: CurrentUser, session: DbSession
 ) -> Response:
     user_id = user.id
-    row = artifacts.read(session, project_id=workspace_id, user_id=user_id, artifact_id=artifact_id)
+    row = artifacts.read(session, project_id=project_id, user_id=user_id, artifact_id=artifact_id)
     session.rollback()
     try:
         with artifact_storage(request) as store:
@@ -238,5 +236,5 @@ def download(
         raise HTTPException(503, "artifact_storage_unavailable") from None
     # Revocation during retrieval must prevent returning the buffered bytes.
     with request.app.state.session_factory() as fresh:
-        artifacts.read(fresh, project_id=workspace_id, user_id=user_id, artifact_id=artifact_id)
+        artifacts.read(fresh, project_id=project_id, user_id=user_id, artifact_id=artifact_id)
     return Response(content=data, headers=private_download_headers())

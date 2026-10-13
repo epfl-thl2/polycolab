@@ -94,7 +94,7 @@ export function createAgentSessionsApi(
     listSessions: (projectId: string, cursor?: string) =>
       unwrapPage(
         client.GET('/api/v1/agent-sessions', {
-          params: { query: { workspace_id: projectId, limit: 25, cursor } },
+          params: { query: { project_id: projectId, limit: 25, cursor } },
         }),
       ),
     createSession: (

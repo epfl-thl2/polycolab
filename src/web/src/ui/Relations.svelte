@@ -6,10 +6,10 @@
   import { NativeSelect } from '../lib/components/ui/native-select';
   import { Textarea } from '../lib/components/ui/textarea';
   import { toStore } from 'svelte/store';
-  import WorkspaceRelationships from './WorkspaceRelationships.svelte';
-  import { loadWorkspaceMap } from '../lib/workspace-map';
+  import ProjectRelationships from './ProjectRelationships.svelte';
+  import { loadProjectMap } from '../lib/project-map';
   import { createQuery, createInfiniteQuery } from '@tanstack/svelte-query';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import {
     relationshipChoices,
     relationshipWrite,
@@ -21,7 +21,7 @@
     revisionId,
     canWrite,
   }: { projectId: string; objectId: string; revisionId: string; canWrite: boolean } = $props();
-  const { api, query } = workspace();
+  const { api, query } = projectContext();
   let adding = $state(false);
   let target = $state('');
   let rationale = $state('');
@@ -30,8 +30,8 @@
   let busy = $state(false);
   const map = createQuery(
     toStore(() => ({
-      queryKey: ['workspace-inspector-map', projectId, false],
-      queryFn: () => loadWorkspaceMap(api, projectId, false),
+      queryKey: ['project-inspector-map', projectId, false],
+      queryFn: () => loadProjectMap(api, projectId, false),
     })),
   );
   const objects = createInfiniteQuery(
@@ -50,7 +50,7 @@
     error = '';
     try {
       const common = {
-        destination: { kind: 'workspace' as const, workspace_id: projectId },
+        destination: { kind: 'project' as const, project_id: projectId },
         description: rationale || null,
       };
       await api.createRelation(objectId, {
@@ -62,12 +62,12 @@
       rationale = '';
       await query.invalidateQueries({ queryKey: ['relations'] });
       await query.invalidateQueries({ queryKey: ['neighborhood'] });
-      await query.invalidateQueries({ queryKey: ['workspace-inspector-map', projectId] });
+      await query.invalidateQueries({ queryKey: ['project-inspector-map', projectId] });
       await query.invalidateQueries({
-        queryKey: ['workspace-map', projectId],
+        queryKey: ['project-map', projectId],
         refetchType: 'none',
       });
-      await query.invalidateQueries({ queryKey: ['workspace-map', projectId] });
+      await query.invalidateQueries({ queryKey: ['project-map', projectId] });
     } catch (reason) {
       error = explain(reason);
     } finally {
@@ -78,14 +78,12 @@
 
 <div class="heading">
   <h2>Relationships</h2>
-  <a href={`/workspaces/${projectId}/map?object=${objectId}&revision=${revisionId}`}
-    >View on map →</a
-  >
+  <a href={`/projects/${projectId}/map?object=${objectId}&revision=${revisionId}`}>View on map →</a>
 </div>
 {#if $map.isError}<Alert.Root variant="destructive" role="alert">{explain($map.error)}</Alert.Root
   ><Button onclick={() => $map.refetch()}>Retry</Button>
 {:else if $map.isPending}<LoadingState>Loading relationships…</LoadingState>
-{:else}<WorkspaceRelationships
+{:else}<ProjectRelationships
     {projectId}
     {objectId}
     {revisionId}

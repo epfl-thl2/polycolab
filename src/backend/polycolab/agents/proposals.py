@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from polycolab.access.actors import human_actor
-from polycolab.access.authorization import WorkspaceAction, workspace_policy
+from polycolab.access.authorization import ProjectAction, project_policy
 from polycolab.agents.proposal_version_schemas import (
     ObjectVersionProposalChange,
     ProposeCommentCreate,
@@ -47,6 +47,7 @@ from polycolab.entities.enums import (
 )
 from polycolab.entities.time import utc_now
 from polycolab.platform.observability import metrics
+from polycolab.projects.service import DomainConflict
 from polycolab.research.contracts import ProofStructureWrite
 from polycolab.research.objects import (
     ResearchNotFound,
@@ -60,7 +61,6 @@ from polycolab.research.objects import (
 )
 from polycolab.research.schemas import ResearchAttemptRequest
 from polycolab.research.version_schemas import BidirectionalRelationshipInput
-from polycolab.workspaces.service import DomainConflict
 
 
 class ProposalInvalid(Exception):
@@ -724,11 +724,11 @@ def accept_change(
     Replays return the original accepted change. A different edit is a conflict,
     never a silent second mutation.
     """
-    workspace_policy.require_scope(
+    project_policy.require_scope(
         SqlAlchemyTransaction(session),
         proposal.project_id,
         decider.id,
-        WorkspaceAction.REVIEW_PROPOSALS,
+        ProjectAction.REVIEW_PROPOSALS,
     )
     change = session.scalar(
         select(SqlProposalChange)
@@ -866,11 +866,11 @@ def decide_changes_atomically(
     decisions: list[BatchDecisionInput],
 ) -> list[SqlProposalChange]:
     """Review a selected set as one transaction, with no partial decision state."""
-    workspace_policy.require_scope(
+    project_policy.require_scope(
         SqlAlchemyTransaction(session),
         proposal.project_id,
         decider.id,
-        WorkspaceAction.REVIEW_PROPOSALS,
+        ProjectAction.REVIEW_PROPOSALS,
     )
     if not decisions or len({item.change_id for item in decisions}) != len(decisions):
         raise ProposalInvalid

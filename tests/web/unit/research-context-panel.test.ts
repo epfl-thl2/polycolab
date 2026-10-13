@@ -6,7 +6,7 @@ import { claimVersion, structuralPin } from './version-fixtures';
 
 afterEach(cleanup);
 
-it('loads the landed R2.1 resources for one exact workspace revision', async () => {
+it('loads the landed R2.1 resources for one exact project revision', async () => {
   const researchStructure = {
     objectVersionDisplays: vi.fn().mockResolvedValue({
       items: [
@@ -83,21 +83,21 @@ it('loads the landed R2.1 resources for one exact workspace revision', async () 
   expect(screen.getByRole('heading', { name: 'Artifacts' })).toBeTruthy();
   await waitFor(() =>
     expect(researchStructure.attempts).toHaveBeenCalledWith('claim-object', {
-      workspace_id: 'project-a',
+      project_id: 'project-a',
       target_object_version_id: 'claim-r3',
     }),
   );
   expect(researchStructure.assurance).toHaveBeenCalledWith('claim-r3', 'project-a');
   expect(researchStructure.currentAssurance).toHaveBeenCalledWith('claim-r3', 'project-a');
   expect(researchStructure.objectVersionDisplays).toHaveBeenCalledWith({
-    workspace_id: 'project-a',
+    project_id: 'project-a',
     object_version_ids: ['statement-r2'],
   });
   expect(screen.getByRole('option', { name: /Resolved statement title/ })).toBeTruthy();
   await fireEvent.click(screen.getByRole('button', { name: 'Load more attempts' }));
   await waitFor(() => expect(researchStructure.attempts).toHaveBeenCalledTimes(2));
   expect(researchStructure.attempts).toHaveBeenLastCalledWith('claim-object', {
-    workspace_id: 'project-a',
+    project_id: 'project-a',
     target_object_version_id: 'claim-r3',
     cursor: 'attempt-next',
   });

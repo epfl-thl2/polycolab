@@ -9,7 +9,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from test_catalogue_api import admit, enable, formulation
-from test_research_domain import create_workspace, headers
+from test_research_domain import create_project, headers
 
 
 @pytest.mark.parametrize(
@@ -18,11 +18,11 @@ from test_research_domain import create_workspace, headers
 )
 def test_documented_object_creation_example(client: TestClient, document: str) -> None:
     enable(client)
-    project = create_workspace(client)
+    project = create_project(client)
     source = (Path(__file__).resolve().parents[2] / document).read_text()
     example = source.split("```json\n", 1)[1].split("```", 1)[0]
     body = json.loads(example)
-    body["destination"]["workspace_id"] = str(project)
+    body["destination"]["project_id"] = str(project)
     request_headers = headers("owner")
     response = client.post("/api/v1/objects", headers=request_headers, json=body)
     assert response.status_code == 201, response.text
@@ -111,7 +111,7 @@ def test_correction_creation_keeps_catalogue_metadata_outside_version_content(
 
 
 def test_attempt_history_returns_complete_exact_version_snapshots(client: TestClient) -> None:
-    project = create_workspace(client)
+    project = create_project(client)
     target = create_versioned(client, project, snapshot())
     value = snapshot()
     value["kind"] = "ATTEMPT"
@@ -128,7 +128,7 @@ def test_attempt_history_returns_complete_exact_version_snapshots(client: TestCl
     ]
     attempt = create_versioned(client, project, value)
     path = f"/api/v1/research/objects/{target['object_id']}/attempts"
-    params = {"workspace_id": project, "scope": "member", "target_object_version_id": target["id"]}
+    params = {"project_id": project, "scope": "member", "target_object_version_id": target["id"]}
     response = client.get(path, headers=headers("owner"), params=params)
     assert response.status_code == 200, response.text
     assert response.json() == {"items": [attempt], "next_cursor": None}
@@ -149,7 +149,7 @@ def create_versioned(client: TestClient, project: str, value: dict[str, Any]) ->
     response = client.post(
         "/api/v1/objects",
         headers=headers("owner"),
-        json={"destination": {"kind": "workspace", "workspace_id": project}, "snapshot": value},
+        json={"destination": {"kind": "project", "project_id": project}, "snapshot": value},
     )
     assert response.status_code == 201, response.text
     version_id = next(
@@ -161,7 +161,7 @@ def create_versioned(client: TestClient, project: str, value: dict[str, Any]) ->
 
 
 def test_public_attempt_history_matches_the_public_exact_projection(client: TestClient) -> None:
-    project = create_workspace(client, visibility="PUBLIC")
+    project = create_project(client, visibility="PUBLIC")
     target = create_versioned(client, project, snapshot())
     value = snapshot()
     value["kind"] = "ATTEMPT"
@@ -197,7 +197,7 @@ def test_public_search_uses_the_latest_released_version_not_a_private_head(
     app = cast(FastAPI, client.app)
     enable(client)
     statement = admit(client)
-    project = create_workspace(client)
+    project = create_project(client)
     value = snapshot()
     value["content"]["title"] = "Public formulation"
     value["structural_relationships"] = [
@@ -257,11 +257,11 @@ def test_public_search_uses_the_latest_released_version_not_a_private_head(
 
 
 def test_bounded_version_displays_use_explicit_ids_and_enforce_access(client: TestClient) -> None:
-    project = create_workspace(client)
+    project = create_project(client)
     first = create_versioned(client, project, snapshot())
     second = create_versioned(client, project, snapshot())
     path = "/api/v1/research/versions/display"
-    body = {"workspace_id": project, "object_version_ids": [second["id"], first["id"]]}
+    body = {"project_id": project, "object_version_ids": [second["id"], first["id"]]}
     response = client.post(path, headers=headers("owner"), json=body)
     assert response.status_code == 200, response.text
     assert response.json()["items"] == [
@@ -278,7 +278,7 @@ def test_bounded_version_displays_use_explicit_ids_and_enforce_access(client: Te
         client.post(
             path,
             headers=headers("owner"),
-            json={"workspace_id": project, "revision_ids": [first["id"]]},
+            json={"project_id": project, "revision_ids": [first["id"]]},
         ).status_code
         == 422
     )
@@ -286,7 +286,7 @@ def test_bounded_version_displays_use_explicit_ids_and_enforce_access(client: Te
         client.post(
             path,
             headers=headers("owner"),
-            json={"workspace_id": project, "object_version_ids": [first["id"], first["id"]]},
+            json={"project_id": project, "object_version_ids": [first["id"], first["id"]]},
         ).status_code
         == 422
     )
@@ -301,10 +301,10 @@ def test_bounded_version_displays_use_explicit_ids_and_enforce_access(client: Te
 def test_dependents_are_directed_and_pinned_to_the_selected_object_version(
     client: TestClient,
 ) -> None:
-    project = create_workspace(client)
+    project = create_project(client)
     source = create_versioned(client, project, snapshot())
     target = create_versioned(client, project, snapshot())
-    destination = {"kind": "workspace", "workspace_id": project}
+    destination = {"kind": "project", "project_id": project}
     for declaration in (
         {
             "direction": "UNIDIRECTIONAL",
@@ -372,7 +372,7 @@ def test_dependents_are_directed_and_pinned_to_the_selected_object_version(
 
 
 def test_exact_and_history_share_the_complete_version_contract(client: TestClient) -> None:
-    project = create_workspace(client)
+    project = create_project(client)
     claim = create_versioned(client, project, snapshot())
     proof = snapshot()
     proof["kind"] = "PROOF"
@@ -407,21 +407,21 @@ def test_exact_and_history_share_the_complete_version_contract(client: TestClien
     assert embedded.json()["current_object_version_id"] == version_id
     assert "current_revision_id" not in embedded.json()
     scoped = client.get(
-        f"/api/v1/records/{version_id}", headers=headers("owner"), params={"workspace_id": project}
+        f"/api/v1/records/{version_id}", headers=headers("owner"), params={"project_id": project}
     )
     assert scoped.status_code == 200, scoped.text
     assert scoped.json() == version
     listing = client.get(
         "/api/v1/records",
         headers=headers("owner"),
-        params={"workspace_id": project, "scope": "member", "object_id": version["object_id"]},
+        params={"project_id": project, "scope": "member", "object_id": version["object_id"]},
     )
     assert listing.status_code == 200, listing.text
     assert listing.json()["items"] == [version]
     discovery = client.get(
         "/api/v1/discovery",
         headers=headers("owner"),
-        params={"workspace_id": project, "scope": "member"},
+        params={"project_id": project, "scope": "member"},
     )
     assert discovery.status_code == 200, discovery.text
     assert (
@@ -442,7 +442,7 @@ def test_exact_and_history_share_the_complete_version_contract(client: TestClien
 
 
 def test_public_versions_do_not_expose_private_scope_metadata(client: TestClient) -> None:
-    project = create_workspace(client, visibility="PUBLIC")
+    project = create_project(client, visibility="PUBLIC")
     obj = create_versioned(client, project, snapshot())
     version_id = obj["id"]
     public = client.get(f"/api/v1/versions/{version_id}")
@@ -459,7 +459,7 @@ def test_public_versions_do_not_expose_private_scope_metadata(client: TestClient
 
 
 def test_full_snapshot_update_removes_pins_and_is_idempotent(client: TestClient) -> None:
-    project = create_workspace(client)
+    project = create_project(client)
     target = create_versioned(client, project, snapshot())
     initial = snapshot()
     initial["structural_relationships"] = [
@@ -491,7 +491,7 @@ def test_full_snapshot_update_removes_pins_and_is_idempotent(client: TestClient)
 
 
 def test_proof_positions_are_not_renumbered_on_write(client: TestClient) -> None:
-    project = create_workspace(client)
+    project = create_project(client)
     conclusion = create_versioned(client, project, snapshot())
     premise = create_versioned(client, project, snapshot())
     proof = snapshot()
@@ -515,7 +515,7 @@ def test_proof_positions_are_not_renumbered_on_write(client: TestClient) -> None
 
 
 def test_comments_use_explicit_object_version_references(client: TestClient) -> None:
-    project = create_workspace(client)
+    project = create_project(client)
     version = create_versioned(client, project, snapshot())
     path = f"/api/v1/objects/{version['object_id']}/comments"
     old = client.post(
@@ -535,7 +535,7 @@ def test_comments_use_explicit_object_version_references(client: TestClient) -> 
 
 
 def test_relationship_responses_have_symmetric_endpoints(client: TestClient) -> None:
-    project = create_workspace(client)
+    project = create_project(client)
     first = create_versioned(client, project, snapshot())
     second = create_versioned(client, project, snapshot())
     response = client.post(
@@ -544,7 +544,7 @@ def test_relationship_responses_have_symmetric_endpoints(client: TestClient) -> 
         json={
             "direction": "BIDIRECTIONAL",
             "relationship_type": "EQUIVALENT_TO",
-            "destination": {"kind": "workspace", "workspace_id": project},
+            "destination": {"kind": "project", "project_id": project},
             "first_object_version_id": second["id"],
             "second_object_version_id": first["id"],
         },
@@ -569,7 +569,7 @@ def test_relationship_responses_have_symmetric_endpoints(client: TestClient) -> 
         scoped = client.get(
             f"/api/v1/versions/{version['id']}/relationships",
             headers=headers("owner"),
-            params={"workspace_id": project},
+            params={"project_id": project},
         )
         assert scoped.status_code == 200, scoped.text
         assert scoped.json() == [relation]

@@ -59,14 +59,14 @@ Self-reviews remain explicitly identified.
 
 `GET /api/v1/reviews/{object_version_id}` provides bounded chronological history.
 `current=true` returns the latest visible event per reviewer, including withdrawals.
-`workspace_only=true` with an authorized workspace selects its own review events for publication.
+`project_only=true` with an authorized project selects its own review events for publication.
 `POST /api/v1/reviews/summary` accepts at most 128 unique version IDs and returns human/AI outcome counts and self-review counts.
 Withdrawals remove the reviewer's active assessment.
 Conflicting reviewers remain visible.
 
 Neither new versions nor dependent objects inherit reviews.
 
-Humans use workspace contribution authority.
+Humans use project contribution authority.
 External keys must explicitly opt into `allow_reviews`.
 Hosted grants must include `REVIEW_RESEARCH` to advertise and execute `review_object_version`.
 Existing sponsor, scope, input, lease, mutation-budget and retry checks still apply.
@@ -126,9 +126,9 @@ Attachment writes check target access, and publication includes the target's sel
 An object attachment does not advance or rewrite an Attempt's worked-on version.
 Historical API kind names use the same canonical labels, colors and shapes during the migration.
 
-## Simplified workspace relationships
+## Simplified project relationships
 
-Workspace relationship editors and views use Depends on, Uses, Proved by, and Refuted by.
+Project relationship editors and views use Depends on, Uses, Proved by, and Refuted by.
 Diagrams place the object above its supporting material: statement → proof → premises.
 Proved by and Refuted by reverse canonical PROVES/REFUTES endpoints for display and reverse them back when writing.
 Proof CONCLUSION pins use that exact version's SUPPORTS/REFUTES direction.

@@ -116,7 +116,7 @@ def write(
     return read(row)
 
 
-def visible_condition(workspace_id: UUID | None) -> ColumnElement[bool]:
+def visible_condition(project_id: UUID | None) -> ColumnElement[bool]:
     """Private review scopes are never exposed just because the target is public."""
     public_scope: ColumnElement[bool] = exists(
         select(SqlResearchScope.id).where(
@@ -136,7 +136,7 @@ def visible_condition(workspace_id: UUID | None) -> ColumnElement[bool]:
         select(SqlReviewEvidence.review_id).where(
             SqlReviewEvidence.review_id == SqlObjectReview.id,
             SqlReviewEvidence.object_version_id.not_in(
-                select(SqlObjectRevision.id).where(read_condition(workspace_id))
+                select(SqlObjectRevision.id).where(read_condition(project_id))
             ),
         )
     )
@@ -148,7 +148,7 @@ def visible_condition(workspace_id: UUID | None) -> ColumnElement[bool]:
             )
         ),
     )
-    if workspace_id is None:
+    if project_id is None:
         return and_(public_scope, authorized_evidence)
     return and_(
         authorized_evidence,
@@ -157,7 +157,7 @@ def visible_condition(workspace_id: UUID | None) -> ColumnElement[bool]:
             exists(
                 select(SqlResearchScope.id).where(
                     SqlResearchScope.id == SqlObjectReview.ownership_scope_id,
-                    SqlResearchScope.project_id == workspace_id,
+                    SqlResearchScope.project_id == project_id,
                 )
             ),
         ),
@@ -165,10 +165,10 @@ def visible_condition(workspace_id: UUID | None) -> ColumnElement[bool]:
 
 
 def current_query(
-    version_ids: list[UUID], workspace_id: UUID | None
+    version_ids: list[UUID], project_id: UUID | None
 ) -> Select[tuple[SqlObjectReview]]:
     later = aliased(SqlObjectReview)
-    visible = visible_condition(workspace_id)
+    visible = visible_condition(project_id)
     # Latest among authorized positions; a private review must not suppress a public one.
     visible_ids = select(SqlObjectReview.id).where(visible).correlate(None)
     return select(SqlObjectReview).where(
@@ -192,13 +192,13 @@ def current_query(
 
 
 def summaries(
-    session: Session, version_ids: list[UUID], workspace_id: UUID | None
+    session: Session, version_ids: list[UUID], project_id: UUID | None
 ) -> list[ReviewSummary]:
     result = {
         key: ReviewSummary(object_version_id=key, human=ReviewCounts(), ai=ReviewCounts())
         for key in version_ids
     }
-    current = current_query(version_ids, workspace_id).subquery()
+    current = current_query(version_ids, project_id).subquery()
     for version_id, actor_kind, outcome, count, self_count in session.execute(
         select(
             current.c.object_version_id,

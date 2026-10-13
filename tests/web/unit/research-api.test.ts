@@ -17,7 +17,7 @@ describe('research API adapter', () => {
     });
     const api = createResearchApi({ baseUrl: 'https://api.example.test' });
     await expect(
-      api.listVersions('workspace', 'object', publicRead, 'previous-page'),
+      api.listVersions('project', 'object', publicRead, 'previous-page'),
     ).resolves.toEqual({
       items: [],
       nextCursor: 'next-version-page',
@@ -117,7 +117,7 @@ describe('research API adapter', () => {
     });
   });
 
-  it('uses the generated anonymous public-workspace route without leaking a human token', async () => {
+  it('uses the generated anonymous public-project route without leaking a human token', async () => {
     const requests: Request[] = [];
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const request = new Request(input);
@@ -141,7 +141,7 @@ describe('research API adapter', () => {
     });
 
     await expect(api.getPublicProject('project')).resolves.toMatchObject({ name: 'Public' });
-    expect(new URL(requests[0]!.url).pathname).toBe('/api/v1/workspaces/project');
+    expect(new URL(requests[0]!.url).pathname).toBe('/api/v1/projects/project');
     expect(requests[0]!.headers.get('Authorization')).toBe('Bearer not-for-public');
   });
 

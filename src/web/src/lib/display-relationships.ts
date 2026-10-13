@@ -1,5 +1,5 @@
 import type { Relation } from './research-api';
-import type { WorkspaceMap } from './workspace-map';
+import type { ProjectMap } from './project-map';
 
 export const relationshipChoices = {
   DEPENDS_ON: 'Depends on',
@@ -57,7 +57,7 @@ export function displayRelationship(
   };
 }
 
-export function displayRelationships(data: WorkspaceMap): DisplayRelationship[] {
+export function displayRelationships(data: ProjectMap): DisplayRelationship[] {
   const directions = new Map(
     data.nodes.map((node) => [node.object_version_id, node.proof_direction]),
   );

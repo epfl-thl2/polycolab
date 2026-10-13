@@ -26,7 +26,7 @@ describe('proposal API adapter', () => {
 
     await api.listProjectProposals('project-1');
 
-    expect(requests[0]?.url).toContain('/api/v1/workspaces/project-1/proposals');
+    expect(requests[0]?.url).toContain('/api/v1/projects/project-1/proposals');
     expect(requests[0]?.headers.get('Authorization')).toBe('Bearer member-token');
   });
 

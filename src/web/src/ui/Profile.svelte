@@ -15,7 +15,7 @@
   import { Button } from '../lib/components/ui/button';
   import { Input } from '../lib/components/ui/input';
   import { NativeSelect } from '../lib/components/ui/native-select';
-  import { explain, workspace } from '../svelte-lib/context';
+  import { explain, projectContext } from '../svelte-lib/context';
   import { readProfile, profileQuery, type NavigateQuery } from '../lib/ui-location';
   import { profileGroups, profileKindLabels, matchesProfileGroup } from '../lib/profile-view';
 
@@ -36,7 +36,7 @@
   let draft = $derived(query);
   let selectedDay = $derived(urlState.day);
   let historyYear = $derived(urlState.year ?? new Date().getUTCFullYear());
-  const { auth, history, externalAgents } = workspace();
+  const { auth, history, externalAgents } = projectContext();
   let profile = $state<Awaited<ReturnType<typeof history.profile>>>();
   let attribution = $state<'all' | 'authored' | 'sponsored'>('all');
   type Contribution = {

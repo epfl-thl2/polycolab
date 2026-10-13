@@ -10,14 +10,14 @@ test('retired demo URLs show page recovery without requiring sign-in', async ({ 
   );
   const researchRequests: string[] = [];
   page.on('request', (request) => {
-    if (/\/api\/v1\/(workspaces|library|history)/.test(request.url()))
+    if (/\/api\/v1\/(projects|library|history)/.test(request.url()))
       researchRequests.push(request.url());
   });
   for (const path of [
     '/demo',
     '/demo/finite-tree-colorings',
-    '/workspaces/demo',
-    '/workspaces/demo/settings',
+    '/projects/demo',
+    '/projects/demo/settings',
     '/library/demo',
     '/library/demo/example-1',
     '/profile/demo',
@@ -32,7 +32,7 @@ test('retired demo URLs show page recovery without requiring sign-in', async ({ 
   expect(researchRequests).toEqual([]);
 });
 
-test('Library and public workspace errors recover without false empty states or lost searches', async ({
+test('Library and public project errors recover without false empty states or lost searches', async ({
   page,
 }, info) => {
   await page.route('**/auth/**', (route) =>
@@ -50,12 +50,12 @@ test('Library and public workspace errors recover without false empty states or 
         : { json: { items: [], next_cursor: null } },
     ),
   );
-  let failWorkspaces = false;
+  let failProjects = false;
   const queries: string[] = [];
-  await page.route('**/api/v1/workspaces**', (route) => {
+  await page.route('**/api/v1/projects**', (route) => {
     queries.push(new URL(route.request().url()).searchParams.get('q') ?? '');
     return route.fulfill(
-      failWorkspaces
+      failProjects
         ? { status: 503, json: { detail: 'Temporarily unavailable' } }
         : { json: { items: [], next_cursor: null } },
     );
@@ -72,21 +72,21 @@ test('Library and public workspace errors recover without false empty states or 
     page.getByRole('heading', { name: 'The Library is ready for its first entry' }),
   ).toBeVisible();
   await page.screenshot({ path: info.outputPath('library-empty.png') });
-  await page.goto('/workspaces?scope=public');
-  await expect(page.getByRole('heading', { name: 'No workspaces yet' })).toBeVisible();
-  failWorkspaces = true;
+  await page.goto('/projects?scope=public');
+  await expect(page.getByRole('heading', { name: 'No projects yet' })).toBeVisible();
+  failProjects = true;
   await page.getByRole('searchbox', { name: 'Search' }).fill('spectral');
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   await expect(page.getByRole('alert')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'No matching workspaces' })).toHaveCount(0);
-  failWorkspaces = false;
+  await expect(page.getByRole('heading', { name: 'No matching projects' })).toHaveCount(0);
+  failProjects = false;
   await page.getByRole('button', { name: 'Retry', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'No matching workspaces' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'No matching projects' })).toBeVisible();
   expect(queries.at(-1)).toBe('spectral');
   await expect(page.getByRole('searchbox')).toHaveValue('spectral');
   await page.getByRole('button', { name: 'Clear search' }).click();
-  await expect(page.getByRole('heading', { name: 'No workspaces yet' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'No projects yet' })).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: info.outputPath('workspaces-empty-mobile.png') });
+  await page.screenshot({ path: info.outputPath('projects-empty-mobile.png') });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });

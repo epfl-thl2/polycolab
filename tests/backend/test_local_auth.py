@@ -56,7 +56,7 @@ def test_bootstrapped_admin_authenticates_api(local_client: TestClient) -> None:
     )
     assert (
         local_client.get(
-            "/api/v1/workspaces", headers={"Authorization": "Bearer pca_invalid"}
+            "/api/v1/projects", headers={"Authorization": "Bearer pca_invalid"}
         ).status_code
         == 401
     )
@@ -70,7 +70,7 @@ def test_bootstrapped_admin_authenticates_api(local_client: TestClient) -> None:
         "registration_mode": "closed",
     }
 
-    projects = local_client.get("/api/v1/workspaces?scope=member")
+    projects = local_client.get("/api/v1/projects?scope=member")
     assert projects.status_code == 200
     assert projects.json()["items"] == []
 
@@ -85,7 +85,7 @@ def test_setup_route_is_removed_and_logout_revokes_session(local_client: TestCli
     )
     logout = local_client.post("/auth/logout")
     assert logout.status_code == 204
-    assert local_client.get("/api/v1/workspaces?scope=member").status_code == 401
+    assert local_client.get("/api/v1/projects?scope=member").status_code == 401
 
 
 def test_local_login_rejects_wrong_password_and_accepts_correct_password(
@@ -101,7 +101,7 @@ def test_local_login_rejects_wrong_password_and_accepts_correct_password(
         "/auth/login", json={"username": "admin", "password": "correct horse battery staple"}
     )
     assert login.status_code == 200
-    assert local_client.get("/api/v1/workspaces?scope=member").status_code == 200
+    assert local_client.get("/api/v1/projects?scope=member").status_code == 200
 
 
 def test_local_login_rate_limits_before_additional_password_hashing(

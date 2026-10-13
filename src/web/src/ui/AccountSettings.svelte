@@ -2,9 +2,9 @@
   import AgentApiKeys from './AgentApiKeys.svelte';
   import { UserRound, ShieldCheck, Mail, Bot, KeyRound } from '@lucide/svelte';
   import { Button } from '../lib/components/ui/button';
-  import { workspace } from '../svelte-lib/context';
+  import { projectContext } from '../svelte-lib/context';
   let { path }: { path: string } = $props();
-  const { auth, capabilities } = workspace();
+  const { auth, capabilities } = projectContext();
   const section = $derived(
     path === '/settings/api-keys'
       ? 'agent-keys'

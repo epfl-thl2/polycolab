@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { groupRelationships } from '../../../src/web/src/lib/relationship-groups';
-import type { WorkspaceMap } from '../../../src/web/src/lib/workspace-map';
+import type { ProjectMap } from '../../../src/web/src/lib/project-map';
 import { claimVersion } from './version-fixtures';
 
 it('groups directed links from the focused object perspective without substituting revisions', () => {
@@ -14,7 +14,7 @@ it('groups directed links from the focused object perspective without substituti
     created_at: '2026-09-15T00:00:00Z',
     description: '',
   };
-  const data: WorkspaceMap = {
+  const data: ProjectMap = {
     objects: [],
     nodes: [
       { object_id: 'a', object_version_id: 'a-old', title: 'A' },
@@ -67,7 +67,7 @@ it('groups directed links from the focused object perspective without substituti
 });
 
 it('hides equivalence from simplified relationship lists', () => {
-  const data: WorkspaceMap = {
+  const data: ProjectMap = {
     objects: [],
     nodes: [
       { object_id: 'a', object_version_id: 'a-old', title: 'A' },

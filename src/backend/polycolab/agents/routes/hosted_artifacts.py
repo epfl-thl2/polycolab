@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 from sqlalchemy import select
 from starlette.concurrency import run_in_threadpool
 
-from polycolab.access.authorization import WorkspaceAction
+from polycolab.access.authorization import ProjectAction
 from polycolab.agents.context import manifest_artifacts, manifest_for_run
 from polycolab.agents.exports import reserve_export, verify_export
 from polycolab.agents.routes.runtime import (
@@ -125,7 +125,7 @@ class HostedArtifactRead(ExportDeclaration):
     operation_id="listHostedRunArtifacts",
 )
 def list_exports(run_id: UUID, db: DbSession, user: CurrentUser) -> list[HostedArtifactRead]:
-    run = _run_scope(db, run_id=run_id, user_id=user.id, action=WorkspaceAction.VIEW)
+    run = _run_scope(db, run_id=run_id, user_id=user.id, action=ProjectAction.VIEW)
     if run.status != AgentRunStatus.COMPLETED:
         return []
     return [
@@ -156,7 +156,7 @@ def list_exports(run_id: UUID, db: DbSession, user: CurrentUser) -> list[HostedA
 def download_export(
     run_id: UUID, artifact_id: UUID, request: Request, db: DbSession, user: CurrentUser
 ) -> Response:
-    run = _run_scope(db, run_id=run_id, user_id=user.id, action=WorkspaceAction.VIEW)
+    run = _run_scope(db, run_id=run_id, user_id=user.id, action=ProjectAction.VIEW)
     binding = db.get(SqlHostedRunArtifact, artifact_id)
     if binding is None or binding.run_id != run_id or run.status != AgentRunStatus.COMPLETED:
         raise HTTPException(404, "not_found")

@@ -46,7 +46,7 @@ const project = {
 };
 const pin = {
   id: pinId,
-  workspace_id: projectId,
+  project_id: projectId,
   object_id: entryId,
   reference_version_id: pinId,
   number: 1,
@@ -85,11 +85,11 @@ async function fixture(page: Page, signedIn = true) {
       });
     if (request.method() === 'POST') {
       writes.push({ path, body: request.postDataJSON() });
-      if (path === '/api/v1/workspace-copies')
+      if (path === '/api/v1/project-copies')
         return route.fulfill({
           status: 201,
           json: {
-            workspace_id: projectId,
+            project_id: projectId,
             object_id: pinId,
             object_version_id: pinId,
             source_object_version_id: revisionId,
@@ -111,10 +111,10 @@ async function fixture(page: Page, signedIn = true) {
     if (path.endsWith('/history'))
       return route.fulfill({ json: { items: [entry], next_cursor: null } });
     if (path.startsWith('/api/v1/catalogue/')) return route.fulfill({ json: entry });
-    if (path === '/api/v1/workspaces')
+    if (path === '/api/v1/projects')
       return route.fulfill({ json: { items: [project], next_cursor: null } });
-    if (path === `/api/v1/workspaces/${projectId}`) return route.fulfill({ json: project });
-    if (path === '/api/v1/workspace-references')
+    if (path === `/api/v1/projects/${projectId}`) return route.fulfill({ json: project });
+    if (path === '/api/v1/project-references')
       return route.fulfill({ json: { items: [pin], next_cursor: null } });
     if (path === '/api/v1/discovery')
       return route.fulfill({ json: { items: [], next_cursor: null } });
@@ -137,14 +137,14 @@ test('Library discovers a supported statement and copies its exact version into 
   await expect(page.getByRole('heading', { name: 'Assumptions', exact: true })).toBeVisible();
   await expect(page.locator('.katex').first()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Status and supporting basis' })).toBeVisible();
-  await page.getByRole('button', { name: 'Copy to workspace' }).click();
+  await page.getByRole('button', { name: 'Copy to project' }).click();
   const dialog = page.getByRole('dialog');
-  await dialog.getByLabel('Destination workspace').selectOption(projectId);
+  await dialog.getByLabel('Destination project').selectOption(projectId);
   await dialog.getByRole('button', { name: 'Create copy' }).click();
-  await expect(page).toHaveURL(`/workspaces/${projectId}/objects/${pinId}`);
+  await expect(page).toHaveURL(`/projects/${projectId}/objects/${pinId}`);
   expect(writes[0]).toMatchObject({
-    path: '/api/v1/workspace-copies',
-    body: { workspace_id: projectId, source_object_version_id: revisionId },
+    path: '/api/v1/project-copies',
+    body: { project_id: projectId, source_object_version_id: revisionId },
   });
 });
 
@@ -163,10 +163,10 @@ test('Library is readable on mobile and imports request sign-in in context', asy
   await page.screenshot({ path: '/tmp/polycolab-library-mobile-filters.png', fullPage: true });
   await page.getByRole('button', { name: 'Filters', exact: true }).click();
   await page.getByRole('link', { name: entry.object_version.content.title, exact: true }).click();
-  await page.getByRole('button', { name: 'Copy to workspace' }).click();
+  await page.getByRole('button', { name: 'Copy to project' }).click();
   await expect(page.getByRole('dialog').getByRole('heading', { name: 'Sign in' })).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('button', { name: 'Copy to workspace' })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Copy to project' })).toBeFocused();
 });
 
 test('Library previews a human-reviewed entry without requiring a literature source', async ({
@@ -206,12 +206,12 @@ test('Library sign-in returns to the selected exact version and reopens import',
   await fixture(page, false);
   await page.goto('/library');
   await page.getByRole('link', { name: entry.object_version.content.title, exact: true }).click();
-  await page.getByRole('button', { name: 'Copy to workspace' }).click();
+  await page.getByRole('button', { name: 'Copy to project' }).click();
   await page.getByRole('dialog').getByLabel('Username', { exact: true }).fill('ada');
   await page.getByRole('dialog').getByLabel('Password', { exact: true }).fill('test-password-long');
   await page.getByRole('dialog').getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page).toHaveURL(`/library/${entryId}/revisions/${revisionId}?import=1`);
-  await expect(page.getByRole('dialog').getByLabel('Destination workspace')).toBeVisible();
+  await expect(page.getByRole('dialog').getByLabel('Destination project')).toBeVisible();
   await expect(page.getByRole('dialog')).toContainText('Copying version 2');
 });
 

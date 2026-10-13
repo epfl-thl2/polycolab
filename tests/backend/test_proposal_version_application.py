@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from test_catalogue_api import enable
 from test_proposals_api import _proposal_run, _proposal_source_event, headers
-from test_research_domain import create_workspace
+from test_research_domain import create_project
 from test_version_api import create_versioned, snapshot
 
 from polycolab.agents.context import manifest_for_run
@@ -56,7 +56,7 @@ def test_version_proposals_apply_complete_snapshots_and_replay_atomically(
     client: TestClient,
 ) -> None:
     enable(client)
-    project = create_workspace(client)
+    project = create_project(client)
     original = create_versioned(client, project, snapshot())
     other = create_versioned(client, project, snapshot())
     value = snapshot()
@@ -133,7 +133,7 @@ def test_version_proposals_apply_complete_snapshots_and_replay_atomically(
 
 def test_version_proposal_rejects_unpinned_structural_inputs(client: TestClient) -> None:
     enable(client)
-    project = create_workspace(client)
+    project = create_project(client)
     original = create_versioned(client, project, snapshot())
     value = deepcopy(snapshot())
     value["kind"] = "PROOF"
@@ -152,7 +152,7 @@ def test_review_http_rejects_legacy_and_incomplete_edits_before_mutation(
     client: TestClient, batch: bool
 ) -> None:
     enable(client)
-    project = create_workspace(client)
+    project = create_project(client)
     proposal, identifiers = submit(
         client, project, [], [{"kind": "CREATE_OBJECT", "snapshot": snapshot()}]
     )

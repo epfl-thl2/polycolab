@@ -7,14 +7,14 @@
   import { NativeSelect } from '../lib/components/ui/native-select';
   import CatalogueAdmissionForm from './CatalogueAdmissionForm.svelte';
   import { onMount, tick } from 'svelte';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import type { DiscoveryFilters } from '../lib/catalogue-api';
   let {
     entryId,
     revisionId,
     publicationId,
   }: { entryId?: string; revisionId?: string; publicationId?: string } = $props();
-  const { catalogue, auth } = workspace();
+  const { catalogue, auth } = projectContext();
   let page = $state<Awaited<ReturnType<typeof catalogue.search>>>();
   let q = $state('');
   let kind = $state<DiscoveryFilters['kind']>();
@@ -190,7 +190,7 @@
         Find sourced statements, open questions, proof sketches, and attributable research. Interest
         is not endorsement.
       </p>
-      <p><a href="/workspaces?scope=public">Browse public workspaces</a></p>
+      <p><a href="/projects?scope=public">Browse public projects</a></p>
     </header>
     <form
       class="explore-search"

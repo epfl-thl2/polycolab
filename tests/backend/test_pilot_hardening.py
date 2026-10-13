@@ -79,7 +79,7 @@ def _limits(
 
 def _project(client: TestClient) -> dict[str, object]:
     response = client.post(
-        "/api/v1/workspaces",
+        "/api/v1/projects",
         headers=_headers("owner"),
         json={"name": "Pilot project", "visibility": "PRIVATE"},
     )
@@ -106,18 +106,18 @@ def _session(client: TestClient, project_id: str) -> dict[str, object]:
     response = client.post(
         "/api/v1/agent-sessions",
         headers=_headers("owner"),
-        json={"workspace_id": project_id, "agent_kind": "RESEARCHER"},
+        json={"project_id": project_id, "agent_kind": "RESEARCHER"},
     )
     assert response.status_code == 201, response.text
     return cast(dict[str, object], response.json())
 
 
-def test_public_workspaces_are_available_while_hosted_execution_is_disabled(
+def test_public_projects_are_available_while_hosted_execution_is_disabled(
     client: TestClient,
 ) -> None:
     project = _project(client)
     public = client.post(
-        "/api/v1/workspaces",
+        "/api/v1/projects",
         headers=_headers("owner"),
         json={"name": "Public", "visibility": "PUBLIC"},
     )
@@ -128,7 +128,7 @@ def test_public_workspaces_are_available_while_hosted_execution_is_disabled(
     response = client.post(
         "/api/v1/agent-sessions",
         headers=_headers("owner"),
-        json={"workspace_id": project["id"], "agent_kind": "RESEARCHER"},
+        json={"project_id": project["id"], "agent_kind": "RESEARCHER"},
     )
     assert response.status_code == 404
 

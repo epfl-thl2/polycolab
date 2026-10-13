@@ -21,7 +21,7 @@ class User:
 
 @dataclass(frozen=True, slots=True)
 class MemberAccount:
-    """Information needed to resolve a workspace invitation by username."""
+    """Information needed to resolve a project invitation by username."""
 
     id: UUID
     username: str

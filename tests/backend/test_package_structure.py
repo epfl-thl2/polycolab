@@ -73,9 +73,9 @@ def test_database_models_depend_only_on_persistence_primitives_and_application_v
                 ), f"{path.name} imports {module}"
 
 
-def test_workspace_service_and_store_interfaces_do_not_import_database_adapters() -> None:
+def test_project_service_and_store_interfaces_do_not_import_database_adapters() -> None:
     paths = [
-        PACKAGE / "workspaces" / "service.py",
+        PACKAGE / "projects" / "service.py",
         PACKAGE / "artifacts" / "cleanup.py",
         PACKAGE / "transaction.py",
         PACKAGE / "accounts" / "identity.py",
@@ -103,7 +103,7 @@ def test_capability_implementation_does_not_import_http_routes() -> None:
         "platform",
         "research",
         "verification",
-        "workspaces",
+        "projects",
     ):
         for path in (PACKAGE / capability).rglob("*.py"):
             if "routes" in path.parts:
@@ -120,7 +120,7 @@ def test_removed_internal_facades_do_not_return() -> None:
         "platform/database.py",
         "accounts/local.py",
         "accounts/persistence.py",
-        "workspaces/persistence.py",
+        "projects/persistence.py",
         "research/persistence.py",
         "unit_of_work.py",
         "db/unit_of_work.py",
@@ -140,7 +140,7 @@ def test_removed_persistence_modules_are_not_imported() -> None:
     removed = (
         "polycolab.accounts.local",
         "polycolab.accounts.persistence",
-        "polycolab.workspaces.persistence",
+        "polycolab.projects.persistence",
         "polycolab.research.persistence",
         "polycolab.unit_of_work",
         "polycolab.db.unit_of_work",

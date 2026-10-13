@@ -10,17 +10,17 @@ from fastapi.testclient import TestClient
 from pydantic import AnyUrl, SecretStr
 from sqlalchemy import select
 
-from polycolab.access.authorization import ROLE_ACTIONS, WorkspaceAction
+from polycolab.access.authorization import ROLE_ACTIONS, ProjectAction
 from polycolab.accounts.authentication import MappingIdentityVerifier, Principal
 from polycolab.accounts.delivery import LocalInvitationOutbox, UnconfiguredInvitationDelivery
 from polycolab.accounts.identity import current_user
 from polycolab.app.application import create_app
 from polycolab.db.models import SqlInvitation, SqlUser
 from polycolab.db.transaction import SqlAlchemyTransaction
-from polycolab.entities.enums import InvitationStatus, WorkspaceRole
+from polycolab.entities.enums import InvitationStatus, ProjectRole
 from polycolab.entities.time import utc_now
 from polycolab.platform.config import AuthMode, Environment, KmsProvider, Settings
-from polycolab.workspaces.service import create_invitation
+from polycolab.projects.service import create_invitation
 
 
 def headers(token: str) -> dict[str, str]:
@@ -33,9 +33,9 @@ def current_user_id(client: TestClient, token: str) -> str:
     return cast(str, response.json()["id"])
 
 
-def create_workspace(client: TestClient, token: str = "owner", visibility: str = "PRIVATE") -> str:
+def create_project(client: TestClient, token: str = "owner", visibility: str = "PRIVATE") -> str:
     response = client.post(
-        "/api/v1/workspaces",
+        "/api/v1/projects",
         headers=headers(token),
         json={"name": "Ramsey notes", "description": "private research", "visibility": visibility},
     )
@@ -50,7 +50,7 @@ def app_for(client: TestClient) -> FastAPI:
 
 def add_member(client: TestClient, project_id: str, token: str, role: str) -> None:
     response = client.post(
-        f"/api/v1/workspaces/{project_id}/members",
+        f"/api/v1/projects/{project_id}/members",
         headers=headers("owner"),
         json={"user_id": current_user_id(client, token), "role": role},
     )
@@ -58,37 +58,35 @@ def add_member(client: TestClient, project_id: str, token: str, role: str) -> No
 
 
 def test_exact_role_action_matrix() -> None:
-    assert ROLE_ACTIONS[WorkspaceRole.OWNER] == frozenset(WorkspaceAction)
-    assert ROLE_ACTIONS[WorkspaceRole.CONTRIBUTOR] == {
-        WorkspaceAction.VIEW,
-        WorkspaceAction.CREATE_RESEARCH,
-        WorkspaceAction.COMMENT,
-        WorkspaceAction.REVIEW_PROPOSALS,
-        WorkspaceAction.RUN_AGENTS,
+    assert ROLE_ACTIONS[ProjectRole.OWNER] == frozenset(ProjectAction)
+    assert ROLE_ACTIONS[ProjectRole.CONTRIBUTOR] == {
+        ProjectAction.VIEW,
+        ProjectAction.CREATE_RESEARCH,
+        ProjectAction.COMMENT,
+        ProjectAction.REVIEW_PROPOSALS,
+        ProjectAction.RUN_AGENTS,
     }
-    assert ROLE_ACTIONS[WorkspaceRole.READ_ONLY] == {WorkspaceAction.VIEW}
+    assert ROLE_ACTIONS[ProjectRole.READ_ONLY] == {ProjectAction.VIEW}
 
 
 def test_project_roles_and_current_membership_are_checked_per_request(client: TestClient) -> None:
-    unauthenticated = client.get("/api/v1/workspaces?scope=member")
+    unauthenticated = client.get("/api/v1/projects?scope=member")
     assert unauthenticated.status_code == 401
     assert unauthenticated.headers["WWW-Authenticate"] == "Bearer"
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     add_member(client, project_id, "contributor", "CONTRIBUTOR")
     add_member(client, project_id, "reader", "READ_ONLY")
 
     assert (
-        client.get(f"/api/v1/workspaces/{project_id}", headers=headers("reader")).status_code == 200
+        client.get(f"/api/v1/projects/{project_id}", headers=headers("reader")).status_code == 200
     )
     assert (
-        client.get(
-            f"/api/v1/workspaces/{project_id}/members", headers=headers("reader")
-        ).status_code
+        client.get(f"/api/v1/projects/{project_id}/members", headers=headers("reader")).status_code
         == 403
     )
     assert (
         client.patch(
-            f"/api/v1/workspaces/{project_id}",
+            f"/api/v1/projects/{project_id}",
             headers=headers("contributor"),
             json={"name": "mutated"},
         ).status_code
@@ -96,36 +94,36 @@ def test_project_roles_and_current_membership_are_checked_per_request(client: Te
     )
     # The denied mutation did not change state.
     assert (
-        client.get(f"/api/v1/workspaces/{project_id}", headers=headers("owner")).json()["name"]
+        client.get(f"/api/v1/projects/{project_id}", headers=headers("owner")).json()["name"]
         == "Ramsey notes"
     )
 
     removed = client.delete(
-        f"/api/v1/workspaces/{project_id}/members/{current_user_id(client, 'contributor')}",
+        f"/api/v1/projects/{project_id}/members/{current_user_id(client, 'contributor')}",
         headers=headers("owner"),
     )
     assert removed.status_code == 204
     assert (
-        client.get(f"/api/v1/workspaces/{project_id}", headers=headers("owner")).json()[
+        client.get(f"/api/v1/projects/{project_id}", headers=headers("owner")).json()[
             "member_count"
         ]
         == 2
     )
     # Reusing the same valid identity token rechecks the database membership.
     assert (
-        client.get(f"/api/v1/workspaces/{project_id}", headers=headers("contributor")).status_code
+        client.get(f"/api/v1/projects/{project_id}", headers=headers("contributor")).status_code
         == 404
     )
 
 
 def test_member_project_shape_exposes_only_the_requesters_current_role(client: TestClient) -> None:
-    project_id = create_workspace(client, token="owner")
+    project_id = create_project(client, token="owner")
     add_member(client, project_id, "reader", "READ_ONLY")
 
-    owner = client.get(f"/api/v1/workspaces/{project_id}", headers=headers("owner"))
-    reader = client.get(f"/api/v1/workspaces/{project_id}", headers=headers("reader"))
-    listed = client.get("/api/v1/workspaces?scope=member", headers=headers("reader"))
-    public = client.get(f"/api/v1/workspaces/{project_id}")
+    owner = client.get(f"/api/v1/projects/{project_id}", headers=headers("owner"))
+    reader = client.get(f"/api/v1/projects/{project_id}", headers=headers("reader"))
+    listed = client.get("/api/v1/projects?scope=member", headers=headers("reader"))
+    public = client.get(f"/api/v1/projects/{project_id}")
 
     assert owner.json()["member_count"] == 2
     assert reader.json()["member_count"] == 2
@@ -140,44 +138,43 @@ def test_member_project_shape_exposes_only_the_requesters_current_role(client: T
 def test_nonmember_private_project_is_concealed_and_public_shape_does_not_leak(
     client: TestClient,
 ) -> None:
-    project_id = create_workspace(client)
-    private = client.get(f"/api/v1/workspaces/{project_id}", headers=headers("outsider"))
+    project_id = create_project(client)
+    private = client.get(f"/api/v1/projects/{project_id}", headers=headers("outsider"))
     assert private.status_code == 404
-    assert client.get(f"/api/v1/workspaces/{project_id}").status_code == 404
+    assert client.get(f"/api/v1/projects/{project_id}").status_code == 404
 
     changed = client.patch(
-        f"/api/v1/workspaces/{project_id}", headers=headers("owner"), json={"visibility": "PUBLIC"}
+        f"/api/v1/projects/{project_id}", headers=headers("owner"), json={"visibility": "PUBLIC"}
     )
     assert changed.status_code == 200
-    public = client.get(f"/api/v1/workspaces/{project_id}")
+    public = client.get(f"/api/v1/projects/{project_id}")
     assert public.status_code == 200
     assert "created_by_user_id" not in public.text
 
     assert (
         client.patch(
-            f"/api/v1/workspaces/{project_id}",
+            f"/api/v1/projects/{project_id}",
             headers=headers("owner"),
             json={"visibility": "PRIVATE"},
         ).status_code
         == 200
     )
-    assert client.get(f"/api/v1/workspaces/{project_id}").status_code == 404
+    assert client.get(f"/api/v1/projects/{project_id}").status_code == 404
 
 
 def test_cross_project_membership_and_last_owner_protection(client: TestClient) -> None:
-    first = create_workspace(client)
-    second = create_workspace(client)
+    first = create_project(client)
+    second = create_project(client)
     contributor_id = current_user_id(client, "contributor")
     add_member(client, first, "contributor", "CONTRIBUTOR")
 
     # A membership in one project has no authority in another, even when public.
     assert (
-        client.get(f"/api/v1/workspaces/{second}", headers=headers("contributor")).status_code
-        == 404
+        client.get(f"/api/v1/projects/{second}", headers=headers("contributor")).status_code == 404
     )
     assert (
         client.post(
-            f"/api/v1/workspaces/{second}/members",
+            f"/api/v1/projects/{second}/members",
             headers=headers("contributor"),
             json={"user_id": contributor_id, "role": "READ_ONLY"},
         ).status_code
@@ -187,7 +184,7 @@ def test_cross_project_membership_and_last_owner_protection(client: TestClient) 
     owner_id = current_user_id(client, "owner")
     assert (
         client.patch(
-            f"/api/v1/workspaces/{first}/members/{owner_id}",
+            f"/api/v1/projects/{first}/members/{owner_id}",
             headers=headers("owner"),
             json={"role": "READ_ONLY"},
         ).status_code
@@ -195,36 +192,34 @@ def test_cross_project_membership_and_last_owner_protection(client: TestClient) 
     )
     assert (
         client.delete(
-            f"/api/v1/workspaces/{first}/members/{owner_id}", headers=headers("owner")
+            f"/api/v1/projects/{first}/members/{owner_id}", headers=headers("owner")
         ).status_code
         == 409
     )
 
 
 def test_archived_project_is_read_only_until_owner_unarchives(client: TestClient) -> None:
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     contributor_id = current_user_id(client, "contributor")
     assert (
         client.patch(
-            f"/api/v1/workspaces/{project_id}", headers=headers("owner"), json={"archived": True}
+            f"/api/v1/projects/{project_id}", headers=headers("owner"), json={"archived": True}
         ).status_code
         == 200
     )
     assert (
         client.post(
-            f"/api/v1/workspaces/{project_id}/members",
+            f"/api/v1/projects/{project_id}/members",
             headers=headers("owner"),
             json={"user_id": contributor_id, "role": "CONTRIBUTOR"},
         ).status_code
         == 403
     )
-    assert (
-        client.get(f"/api/v1/workspaces/{project_id}", headers=headers("owner")).status_code == 200
-    )
+    assert client.get(f"/api/v1/projects/{project_id}", headers=headers("owner")).status_code == 200
 
 
 def test_invitation_is_account_bound_single_use_expirable_and_revocable(client: TestClient) -> None:
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     owner_id = current_user_id(client, "owner")
     reader_id = current_user_id(client, "reader")
     del reader_id
@@ -234,7 +229,7 @@ def test_invitation_is_account_bound_single_use_expirable_and_revocable(client: 
             SqlAlchemyTransaction(session),
             project_id=UUID(project_id),
             email="reader@example.test",
-            role=WorkspaceRole.READ_ONLY,
+            role=ProjectRole.READ_ONLY,
             invited_by=UUID(owner_id),
             delivery=app_for(client).state.invitation_delivery,
         )
@@ -272,7 +267,7 @@ def test_invitation_is_account_bound_single_use_expirable_and_revocable(client: 
             SqlAlchemyTransaction(session),
             project_id=UUID(project_id),
             email="reader@example.test",
-            role=WorkspaceRole.READ_ONLY,
+            role=ProjectRole.READ_ONLY,
             invited_by=UUID(owner_id),
             delivery=app_for(client).state.invitation_delivery,
         )
@@ -304,9 +299,9 @@ def test_invitation_is_account_bound_single_use_expirable_and_revocable(client: 
 
 
 def test_local_delivery_outbox_is_not_serialized_by_create_invitation(client: TestClient) -> None:
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     response = client.post(
-        f"/api/v1/workspaces/{project_id}/invitations",
+        f"/api/v1/projects/{project_id}/invitations",
         headers=headers("owner"),
         json={"email": "reader@example.test", "role": "READ_ONLY"},
     )
@@ -334,16 +329,16 @@ def test_missing_email_claim_does_not_clear_stored_email(client: TestClient) -> 
 
 
 def test_missing_delivery_retracts_pending_invitation(client: TestClient) -> None:
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     app_for(client).state.invitation_delivery = UnconfiguredInvitationDelivery()
     response = client.post(
-        f"/api/v1/workspaces/{project_id}/invitations",
+        f"/api/v1/projects/{project_id}/invitations",
         headers=headers("owner"),
         json={"email": "reader@example.test", "role": "READ_ONLY"},
     )
     assert response.status_code == 503
     assert (
-        client.get(f"/api/v1/workspaces/{project_id}/invitations", headers=headers("owner")).json()
+        client.get(f"/api/v1/projects/{project_id}/invitations", headers=headers("owner")).json()
         == []
     )
 
@@ -360,7 +355,7 @@ def test_delivery_cleanup_failure_preserves_original_error_and_rolls_back(
             del invitation_id
             raise RuntimeError("retract failed")
 
-    project_id = create_workspace(client)
+    project_id = create_project(client)
     owner_id = current_user_id(client, "owner")
     session = app_for(client).state.session_factory()
     try:
@@ -369,7 +364,7 @@ def test_delivery_cleanup_failure_preserves_original_error_and_rolls_back(
                 SqlAlchemyTransaction(session),
                 project_id=UUID(project_id),
                 email="reader@example.test",
-                role=WorkspaceRole.READ_ONLY,
+                role=ProjectRole.READ_ONLY,
                 invited_by=UUID(owner_id),
                 delivery=DeliveryWithFailingRetract(),
             )
@@ -398,16 +393,16 @@ def test_staging_defaults_to_fail_closed_invitation_delivery() -> None:
     assert isinstance(app.state.invitation_delivery, UnconfiguredInvitationDelivery)
 
 
-def test_workspace_directory_filters_before_pagination(client: TestClient) -> None:
+def test_project_directory_filters_before_pagination(client: TestClient) -> None:
     from polycolab.db.models import SqlProject
 
-    owned = [create_workspace(client) for _ in range(32)]
-    shared = create_workspace(client, token="contributor")
-    outsider = create_workspace(client, token="reader")
+    owned = [create_project(client) for _ in range(32)]
+    shared = create_project(client, token="contributor")
+    outsider = create_project(client, token="reader")
     owner_id = current_user_id(client, "owner")
     assert (
         client.post(
-            f"/api/v1/workspaces/{shared}/members",
+            f"/api/v1/projects/{shared}/members",
             headers=headers("contributor"),
             json={"user_id": owner_id, "role": "READ_ONLY"},
         ).status_code
@@ -419,17 +414,17 @@ def test_workspace_directory_filters_before_pagination(client: TestClient) -> No
         session.commit()
     assert (
         client.patch(
-            f"/api/v1/workspaces/{owned[-1]}", headers=headers("owner"), json={"archived": True}
+            f"/api/v1/projects/{owned[-1]}", headers=headers("owner"), json={"archived": True}
         ).status_code
         == 200
     )
     params = {"scope": "member", "q": "searchable", "category": "owned", "limit": 20}
-    first = client.get("/api/v1/workspaces", headers=headers("owner"), params=params)
+    first = client.get("/api/v1/projects", headers=headers("owner"), params=params)
     assert first.status_code == 200, first.text
     assert len(first.json()["items"]) == 20
     assert first.json()["total"] == 31
     second = client.get(
-        "/api/v1/workspaces",
+        "/api/v1/projects",
         headers=headers("owner"),
         params={**params, "cursor": first.json()["next_cursor"]},
     )
@@ -441,32 +436,32 @@ def test_workspace_directory_filters_before_pagination(client: TestClient) -> No
     assert outsider not in ids
     for category, expected in (("shared", {shared}), ("archived", {owned[-1]})):
         response = client.get(
-            "/api/v1/workspaces", headers=headers("owner"), params={**params, "category": category}
+            "/api/v1/projects", headers=headers("owner"), params={**params, "category": category}
         )
         assert {row["id"] for row in response.json()["items"]} == expected
         assert response.json()["total"] == len(expected)
     wrong_cursor = client.get(
-        "/api/v1/workspaces",
+        "/api/v1/projects",
         headers=headers("owner"),
         params={**params, "category": "shared", "cursor": first.json()["next_cursor"]},
     )
     assert wrong_cursor.status_code == 422
 
     empty = client.get(
-        "/api/v1/workspaces", headers=headers("owner"), params={**params, "q": "no match"}
+        "/api/v1/projects", headers=headers("owner"), params={**params, "q": "no match"}
     )
     assert empty.json()["total"] == 0
-    public_id = create_workspace(client, visibility="PUBLIC")
-    public = client.get("/api/v1/workspaces", params={"scope": "public", "limit": 20})
+    public_id = create_project(client, visibility="PUBLIC")
+    public = client.get("/api/v1/projects", params={"scope": "public", "limit": 20})
     assert public.status_code == 200
     assert public.json()["total"] == 1
     assert [row["id"] for row in public.json()["items"]] == [public_id]
 
 
-def test_workspace_sorting_is_stable_across_pages(client: TestClient) -> None:
+def test_project_sorting_is_stable_across_pages(client: TestClient) -> None:
     from polycolab.db.models import SqlProject
 
-    ids = [create_workspace(client) for _ in range(3)]
+    ids = [create_project(client) for _ in range(3)]
     with app_for(client).state.session_factory() as session:
         for index, (project_id, name) in enumerate(
             zip(ids, ["Zulu needle", "Needle", "Alpha"], strict=True)
@@ -490,7 +485,7 @@ def test_workspace_sorting_is_stable_across_pages(client: TestClient) -> None:
             params = {"scope": "member", "sort": order, "q": "needle", "limit": "1"}
             if cursor:
                 params["cursor"] = cursor
-            response = client.get("/api/v1/workspaces", headers=headers("owner"), params=params)
+            response = client.get("/api/v1/projects", headers=headers("owner"), params=params)
             assert response.status_code == 200, response.text
             found.extend(row["id"] for row in response.json()["items"])
             cursor = response.json()["next_cursor"]

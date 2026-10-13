@@ -24,7 +24,7 @@ Each document identifies optional runtime capabilities and deployment boundaries
 
 | Contract                                                  | Scope                                                                            |
 | --------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| [Application configuration](application-configuration.md) | Workspace visibility, optional runtime capabilities, and deployment settings     |
+| [Application configuration](application-configuration.md) | Project visibility, optional runtime capabilities, and deployment settings       |
 | [Object kinds and reviews](object-kinds-and-reviews.md)   | Current vocabulary, exact-version review signals, and relationship presentation  |
 | [Research versions](research-versions.md)                 | Immutable snapshots, exact relationships, history, and concurrency guards        |
 | [Research schema](research-schema.md)                     | Stored state, integrity boundaries, and supported migration paths                |
@@ -38,7 +38,7 @@ Each document identifies optional runtime capabilities and deployment boundaries
 | [Hosted failure handling](hosted-failures.md)             | Recovery behavior, known defects, and required deployment checks                 |
 | [Model gateway](model-gateway.md)                         | Provider access, protected credentials, and network policy                       |
 
-See [Workspace files](workspace-files.md) for API-owned Git storage, shared task working copies, hosted checkout, and Git/SQL recovery.
+See [Project files](project-files.md) for API-owned Git storage, shared task working copies, hosted checkout, and Git/SQL recovery.
 
 Scoped direct contributions and optional human-reviewed proposals both exist.
 Human-only catalogue admission and publication remain separate policy boundaries.

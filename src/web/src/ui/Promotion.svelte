@@ -5,9 +5,9 @@
   import { Textarea } from '../lib/components/ui/textarea';
   import { Button } from '../lib/components/ui/button';
   import type { RecordRead } from '../lib/records-api';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   let { record }: { record: RecordRead } = $props();
-  const { catalogue } = workspace();
+  const { catalogue } = projectContext();
   let source = $state({ identifier: '', version: '', locator: '' });
   let status = $state('OPEN');
   let reason = $state('');

@@ -48,9 +48,9 @@ from polycolab.entities.enums import (
     AgentRunEventKind,
     AgentRunStatus,
     PlatformAgentKind,
+    ProjectVisibility,
     RuntimeBindingStatus,
     UsageSource,
-    WorkspaceVisibility,
 )
 
 
@@ -62,7 +62,7 @@ def _domain_setup(client: TestClient) -> tuple[Any, SqlUser, SqlProject, SqlGate
     session.commit()
     project = SqlProject(
         name="Runtime research",
-        visibility=WorkspaceVisibility.PRIVATE,
+        visibility=ProjectVisibility.PRIVATE,
         created_by_user_id=user.id,
     )
     session.add(project)

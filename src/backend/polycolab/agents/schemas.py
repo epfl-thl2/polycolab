@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_serializer, model_validator
 
 from polycolab.agents.proposal_version_schemas import (
     ObjectVersionProposalChange,
@@ -84,7 +84,7 @@ class RunAuthorityLimits(RequestModel):
     """Shared limits; requested rights still require current-policy validation."""
 
     version: Literal[1] = 1
-    destination: Literal["WORKSPACE", "PUBLIC"]
+    destination: Literal["PROJECT", "PUBLIC"]
     allowed_operations: list[
         Literal[
             "CREATE_RECORD",
@@ -121,9 +121,9 @@ class RunAuthorityRequest(RunAuthorityLimits):
             if not self.public_target_revision_ids or not (self.public_task_md or "").strip():
                 raise ValueError("public runs require explicit targets and a separate public task")
             if "RUN_VERIFICATION" in self.allowed_operations:
-                raise ValueError("verification jobs require a private workspace destination")
+                raise ValueError("verification jobs require a private project destination")
         elif self.public_target_revision_ids or self.public_task_md is not None:
-            raise ValueError("workspace grants cannot include a public task or destination")
+            raise ValueError("project grants cannot include a public task or destination")
         return self
 
 
@@ -283,10 +283,17 @@ class ExternalCredentialRead(ApiModel):
     allow_library_contributions: bool
     id: UUID
     project_id: UUID | None
-    scope_kind: Literal["ACCOUNT", "WORKSPACE"]
+    scope_kind: Literal["ACCOUNT", "PROJECT"]
     sponsor_user_id: UUID
     name: str
     fixed_rights: list[str]
+
+    @field_serializer("fixed_rights")
+    def current_rights(self, value: list[str]) -> list[str]:
+        from polycolab.platform.project_history import credential_right
+
+        return [credential_right(right) for right in value]
+
     expires_at: datetime
     revoked_at: datetime | None
     request_count: int
@@ -302,7 +309,7 @@ class ExternalCredentialIssued(ExternalCredentialRead):
 
 
 class ExternalRunCreate(RequestModel):
-    workspace_id: UUID
+    project_id: UUID
     client_request_id: UUID
     title: str | None = Field(default=None, max_length=300)
     input_revision_ids: list[UUID] = Field(default_factory=list, max_length=100)
@@ -358,6 +365,13 @@ class ExternalAgentDiscovery(ApiModel):
     credential_id: UUID
     destination_project_id: UUID | None
     fixed_rights: list[str]
+
+    @field_serializer("fixed_rights")
+    def current_rights(self, value: list[str]) -> list[str]:
+        from polycolab.platform.project_history import credential_right
+
+        return [credential_right(right) for right in value]
+
     expires_at: datetime
     max_requests: int
     max_mutations: int

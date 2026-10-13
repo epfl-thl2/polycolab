@@ -85,6 +85,9 @@ from polycolab.db.models.platform import SqlContributionEnvelope as SqlContribut
 from polycolab.db.models.platform import SqlMutationReceipt as SqlMutationReceipt
 from polycolab.db.models.platform import SqlOutboxConsumerReceipt as SqlOutboxConsumerReceipt
 from polycolab.db.models.platform import SqlOutboxEvent as SqlOutboxEvent
+from polycolab.db.models.projects import SqlInvitation as SqlInvitation
+from polycolab.db.models.projects import SqlMembership as SqlMembership
+from polycolab.db.models.projects import SqlProject as SqlProject
 from polycolab.db.models.research import SqlAttemptEvidenceLink as SqlAttemptEvidenceLink
 from polycolab.db.models.research import SqlCorrectionDecision as SqlCorrectionDecision
 from polycolab.db.models.research import SqlCorrectionSuggestion as SqlCorrectionSuggestion
@@ -92,6 +95,10 @@ from polycolab.db.models.research import SqlCorrespondenceAssessment as SqlCorre
 from polycolab.db.models.research import SqlHumanNote as SqlHumanNote
 from polycolab.db.models.research import SqlHumanNoteRevision as SqlHumanNoteRevision
 from polycolab.db.models.research import SqlObjectRevision as SqlObjectRevision
+from polycolab.db.models.research import SqlProjectReference as SqlProjectReference
+from polycolab.db.models.research import (
+    SqlProjectReferenceVersion as SqlProjectReferenceVersion,
+)
 from polycolab.db.models.research import SqlProofSketchPremise as SqlProofSketchPremise
 from polycolab.db.models.research import SqlProofSketchRevision as SqlProofSketchRevision
 from polycolab.db.models.research import SqlPublicResearchAnchor as SqlPublicResearchAnchor
@@ -111,10 +118,6 @@ from polycolab.db.models.research import SqlResearchSummaryRevision as SqlResear
 from polycolab.db.models.research import SqlRevisionEndorsement as SqlRevisionEndorsement
 from polycolab.db.models.research import SqlStatementRevision as SqlStatementRevision
 from polycolab.db.models.research import SqlSummarySourceRevision as SqlSummarySourceRevision
-from polycolab.db.models.research import SqlWorkspaceReference as SqlWorkspaceReference
-from polycolab.db.models.research import (
-    SqlWorkspaceReferenceVersion as SqlWorkspaceReferenceVersion,
-)
 from polycolab.db.models.verification import SqlExecutionClassState as SqlExecutionClassState
 from polycolab.db.models.verification import SqlExecutionFairnessState as SqlExecutionFairnessState
 from polycolab.db.models.verification import SqlExecutionSlotLease as SqlExecutionSlotLease
@@ -133,9 +136,6 @@ from polycolab.db.models.verification import (
     SqlVerificationReservation as SqlVerificationReservation,
 )
 from polycolab.db.models.verification import SqlVerificationResult as SqlVerificationResult
-from polycolab.db.models.workspaces import SqlInvitation as SqlInvitation
-from polycolab.db.models.workspaces import SqlMembership as SqlMembership
-from polycolab.db.models.workspaces import SqlProject as SqlProject
 from polycolab.entities.enums import AccountTokenPurpose as AccountTokenPurpose
 from polycolab.entities.enums import AgentMessageRole as AgentMessageRole
 from polycolab.entities.enums import AgentRunEventKind as AgentRunEventKind
@@ -156,6 +156,8 @@ from polycolab.entities.enums import MailPurpose as MailPurpose
 from polycolab.entities.enums import MutationReceiptStatus as MutationReceiptStatus
 from polycolab.entities.enums import OutboxEventStatus as OutboxEventStatus
 from polycolab.entities.enums import PlatformAgentKind as PlatformAgentKind
+from polycolab.entities.enums import ProjectRole as ProjectRole
+from polycolab.entities.enums import ProjectVisibility as ProjectVisibility
 from polycolab.entities.enums import ProposalChangeStatus as ProposalChangeStatus
 from polycolab.entities.enums import ProposalChangeType as ProposalChangeType
 from polycolab.entities.enums import ProposalDecisionAction as ProposalDecisionAction
@@ -177,12 +179,10 @@ from polycolab.entities.enums import VerificationJobState as VerificationJobStat
 from polycolab.entities.enums import VerificationLanguage as VerificationLanguage
 from polycolab.entities.enums import VerificationOutputRole as VerificationOutputRole
 from polycolab.entities.enums import VerificationReservationState as VerificationReservationState
-from polycolab.entities.enums import WorkspaceRole as WorkspaceRole
-from polycolab.entities.enums import WorkspaceVisibility as WorkspaceVisibility
 
 __all__ = [
-    "WorkspaceRole",
-    "WorkspaceVisibility",
+    "ProjectRole",
+    "ProjectVisibility",
     "ResearchScopeKind",
     "ResearchEntityClass",
     "ContributionActorKind",
@@ -267,8 +267,8 @@ __all__ = [
     "SqlCorrectionSuggestion",
     "SqlCorrectionDecision",
     "SqlPublicResearchAnchor",
-    "SqlWorkspaceReference",
-    "SqlWorkspaceReferenceVersion",
+    "SqlProjectReference",
+    "SqlProjectReferenceVersion",
     "SqlPlatformAgentVersion",
     "SqlAgentSession",
     "SqlAgentMessage",
@@ -342,10 +342,14 @@ __all__ = [
     "SqlRepositoryMutation",
     "SqlRepositoryRun",
     "SqlRepositorySession",
-    "SqlWorkspaceRepository",
-    "SqlWorkspaceTask",
+    "SqlProjectRepository",
+    "SqlProjectTask",
 ]
 
+from polycolab.db.models.project_tasks import SqlProjectTask as SqlProjectTask
+from polycolab.db.models.repositories import (
+    SqlProjectRepository as SqlProjectRepository,
+)
 from polycolab.db.models.repositories import (
     SqlRepositoryMutation as SqlRepositoryMutation,
 )
@@ -355,8 +359,4 @@ from polycolab.db.models.repositories import (
 from polycolab.db.models.repositories import (
     SqlRepositorySession as SqlRepositorySession,
 )
-from polycolab.db.models.repositories import (
-    SqlWorkspaceRepository as SqlWorkspaceRepository,
-)
 from polycolab.db.models.reviews import SqlObjectReview as SqlObjectReview
-from polycolab.db.models.workspace_tasks import SqlWorkspaceTask as SqlWorkspaceTask

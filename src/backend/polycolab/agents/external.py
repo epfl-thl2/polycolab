@@ -1,4 +1,4 @@
-"""Account-wide credentials and workspace-bound external research runs."""
+"""Account-wide credentials and project-bound external research runs."""
 
 from __future__ import annotations
 
@@ -16,9 +16,9 @@ from sqlalchemy.orm import Session
 from polycolab.access.actors import Actor, ActorOperation, external_agent_actor
 from polycolab.access.authorization import (
     AuthorizationDenied,
-    WorkspaceAction,
-    lock_workspace_authorization,
-    workspace_policy,
+    ProjectAction,
+    lock_project_authorization,
+    project_policy,
 )
 from polycolab.db.models import (
     SqlExternalAgentCredential,
@@ -29,7 +29,7 @@ from polycolab.db.models import (
 )
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.accounts import IdentifiedUser
-from polycolab.entities.enums import ResearchScopeKind, WorkspaceRole
+from polycolab.entities.enums import ProjectRole, ResearchScopeKind
 from polycolab.entities.time import utc_now
 from polycolab.model_gateway.credentials import (
     EncryptedCredential,
@@ -44,7 +44,7 @@ FIXED_RIGHTS = frozenset(
         ActorOperation.CONTRIBUTION_CREATE,
         ActorOperation.CONTRIBUTION_EDIT,
         ActorOperation.PUBLIC_PARTICIPATION,
-        ActorOperation.WORKSPACE_WRITE,
+        ActorOperation.PROJECT_WRITE,
     }
 )
 
@@ -72,7 +72,9 @@ def fixed_right_values() -> list[str]:
 def credential_rights(credential: SqlExternalAgentCredential) -> frozenset[ActorOperation]:
     try:
         values = credential.fixed_rights
-        rights = frozenset(ActorOperation(value) for value in values)
+        from polycolab.platform.project_history import credential_right
+
+        rights = frozenset(ActorOperation(credential_right(value)) for value in values)
     except TypeError, ValueError:
         raise ExternalAgentInvalid from None
     if len(values) != len(rights) or rights != FIXED_RIGHTS:
@@ -207,7 +209,7 @@ def credential_from_secret(
         or not hmac.compare_digest(credential.token_digest, _digest(secret))
     ):
         raise ExternalAgentInvalid
-    if credential.scope_kind == "WORKSPACE":
+    if credential.scope_kind == "PROJECT":
         raise ExternalAgentInvalid
     credential_rights(credential)
     if consume_request:
@@ -255,11 +257,11 @@ def create_run(
     input_revision_ids: list[UUID],
     project_id: UUID,
 ) -> tuple[SqlExternalResearchRun, bool]:
-    workspace_policy.require_scope(
+    project_policy.require_scope(
         SqlAlchemyTransaction(session),
         project_id,
         credential.sponsor_user_id,
-        WorkspaceAction.CREATE_RESEARCH,
+        ProjectAction.CREATE_RESEARCH,
     )
     existing = session.scalar(
         select(SqlExternalResearchRun).where(
@@ -278,11 +280,11 @@ def create_run(
 
             raise ContributionConflict
         return existing, True
-    workspace_policy.require_scope(
+    project_policy.require_scope(
         SqlAlchemyTransaction(session),
         project_id,
         credential.sponsor_user_id,
-        WorkspaceAction.CREATE_RESEARCH,
+        ProjectAction.CREATE_RESEARCH,
     )
     for revision_id in normalized:
         readable_revision(session, credential, revision_id)
@@ -345,7 +347,7 @@ def run_actor(
     )
     if destination is None:
         raise ResearchNotFound
-    project, membership = lock_workspace_authorization(
+    project, membership = lock_project_authorization(
         SqlAlchemyTransaction(session), project_id=destination, user_id=credential.sponsor_user_id
     )
     current = session.scalar(
@@ -376,7 +378,7 @@ def run_actor(
         raise ResearchNotFound
     if mutation and (
         project.archived_at is not None
-        or membership.role not in {WorkspaceRole.OWNER, WorkspaceRole.CONTRIBUTOR}
+        or membership.role not in {ProjectRole.OWNER, ProjectRole.CONTRIBUTOR}
     ):
         raise AuthorizationDenied
     if mutation and run.status != "OPEN":
@@ -385,7 +387,7 @@ def run_actor(
     scope = session.scalar(
         select(SqlResearchScope).where(
             SqlResearchScope.project_id == run.project_id,
-            SqlResearchScope.scope_kind == ResearchScopeKind.WORKSPACE,
+            SqlResearchScope.scope_kind == ResearchScopeKind.PROJECT,
         )
     )
     if sponsor is None or scope is None:
@@ -463,11 +465,11 @@ def readable_revision(
         )
     ):
         return revision
-    workspace_policy.require_scope(
+    project_policy.require_scope(
         SqlAlchemyTransaction(session),
         revision.project_id,
         credential.sponsor_user_id,
-        WorkspaceAction.VIEW,
+        ProjectAction.VIEW,
     )
     # Dedicated notes live outside generic research objects and are never projected here.
     obj = session.get(SqlResearchObject, revision.object_id)

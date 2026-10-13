@@ -18,7 +18,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
 
-from polycolab.access.authorization import AuthorizationDenied, WorkspaceNotFound
+from polycolab.access.authorization import AuthorizationDenied, ProjectNotFound
 from polycolab.accounts.authentication import (
     AuthenticationRequired,
     IdentityVerifier,
@@ -76,9 +76,9 @@ from polycolab.platform.config import (
 )
 from polycolab.platform.logging import configure_logging
 from polycolab.platform.observability import metrics, render_durable_prometheus
+from polycolab.projects.service import DomainConflict, InvitationInvalid, MembershipTargetInvalid
 from polycolab.research.contributions import ContributionConflict
 from polycolab.research.objects import ResearchNotFound, StaleRevision
-from polycolab.workspaces.service import DomainConflict, InvitationInvalid, MembershipTargetInvalid
 
 logger = structlog.get_logger(__name__)
 
@@ -93,7 +93,7 @@ EXPOSED_HTTP_ERROR_CODES = frozenset(
         "invalid_agent_credential",
         "invalid_cursor",
         "agent_write_headers_required",
-        "public_workspaces_disabled",
+        "public_projects_disabled",
         "unsupported_agent_object_kind",
     }
 )
@@ -136,15 +136,15 @@ See [Agent runs and contributions](/docs/developers/agent-runs/) and the
 
 ## Start here
 
-- **Discover research:** `GET /api/v1/workspaces?scope=public` lists public workspaces
+- **Discover research:** `GET /api/v1/projects?scope=public` lists public projects
   without an account. Use `/api/v1/search` to find research.
 - **Connect an agent:** Create a named key in
   [Settings → API keys](/settings/api-keys), copy its secret once, and send
   `Authorization: Bearer <key>`. Call `GET /api/v1/me` for identity and budgets.
-- **Read member research:** Use `scope=member` for workspace listings and search.
+- **Read member research:** Use `scope=member` for project listings and search.
   Keys follow their owner's current and future memberships, including private
-  workspaces. Personal notes and conversations are excluded.
-- **Contribute:** `POST /api/v1/objects` selects a workspace or exact Library
+  projects. Personal notes and conversations are excluded.
+- **Contribute:** `POST /api/v1/objects` selects a project or exact Library
   statement object version as its destination. No external run is required. Agent keys
   need explicit Library opt-in for public contributions.
 
@@ -158,7 +158,7 @@ anonymous access. Shared reads return the public or member projection allowed by
 current access.
 
 Key creation, listing and revocation under `/api/v1/account/agent-keys` are
-human-only and restricted to the key owner. Workspace administration, catalogue
+human-only and restricted to the key owner. Project administration, catalogue
 admission and private publication remain human-only. Agent keys cannot perform
 these operations even when their owner can.
 
@@ -173,7 +173,7 @@ persists across key rotation. Each key retains separate finite budgets.
 Read exact sources with `/api/v1/versions/{object_version_id}` and inspect contributions
 with `/api/v1/contributions/{contribution_id}`. Activity and contributor profiles
 show recorded history subject to current visibility. Public profile counts exclude
-private workspaces. External run creation and closure are retired; historical
+private projects. External run creation and closure are retired; historical
 run records remain readable. Hosted execution is a separate optional service.
 
 Append immutable snapshots through `POST /api/v1/objects/{object_id}/versions`
@@ -197,11 +197,11 @@ Core JSON bodies are limited to 1 MiB; artifacts have a separate limit of at mos
 ## Availability and migration
 
 The old agent-prefixed and duplicated public-project core routes are removed.
-Use `/workspaces` and shared research resources. Deferred catalogue, publication,
+Use `/projects` and shared research resources. Deferred catalogue, publication,
 assessment and hosted-agent contracts retain their separate paths and permissions.
 Availability of optional APIs depends on deployment settings.
 
-The account-key migration revokes old workspace keys and closes their open runs
+The account-key migration revokes old project keys and closes their open runs
 while preserving history. Create new keys in Settings after upgrading the migration,
 API, WebUI and clients together. Old secrets do not gain broader authority.
 """
@@ -224,7 +224,7 @@ def scalar_reference_configuration() -> dict[str, object]:
         "isEditable": False,
         "persistAuth": False,
         "showDeveloperTools": "never",
-        # This build-less compatibility fallback cannot import the workspace CSS
+        # This build-less compatibility fallback cannot import the project CSS
         # package, so keep its light-mode mapping aligned with the canonical tokens.
         "customCss": """
 .light-mode {
@@ -492,7 +492,11 @@ def create_app(
         )
         response: Response
         try:
-            if request.method == "POST" and request.url.path == "/auth/register":
+            if request.url.path.startswith("/api/") and any(
+                "workspace" in name.lower() for name in request.query_params
+            ):
+                response = error_response(422, "obsolete_query_parameter", request)
+            elif request.method == "POST" and request.url.path == "/auth/register":
                 content_length = request.headers.get("content-length")
                 if content_length is not None:
                     try:
@@ -649,8 +653,8 @@ def create_app(
     ) -> JSONResponse:
         return error_response(exception.status, exception.code, request)
 
-    @app.exception_handler(WorkspaceNotFound)
-    async def project_not_found_handler(request: Request, _: WorkspaceNotFound) -> JSONResponse:
+    @app.exception_handler(ProjectNotFound)
+    async def project_not_found_handler(request: Request, _: ProjectNotFound) -> JSONResponse:
         return error_response(404, "not_found", request)
 
     @app.exception_handler(ResearchNotFound)
@@ -827,7 +831,7 @@ def create_app(
     @app.get("/internal/v1/metrics", include_in_schema=False)
     def operator_metrics(request: Request) -> PlainTextResponse:
         if not settings.operator_diagnostics_enabled:
-            raise WorkspaceNotFound
+            raise ProjectNotFound
         principal = current_principal(request)
         if principal.subject not in settings.operator_diagnostics_subjects:
             raise AuthorizationDenied
@@ -853,7 +857,7 @@ def create_app(
     def api_reference(request: Request) -> Response:
         reference_access = settings.reference_access
         if reference_access is ApiReferenceAccess.DISABLED:
-            raise WorkspaceNotFound
+            raise ProjectNotFound
         if reference_access is ApiReferenceAccess.OPERATORS:
             principal = current_principal(request)
             if principal.subject not in settings.api_reference_operator_subjects:
@@ -922,6 +926,17 @@ def create_app(
         and policy(route) in {"shared", "anonymous"}
     ]
 
+    @app.get("/workspaces", include_in_schema=False)
+    @app.get("/workspaces/{remaining:path}", include_in_schema=False)
+    @app.get("/demo/workspaces", include_in_schema=False)
+    @app.get("/demo/workspaces/{remaining:path}", include_in_schema=False)
+    def old_project_bookmark(request: Request, remaining: str = "") -> Response:
+        target = request.url.path.replace("/workspaces", "/projects", 1)
+        return Response(
+            status_code=308,
+            headers={"Location": target + ("?" + request.url.query if request.url.query else "")},
+        )
+
     web_dist = _web_dist_dir(settings)
     if web_dist is not None and (web_dist / "assets").is_dir():
         app.mount("/assets", StaticFiles(directory=web_dist / "assets"), name="web-assets")
@@ -932,13 +947,22 @@ def create_app(
         if _reserved_browser_path(path) or web_dist is None:
             return error_response(404, "not_found", request)
         documentation_redirects = {
+            "docs/guides/workspaces": "/docs/guides/projects/",
+            "docs/guides/workspaces/": "/docs/guides/projects/",
+            "docs/setup/workspace": "/docs/setup/project/",
+            "docs/setup/workspace/": "/docs/setup/project/",
             "guide": "/docs/getting-started/",
             "connect": "/docs/setup/external-agent/",
             "docs/connect": "/docs/setup/external-agent/",
             "docs/agent-api": "/docs/developers/agent-runs/",
         }
         if target := documentation_redirects.get(path):
-            return Response(status_code=307, headers={"Location": target})
+            return Response(
+                status_code=307,
+                headers={
+                    "Location": target + ("?" + request.url.query if request.url.query else "")
+                },
+            )
         requested = (web_dist / path).resolve()
         try:
             requested.relative_to(web_dist)
@@ -1039,7 +1063,7 @@ def create_app(
                     }
                 if operation_id == "acceptInvitation":
                     responses["400"] = _error_response_reference("Invalid invitation")
-                if operation_id == "createWorkspaceInvitation":
+                if operation_id == "createProjectInvitation":
                     responses["503"] = _error_response_reference(
                         "Invitation delivery is unavailable"
                     )

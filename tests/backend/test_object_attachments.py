@@ -4,14 +4,14 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 from test_catalogue_api import enable
-from test_research_domain import create_object, create_workspace, headers
+from test_research_domain import create_object, create_project, headers
 
 
 def test_note_uuid_attachment_survives_parent_version_and_checks_privacy(
     client: TestClient,
 ) -> None:
     enable(client)
-    project = create_workspace(client)
+    project = create_project(client)
     parent = create_object(client, project)
     content: dict[str, Any] = {
         "title": "Persistent note",
@@ -22,7 +22,7 @@ def test_note_uuid_attachment_survives_parent_version_and_checks_privacy(
         "attached_object_ids": [parent["id"]],
     }
     body: dict[str, Any] = {
-        "destination": {"kind": "workspace", "workspace_id": project},
+        "destination": {"kind": "project", "project_id": project},
         "snapshot": {"kind": "NOTE", "content": content, "structural_relationships": []},
     }
     response = client.post("/api/v1/objects", headers=headers("owner"), json=body)
@@ -53,7 +53,7 @@ def test_note_uuid_attachment_survives_parent_version_and_checks_privacy(
     preview = client.post(
         "/api/v1/publication/preview",
         headers=headers("owner"),
-        json={"workspace_id": project, "object_version_ids": [version]},
+        json={"project_id": project, "object_version_ids": [version]},
     )
     assert preview.status_code == 200, preview.text
     current = next(
@@ -62,8 +62,8 @@ def test_note_uuid_attachment_survives_parent_version_and_checks_privacy(
         if row["entity_type"] == "OBJECT_VERSION"
     )
     assert current in preview.json()["required_object_version_ids"]
-    other = create_workspace(client)
-    body["destination"]["workspace_id"] = other
+    other = create_project(client)
+    body["destination"]["project_id"] = other
     denied = client.post("/api/v1/objects", headers=headers("owner"), json=body)
     assert denied.status_code == 404, denied.text
 
@@ -71,7 +71,7 @@ def test_note_uuid_attachment_survives_parent_version_and_checks_privacy(
 def test_attempt_exposes_object_attachment_and_retains_exact_work_target(
     client: TestClient,
 ) -> None:
-    project = create_workspace(client)
+    project = create_project(client)
     attempt = create_object(client, project, kind="ATTEMPT")
     version = attempt["current_object_version"]
     target = next(
@@ -87,7 +87,7 @@ def test_attempt_exposes_object_attachment_and_retains_exact_work_target(
 def test_formalization_requires_version_attachment_not_object_attachment(
     client: TestClient,
 ) -> None:
-    project = create_workspace(client)
+    project = create_project(client)
     parent = create_object(client, project, kind="NOTE")
     content = {
         "title": "Formalization",
@@ -97,7 +97,7 @@ def test_formalization_requires_version_attachment_not_object_attachment(
         "explanation_md": None,
     }
     body = {
-        "destination": {"kind": "workspace", "workspace_id": project},
+        "destination": {"kind": "project", "project_id": project},
         "snapshot": {
             "kind": "FORMALIZATION",
             "content": {**content, "attached_object_ids": [parent["id"]]},

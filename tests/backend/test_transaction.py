@@ -11,18 +11,18 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from polycolab.access.authorization import WorkspaceAction, workspace_policy
+from polycolab.access.authorization import ProjectAction, project_policy
 from polycolab.db.base import Base
 from polycolab.db.models import SqlInvitation, SqlMembership, SqlProject, SqlResearchScope
 from polycolab.db.session import make_engine, make_session_factory
 from polycolab.db.transaction import make_transaction_factory
 from polycolab.entities.accounts import User
-from polycolab.entities.enums import WorkspaceRole, WorkspaceVisibility
+from polycolab.entities.enums import ProjectRole, ProjectVisibility
+from polycolab.entities.projects import Membership
 from polycolab.entities.time import utc_now
-from polycolab.entities.workspaces import Membership
 from polycolab.platform.config import Settings
+from polycolab.projects.service import DomainConflict, change_membership_role, create_project
 from polycolab.transaction import PersistenceConflict, Transaction, TransactionFactory
-from polycolab.workspaces.service import DomainConflict, change_membership_role, create_workspace
 
 
 @pytest.fixture(params=["memory", "file"])
@@ -72,113 +72,109 @@ def test_uncommitted_work_rolls_back_across_stores(factory: TransactionFactory) 
         owner = transaction.accounts.create_user(
             issuer="test", subject="owner", email=None, display_name="Owner"
         )
-        project = create_workspace(
+        project = create_project(
             transaction,
             creator=owner,
             name="Uncommitted",
             description=None,
-            visibility=WorkspaceVisibility.PRIVATE,
+            visibility=ProjectVisibility.PRIVATE,
             commit=False,
         )
-        assert transaction.workspaces.membership(project.id, owner.id) is not None
+        assert transaction.projects.membership(project.id, owner.id) is not None
     with factory() as check:
         assert check.accounts.user(owner.id) is None
-        assert check.workspaces.workspace(project.id) is None
-        assert check.workspaces.membership(project.id, owner.id) is None
+        assert check.projects.project(project.id) is None
+        assert check.projects.membership(project.id, owner.id) is None
 
 
-def test_explicit_commit_materializes_multi_table_workspace(factory: TransactionFactory) -> None:
+def test_explicit_commit_materializes_multi_table_project(factory: TransactionFactory) -> None:
     owner = create_owner(factory)
     with factory() as transaction:
-        project = create_workspace(
+        project = create_project(
             transaction,
             creator=owner,
-            name="Workspace",
+            name="Project",
             description=None,
-            visibility=WorkspaceVisibility.PRIVATE,
+            visibility=ProjectVisibility.PRIVATE,
         )
-        scope = workspace_policy.require_scope(
-            transaction, project.id, owner.id, WorkspaceAction.VIEW
-        )
-        visible = transaction.workspaces.list_visible(
+        scope = project_policy.require_scope(transaction, project.id, owner.id, ProjectAction.VIEW)
+        visible = transaction.projects.list_visible(
             user_id=owner.id, members_only=True, query=None, after=None, limit=10
         )
-    assert scope.workspace == project
-    assert visible[0].workspace == project
+    assert scope.project == project
+    assert visible[0].project == project
     assert visible[0].membership is not None
-    assert visible[0].membership.role is WorkspaceRole.OWNER
-    assert visible[0].workspace.description is None
-    assert not hasattr(scope.workspace, "_sa_instance_state")
+    assert visible[0].membership.role is ProjectRole.OWNER
+    assert visible[0].project.description is None
+    assert not hasattr(scope.project, "_sa_instance_state")
     assert not hasattr(scope.membership, "_sa_instance_state")
     with pytest.raises(FrozenInstanceError):
-        scope.workspace.name = "Mutated outside the store"  # type: ignore[misc]
+        scope.project.name = "Mutated outside the store"  # type: ignore[misc]
     with factory() as check:
-        assert check.workspaces.workspace(project.id) == project
+        assert check.projects.project(project.id) == project
 
 
 def test_constraint_failure_rolls_back_whole_operation(factory: TransactionFactory) -> None:
     owner = create_owner(factory)
     project_id = uuid4()
     with pytest.raises(PersistenceConflict), factory() as transaction:
-        project = create_workspace(
+        project = create_project(
             transaction,
             creator=owner,
             name="Conflict",
             description=None,
-            visibility=WorkspaceVisibility.PRIVATE,
+            visibility=ProjectVisibility.PRIVATE,
             commit=False,
         )
         project_id = project.id
-        transaction.workspaces.add_membership(
-            project_id=project_id, user_id=owner.id, role=WorkspaceRole.OWNER, invited_by=None
+        transaction.projects.add_membership(
+            project_id=project_id, user_id=owner.id, role=ProjectRole.OWNER, invited_by=None
         )
         transaction.commit()
     with factory() as check:
-        assert check.workspaces.workspace(project_id) is None
-        assert check.workspaces.membership(project_id, owner.id) is None
+        assert check.projects.project(project_id) is None
+        assert check.projects.membership(project_id, owner.id) is None
         assert check.accounts.user(owner.id) == owner
 
 
 def test_savepoint_failure_preserves_outer_operation(factory: TransactionFactory) -> None:
     owner = create_owner(factory)
     with factory() as transaction:
-        project = create_workspace(
+        project = create_project(
             transaction,
             creator=owner,
             name="Outer transaction",
             description=None,
-            visibility=WorkspaceVisibility.PRIVATE,
+            visibility=ProjectVisibility.PRIVATE,
             commit=False,
         )
         with pytest.raises(PersistenceConflict), transaction.savepoint():
-            transaction.workspaces.add_membership(
-                project_id=project.id, user_id=owner.id, role=WorkspaceRole.OWNER, invited_by=None
+            transaction.projects.add_membership(
+                project_id=project.id, user_id=owner.id, role=ProjectRole.OWNER, invited_by=None
             )
-        assert transaction.workspaces.workspace(project.id) is not None
+        assert transaction.projects.project(project.id) is not None
         transaction.commit()
     with factory() as check:
-        assert check.workspaces.workspace(project.id) is not None
-        assert len(check.workspaces.owners(project.id)) == 1
+        assert check.projects.project(project.id) is not None
+        assert len(check.projects.owners(project.id)) == 1
 
 
 def test_last_owner_policy_uses_application_state_without_database() -> None:
     project_id, user_id = uuid4(), uuid4()
-    owner = Membership(
-        uuid4(), project_id, user_id, WorkspaceRole.OWNER, None, utc_now(), utc_now()
-    )
+    owner = Membership(uuid4(), project_id, user_id, ProjectRole.OWNER, None, utc_now(), utc_now())
     transaction = Mock()
-    transaction.workspaces.membership.return_value = owner
-    transaction.workspaces.owners.return_value = (owner,)
+    transaction.projects.membership.return_value = owner
+    transaction.projects.owners.return_value = (owner,)
     with pytest.raises(DomainConflict):
         change_membership_role(
             cast(Transaction, transaction),
             project_id=project_id,
             user_id=user_id,
-            role=WorkspaceRole.READ_ONLY,
+            role=ProjectRole.READ_ONLY,
         )
-    transaction.workspaces.workspace.assert_called_once_with(project_id, lock=True)
-    transaction.workspaces.membership.assert_called_once_with(project_id, user_id, lock=True)
-    transaction.workspaces.change_role.assert_not_called()
+    transaction.projects.project.assert_called_once_with(project_id, lock=True)
+    transaction.projects.membership.assert_called_once_with(project_id, user_id, lock=True)
+    transaction.projects.change_role.assert_not_called()
     transaction.commit.assert_not_called()
 
 
@@ -190,18 +186,18 @@ def test_no_implicit_store_commit_and_invitation_projection() -> None:
     owner = create_owner(factory)
     try:
         with factory() as transaction:
-            project = create_workspace(
+            project = create_project(
                 transaction,
                 creator=owner,
                 name="Private",
                 description=None,
-                visibility=WorkspaceVisibility.PRIVATE,
+                visibility=ProjectVisibility.PRIVATE,
                 commit=False,
             )
-            invitation = transaction.workspaces.create_invitation(
+            invitation = transaction.projects.create_invitation(
                 project_id=project.id,
                 email="reader@example.test",
-                role=WorkspaceRole.READ_ONLY,
+                role=ProjectRole.READ_ONLY,
                 token_digest="a" * 64,
                 invited_by=owner.id,
                 expires_at=utc_now(),

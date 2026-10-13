@@ -5,7 +5,7 @@
   import { NativeSelect } from '../lib/components/ui/native-select';
   import { Button } from '../lib/components/ui/button';
   import type { CatalogueAdmission } from '../lib/catalogue-api';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   let {
     destination = '/library',
     admissionHeading = $bindable(),
@@ -13,7 +13,7 @@
     destination?: string;
     admissionHeading?: HTMLHeadingElement;
   } = $props();
-  const { catalogue } = workspace();
+  const { catalogue } = projectContext();
   let busy = $state(false);
   let error = $state('');
   let admissionKey = crypto.randomUUID();

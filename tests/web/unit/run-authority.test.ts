@@ -44,15 +44,15 @@ describe('explicit run authority', () => {
     expect(body.context_object_version_ids).toEqual(['private-revision', 'public-input']);
     expect(body.context_artifact_ids).toEqual(['private-artifact']);
   });
-  it('grants workspace edits only for explicitly selected operations and objects', () => {
+  it('grants project edits only for explicitly selected operations and objects', () => {
     const body = prepareTurn({
       ...draft,
-      destination: 'WORKSPACE',
+      destination: 'PROJECT',
       operations: ['REVISE_RECORD'],
       editableObjects: ['editable-record'],
     });
     expect(body.requested_authority).toMatchObject({
-      destination: 'WORKSPACE',
+      destination: 'PROJECT',
       public_task_md: null,
       public_target_object_version_ids: [],
       allowed_operations: ['REVISE_RECORD'],

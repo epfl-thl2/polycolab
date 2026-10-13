@@ -12,7 +12,7 @@
   import { Input } from '../lib/components/ui/input';
   import { Textarea } from '../lib/components/ui/textarea';
   import { onMount } from 'svelte';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import type { ScopedRelationWrite } from '../lib/records-api';
   let {
     revisionId,
@@ -25,7 +25,7 @@
     libraryStatementObjectVersionId?: string;
     canWrite: boolean;
   } = $props();
-  const { records, api } = workspace();
+  const { records, api } = projectContext();
   let edges = $state<Awaited<ReturnType<typeof records.relationPage>>['items']>([]);
   let cursor = $state<string | null>(null);
   let busy = $state(false);
@@ -51,7 +51,7 @@
   );
   let receipt: { body: string; key: string } | undefined;
   const link = (id: string) =>
-    projectId ? `/workspaces/${projectId}/records/${id}` : `/commons/records/${id}`;
+    projectId ? `/projects/${projectId}/records/${id}` : `/commons/records/${id}`;
   async function load(more = false) {
     busy = true;
     error = '';
@@ -88,7 +88,7 @@
     busy = true;
     error = '';
     const destination = projectId
-      ? { kind: 'workspace' as const, workspace_id: projectId }
+      ? { kind: 'project' as const, project_id: projectId }
       : {
           kind: 'library' as const,
           statement_object_version_id: libraryStatementObjectVersionId ?? libraryAnchor.trim(),
@@ -121,7 +121,7 @@
   <h2>Exact-version relationships</h2>
   <p>
     {projectId
-      ? 'Private links may target this workspace or accessible public research. They are not public backlinks.'
+      ? 'Private links may target this project or accessible public research. They are not public backlinks.'
       : 'Public links may target only accessible public research.'} A relationship does not establish
     correctness.
   </p>

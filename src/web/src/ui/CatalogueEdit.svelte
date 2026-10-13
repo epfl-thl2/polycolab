@@ -4,11 +4,11 @@
   import { Button } from '../lib/components/ui/button';
   import { NativeSelect } from '../lib/components/ui/native-select';
   import type { CatalogueEntry, CatalogueRevision } from '../lib/catalogue-api';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import Markdown from './Markdown.svelte';
   import FormulationFields from './FormulationFields.svelte';
   let { entry }: { entry: CatalogueEntry } = $props();
-  const { catalogue, records } = workspace();
+  const { catalogue, records } = projectContext();
   let draft = $state<CatalogueRevision>();
   let latest = $state<CatalogueEntry>();
   let mode = $state<'SUGGEST' | 'EDIT'>('SUGGEST');

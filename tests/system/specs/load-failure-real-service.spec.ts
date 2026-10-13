@@ -45,7 +45,7 @@ function compose(...args: string[]): void {
 test('concurrent SSE reconnects replay one ordered suffix without duplication', async ({
   request,
 }) => {
-  const project = await call<{ id: string }>(request, 'post', '/api/v1/workspaces', {
+  const project = await call<{ id: string }>(request, 'post', '/api/v1/projects', {
     data: { name: `SSE load ${Date.now()}` },
   });
   expect(project.status).toBe(201);
@@ -58,7 +58,7 @@ test('concurrent SSE reconnects replay one ordered suffix without duplication', 
     },
   });
   const session = await call<{ id: string }>(request, 'post', '/api/v1/agent-sessions', {
-    data: { workspace_id: project.body.id, agent_kind: 'RESEARCHER' },
+    data: { project_id: project.body.id, agent_kind: 'RESEARCHER' },
   });
   const queued = await call<{ run: { id: string } }>(
     request,
@@ -102,14 +102,14 @@ test('concurrent SSE reconnects replay one ordered suffix without duplication', 
 });
 
 test('concurrent revision writes accept one base and reject stale writers', async ({ request }) => {
-  const project = await call<{ id: string }>(request, 'post', '/api/v1/workspaces', {
+  const project = await call<{ id: string }>(request, 'post', '/api/v1/projects', {
     data: { name: `Edit contention ${Date.now()}` },
   });
   expect(project.status).toBe(201);
   const object = await call<{ id: string; current_revision_id: string }>(
     request,
     'post',
-    `/api/v1/workspaces/${project.body.id}/objects`,
+    `/api/v1/projects/${project.body.id}/objects`,
     { data: { kind: 'CLAIM', title: 'Shared base', content_md: 'r1' } },
   );
   expect(object.status).toBe(201);
@@ -160,7 +160,7 @@ test('PostgreSQL outage makes readiness fail and recovers durable writes and wor
     })
     .toBe(200);
 
-  const project = await call<{ id: string }>(request, 'post', '/api/v1/workspaces', {
+  const project = await call<{ id: string }>(request, 'post', '/api/v1/projects', {
     data: { name: `Recovered database ${Date.now()}` },
   });
   expect(project.status).toBe(201);
@@ -173,7 +173,7 @@ test('PostgreSQL outage makes readiness fail and recovers durable writes and wor
     },
   });
   const session = await call<{ id: string }>(request, 'post', '/api/v1/agent-sessions', {
-    data: { workspace_id: project.body.id, agent_kind: 'CRITIC' },
+    data: { project_id: project.body.id, agent_kind: 'CRITIC' },
   });
   const queued = await call<{ run: { id: string } }>(
     request,

@@ -10,7 +10,7 @@ Polycolab does not host its model or receive its model-provider key.
 ## Create the connection
 
 1. Sign in.
-2. Open **Agent connect** in your workspace.
+2. Open **Agent connect** in your project.
 3. Choose **Create API key**.
    You can also manage keys in [Settings → API keys](/settings/api-keys).
 4. Review the access, expiry, request, and mutation limits.
@@ -28,16 +28,16 @@ Use a chat you trust.
 The key may remain in chat history.
 Anyone with access to that history may use it.
 
-The key follows the sponsor's current and future workspace memberships.
-It can contribute where the sponsor is an owner or contributor, using an explicit workspace destination on each write.
+The key follows the sponsor's current and future project memberships.
+It can contribute where the sponsor is an owner or contributor, using an explicit project destination on each write.
 Library contribution access is an immutable, per-key opt-in and only permits contributions attached to an existing statement.
 The key cannot manage accounts, membership, or visibility, publish private research, admit work to Library, or change an official statement.
 
 ## Give the agent its instructions
 
-Open **Agent connect** in the intended workspace.
+Open **Agent connect** in the intended project.
 Copy its instructions into your agent tool.
-They include the deployment URL, workspace ID, and the full `/SKILL.md` URL, but no API key.
+They include the deployment URL, project ID, and the full `/SKILL.md` URL, but no API key.
 Loading the skill does not authenticate the agent or grant additional authority.
 
 Ask the agent to help configure the key.

@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from polycolab.access.actors import ActorOperation
-from polycolab.access.authorization import WorkspaceAction
+from polycolab.access.authorization import ProjectAction
 from polycolab.agents.access import _run_scope
 from polycolab.agents.recovery import lock_run
 from polycolab.agents.runtime.artifacts import UploadRequest
@@ -59,7 +59,7 @@ def reserve_export(
         session,
         run_id=run_id,
         user_id=run.requested_by_user_id,
-        action=WorkspaceAction.RUN_AGENTS,
+        action=ProjectAction.RUN_AGENTS,
     )
     session.execute(select(SqlAgentRun).where(SqlAgentRun.id == run_id).with_for_update())
     rows = list(
@@ -91,7 +91,7 @@ def reserve_export(
     actor = replace(
         _actor_for_validated_tool(capability, run=run, tool_name="export_artifact"),
         ownership_scope_id=scope.id,
-        operation_scope=frozenset({ActorOperation.WORKSPACE_WRITE}),
+        operation_scope=frozenset({ActorOperation.PROJECT_WRITE}),
     )
     row = artifacts.reserve(
         session,
@@ -127,7 +127,7 @@ def verify_export(
         run, worker_id=payload.worker_id, lease_generation=payload.lease_generation, now=utc_now()
     )
     _run_scope(
-        session, run_id=run_id, user_id=run.requested_by_user_id, action=WorkspaceAction.RUN_AGENTS
+        session, run_id=run_id, user_id=run.requested_by_user_id, action=ProjectAction.RUN_AGENTS
     )
     artifact = session.scalar(
         select(SqlArtifact).where(SqlArtifact.id == artifact_id).with_for_update()

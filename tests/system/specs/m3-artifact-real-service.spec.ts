@@ -21,7 +21,7 @@ async function uploadAndAttach(
   revisionId: string,
   bytes: Buffer,
 ) {
-  const upload = await request.post(`${apiUrl}/api/v1/workspaces/${projectId}/artifacts`, {
+  const upload = await request.post(`${apiUrl}/api/v1/projects/${projectId}/artifacts`, {
     headers: { ...human, 'Content-Type': 'application/octet-stream' },
     params: {
       sha256: createHash('sha256').update(bytes).digest('hex'),
@@ -71,12 +71,12 @@ test('M3 real artifact bytes remain exact, authorized and selectively published'
   test.setTimeout(90_000);
   await authenticate(page);
 
-  const project = await post(page.request, '/api/v1/workspaces', {
-    name: 'M3 artifact workspace',
+  const project = await post(page.request, '/api/v1/projects', {
+    name: 'M3 artifact project',
   });
   const projectId = project.id as string;
   const record = await post(page.request, '/api/v1/records', {
-    workspace_id: projectId,
+    project_id: projectId,
     kind: 'COMPUTATION',
     title: 'Exact artifact-backed computation',
     content_md: 'Inspect the retained evidence bytes.',
@@ -111,7 +111,7 @@ test('M3 real artifact bytes remain exact, authorized and selectively published'
   const uploadedResponse = page.waitForResponse(
     (response) =>
       response.request().method() === 'POST' &&
-      new URL(response.url()).pathname === `/api/v1/workspaces/${projectId}/artifacts`,
+      new URL(response.url()).pathname === `/api/v1/projects/${projectId}/artifacts`,
   );
   await page.getByRole('button', { name: 'Upload and verify artifact' }).click();
   const uploaded = await (await uploadedResponse).json();

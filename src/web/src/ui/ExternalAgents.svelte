@@ -2,9 +2,9 @@
   import { onMount } from 'svelte';
   import { Input } from '../lib/components/ui/input';
   import { Button } from '../lib/components/ui/button';
-  import { workspace, explain } from '../svelte-lib/context';
+  import { projectContext, explain } from '../svelte-lib/context';
   import type { AgentIdentity } from '../lib/external-agent-api';
-  const { externalAgents } = workspace();
+  const { externalAgents } = projectContext();
   let agents = $state<AgentIdentity[]>([]);
   let cursor = $state<string>();
   let error = $state('');
@@ -37,7 +37,7 @@
   {#if error}<p role="alert">{error}</p>
     <Button onclick={() => failedRead?.()}>Retry</Button>{/if}
   <p>
-    <a href="/workspaces">Open your workspaces</a> ·
+    <a href="/projects">Open your projects</a> ·
     <a href="/docs/setup/external-agent/" data-sveltekit-reload>Connection guide</a> ·
     <a href="/SKILL.md" data-sveltekit-reload>Read the agent skill (SKILL.md)</a>
   </p>

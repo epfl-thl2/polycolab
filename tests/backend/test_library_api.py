@@ -1,4 +1,4 @@
-"""Library admission, discovery and revision-pinned workspace development."""
+"""Library admission, discovery and revision-pinned project development."""
 
 from typing import Any
 from uuid import UUID
@@ -10,7 +10,7 @@ from test_catalogue_api import admit, enable, formulation, headers
 from test_public_external_agents import version_snapshot
 
 from polycolab.catalogue import projections
-from polycolab.db.models import SqlCatalogueEntry, SqlProject, WorkspaceVisibility
+from polycolab.db.models import ProjectVisibility, SqlCatalogueEntry, SqlProject
 from polycolab.research.objects import ResearchNotFound
 from polycolab.research.version_projections import version_reads
 
@@ -77,7 +77,7 @@ def attempt_payload(object_version_id: str, project_id: str | None = None) -> di
     ]
     return {
         "destination": (
-            {"kind": "workspace", "workspace_id": project_id}
+            {"kind": "project", "project_id": project_id}
             if project_id
             else {"kind": "library", "statement_object_version_id": object_version_id}
         ),
@@ -212,40 +212,40 @@ def test_library_import_and_iteration_preserve_exact_revisions(
     entry = admit(client)
     body = {
         "object_version_id": entry["object_version_id"],
-        "create_new_workspace": True,
-        "workspace_name": "Library investigation",
+        "create_new_project": True,
+        "project_name": "Library investigation",
     }
     if visibility is not None:
-        body["workspace_visibility"] = visibility
-    response = client.post("/api/v1/workspace-references", headers=headers(key="import"), json=body)
+        body["project_visibility"] = visibility
+    response = client.post("/api/v1/project-references", headers=headers(key="import"), json=body)
     assert response.status_code == 201, response.text
     pin = response.json()
     assert (
-        client.post("/api/v1/workspace-references", headers=headers(key="import"), json=body).json()
+        client.post("/api/v1/project-references", headers=headers(key="import"), json=body).json()
         == pin
     )
     with app.state.session_factory() as db:
-        project = db.get(SqlProject, UUID(pin["workspace_id"]))
-        assert project is not None and project.visibility == WorkspaceVisibility(
+        project = db.get(SqlProject, UUID(pin["project_id"]))
+        assert project is not None and project.visibility == ProjectVisibility(
             visibility or "PUBLIC"
         )
     existing = {
         "object_version_id": entry["object_version_id"],
-        "workspace_id": pin["workspace_id"],
+        "project_id": pin["project_id"],
     }
     assert (
         client.post(
-            "/api/v1/workspace-references", headers=headers(key="existing"), json=existing
+            "/api/v1/project-references", headers=headers(key="existing"), json=existing
         ).json()["id"]
         == pin["id"]
     )
     assert client.post(
-        "/api/v1/workspace-references", headers=headers("outsider", key="denied"), json=existing
+        "/api/v1/project-references", headers=headers("outsider", key="denied"), json=existing
     ).status_code in (403, 404)
     attempt = client.post(
         "/api/v1/objects",
         headers=headers(key="research"),
-        json=attempt_payload(entry["object_version_id"], project_id=pin["workspace_id"]),
+        json=attempt_payload(entry["object_version_id"], project_id=pin["project_id"]),
     )
     assert attempt.status_code == 201, attempt.text
     changed = client.post(
@@ -258,14 +258,14 @@ def test_library_import_and_iteration_preserve_exact_revisions(
         },
     ).json()
     pinned = client.get(
-        "/api/v1/workspace-references",
+        "/api/v1/project-references",
         headers=headers(),
-        params={"workspace_id": pin["workspace_id"]},
+        params={"project_id": pin["project_id"]},
     ).json()["items"][0]
     assert pinned["object_version_id"] == entry["object_version_id"]
     assert pinned["latest_object_version_id"] == changed["object_version_id"]
     upgrade = client.post(
-        f"/api/v1/workspace-references/{pin['id']}/versions",
+        f"/api/v1/project-references/{pin['id']}/versions",
         headers=headers(key="upgrade"),
         json={
             "expected_current_reference_version_id": pin["reference_version_id"],
@@ -282,7 +282,7 @@ def test_library_import_and_iteration_preserve_exact_revisions(
     record = client.get(
         f"/api/v1/records/{attempt_version_id}",
         headers=headers(),
-        params={"workspace_id": pin["workspace_id"]},
+        params={"project_id": pin["project_id"]},
     ).json()
     assert [
         pin["target_object_version_id"]
@@ -291,33 +291,33 @@ def test_library_import_and_iteration_preserve_exact_revisions(
     ] == [entry["object_version_id"]]
 
 
-def test_work_privately_never_reuses_a_public_workspace(client: TestClient) -> None:
+def test_work_privately_never_reuses_a_public_project(client: TestClient) -> None:
     enable(client)
     entry = admit(client)
     body = {"object_version_id": entry["object_version_id"]}
     public = client.post(
-        "/api/v1/workspace-references", headers=headers(key="public-import"), json=body
+        "/api/v1/project-references", headers=headers(key="public-import"), json=body
     ).json()
-    body["workspace_visibility"] = "PRIVATE"
+    body["project_visibility"] = "PRIVATE"
     private = client.post(
-        "/api/v1/workspace-references", headers=headers(key="private-import"), json=body
+        "/api/v1/project-references", headers=headers(key="private-import"), json=body
     ).json()
-    assert private["workspace_id"] != public["workspace_id"]
-    workspace_url = f"/api/v1/workspaces/{private['workspace_id']}"
-    assert client.get(workspace_url, headers=headers()).json()["visibility"] == "PRIVATE"
+    assert private["project_id"] != public["project_id"]
+    project_url = f"/api/v1/projects/{private['project_id']}"
+    assert client.get(project_url, headers=headers()).json()["visibility"] == "PRIVATE"
     reused = client.post(
-        "/api/v1/workspace-references", headers=headers(key="reuse-private"), json=body
+        "/api/v1/project-references", headers=headers(key="reuse-private"), json=body
     ).json()
-    assert reused["workspace_id"] == private["workspace_id"]
+    assert reused["project_id"] == private["project_id"]
     assert (
-        client.patch(workspace_url, headers=headers(), json={"visibility": "PUBLIC"}).status_code
+        client.patch(project_url, headers=headers(), json={"visibility": "PUBLIC"}).status_code
         == 200
     )
     new_private = client.post(
-        "/api/v1/workspace-references", headers=headers(key="private-after-public"), json=body
+        "/api/v1/project-references", headers=headers(key="private-after-public"), json=body
     ).json()
-    assert new_private["workspace_id"] not in (public["workspace_id"], private["workspace_id"])
-    assert client.get(f"/api/v1/workspaces/{new_private['workspace_id']}").status_code == 404
+    assert new_private["project_id"] not in (public["project_id"], private["project_id"])
+    assert client.get(f"/api/v1/projects/{new_private['project_id']}").status_code == 404
 
 
 @pytest.mark.parametrize("visibility", ["PUBLIC", "PRIVATE"])
@@ -326,17 +326,16 @@ def test_library_copy_is_independent_and_retry_safe(client: TestClient, visibili
     entry = admit(client)
     body = {
         "source_object_version_id": entry["object_version_id"],
-        "workspace_visibility": visibility,
+        "project_visibility": visibility,
     }
-    response = client.post("/api/v1/workspace-copies", headers=headers(key="copy"), json=body)
+    response = client.post("/api/v1/project-copies", headers=headers(key="copy"), json=body)
     assert response.status_code == 201, response.text
     copy = response.json()
     assert copy["object_id"] != entry["entry_id"]
     assert copy["object_version_id"] != entry["object_version_id"]
     assert copy["source_object_version_id"] == entry["object_version_id"]
     assert (
-        client.post("/api/v1/workspace-copies", headers=headers(key="copy"), json=body).json()
-        == copy
+        client.post("/api/v1/project-copies", headers=headers(key="copy"), json=body).json() == copy
     )
     record = client.get(f"/api/v1/records/{copy['object_version_id']}", headers=headers()).json()
     assert record["content"]["content_md"] == formulation()["content_md"]
@@ -345,9 +344,9 @@ def test_library_copy_is_independent_and_retry_safe(client: TestClient, visibili
         entry["object_version_id"]
     ]
     pins = client.get(
-        "/api/v1/workspace-references",
+        "/api/v1/project-references",
         headers=headers(),
-        params={"workspace_id": copy["workspace_id"]},
+        params={"project_id": copy["project_id"]},
     ).json()
     assert pins["items"] == []
     edited = client.post(
@@ -360,7 +359,7 @@ def test_library_copy_is_independent_and_retry_safe(client: TestClient, visibili
                 "content": {
                     **record["content"],
                     "title": "My local formulation",
-                    "content_md": "A revised workspace statement",
+                    "content_md": "A revised project statement",
                 },
                 "structural_relationships": [],
                 "change_summary": "Independent edit",
@@ -374,14 +373,14 @@ def test_library_copy_is_independent_and_retry_safe(client: TestClient, visibili
     )
     existing = {
         "source_object_version_id": entry["object_version_id"],
-        "workspace_id": copy["workspace_id"],
+        "project_id": copy["project_id"],
     }
-    assert client.post("/api/v1/workspace-copies", json=existing).status_code == 401
+    assert client.post("/api/v1/project-copies", json=existing).status_code == 401
     assert client.post(
-        "/api/v1/workspace-copies", headers=headers("outsider", key="denied"), json=existing
+        "/api/v1/project-copies", headers=headers("outsider", key="denied"), json=existing
     ).status_code in (403, 404)
     second = client.post(
-        "/api/v1/workspace-copies", headers=headers(key="another-copy"), json=existing
+        "/api/v1/project-copies", headers=headers(key="another-copy"), json=existing
     )
     assert second.status_code == 201, second.text
     assert second.json()["object_id"] != copy["object_id"]
@@ -403,7 +402,7 @@ def test_library_copy_is_independent_and_retry_safe(client: TestClient, visibili
     )
 
 
-def test_hidden_library_copy_rolls_back_new_workspace(client: TestClient) -> None:
+def test_hidden_library_copy_rolls_back_new_project(client: TestClient) -> None:
     app = enable(client)
     entry = admit(client)
     with app.state.session_factory() as db:
@@ -413,7 +412,7 @@ def test_hidden_library_copy_rolls_back_new_workspace(client: TestClient) -> Non
         db.commit()
         before = db.query(SqlProject).count()
     response = client.post(
-        "/api/v1/workspace-copies",
+        "/api/v1/project-copies",
         headers=headers(key="hidden-copy"),
         json={"source_object_version_id": entry["object_version_id"]},
     )

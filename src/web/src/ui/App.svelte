@@ -20,7 +20,7 @@
   import { createResearchStructureApi } from '../lib/research-structure-api';
   import { createPublicationApi } from '../lib/publication-api';
   import { createRepositoryApi } from '../lib/repository-api';
-  import { createWorkspaceTasksApi } from '../lib/workspace-tasks-api';
+  import { createProjectTasksApi } from '../lib/project-tasks-api';
   import { createArtifactApi } from '../lib/artifact-api';
   import { createVerificationApi } from '../lib/verification-api';
   import type { SourceRevisionDraft } from '../lib/verification-view';
@@ -58,7 +58,7 @@
     publication: createPublicationApi(options),
     artifacts: createArtifactApi(options),
     repository: createRepositoryApi(options),
-    tasks: createWorkspaceTasksApi(options),
+    tasks: createProjectTasksApi(options),
     verification: createVerificationApi(options),
     externalAgents: createExternalAgentApi(options),
     auth,
@@ -82,12 +82,12 @@
     )
       void capabilities.load();
   });
-  const projectId = $derived(path.match(/^\/(?:workspaces|projects)\/([^/]+)/)?.[1]);
-  const workspaceScope = $derived(
+  const projectId = $derived(path.match(/^\/projects\/([^/]+)/)?.[1]);
+  const projectScope = $derived(
     new URLSearchParams(search).get('scope') ?? (auth.signedIn ? 'member' : 'public'),
   );
   const retiredPreview = $derived(
-    /^\/(?:demo|(?:workspaces|library|profile)\/demo)(?:\/|$)/.test(path),
+    /^\/(?:demo|(?:projects|library|profile)\/demo)(?:\/|$)/.test(path),
   );
   const view = $derived(
     retiredPreview
@@ -96,7 +96,7 @@
         ? 'people'
         : path === '/chat'
           ? 'chat'
-          : path === '/activity' || path === '/activity/recent' || path === '/activity/workspaces'
+          : path === '/activity' || path === '/activity/recent' || path === '/activity/projects'
             ? 'activity'
             : path === '/search' || path === '/'
               ? 'search'
@@ -110,8 +110,8 @@
                       ? 'connect'
                       : path === '/agents'
                         ? 'external-agents'
-                        : path === '/workspaces' && workspaceScope === 'public'
-                          ? 'public-workspaces'
+                        : path === '/projects' && projectScope === 'public'
+                          ? 'public-projects'
                           : path === '/guide'
                             ? 'guide'
                             : path === '/commons' || path.startsWith('/commons/')
@@ -141,7 +141,7 @@
                                           ? 'account-settings'
                                           : projectId
                                             ? 'project'
-                                            : path === '/workspaces' || path === '/projects'
+                                            : path === '/projects'
                                               ? 'home'
                                               : 'missing',
   );
@@ -159,7 +159,7 @@
           connect: 'Connect',
           guide: 'Getting started',
           'external-agents': 'Agent connections',
-          'public-workspaces': 'Workspaces',
+          'public-projects': 'Projects',
           commons: 'Public research',
           recovery: 'Account recovery',
           signin: 'Sign in',
@@ -167,8 +167,8 @@
           profile: 'Profile',
           moderation: 'Moderation',
           'account-settings': 'Settings',
-          project: 'Workspace',
-          home: 'Workspaces',
+          project: 'Project',
+          home: 'Projects',
           missing: 'Page not found',
         }[view],
   );
@@ -193,8 +193,8 @@
                       ? ('moderation' as const)
                       : view === 'account-settings'
                         ? ('settings' as const)
-                        : view === 'home' || view === 'public-workspaces'
-                          ? ('workspaces' as const)
+                        : view === 'home' || view === 'public-projects'
+                          ? ('projects' as const)
                           : undefined,
   );
   $effect(() => {
@@ -210,7 +210,7 @@
     >{/if}</svelte:head
 >
 
-<div class="product-shell" class:product-shell-workspace={view === 'project'}>
+<div class="product-shell" class:product-shell-project={view === 'project'}>
   <a class="skip-link" href="#main">Skip to content</a>
   {#if view !== 'docs' && view !== 'project'}<ProductHeader
       {auth}
@@ -259,17 +259,17 @@
             revisionId={path.match(/^\/commons\/records\/([^/]+)/)?.[1]}
             publicationId={path.match(/^\/commons\/publications\/([^/]+)/)?.[1]}
           />{/await}
-      {:else if path === '/workspaces' && !auth.loaded}
-        <main id="main" class="page"><LoadingState>Opening workspaces…</LoadingState></main>
-      {:else if path === '/workspaces'}
+      {:else if path === '/projects' && !auth.loaded}
+        <main id="main" class="page"><LoadingState>Opening projects…</LoadingState></main>
+      {:else if path === '/projects'}
         {#await import('./Home.svelte') then module}<module.default
-            publicScope={workspaceScope === 'public'}
+            publicScope={projectScope === 'public'}
           />{/await}
       {:else if view === 'project' && projectId}
         {#if !auth.loaded}<main id="main" class="page">
-            <LoadingState>Opening workspace…</LoadingState>
+            <LoadingState>Opening project…</LoadingState>
           </main>
-        {:else}{#await import('./WorkspaceRoute.svelte') then module}{#key projectId}<module.default
+        {:else}{#await import('./ProjectRoute.svelte') then module}{#key projectId}<module.default
                 {projectId}
                 {path}
               />{/key}{/await}{/if}
@@ -328,7 +328,7 @@
             agent={path.startsWith('/agent-profiles/')}
           />{/await}
       {:else if !auth.loaded}<main id="main" class="page narrow" tabindex="-1">
-          <LoadingState>Opening your workspace…</LoadingState>
+          <LoadingState>Opening your project…</LoadingState>
         </main>
       {:else if !auth.signedIn}<main id="main" class="page narrow" tabindex="-1">
           <SignIn {auth} returnTo={path + search} />
@@ -342,7 +342,7 @@
         {#await import('./Moderation.svelte') then module}<module.default />{/await}
       {:else if view === 'home'}
         {#await import('./Home.svelte')}<main id="main" class="page" tabindex="-1">
-            <LoadingState>Loading workspaces…</LoadingState>
+            <LoadingState>Loading projects…</LoadingState>
           </main>{:then module}<module.default />{/await}
       {:else if view === 'account-settings'}
         {#await import('./AccountSettings.svelte')}<main id="main" class="page" tabindex="-1">

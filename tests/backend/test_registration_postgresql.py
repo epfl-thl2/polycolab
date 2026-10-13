@@ -129,7 +129,7 @@ def test_postgresql_registration_runs_through_real_api_boundary(
             )
             assert registered.status_code == 201
             assert registered.json()["is_admin"] is False
-            assert client.get("/api/v1/workspaces").status_code == 200
+            assert client.get("/api/v1/projects").status_code == 200
         with Session(engine) as session:
             assert session.scalar(select(func.count()).select_from(SqlLocalAccount)) == 2
             assert session.scalar(select(func.count()).select_from(SqlAuthSession)) == 2
@@ -153,7 +153,7 @@ def test_postgresql_exact_username_membership_materializes_registered_user_atomi
                 == 200
             )
             project = client.post(
-                "/api/v1/workspaces",
+                "/api/v1/projects",
                 json={"name": "Research research", "visibility": "PRIVATE"},
             )
             assert project.status_code == 201
@@ -175,14 +175,14 @@ def test_postgresql_exact_username_membership_materializes_registered_user_atomi
                 )
 
             member = client.post(
-                f"/api/v1/workspaces/{project.json()['id']}/members",
+                f"/api/v1/projects/{project.json()['id']}/members",
                 json={"username": " RESEARCH-MEMBER ", "role": "CONTRIBUTOR"},
             )
             assert member.status_code == 201, member.text
             assert member.json()["username"] == "research-member"
             assert member.json()["display_name"] == "Research Member"
             duplicate = client.post(
-                f"/api/v1/workspaces/{project.json()['id']}/members",
+                f"/api/v1/projects/{project.json()['id']}/members",
                 json={"username": "research-member", "role": "READ_ONLY"},
             )
             assert duplicate.status_code == 409

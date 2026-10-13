@@ -75,9 +75,9 @@ Record SDK 0.6.18 and Codex 0.154.0 versions and image identity alongside result
 - Cancellation, controller SIGKILL/restart, ambiguous creation and stop, and orphan reconciliation.
   Confirm no process remains before physical slot reuse.
 - Real app-server startup, Responses forwarding with a user-owned profile, research tools, completed chat, follow-up turns and reconnect from a browser.
-- Four simultaneous attempts across users/workspaces, queue fairness, stale lease rejection and conservative provider settlement after lease loss.
+- Four simultaneous attempts across users/projects, queue fairness, stale lease rejection and conservative provider settlement after lease loss.
 - Explicit artifact downloads and cross-user denial.
-  No retained raw commands, reasoning, undeclared workspace files or automatic publication.
+  No retained raw commands, reasoning, undeclared project files or automatic publication.
 
 Install the unit in the account's `~/.config/systemd/user/`.
 Run `systemctl --user daemon-reload`.
@@ -91,7 +91,7 @@ After acceptance, configure the API:
 
 1. Set `RUNTIME_CODEX_IMAGE` to the same digest.
 2. Configure artifact storage before enabling agent execution.
-3. Set capacity as appropriate: `HOSTED_AGENT_CAPACITY=4`, `HOSTED_AGENT_USER_CAPACITY=2`, and `HOSTED_AGENT_WORKSPACE_CAPACITY=2`.
+3. Set capacity as appropriate: `HOSTED_AGENT_CAPACITY=4`, `HOSTED_AGENT_USER_CAPACITY=2`, and `HOSTED_AGENT_PROJECT_CAPACITY=2`.
 
 The controller advertises readiness every ten seconds, expiring after 45 seconds.
 New hosted work requires a matching live executor.
@@ -117,7 +117,7 @@ Legacy workers cannot claim runs with a hosted Codex runtime specification.
 
 ## Recovery service and rollout
 
-Apply migrations through `20261008_workspace_tasks` before starting the new API, controller and `execution-reconciler` service in `deploy/docker/compose.yml`.
+Apply migrations through `20261008_project_tasks` before starting the new API, controller and `execution-reconciler` service in `deploy/docker/compose.yml`.
 Drain the old controller before upgrading.
 New hosted claims require private protocol version 3 and an explicit physical slot.
 
@@ -138,12 +138,12 @@ Keep the API, historical data, and reconciler available.
 Do not downgrade away completion receipts or delete quarantined reservations.
 See the [failure acceptance matrix](../../docs/architecture/hosted-failures.md).
 
-Docker-free development uses forward SQLite migrations through `local_20261008_workspace_tasks`.
+Docker-free development uses forward SQLite migrations through `local_20261008_project_tasks`.
 Existing local accounts, research and uploads are retained, with a pre-upgrade backup.
 Hosted VMs still require the separate Linux host.
 The PostgreSQL merge revision preserves both previous migration histories and supports upgrading from either `20260915_submission_numbers` or `20260915_hosted_recovery`.
 
-## Workspace repository checkout
+## Project repository checkout
 
 Rebuild the curated agent image with Git and the guest repository helper before
 using protocol 4. Successful file outputs are saved as uncommitted changes in the
@@ -151,7 +151,7 @@ canonical worktree for human review. Keep Codex state in `/home/agent/.codex`, o
 The API alone mounts the persistent repository volume. Hosted slots receive a
 bounded bundle for an exact commit, clone it into `/workspace`, and export their
 task working-copy branch on successful completion. They never mount the canonical volume.
-See [workspace files](../../docs/architecture/workspace-files.md) for limits,
+See [project files](../../docs/architecture/project-files.md) for limits,
 branch ownership, backup, and recovery. The legacy Compose worker does not execute
 repository-enabled sessions.
 

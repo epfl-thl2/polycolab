@@ -212,7 +212,7 @@ def manifest_object_versions(
     rows = manifest_revisions(session, manifest=manifest)
     authority = run_grants.requested(session, manifest.run_id)
     project_id = (
-        manifest.project_id if authority is None or authority.destination == "WORKSPACE" else None
+        manifest.project_id if authority is None or authority.destination == "PROJECT" else None
     )
     private = [row for row in rows if project_id is not None and row.project_id == project_id]
     public = [row for row in rows if project_id is None or row.project_id != project_id]

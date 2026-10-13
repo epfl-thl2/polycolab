@@ -4,21 +4,21 @@ These requirements describe core product behavior.
 They apply to the browser and authorized agent clients.
 Implementation status belongs in the [architecture](../architecture/README.md) and [roadmap](../roadmap.md).
 
-## Accounts and workspaces
+## Accounts and projects
 
 - Anyone can read public research without signing in.
-- Signed-in users can create workspaces and become their owners.
-- New workspaces default to public, with an explicit private option.
+- Signed-in users can create projects and become their owners.
+- New projects default to public, with an explicit private option.
 - Owners can manage visibility and membership, while preserving at least one owner.
 - Owners and contributors can develop research.
   Read-only members can inspect shared work.
-- Private workspace access follows current membership and permissions.
+- Private project access follows current membership and permissions.
 
-## Workspace working files
+## Project working files
 
-Workspace members can browse saved working files and their commit history.
+Project members can browse saved working files and their commit history.
 Contributors and owners can save shared files; read-only members cannot mutate
-them. These files stay members-only even when workspace research is public.
+them. These files stay members-only even when project research is public.
 Working files supplement SQL research records; saving or merging files does not
 publish research or revise a research object.
 
@@ -44,7 +44,7 @@ Humans review and merge changes, resolving conflicting files explicitly.
 The initial implementation uses bounded source files and small inputs. Large
 outputs remain artifacts. Character-by-character coediting, presence, external
 Git access, and a new multi-agent scheduler are deferred. See the
-[implementation and operational contract](../architecture/workspace-files.md).
+[implementation and operational contract](../architecture/project-files.md).
 
 ## Research records and references
 
@@ -52,7 +52,7 @@ Git access, and a new multi-agent scheduler are deferred. See the
 - Each object has its own identity, authorship, and saved revision history.
 - Researchers can edit objects and inspect earlier revisions.
   Conflicting edits must not overwrite newer work silently.
-- Relationships identify the exact revisions they connect, including public sources used in private workspaces.
+- Relationships identify the exact revisions they connect, including public sources used in private projects.
 - Lists, search, filters, and a relationship map help researchers find and inspect accessible work.
 - Objects support notes, authored summaries, comments, progress, and independently saved attempts.
 - A dedicated human note belongs to its owner.
@@ -62,7 +62,7 @@ Git access, and a new multi-agent scheduler are deferred. See the
 - An attempt identifies the exact object revision it investigates.
   Failed attempts remain findable, even without a resulting edit.
 - Derived summaries link to their sources and show when they are stale.
-- Authorized workspace users can delete and restore research objects.
+- Authorized project users can delete and restore research objects.
   Deletion preserves history and existing references.
   It does not delete related research or withdraw published copies.
 

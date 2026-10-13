@@ -27,7 +27,7 @@ test('M1 admission to attempt, private reference, public direct turn, and sugges
   };
   const session = {
     id: sessionId,
-    workspace_id: projectId,
+    project_id: projectId,
     agent_version_id: 'researcher-v2',
     agent_version: 2,
     agent_kind: 'RESEARCHER',
@@ -133,14 +133,14 @@ test('M1 admission to attempt, private reference, public direct turn, and sugges
       return route.fulfill({ json: { interest_count: 0 } });
     if (path === `/api/v1/community/${entryId}`)
       return route.fulfill({ json: { following: false, interested: false } });
-    if (path === '/api/v1/workspace-references') {
+    if (path === '/api/v1/project-references') {
       if (request.method() === 'POST') {
         expect(request.postDataJSON().object_version_id).toBe(revisionId);
         pinned = true;
       }
       const pin = {
         id: 'pin',
-        workspace_id: projectId,
+        project_id: projectId,
         object_id: entryId,
         object_version_id: revisionId,
         reference_version_id: 'pin-v1',
@@ -155,7 +155,7 @@ test('M1 admission to attempt, private reference, public direct turn, and sugges
         json: request.method() === 'POST' ? pin : { items: pinned ? [pin] : [], next_cursor: null },
       });
     }
-    if (path === `/api/v1/workspaces/${projectId}`) return route.fulfill({ json: project });
+    if (path === `/api/v1/projects/${projectId}`) return route.fulfill({ json: project });
     if (path === '/api/v1/agent-sessions') return route.fulfill({ json: [session] });
     if (path === `/api/v1/agent-sessions/${sessionId}`) return route.fulfill({ json: session });
     if (path.endsWith('/gateway/profiles'))
@@ -249,10 +249,11 @@ test('M1 admission to attempt, private reference, public direct turn, and sugges
   await page.getByRole('button', { name: 'Research', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Failed induction' })).toBeVisible();
   await page.getByRole('button', { name: 'Work privately', exact: true }).click();
-  await expect(page).toHaveURL(`/workspaces/${projectId}`);
-  await page.goto(`/workspaces/${projectId}/references`);
+  await expect(page).toHaveURL(`/projects/${projectId}`);
+  await page.goto(`/projects/${projectId}/references`);
   await expect(page.getByText('Pin version 1', { exact: false })).toBeVisible();
-  await page.goto(`/workspaces/${projectId}/sessions/${sessionId}`);
+  await page.goto(`/projects/${projectId}/sessions/${sessionId}`);
+  await page.getByRole('tab', { name: 'Agent history', exact: true }).click();
   await page.getByLabel('AI provider').selectOption('profile');
   await page.getByLabel('Private message', { exact: true }).fill('PRIVATE DRAFT NEVER SENT');
   await page.getByText('Run settings', { exact: true }).click();
