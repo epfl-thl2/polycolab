@@ -71,7 +71,11 @@ def test_compose_paths_and_production_isolation(tmp_path: Path) -> None:
     assert local["services"]["worker"]["environment"]["RUNTIME_INTERNAL_API_URL"] == (
         "http://core:8000"
     )
-    assert set(local["services"]["core"]["depends_on"]) == {"postgres", "object-storage"}
+    assert set(local["services"]["core"]["depends_on"]) == {
+        "postgres",
+        "object-storage",
+        "collaboration",
+    }
     assert Path(local["services"]["object-storage"]["volumes"][0]["source"]).is_file()
     for name in ("core",):
         service = local["services"][name]
@@ -86,6 +90,8 @@ def test_compose_paths_and_production_isolation(tmp_path: Path) -> None:
         **env,
         "POLYCOLAB_ENV_FILE": str(private),
         "POLYCOLAB_IMAGE": "polycolab:test",
+        "POLYCOLAB_COLLABORATION_IMAGE": "collaboration:test",
+        "COLLABORATION_TOKEN": "test-collaboration-token-long-enough",
         "POSTGRES_PASSWORD": "test",
         "GARAGE_RPC_SECRET": "test",
         "GARAGE_DEFAULT_ACCESS_KEY": "test",
@@ -103,7 +109,7 @@ def test_compose_paths_and_production_isolation(tmp_path: Path) -> None:
         ],
         production_env,
     )
-    assert set(production["services"]) == {"postgres", "core", "object-storage"}
+    assert set(production["services"]) == {"postgres", "core", "object-storage", "collaboration"}
     for name in ("core",):
         service = production["services"][name]
         expected = {"APP_ENV": "production", "REGISTRATION_MODE": "closed"}

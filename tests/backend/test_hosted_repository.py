@@ -104,13 +104,14 @@ def repository_claim(
     if disabled:
         app.state.settings.project_repository_directory = None
     if native_copy:
-        old_controller = client.post(
-            "/internal/v1/runtime/claims",
-            headers=WORKER,
-            json={"worker_id": "hosted", "engine": "codex", "protocol_version": 3},
-        )
-        assert old_controller.status_code == 409, old_controller.text
-        assert "executor_protocol_mismatch" in old_controller.text
+        for protocol in (3, 5):
+            old_controller = client.post(
+                "/internal/v1/runtime/claims",
+                headers=WORKER,
+                json={"worker_id": "hosted", "engine": "codex", "protocol_version": protocol},
+            )
+            assert old_controller.status_code == 409, old_controller.text
+            assert "executor_protocol_mismatch" in old_controller.text
     response = client.post(
         "/internal/v1/runtime/claims",
         headers=WORKER,

@@ -322,3 +322,5 @@ Set `AGENT_LIBRARY_MODERATOR_SUBJECTS` to an explicit JSON list of verified huma
 It defaults to an empty list and is separate from research and catalogue moderation authority.
 On the Moderation page, choose Agent library entry, enter its ID, load the current revision, and record a reason for hiding or restoring.
 Published versions remain immutable; restore a verified backup instead of downgrading away library history.
+
+Projects choose Linear history or Git mode. See [Linear project operations](../docs/architecture/linear-projects.md#operation-and-verification) for the collaboration service, configuration, and coordinated backups.

@@ -114,6 +114,7 @@ def main() -> None:
     assert process.stdin is not None and process.stdout is not None
 
     def receive_host() -> None:
+        refresh_bytes = bytearray()
         assert process.stdin is not None
         for line in sys.stdin.buffer:
             if len(line) > 2 * MAX_BYTES:
@@ -126,10 +127,32 @@ def main() -> None:
                 try:
                     if repository is None:
                         raise ValueError("repository_missing")
+                    if message.get("payload", {}).get("idle"):
+                        guest_repository.require_idle(process.pid)
                     commit = guest_repository.checkpoint(repository)
                     emit("repository", {"commit": commit})
                 except Exception:
                     emit("repository", {"error": "repository_checkpoint_failed"})
+            elif message.get("kind") == "refresh-chunk":
+                payload = message["payload"]
+                if payload.get("reset"):
+                    refresh_bytes.clear()
+                refresh_bytes.extend(base64.b64decode(payload["data"], validate=True))
+                if len(refresh_bytes) > 16 * 1024 * 1024:
+                    raise ValueError("workspace_refresh_too_large")
+            elif message.get("kind") == "refresh-install":
+                try:
+                    if repository is None:
+                        raise ValueError("repository_missing")
+                    guest_repository.require_idle(process.pid)
+                    payload = message["payload"]
+                    guest_repository.refresh(
+                        repository, bytes(refresh_bytes), payload["base"], payload["commit"]
+                    )
+                    refresh_bytes.clear()
+                    emit("refresh-install", {"generation": payload["generation"]})
+                except Exception:
+                    emit("refresh-install", {"error": "workspace_refresh_failed"})
             elif message.get("kind") == "model":
                 payload = message["payload"]
                 with pending_lock:

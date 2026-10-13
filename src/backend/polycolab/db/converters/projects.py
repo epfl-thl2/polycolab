@@ -8,6 +8,7 @@ from polycolab.entities.projects import Invitation, Membership, Project
 def project(row: SqlProject) -> Project:
     return Project(
         id=row.id,
+        workspace_mode=row.workspace_mode,
         name=row.name,
         description=row.description,
         visibility=row.visibility,

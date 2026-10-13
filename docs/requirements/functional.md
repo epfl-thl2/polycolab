@@ -22,7 +22,7 @@ them. These files stay members-only even when project research is public.
 Working files supplement SQL research records; saving or merging files does not
 publish research or revise a research object.
 
-Humans edit real Git worktrees. Save persists uncommitted files without advancing
+In Git mode, humans edit real Git worktrees. Save persists uncommitted files without advancing
 HEAD; Commit changes records all saved changes after diff review and a required
 message. Discard changes requires confirmation. A stale
 save must preserve the browser draft and require comparison with the newer
@@ -112,3 +112,24 @@ Git access, and a new multi-agent scheduler are deferred. See the
 - Publication preserves origin and authorship while excluding private conversations, dedicated personal notes, and secrets.
 - Comments and summaries are published only when explicitly selected.
 - Copying a Library entry follows the [Library copy rules](library.md#discovery-and-development).
+
+## Linear project mode
+
+New projects may choose Linear history or Git. When available, the browser defaults
+to Linear history; existing projects and API requests omitting the mode remain Git.
+Linear projects provide shared live text editing, file operations, automatic history,
+named checkpoints, and owner-only whole-project restore. Restore retains history and
+fences stale editors and agent snapshots. Offline editing pauses and pending text is
+recoverable in the open tab without durable local persistence.
+
+Each AI turn runs against an isolated fixed snapshot. It can explicitly inspect and
+refresh shared changes between commands. A completed result applies atomically
+against current files, or remains a private pending result for manual review or an
+explicit new reconciliation turn. There is no automatic paid retry and no new
+per-user chat cap. Existing execution quotas continue to apply.
+
+Linear chats are creator-private until the creator previews and confirms sharing
+the whole user-visible transcript and future messages with project members.
+Viewers cannot control runs, write messages, or gain access to private artifacts.
+Owners can convert a selected saved Git worktree, including uncommitted saved files,
+while preserving a read-only Git archive and existing conversation history.

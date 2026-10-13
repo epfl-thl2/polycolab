@@ -61,6 +61,11 @@ class WorktreeService(RepositoryService):
     def ensure_native(self) -> None:
         if self.store.native(self.project_id):
             return
+        access = project_policy.require_scope(
+            self.transaction, self.project_id, self.user_id, ProjectAction.VIEW
+        )
+        if access.project.workspace_mode != "git":
+            raise RepositoryError("git_archive_unavailable", 404)
         # A fresh repository can be provisioned with its first worktree request.
         if len(self.git.history(self.git.head("main"), 2)) == 1 and not self.store.tasks(
             self.project_id, True
@@ -121,6 +126,11 @@ class WorktreeService(RepositoryService):
                 for path, item in saved.items()
             ],
             "writable": available
+            and project_policy.require_scope(
+                self.transaction, self.project_id, self.user_id, ProjectAction.VIEW
+            ).project.workspace_mode
+            == "git"
+            and not self.transaction.linear.conversion_pending(self.project_id)
             and project_policy.can(
                 self.transaction, self.project_id, self.user_id, ProjectAction.CREATE_RESEARCH
             )

@@ -50,3 +50,5 @@ Job and artifact foundations do not imply that production Lean/Python runners or
 Each contract states its implementation limitations.
 Unfinished capabilities belong in the [roadmap](../roadmap.md).
 Operational setup belongs in the [deployment guide](../../deploy/README.md).
+
+See [Linear projects](linear-projects.md) for collaborative files, snapshot execution, and conversion.

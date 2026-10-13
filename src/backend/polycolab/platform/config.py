@@ -277,6 +277,10 @@ class Settings(BaseSettings):
     agent_library_moderator_subjects: list[str] = Field(default_factory=list)
 
     catalogue_operator_subjects: list[str] = Field(default_factory=list)
+    collaboration_url: str = "http://127.0.0.1:8002"
+    collaboration_token: SecretStr = SecretStr(
+        "polycolab-local-collaboration-token-change-in-production"
+    )
     feature_agent_execution_enabled: bool = False
     execution_user_requests_per_minute: int = Field(default=30, ge=0, le=10_000)
     execution_project_requests_per_minute: int = Field(default=120, ge=0, le=10_000)
@@ -320,6 +324,26 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_deployment_settings(self) -> Settings:
+        if self.project_repository_directory is not None:
+            token = self.collaboration_token.get_secret_value()
+            if len(token) < 32 or (
+                self.app_env is not Environment.LOCAL
+                and token == "polycolab-local-collaboration-token-change-in-production"
+            ):
+                raise ValueError("Set a private COLLABORATION_TOKEN of at least 32 characters")
+            from urllib.parse import urlsplit
+
+            collaboration = urlsplit(self.collaboration_url)
+            if (
+                collaboration.scheme not in {"http", "https"}
+                or not collaboration.hostname
+                or collaboration.username
+                or collaboration.password
+                or collaboration.query
+                or collaboration.fragment
+                or collaboration.path not in {"", "/"}
+            ):
+                raise ValueError("COLLABORATION_URL must be an internal HTTP(S) origin")
         if self.app_env is Environment.PRODUCTION and self.database_url.endswith(
             "polycolab@localhost:5432/polycolab"
         ):

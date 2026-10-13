@@ -12,6 +12,7 @@ RUN curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=12.1.0 PNPM_HOM
 WORKDIR /workspace
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY src/web/package.json src/web/package.json
+COPY src/collaboration/package.json src/collaboration/package.json
 RUN pnpm install --frozen-lockfile
 COPY docs-site/vite-plugin.mjs docs-site/sync-brand.mjs docs-site/
 COPY src/web src/web

@@ -102,6 +102,13 @@ export function createAgentSessionsApi(
         agent_version?: 1 | 2;
       },
     ) => unwrap(client.POST('/api/v1/agent-sessions', { body: { agent_version: 1, ...input } })),
+    shareSession: (sessionId: string, is_shared: boolean) =>
+      unwrap(
+        client.PATCH('/api/v1/agent-sessions/{session_id}/visibility', {
+          params: { path: { session_id: sessionId } },
+          body: { is_shared },
+        }),
+      ),
     getSession: (sessionId: string) =>
       unwrap(
         client.GET('/api/v1/agent-sessions/{session_id}', {

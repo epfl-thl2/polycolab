@@ -137,7 +137,7 @@ def test_executor_identity_and_quarantine_fence(hosted_client: TestClient) -> No
             incarnation="current",
             image="a" * 64,
             states={0: "AVAILABLE", 1: "QUARANTINED"},
-            protocol=5,
+            protocol=6,
         )
 
         def attempt(incarnation: str, slot_id: int) -> SqlAgentRun | None:
@@ -165,7 +165,7 @@ def test_executor_identity_and_quarantine_fence(hosted_client: TestClient) -> No
             incarnation="current",
             image="a" * 64,
             states={0: "QUARANTINED", 1: "QUARANTINED"},
-            protocol=5,
+            protocol=6,
         )
         from polycolab.execution.hosts import release_elapsed
 
@@ -233,7 +233,7 @@ def test_merge_upgrade_preserves_existing_branch_data(
         assert retained is not None and retained.subject == "retained-account"
     from alembic.script import ScriptDirectory
 
-    assert ScriptDirectory.from_config(config).get_heads() == ["20261013_executors"]
+    assert ScriptDirectory.from_config(config).get_heads() == ["20261013_linear"]
 
 
 def test_claim_requires_frozen_backend_version_and_image(hosted_client: TestClient) -> None:
@@ -259,7 +259,7 @@ def test_claim_requires_frozen_backend_version_and_image(hosted_client: TestClie
                 incarnation="current",
                 image=image,
                 states={0: "AVAILABLE"},
-                protocol=5,
+                protocol=6,
                 backend=backend,
                 version=version,
             )

@@ -20,6 +20,7 @@ class Project:
     updated_at: datetime
     archived_at: datetime | None
     deleted_at: datetime | None
+    workspace_mode: str = "git"
 
 
 @dataclass(frozen=True, slots=True)

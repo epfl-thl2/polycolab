@@ -29,6 +29,7 @@ from polycolab.db.models import (
     SqlRunToolCapability,
 )
 from polycolab.db.models.project_tasks import SqlProjectTask
+from polycolab.db.models.projects import SqlProject
 from polycolab.entities.enums import (
     AgentMessageRole,
     AgentRunEventKind,
@@ -188,7 +189,10 @@ def create_agent_session(
 ) -> SqlAgentSession:
     """Create a shared project session pinned to a platform v1 agent definition."""
 
-    if task_id is None:
+    project = session.get(SqlProject, project_id)
+    if project is not None and project.workspace_mode == "linear":
+        task_id = None
+    elif task_id is None:
         task_id = session.scalar(
             select(SqlProjectTask.id).where(
                 SqlProjectTask.project_id == project_id, SqlProjectTask.branch == "main"
@@ -282,9 +286,16 @@ def append_user_message_and_queue_run(
     if not content_md.strip():
         raise SessionStateError("message must not be empty")
     parent = _locked_session(session, session_id)
+    from polycolab.db.stores.linear import SqlLinearStore
+
+    linear_project = session.get(SqlProject, parent.project_id)
+    if SqlLinearStore(session).conversion_pending(parent.project_id):
+        raise RepositoryError("linear_conversion_in_progress")
     if parent.status is not AgentSessionStatus.ACTIVE:
         raise SessionStateError("session is archived")
-    if parent.task_id is not None:
+    if parent.task_id is not None and (
+        linear_project is None or linear_project.workspace_mode != "linear"
+    ):
         task = session.get(SqlProjectTask, parent.task_id)
         if task is None or task.archived_at is not None:
             raise RepositoryError("task_archived")
@@ -376,6 +387,10 @@ def append_user_message_and_queue_run(
 
 def archive_agent_session(session: Session, *, session_id: UUID) -> SqlAgentSession:
     parent = _locked_session(session, session_id)
+    from polycolab.db.stores.linear import SqlLinearStore
+
+    if SqlLinearStore(session).conversion_pending(parent.project_id):
+        raise RepositoryError("linear_conversion_in_progress")
     if parent.status is AgentSessionStatus.ACTIVE:
         _archive_locked_session(session, parent, archived_at=utc_now())
         _commit(session)
@@ -546,6 +561,12 @@ def claim_next_run_in_transaction(
                 ),
                 and_(
                     SqlAgentSession.task_id.is_not(None),
+                    ~exists(
+                        select(SqlProject.id).where(
+                            SqlProject.id == SqlAgentRun.project_id,
+                            SqlProject.workspace_mode == "linear",
+                        )
+                    ),
                     earlier_session.task_id == SqlAgentSession.task_id,
                     earlier.id != SqlAgentRun.id,
                     or_(
@@ -579,6 +600,12 @@ def claim_next_run_in_transaction(
             SqlAgentSession.status == AgentSessionStatus.ACTIVE,
             or_(
                 SqlAgentSession.task_id.is_(None),
+                exists(
+                    select(SqlProject.id).where(
+                        SqlProject.id == SqlAgentRun.project_id,
+                        SqlProject.workspace_mode == "linear",
+                    )
+                ),
                 exists(
                     select(SqlProjectTask.id).where(
                         SqlProjectTask.id == SqlAgentSession.task_id,
@@ -1103,9 +1130,16 @@ def resume_run(
     if previous.status not in _TERMINAL:
         raise SessionStateError("only terminal runs can be resumed")
     parent = _locked_session(session, previous.session_id)
+    linear_project = session.get(SqlProject, parent.project_id)
+    from polycolab.db.stores.linear import SqlLinearStore
+
+    if SqlLinearStore(session).conversion_pending(parent.project_id):
+        raise RepositoryError("linear_conversion_in_progress")
     if parent.status is not AgentSessionStatus.ACTIVE:
         raise SessionStateError("session is archived")
-    if parent.task_id is not None:
+    if parent.task_id is not None and (
+        linear_project is None or linear_project.workspace_mode != "linear"
+    ):
         task = session.get(SqlProjectTask, parent.task_id)
         if task is None or task.archived_at is not None:
             raise RepositoryError("task_archived")

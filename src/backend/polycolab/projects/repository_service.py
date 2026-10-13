@@ -43,12 +43,17 @@ class RepositoryService:
     user_id: UUID
 
     def authorize(self, write: bool = False, branch: str = "main") -> None:
-        project_policy.require_scope(
+        access = project_policy.require_scope(
             self.transaction,
             self.project_id,
             self.user_id,
             ProjectAction.CREATE_RESEARCH if write else ProjectAction.VIEW,
         )
+        if write and (
+            access.project.workspace_mode != "git"
+            or self.transaction.linear.conversion_pending(self.project_id)
+        ):
+            raise RepositoryError("git_workspace_read_only")
         if write:
             self.store.lock_branch(self.project_id, branch)
         if write and self.store.branch_active(self.project_id, branch):

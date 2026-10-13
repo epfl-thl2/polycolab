@@ -3,6 +3,8 @@
   import { onMount, tick, untrack } from 'svelte';
   import { syncEditorModel, type ProjectEditorSessions } from '../lib/project-editor-session';
   import type * as Monaco from 'monaco-editor';
+  import type * as Y from 'yjs';
+  import type { MonacoBinding } from 'y-monaco';
 
   let {
     value = $bindable(),
@@ -14,7 +16,11 @@
     wordWrap = true,
     onEdit,
     onError,
+    collaborative,
+    collaborativeUndo,
   }: {
+    collaborative?: Y.Doc;
+    collaborativeUndo?: Y.UndoManager;
     value: string;
     language: 'LEAN' | 'PYTHON' | 'TEXT' | 'MARKDOWN' | 'JSON';
     sessions?: ProjectEditorSessions;
@@ -67,7 +73,7 @@
     const view = editor.saveViewState();
     syncing = true;
     try {
-      syncEditorModel(model, value);
+      if (!collaborative) syncEditorModel(model, value);
     } finally {
       syncing = false;
     }
@@ -79,6 +85,8 @@
     let instance: Monaco.editor.IStandaloneCodeEditor | undefined;
     let model: Monaco.editor.ITextModel | undefined;
     let subscription: Monaco.IDisposable | undefined;
+    let binding: MonacoBinding | undefined;
+    let undo: Y.UndoManager | undefined;
     let observer: MutationObserver | undefined;
     const entry = sessionKey ? sessions?.entry(sessionKey) : undefined;
     const media = matchMedia('(prefers-color-scheme: dark)');
@@ -92,14 +100,17 @@
     };
     void import('../lib/monaco-loader')
       .then(({ monacoReady }) => monacoReady)
-      .then((engine) => {
+      .then(async (engine) => {
+        const collaboration = collaborative
+          ? await Promise.all([import('y-monaco'), import('yjs')])
+          : undefined;
         if (disposed) return;
         monaco = engine;
         model =
           sessions && sessionKey
             ? sessions.model(engine, sessionKey, value, languageId)
             : engine.editor.createModel(value, languageId);
-        syncEditorModel(model, value);
+        if (!collaborative) syncEditorModel(model, value);
         instance = engine.editor.create(container, {
           model,
           readOnly,
@@ -117,6 +128,19 @@
           padding: { top: 0 },
           ariaLabel: 'File contents',
         });
+        if (collaborative && collaboration) {
+          const text = collaborative.getText('content');
+          binding = new collaboration[0].MonacoBinding(text, model, new Set([instance]));
+          undo =
+            collaborativeUndo ??
+            new collaboration[1].UndoManager(text, { trackedOrigins: new Set([binding]) });
+          undo.trackedOrigins.add(binding);
+          instance.addCommand(engine.KeyMod.CtrlCmd | engine.KeyCode.KeyZ, () => undo?.undo());
+          instance.addCommand(
+            engine.KeyMod.CtrlCmd | engine.KeyMod.Shift | engine.KeyCode.KeyZ,
+            () => undo?.redo(),
+          );
+        }
         if (entry?.view) instance.restoreViewState(entry.view);
         subscription = instance.onDidChangeModelContent(() => {
           if (syncing || !instance) return;
@@ -145,6 +169,9 @@
       observer?.disconnect();
       media.removeEventListener('change', setTheme);
       subscription?.dispose();
+      binding?.destroy();
+      if (binding) undo?.trackedOrigins.delete(binding);
+      if (!collaborativeUndo) undo?.destroy();
       instance?.dispose();
       if (!sessions) model?.dispose();
     };

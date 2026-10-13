@@ -107,7 +107,7 @@ environments are outside this implementation.
 
 ## Hosted runs
 
-Private runtime protocol 4 pins the worktree ID, human HEAD, and saved revision.
+Private runtime protocol 6 pins the worktree ID, human HEAD, and saved revision.
 Runs on the same worktree serialize across private conversations. A disposable
 sandbox receives a bounded bundle, checks out the pinned branch head, and restores
 the saved overlay as uncommitted files. The controller has no SQL credentials and
@@ -120,7 +120,7 @@ branch. Completion requires the service's save acknowledgement. Failed or cancel
 runs guarantee only the last acknowledged state; unsent sandbox changes are not
 guaranteed. Lease generation, cancellation, deadline, membership, and pinned
 revision checks fence imports. Public-destination runs cannot carry private files.
-Older controllers cannot claim protocol 4 work.
+Older controllers cannot claim protocol 6 work.
 
 ## Limits
 

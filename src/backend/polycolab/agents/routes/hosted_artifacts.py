@@ -126,6 +126,8 @@ class HostedArtifactRead(ExportDeclaration):
 )
 def list_exports(run_id: UUID, db: DbSession, user: CurrentUser) -> list[HostedArtifactRead]:
     run = _run_scope(db, run_id=run_id, user_id=user.id, action=ProjectAction.VIEW)
+    if run.requested_by_user_id != user.id:
+        raise HTTPException(404, "not_found")
     if run.status != AgentRunStatus.COMPLETED:
         return []
     return [
@@ -157,6 +159,8 @@ def download_export(
     run_id: UUID, artifact_id: UUID, request: Request, db: DbSession, user: CurrentUser
 ) -> Response:
     run = _run_scope(db, run_id=run_id, user_id=user.id, action=ProjectAction.VIEW)
+    if run.requested_by_user_id != user.id:
+        raise HTTPException(404, "not_found")
     binding = db.get(SqlHostedRunArtifact, artifact_id)
     if binding is None or binding.run_id != run_id or run.status != AgentRunStatus.COMPLETED:
         raise HTTPException(404, "not_found")

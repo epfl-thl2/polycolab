@@ -15,6 +15,7 @@ from polycolab.research.contracts import ProjectCopyCreate
 
 
 class ProjectVersionCopyCreate(RequestModel):
+    workspace_mode: Literal["linear", "git"] = "git"
     source_object_version_id: UUID
     project_id: UUID | None = None
     project_name: str = Field(default="Research project", min_length=1, max_length=200)
@@ -35,6 +36,7 @@ class ProjectVersionCopyRead(ApiModel):
 
 
 class ProjectCreate(RequestModel):
+    workspace_mode: Literal["linear", "git"] = "git"
     name: str = Field(min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=20_000)
     visibility: ProjectVisibility = ProjectVisibility.PUBLIC
@@ -48,6 +50,7 @@ class ProjectUpdate(RequestModel):
 
 
 class ProjectMemberRead(ApiModel):
+    workspace_mode: Literal["linear", "git"] = "git"
     id: UUID
     name: str
     description: str | None

@@ -119,7 +119,7 @@ Legacy workers cannot claim runs with a hosted Codex runtime specification.
 
 Apply migrations through `20261013_executors` before starting the new API and controller. The API owns the recovery background job.
 Drain the old controller before upgrading.
-New hosted claims require private protocol version 5 and an explicit physical slot.
+New hosted claims require private protocol version 6 and an explicit physical slot.
 
 The reconciler shares the core application database pool.
 It polls every five seconds; keep core running when executor admission is disabled.
@@ -145,7 +145,7 @@ The PostgreSQL merge revision preserves both previous migration histories and su
 ## Project repository checkout
 
 Rebuild the curated agent image with Git and the guest repository helper before
-using protocol 5. Successful file outputs are saved as uncommitted changes in the
+using protocol 6. Successful file outputs are saved as uncommitted changes in the
 canonical worktree for human review. Keep Codex state in `/home/agent/.codex`, outside `/workspace`.
 The API alone mounts the persistent repository volume. Hosted slots receive a
 bounded bundle for an exact commit, clone it into `/workspace`, and export their

@@ -21,6 +21,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -98,6 +99,7 @@ class SqlAgentSession(Base):
         ForeignKey("platform_agent_versions.id"), index=True
     )
     created_by_user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    is_shared: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     title: Mapped[str | None] = mapped_column(String(300), nullable=True)
     harness: Mapped[Literal["codex"] | None] = mapped_column(String(32), nullable=True)
     system_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -820,7 +822,7 @@ class SqlHostedExecutor(Base):
         CheckConstraint("capacity BETWEEN 0 AND 64", name="hosted_executors_capacity_check"),
     )
     incarnation: Mapped[str] = mapped_column(String(36), default="legacy")
-    protocol_version: Mapped[int] = mapped_column(Integer, default=5)
+    protocol_version: Mapped[int] = mapped_column(Integer, default=6)
     sandbox_backend: Mapped[str] = mapped_column(
         String(16), default="microsandbox", server_default="microsandbox"
     )

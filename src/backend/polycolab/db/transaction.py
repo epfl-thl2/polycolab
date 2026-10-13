@@ -12,6 +12,7 @@ from polycolab.db.errors import persistence_boundary
 from polycolab.db.stores.accounts import SqlAccountStore
 from polycolab.db.stores.agent_library import SqlAgentLibraryStore
 from polycolab.db.stores.artifacts import SqlArtifactStore
+from polycolab.db.stores.linear import SqlLinearStore
 from polycolab.db.stores.projects import SqlProjectStore
 from polycolab.transaction import PersistenceConflict, PersistenceError, TransactionFactory
 
@@ -24,6 +25,7 @@ class SqlAlchemyTransaction:
         self.agent_library = SqlAgentLibraryStore(session)
         self.artifacts = SqlArtifactStore(session)
         self.projects = SqlProjectStore(session)
+        self.linear = SqlLinearStore(session)
 
     @persistence_boundary
     def commit(self) -> None:

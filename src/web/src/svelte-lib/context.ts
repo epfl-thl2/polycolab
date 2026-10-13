@@ -26,6 +26,7 @@ export type Draft = {
   originalContent: string;
 };
 export type ProjectContext = {
+  linear?: import('../lib/linear-session').LinearSession;
   tasks?: ReturnType<typeof import('../lib/project-tasks-api').createProjectTasksApi>;
   repository?: ReturnType<typeof import('../lib/repository-api').createRepositoryApi>;
   capabilities?: import('./capabilities.svelte').Capabilities;

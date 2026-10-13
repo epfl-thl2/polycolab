@@ -5,6 +5,13 @@ x-application: &application
   init: true
 
 services:
+  collaboration:
+    image: ${POLYCOLAB_COLLABORATION_IMAGE:?Set an immutable collaboration image digest}
+    build: !reset null
+    security_opt: ['no-new-privileges:true']
+    read_only: true
+    environment:
+      COLLABORATION_TOKEN: ${COLLABORATION_TOKEN:?Set the private collaboration token}
   postgres:
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set an explicit database password}

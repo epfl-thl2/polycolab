@@ -176,7 +176,7 @@ class RuntimeClient:
                 "engine": "codex",
                 "incarnation": self.incarnation,
                 "slot_id": slot_id,
-                "protocol_version": 5,
+                "protocol_version": 6,
             },
         )
         if value is None:
@@ -303,6 +303,36 @@ class RuntimeClient:
             result["workspace.bundle"] = data
             result["workspace.json"] = metadata
         return result
+
+    async def workspace(
+        self,
+        claim: RuntimeClaim,
+        worker_id: str,
+        action: str,
+        *,
+        data: bytes | None = None,
+        key: str = "",
+        generation: int = 0,
+    ) -> dict[str, Any]:
+        parameters: dict[str, Any] = {
+            "worker_id": worker_id,
+            "lease_generation": claim.lease_generation,
+        }
+        if action == "refresh":
+            parameters["key"] = key
+        if action == "refresh-ack":
+            parameters["generation"] = generation
+        result = await self.artifact_bytes(
+            "GET" if action == "status" else "POST",
+            f"/internal/hosted/runs/{claim.run_id}/workspace-{action}",
+            parameters,
+            content=data,
+            limit=24 * 1024 * 1024,
+        )
+        value = json.loads(result)
+        if not isinstance(value, dict):
+            raise RuntimeGatewayError("runtime_api_invalid")
+        return value
 
     async def save_repository(self, claim: RuntimeClaim, worker_id: str, data: bytes) -> None:
         try:

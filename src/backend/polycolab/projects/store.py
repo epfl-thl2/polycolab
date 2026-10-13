@@ -64,6 +64,7 @@ class ProjectStore(Protocol):
         name: str,
         description: str | None,
         visibility: ProjectVisibility,
+        workspace_mode: str = "git",
     ) -> Project: ...
 
     def add_membership(

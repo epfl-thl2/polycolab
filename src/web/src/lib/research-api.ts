@@ -56,6 +56,7 @@ export interface ResearchApi {
     sort?: 'updated' | 'name' | 'name_desc' | 'relevance',
   ): Promise<Page<Project>>;
   createProject(input: {
+    workspace_mode?: 'linear' | 'git';
     name: string;
     description?: string;
     visibility: components['schemas']['ProjectVisibility'];
@@ -228,7 +229,8 @@ export function createResearchApi(
           },
         }),
       ),
-    createProject: (body) => unwrap(memberClient.POST('/api/v1/projects', { body })),
+    createProject: (body) =>
+      unwrap(memberClient.POST('/api/v1/projects', { body: { workspace_mode: 'git', ...body } })),
     getProject: (projectId) =>
       unwrapMember<Project>(
         memberClient.GET('/api/v1/projects/{project_id}', {

@@ -5,7 +5,8 @@
   "license": "Apache-2.0",
   "packageManager": "pnpm@12.1.0",
   "workspaces": [
-    "src/web"
+    "src/web",
+    "src/collaboration"
   ],
   "scripts": {
     "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test",

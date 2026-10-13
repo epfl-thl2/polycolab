@@ -46,3 +46,10 @@ Before making production claims, verify:
 Keep dated measurements and deployment evidence with the release record.
 Update this page when the remaining work changes.
 Do not append milestone journals.
+
+## Linear project rollout
+
+Linear mode is available through the project mode selector.
+Native protocol-5 guest refresh/completion acceptance and target-deployment
+backup/recovery and reconnect checks remain deployment verification work.
+See the [implemented contract](architecture/linear-projects.md).

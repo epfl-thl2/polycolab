@@ -63,7 +63,7 @@ class RuntimeRequest(BaseModel):
     engine: Literal["builtin", "codex"] = "builtin"
     incarnation: str | None = Field(default=None, max_length=36)
     slot_id: int | None = Field(default=None, ge=0, le=63)
-    protocol_version: int = 5
+    protocol_version: int = 6
 
 
 class LeaseRequest(RuntimeRequest):
@@ -202,7 +202,7 @@ def _finish_claim_failure(session: Session, run: SqlAgentRun, worker_id: str, co
 @router.post("/claims", response_model=None)
 def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str, object]:
     _authorize_worker(request)
-    if payload.engine == "codex" and payload.protocol_version != 5:
+    if payload.engine == "codex" and payload.protocol_version != 6:
         raise RuntimeApiConflict("executor_protocol_mismatch")
     settings = request.app.state.settings
     session = request.app.state.session_factory()
@@ -230,7 +230,7 @@ def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str
                 if (
                     executor is None
                     or payload.incarnation != executor.incarnation
-                    or payload.protocol_version != 5
+                    or payload.protocol_version != 6
                     or executor.sandbox_backend != settings.runtime_sandbox_backend
                     or executor.sandbox_version != settings.runtime_sandbox_version
                     or payload.slot_id is None
@@ -288,10 +288,14 @@ def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str
             ):
                 _finish_claim_failure(session, run, payload.worker_id, "authorization_revoked")
                 return Response(status_code=status.HTTP_204_NO_CONTENT)
+            from polycolab.db.models import SqlProject
             from polycolab.db.stores.repositories import SqlRepositoryStore
 
+            project = session.get(SqlProject, run.project_id)
+            is_linear = project is not None and project.workspace_mode == "linear"
             repository_enabled = (
-                SqlRepositoryStore(session).session(run.project_id, run.session_id).enabled
+                is_linear
+                or SqlRepositoryStore(session).session(run.project_id, run.session_id).enabled
             )
             if repository_enabled and (
                 settings.project_repository_directory is None or payload.engine != "codex"
@@ -331,9 +335,14 @@ def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str
                 if settings.project_repository_directory is not None:
                     from polycolab.projects.routes.repository import service as repository_service
 
-                    envelope["repository"] = repository_service(
-                        request, session, run.project_id, run.requested_by_user_id
-                    ).pin_run(run.id, run.session_id)
+                    if is_linear:
+                        from polycolab.agents.linear_files import pin
+
+                        envelope["repository"] = pin(request.app.state.settings, session, run)
+                    else:
+                        envelope["repository"] = repository_service(
+                            request, session, run.project_id, run.requested_by_user_id
+                        ).pin_run(run.id, run.session_id)
                 envelope["tools"] = definitions(session, run)
                 envelope["server_time"] = utc_now().isoformat()
                 from polycolab.agents.context import manifest_artifacts
@@ -541,8 +550,21 @@ def finish(run_id: UUID, payload: FinishRequest, request: Request) -> Response:
         try:
             existing = session.get(SqlAgentRun, run_id)
             if existing is not None and existing.runtime_spec:
+                from polycolab.db.models.linear import SqlLinearBatch, SqlLinearRun
                 from polycolab.db.stores.repositories import SqlRepositoryStore
 
+                linear_binding = session.get(SqlLinearRun, run_id)
+                if payload.status == "COMPLETED" and linear_binding is not None:
+                    batch = session.scalar(
+                        select(SqlLinearBatch).where(SqlLinearBatch.run_id == run_id)
+                    )
+                    if batch is None or batch.status not in {
+                        "applied",
+                        "pending",
+                        "no_changes",
+                        "resolved",
+                    }:
+                        raise RuntimeApiConflict("repository_save_required")
                 binding = SqlRepositoryStore(session).run(run_id)
                 if (
                     payload.status == "COMPLETED"

@@ -218,7 +218,12 @@
 <svelte:head><title>{$project.data?.name ?? 'Project'} · Polycolab</title></svelte:head>
 
 {#if member && $project.data}
-  <ProjectWorkbench project={$project.data} {path} />
+  {#if $project.data.workspace_mode === 'linear'}{#await import('./LinearWorkbench.svelte')}<LoadingState
+        >Opening shared project…</LoadingState
+      >{:then module}<module.default
+        project={$project.data}
+        {path}
+      />{/await}{:else}<ProjectWorkbench project={$project.data} {path} />{/if}
 {:else}
   <ProductHeader
     {auth}

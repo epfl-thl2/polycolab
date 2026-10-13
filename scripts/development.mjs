@@ -85,10 +85,15 @@ try {
     );
   } else {
     await checkPort(8000);
+    await checkPort(8002);
     await checkPort(5174);
     const env = {
       ...process.env,
       APP_ENV: 'local',
+      COLLABORATION_URL: 'http://127.0.0.1:8002',
+      COLLABORATION_TOKEN:
+        process.env.COLLABORATION_TOKEN ||
+        'polycolab-local-collaboration-token-change-in-production',
       DATABASE_URL: `sqlite+pysqlite:///${resolve(root, '.local/polycolab.db')}`,
       ARTIFACT_LOCAL_DIRECTORY: resolve(root, '.local/artifacts'),
       PROJECT_REPOSITORY_DIRECTORY: resolve(root, '.local/repositories'),
@@ -110,6 +115,7 @@ try {
     );
     if (!stopping) {
       const commands = [
+        ['pnpm', ['--filter', '@polycolab/collaboration', 'run', 'start']],
         [
           'uv',
           [

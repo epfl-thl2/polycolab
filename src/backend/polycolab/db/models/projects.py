@@ -24,6 +24,7 @@ class SqlProject(Base):
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    workspace_mode: Mapped[str] = mapped_column(String(16), default="git", server_default="git")
     name: Mapped[str] = mapped_column(String(200))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     visibility: Mapped[ProjectVisibility] = mapped_column(

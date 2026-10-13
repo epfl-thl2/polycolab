@@ -1,5 +1,6 @@
 packages:
   - src/web
+  - src/collaboration
 
 allowBuilds:
   esbuild: true

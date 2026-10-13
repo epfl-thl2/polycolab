@@ -19,7 +19,10 @@ router = APIRouter(
     operation_id="copyLibraryToProject",
 )
 def create(
-    payload: ProjectVersionCopyCreate, key: RetryKey, session: DbSession, actor: CurrentActor
+    payload: ProjectVersionCopyCreate,
+    key: RetryKey,
+    session: DbSession,
+    actor: CurrentActor,
 ) -> ProjectVersionCopyRead:
     result = copies.create(session, actor=actor, payload=payload.historical_command(), key=key)
     return ProjectVersionCopyRead(

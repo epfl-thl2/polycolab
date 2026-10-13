@@ -47,11 +47,14 @@ def main() -> int:
         directory = Path(temporary)
         database = directory / "research.db"
         upgrade_database(database)
-        api_port, web_port = free_port(), free_port()
+        api_port, web_port, collaboration_port = free_port(), free_port(), free_port()
         origin = f"http://127.0.0.1:{web_port}"
         env = {
             **os.environ,
             "APP_ENV": "local",
+            "COLLABORATION_URL": f"http://127.0.0.1:{collaboration_port}",
+            "COLLABORATION_PORT": str(collaboration_port),
+            "COLLABORATION_TOKEN": secrets.token_urlsafe(32),
             "AUTH_MODE": "local",
             "DATABASE_URL": f"sqlite+pysqlite:///{database}",
             "PROJECT_REPOSITORY_DIRECTORY": str(directory / "repositories"),
@@ -71,6 +74,7 @@ def main() -> int:
                 check=True,
             )
             commands = [
+                (["node", "--experimental-strip-types", "src/server.ts"], ROOT / "src/collaboration"),
                 (
                     [
                         sys.executable,
@@ -98,6 +102,7 @@ def main() -> int:
                 )
             ready(f"http://127.0.0.1:{api_port}/health/ready", processes)
             ready(origin, processes)
+            ready(f"http://127.0.0.1:{collaboration_port}/health/live", processes)
             return subprocess.run(
                 [
                     "pnpm",

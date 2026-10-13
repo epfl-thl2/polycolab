@@ -458,6 +458,7 @@ class ResourceResult(ApiModel):
 
 
 class ProjectCopyCreate(CatalogueRequest):
+    workspace_mode: Literal["linear", "git"] = "git"
     revision_id: UUID
     project_id: UUID | None = None
     project_name: str = Field(default="Research project", min_length=1, max_length=200)

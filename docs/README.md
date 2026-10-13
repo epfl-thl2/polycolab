@@ -20,6 +20,8 @@ The generated [OpenAPI snapshot](../src/web/openapi.json) lives with the TypeScr
 Run `pnpm run api:contract` after API changes.
 Do not edit generated files by hand.
 
+See [Linear projects](architecture/linear-projects.md) for live collaboration and snapshot-based agent execution.
+
 See [Project files](architecture/project-files.md) for Git-backed task working copies, collaboration, and coordinated backups.
 
 ## Authority

@@ -25,7 +25,7 @@ def advertise(
     backend: str = "microsandbox",
     version: str = "0.6.18",
 ) -> None:
-    if protocol != 5 or not states or set(states) != set(range(len(states))):
+    if protocol != 6 or not states or set(states) != set(range(len(states))):
         raise HostConflict("executor_protocol_mismatch")
     _serialize(session)
     row = session.get(SqlHostedExecutor, worker_id)

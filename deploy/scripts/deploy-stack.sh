@@ -22,7 +22,7 @@ while IFS= read -r service; do
 done <<< "$existing_services"
 
 services="$("${compose[@]}" config --services)"
-applications=(core)
+applications=(collaboration core)
 while IFS= read -r service; do
   if [[ "$service" == worker ]]; then applications+=(worker); fi
 done <<< "$services"

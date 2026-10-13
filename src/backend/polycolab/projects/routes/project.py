@@ -145,6 +145,7 @@ def _member_read(
     member_count: int,
 ) -> ProjectMemberRead:
     return ProjectMemberRead(
+        workspace_mode="linear" if project.workspace_mode == "linear" else "git",
         id=project.id,
         name=project.name,
         description=project.description,
@@ -754,7 +755,7 @@ def list_public_project_artifacts(
     tags=["projects"],
 )
 def post_project(
-    payload: ProjectCreate, request: Request, session: DbSession, actor: CurrentActor
+    payload: ProjectCreate, session: DbSession, actor: CurrentActor
 ) -> ProjectMemberRead:
     require_project_management(actor)
     user = _user_for_actor(session, actor)
@@ -765,6 +766,7 @@ def post_project(
         name=payload.name,
         description=payload.description,
         visibility=visibility,
+        workspace_mode=payload.workspace_mode,
     )
     membership = project_policy.membership(SqlAlchemyTransaction(session), project.id, user.id)
     assert membership is not None

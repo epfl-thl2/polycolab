@@ -7,13 +7,21 @@ from uuid import UUID, uuid4
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import MetaData, Table, create_engine, insert, inspect, select, text, update
+from sqlalchemy import (
+    MetaData,
+    Table,
+    create_engine,
+    insert,
+    inspect,
+    select,
+    text,
+    update,
+)
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.orm import Session
 
 from polycolab.db.models import (
     SqlAgentRun,
-    SqlAgentSession,
     SqlContributionEnvelope,
     SqlExecutionClassState,
     SqlExecutionFairnessState,
@@ -24,7 +32,6 @@ from polycolab.db.models import (
     SqlObjectRevision,
     SqlOutboxEvent,
     SqlPlatformAgentVersion,
-    SqlProject,
     SqlRecordRevision,
     SqlResearchObject,
     SqlResearchScope,
@@ -36,11 +43,22 @@ from polycolab.platform.outbox import canonical_digest
 
 
 def populate(connection: Connection, repository_root: Path) -> None:
+    # Reflected SQLite UUID columns are strings; PostgreSQL UUID columns use UUID objects.
+    def key(value: Any) -> Any:
+        return value.hex if connection.dialect.name == "sqlite" else value
+
     user, project, scope, contribution, obj, version, reference = [uuid4() for _ in range(7)]
     connection.execute(insert(SqlUser).values(id=user, issuer="cutover", subject=str(user)))
     connection.execute(
-        insert(SqlProject).values(
-            id=project, name="My workspace remains my name", created_by_user_id=user
+        Table("projects", MetaData(), autoload_with=connection)
+        .insert()
+        .values(
+            id=key(project),
+            name="My workspace remains my name",
+            created_by_user_id=key(user),
+            visibility="PRIVATE",
+            created_at=utc_now(),
+            updated_at=utc_now(),
         )
     )
     connection.execute(insert(SqlMembership).values(project_id=project, user_id=user, role="OWNER"))
@@ -102,10 +120,6 @@ def populate(connection: Connection, repository_root: Path) -> None:
     metadata = MetaData()
     refs = Table("workspace_references", metadata, autoload_with=connection)
     versions = Table("workspace_reference_versions", metadata, autoload_with=connection)
-
-    # Reflected SQLite UUID columns are strings; PostgreSQL UUID columns use UUID objects.
-    def key(value: Any) -> Any:
-        return value.hex if connection.dialect.name == "sqlite" else value
 
     connection.execute(
         refs.insert().values(
@@ -226,13 +240,20 @@ def populate_repository(connection: Connection, user: UUID, project: UUID, root:
         )
     )
     connection.execute(
-        insert(SqlAgentSession).values(
-            id=session_id,
-            project_id=project,
-            task_id=task,
-            agent_version_id=agent,
-            created_by_user_id=user,
+        Table("agent_sessions", MetaData(), autoload_with=connection)
+        .insert()
+        .values(
+            id=key(session_id),
+            project_id=key(project),
+            task_id=key(task),
+            agent_version_id=key(agent),
+            created_by_user_id=key(user),
             title="Private conversation",
+            status="ACTIVE",
+            next_message_sequence=0,
+            next_run_sequence=0,
+            created_at=utc_now(),
+            updated_at=utc_now(),
         )
     )
     connection.execute(
@@ -362,16 +383,20 @@ TABLES = (
 
 
 def snapshot(connection: Connection, *, renamed: bool = False) -> dict[str, list[Any]]:
-    # Compare the original identity columns; later migrations add account metadata.
-    user_columns = "id, issuer, subject, email, display_name, created_at, updated_at"
+    def historical_table(name: str) -> Any:
+        table = name.replace("workspace", "project") if renamed else name
+        quote = connection.dialect.identifier_preparer.quote
+        # New mode and visibility fields must not change any historical column.
+        columns = [
+            quote(c["name"])
+            for c in inspect(connection).get_columns(table)
+            if c["name"] not in {"workspace_mode", "is_shared", "username"}
+        ]
+        return text(f"SELECT {', '.join(columns)} FROM {quote(table)}")
+
     return {
         name: sorted(
-            connection.execute(
-                text(
-                    f"SELECT {user_columns if name == 'users' else '*'} "
-                    f"FROM {name.replace('workspace', 'project') if renamed else name}"
-                )
-            ).all(),
+            connection.execute(historical_table(name)).all(),
             key=str,
         )
         for name in TABLES
@@ -380,10 +405,20 @@ def snapshot(connection: Connection, *, renamed: bool = False) -> dict[str, list
 
 def assert_upgraded(connection: Connection, before: dict[str, list[Any]]) -> None:
     assert snapshot(connection, renamed=True) == before
+    assert connection.scalars(text("SELECT DISTINCT workspace_mode FROM projects")).all() == ["git"]
+    assert connection.scalars(text("SELECT DISTINCT is_shared FROM agent_sessions")).all() == [
+        False
+    ]
     inspector = inspect(connection)
     for table in inspector.get_table_names():
+        if table.startswith("linear_"):
+            continue
         assert "workspace" not in table
-        assert all("workspace" not in column["name"] for column in inspector.get_columns(table))
+        assert all(
+            "workspace" not in column["name"]
+            or (table, column["name"]) == ("projects", "workspace_mode")
+            for column in inspector.get_columns(table)
+        )
         for collection in (
             inspector.get_indexes(table),
             inspector.get_check_constraints(table),

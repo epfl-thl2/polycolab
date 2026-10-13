@@ -269,7 +269,7 @@ def claim(
                 if (
                     executor is None
                     or executor.incarnation != incarnation
-                    or executor.protocol_version != 5
+                    or executor.protocol_version != 6
                     or utc(executor.expires_at) <= utc_now()
                     or executor.image_digest != image_digest
                     or executor.sandbox_backend != sandbox_backend

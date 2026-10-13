@@ -51,6 +51,7 @@ class GuestChannel:
         self.process, self.model = process, model
         self.remaining = max_model_requests
         self.last_model_id = 0
+        self.buffered: list[dict[str, object]] = []
 
     async def send(self, message: dict[str, object]) -> None:
         await self._send("codex", message)
@@ -58,8 +59,8 @@ class GuestChannel:
     async def _send(self, kind: str, payload: dict[str, object]) -> None:
         await self.process.send(json.dumps({"kind": kind, "payload": payload}).encode() + b"\n")
 
-    async def checkpoint_repository(self) -> None:
-        await self._send("repository", {})
+    async def checkpoint_repository(self, *, idle: bool = False) -> None:
+        await self._send("repository", {"idle": idle})
         for _ in range(4096):
             data = await self.process.receive()
             if data is None:
@@ -70,11 +71,37 @@ class GuestChannel:
                 if not isinstance(payload, dict) or not isinstance(payload.get("commit"), str):
                     raise CodexFailure("repository_checkpoint_failed")
                 return
-            if frame.get("kind") != "codex":
+            if frame.get("kind") != "codex" or idle:
                 raise CodexFailure("repository_checkpoint_failed")
+            if isinstance(payload, dict):
+                self.buffered.append(payload)
         raise CodexFailure("repository_checkpoint_failed")
 
+    async def install_refresh(self, value: dict[str, object]) -> None:
+        bundle = base64.b64decode(str(value["bundle"]), validate=True)
+        if len(bundle) > 16 * 1024 * 1024:
+            raise CodexFailure("workspace_refresh_too_large")
+        for offset in range(0, len(bundle), 512_000):
+            await self._send(
+                "refresh-chunk",
+                {
+                    "reset": offset == 0,
+                    "data": base64.b64encode(bundle[offset : offset + 512_000]).decode(),
+                },
+            )
+        await self._send("refresh-install", {k: value[k] for k in ("base", "commit", "generation")})
+        raw = await self.process.receive()
+        if raw is None:
+            raise CodexFailure("workspace_refresh_failed")
+        frame = decode_frame(raw)
+        if frame.get("kind") != "refresh-install" or frame.get("payload") != {
+            "generation": value["generation"]
+        }:
+            raise CodexFailure("workspace_refresh_failed")
+
     async def receive(self) -> dict[str, object]:
+        if self.buffered:
+            return self.buffered.pop(0)
         while True:
             data = await self.process.receive()
             if data is None:

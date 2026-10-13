@@ -18,6 +18,7 @@
     size?: 'default' | 'sm';
   } = $props();
   const { api, records, auth } = projectContext();
+  let workspaceMode = $state<'linear' | 'git'>('linear');
   let visibility = $state<'PUBLIC' | 'PRIVATE'>('PUBLIC');
   let open = $state(false);
   let projects = $state<Awaited<ReturnType<typeof api.listProjects>>['items']>([]);
@@ -62,6 +63,7 @@
         ...(destination ? { project_id: destination } : {}),
         project_name: name.trim() || entry.object_version.content.title.slice(0, 200),
         project_visibility: visibility,
+        workspace_mode: workspaceMode,
       };
       const serialized = JSON.stringify(body);
       if (receipt?.body !== serialized) receipt = { body: serialized, key: crypto.randomUUID() };
@@ -113,6 +115,11 @@
             onclick={() => load(true)}>Load more projects</Button
           >{/if}
         {#if !destination}<Field.Label
+            >Workspace<NativeSelect bind:value={workspaceMode}
+              ><option value="linear">Linear history</option><option value="git">Git</option
+              ></NativeSelect
+            ></Field.Label
+          ><Field.Label
             >Project name<Input
               maxlength={200}
               bind:value={name}

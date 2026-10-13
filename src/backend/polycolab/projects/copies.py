@@ -26,6 +26,8 @@ def create(
     assert user_id is not None
     actor_key = f"human:{user_id}"
     body = payload.model_dump(mode="json")
+    if "workspace_mode" not in payload.model_fields_set:
+        body.pop("workspace_mode", None)
     if "project_name" not in payload.model_fields_set:
         # Historical default belongs only to retry serialization, never new names.
         body["project_name"] = "Research workspace"
@@ -56,6 +58,7 @@ def create(
                     description=None,
                     visibility=ProjectVisibility(payload.project_visibility),
                     commit=False,
+                    workspace_mode=payload.workspace_mode,
                 ).id
             project_id = destination_id
             records.project_access(session, project_id, user_id, write=True)

@@ -21,6 +21,10 @@ export default defineConfig(({ mode }) => {
       // them before navigation so discovery does not invalidate active imports.
       include: [
         'monaco-editor',
+        'yjs',
+        'y-monaco',
+        '@lucide/svelte/icons/x',
+        '@lucide/svelte/icons/chevron-down',
         'unified',
         'remark-parse',
         'remark-math',
@@ -53,7 +57,7 @@ export default defineConfig(({ mode }) => {
     ],
     server: {
       proxy: {
-        '/api': apiTarget,
+        '/api': { target: apiTarget, ws: true },
         '/auth': apiTarget,
         '/health': apiTarget,
       },

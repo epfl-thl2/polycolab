@@ -136,6 +136,22 @@ importers:
         specifier: 3.9.6
         version: 3.9.6
 
+  src/collaboration:
+    dependencies:
+      diff:
+        specifier: ^8.0.2
+        version: 8.0.4
+      yjs:
+        specifier: ^13.6.27
+        version: 13.6.33
+    devDependencies:
+      '@types/node':
+        specifier: 26.2.0
+        version: 26.2.0
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
   src/web:
     dependencies:
       '@fontsource-variable/inter':
@@ -201,6 +217,15 @@ importers:
       unified:
         specifier: ^11.0.5
         version: 11.0.5
+      y-monaco:
+        specifier: ^0.1.6
+        version: 0.1.6(monaco-editor@0.55.1)(yjs@13.6.33)
+      y-protocols:
+        specifier: ^1.0.7
+        version: 1.0.7(yjs@13.6.33)
+      yjs:
+        specifier: ^13.6.33
+        version: 13.6.33
     devDependencies:
       '@eslint/js':
         specifier: 10.0.1
@@ -2646,6 +2671,13 @@ packages:
         integrity: sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA==,
       }
 
+  diff@8.0.4:
+    resolution:
+      {
+        integrity: sha512-DPi0FmjiSU5EvQV0++GFDOJ9ASQUVFh5kD+OzOnYdi7n3Wpm9hWWGfB/O2blfHcMVTL5WkQXSnRiK9makhrcnw==,
+      }
+    engines: { node: '>=0.3.1' }
+
   dom-accessibility-api@0.5.16:
     resolution:
       {
@@ -3281,6 +3313,12 @@ packages:
         integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==,
       }
 
+  isomorphic.js@0.2.5:
+    resolution:
+      {
+        integrity: sha512-PIeMbHqMt4DnUP3MA/Flc0HElYjMXArsw1qwJZcm9sqR8mq3l8NYizFMty0pWwE/tzIGH3EKK5+jes5mAr85yw==,
+      }
+
   jiti@2.7.0:
     resolution:
       {
@@ -3401,6 +3439,14 @@ packages:
         integrity: sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==,
       }
     engines: { node: '>= 0.8.0' }
+
+  lib0@0.2.119:
+    resolution:
+      {
+        integrity: sha512-vh+TiejVy8Xm+hCdnRfn9BthGNvNUZdEXltNjVZL3TzRIKP3s1lnQh8pWd/Q0wCgY0FPAGVVjFF4ZiHUV3LFgA==,
+      }
+    engines: { node: '>=16' }
+    hasBin: true
 
   lightningcss-android-arm64@1.32.0:
     resolution:
@@ -5155,6 +5201,25 @@ packages:
         integrity: sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==,
       }
 
+  y-monaco@0.1.6:
+    resolution:
+      {
+        integrity: sha512-sYRywMmcylt+Nupl+11AvizD2am06ST8lkVbUXuaEmrtV6Tf+TD4rsEm6u9YGGowYue+Vfg1IJ97SUP2J+PVXg==,
+      }
+    engines: { node: '>=12.0.0', npm: '>=6.0.0' }
+    peerDependencies:
+      monaco-editor: '>=0.20.0'
+      yjs: ^13.3.1
+
+  y-protocols@1.0.7:
+    resolution:
+      {
+        integrity: sha512-YSVsLoXxO67J6eE/nV4AtFtT3QEotZf5sK5BHxFBXso7VDUT3Tx07IfA6hsu5Q5OmBdMkQVmFZ9QOA7fikWvnw==,
+      }
+    engines: { node: '>=16.0.0', npm: '>=8.0.0' }
+    peerDependencies:
+      yjs: ^13.0.0
+
   yaml-ast-parser@0.0.43:
     resolution:
       {
@@ -5182,6 +5247,13 @@ packages:
         integrity: sha512-tVpsJW7DdjecAiFpbIB1e3qxIQsE6NoPc5/eTdrbbIC4h0LVsWhnoa3g+m2HclBIujHzsxZ4VJVA+GUuc2/LBw==,
       }
     engines: { node: '>=12' }
+
+  yjs@13.6.33:
+    resolution:
+      {
+        integrity: sha512-q/UYvr1gOk4XII+Cu1CW2dINjYqJJFifTzogEaIARznrvX7uOlHsdTEXcnOBMuIsrCGEEKdNxi74kyMLZlKVfw==,
+      }
+    engines: { node: '>=16.0.0', npm: '>=8.0.0' }
 
   yocto-queue@0.1.0:
     resolution:
@@ -6795,6 +6867,8 @@ snapshots:
     dependencies:
       dequal: 2.0.3
 
+  diff@8.0.4: {}
+
   dom-accessibility-api@0.5.16: {}
 
   dompurify@3.2.7:
@@ -7236,6 +7310,8 @@ snapshots:
 
   isexe@2.0.0: {}
 
+  isomorphic.js@0.2.5: {}
+
   jiti@2.7.0: {}
 
   js-base64@3.9.3: {}
@@ -7305,6 +7381,10 @@ snapshots:
     dependencies:
       prelude-ls: 1.2.1
       type-check: 0.4.0
+
+  lib0@0.2.119:
+    dependencies:
+      isomorphic.js: 0.2.5
 
   lightningcss-android-arm64@1.32.0:
     optional: true
@@ -8488,6 +8568,17 @@ snapshots:
 
   xmlchars@2.2.0: {}
 
+  y-monaco@0.1.6(monaco-editor@0.55.1)(yjs@13.6.33):
+    dependencies:
+      lib0: 0.2.119
+      monaco-editor: 0.55.1
+      yjs: 13.6.33
+
+  y-protocols@1.0.7(yjs@13.6.33):
+    dependencies:
+      lib0: 0.2.119
+      yjs: 13.6.33
+
   yaml-ast-parser@0.0.43: {}
 
   yaml@1.10.3: {}
@@ -8495,6 +8586,10 @@ snapshots:
   yaml@2.9.0: {}
 
   yargs-parser@21.1.1: {}
+
+  yjs@13.6.33:
+    dependencies:
+      lib0: 0.2.119
 
   yocto-queue@0.1.0: {}
 

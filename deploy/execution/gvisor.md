@@ -124,7 +124,7 @@ before enabling production.
 
 Drain existing controllers before applying the `20261013_executors` PostgreSQL
 migration (`local_20261013_executors` for SQLite). Core and controller use private
-protocol 5. Set `RUNTIME_SANDBOX_BACKEND=gvisor`, `RUNTIME_SANDBOX_VERSION` to the
+protocol 6. Set `RUNTIME_SANDBOX_BACKEND=gvisor`, `RUNTIME_SANDBOX_VERSION` to the
 accepted runsc version, `RUNTIME_CODEX_IMAGE` to the same digest, and
 `HOSTED_AGENT_CAPACITY=1`. Configure object storage and then start the controller.
 Existing frozen run specs retain their microsandbox identity. They are not

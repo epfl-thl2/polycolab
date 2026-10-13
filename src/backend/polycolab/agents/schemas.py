@@ -60,7 +60,13 @@ class AgentRunSummary(ApiModel):
     cancel_requested_at: datetime | None
 
 
+class AgentSessionVisibility(RequestModel):
+    is_shared: bool
+
+
 class AgentSessionRead(ApiModel):
+    is_shared: bool = False
+    can_control: bool = True
     worktree_id: UUID | None = None
     task_id: UUID | None = None
     id: UUID

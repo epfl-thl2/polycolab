@@ -34,6 +34,7 @@ def test_launcher_runs_migration_before_core(tmp_path: Path, mode: str, worker: 
     assert calls[migration - 2][-3:] == ["stop", "worker", "core"]
     assert calls[-1][-1] == ("worker" if worker else "core")
     assert "--force-recreate" in calls[-1]
+    assert "collaboration" in calls[-1]
     assert all(
         args[:6] == ["compose", "--env-file", "private settings.env", "-f", "stack.yml", "-p"]
         for args in calls
@@ -89,7 +90,8 @@ def launch(
         "PATH": str(directory) + os.pathsep + os.environ["PATH"],
         "TEST_DOCKER_LOG": str(log),
         "TEST_LEGACY": legacy,
-        "TEST_SERVICES": "postgres\nobject-storage\ncore" + ("\nworker" if worker else ""),
+        "TEST_SERVICES": "postgres\nobject-storage\ncollaboration\ncore"
+        + ("\nworker" if worker else ""),
         "TEST_MIGRATION_EXIT": "17" if migration_failure else "0",
     }
     result = subprocess.run(

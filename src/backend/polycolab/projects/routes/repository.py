@@ -66,7 +66,14 @@ def state(
     instance = service(request, db, project_id, user.id)
     with instance.open() as git:
         commit = git.head(branch_name(branch))
-        writable = project_policy.can(tx, project_id, user.id, ProjectAction.CREATE_RESEARCH)
+        writable = (
+            project_policy.can(tx, project_id, user.id, ProjectAction.CREATE_RESEARCH)
+            and project_policy.require_scope(
+                tx, project_id, user.id, ProjectAction.VIEW
+            ).project.workspace_mode
+            == "git"
+            and not tx.linear.conversion_pending(project_id)
+        )
         if instance.store.branch_active(project_id, branch) or instance.store.branch_archived(
             project_id, branch
         ):

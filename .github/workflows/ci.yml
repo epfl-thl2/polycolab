@@ -37,3 +37,5 @@ jobs:
           cp deploy/docker/.env.example deploy/docker/.env
           docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml config --quiet
       - run: docker build -f src/backend/Dockerfile .
+      - run: docker build -f src/collaboration/Dockerfile .
+      - run: uv run --directory src/backend python ../../tests/system/run_local_mode.py linear.spec.ts

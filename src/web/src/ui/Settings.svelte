@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LinearConversion from './LinearConversion.svelte';
   import ConfirmAction from './ConfirmAction.svelte';
   import { Confirmation } from '../svelte-lib/confirmation.svelte';
   const confirmation = new Confirmation();
@@ -79,6 +80,7 @@
       {notice}
     </p>{/if}
   <div class="settings-stack">
+    <LinearConversion {project} />
     <section class="settings-section" aria-labelledby="project-details-heading">
       <div class="section-heading">
         <h2 id="project-details-heading">Project details</h2>

@@ -85,3 +85,31 @@ def checkpoint(
         git(project, "commit", "-m", "Save agent project files")
     git(project, "bundle", "create", str(output / "workspace.bundle"), f"refs/heads/{branch}")
     return git(project, "rev-parse", "HEAD")
+
+
+def require_idle(codex_pid: int) -> None:
+    # Background children also make a refresh unsafe, even after a tool reports completion.
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdigit() or int(entry.name) in {os.getpid(), codex_pid}:
+            continue
+        try:
+            if entry.stat().st_uid == os.getuid():
+                raise ValueError("workspace_processes_active")
+        except FileNotFoundError:
+            continue
+
+
+def refresh(
+    value: dict[str, str], bundle: bytes, base: str, commit: str, project: Path = Path("/workspace")
+) -> None:
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(dir="/tmp") as stream:
+        stream.write(bundle)
+        stream.flush()
+        git(project, "fetch", "--no-tags", stream.name, "refs/polycolab-checkout/input")
+    git(project, "merge-base", "--is-ancestor", base, commit)
+    git(project, "checkout", "-B", value["branch"], commit)
+    if git(project, "rev-parse", "HEAD") != commit:
+        raise ValueError("workspace_refresh_mismatch")
+    value["commit"] = base

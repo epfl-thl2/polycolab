@@ -123,7 +123,8 @@
       }}
     />{/await}
 {:else if section === 'sessions'}
-  {#if canWrite}{#await import('./Sessions.svelte')}<LoadingState>
+  {#if canWrite || project.workspace_mode === 'linear'}{#await import('./Sessions.svelte')}<LoadingState
+      >
         Opening private sessions…
       </LoadingState>{:then module}{#key selectedId}<module.default
           {projectId}

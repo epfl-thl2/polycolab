@@ -30,6 +30,7 @@ from polycolab.agents.schemas import (
     AgentRunSummary,
     AgentSessionCreate,
     AgentSessionRead,
+    AgentSessionVisibility,
     AgentTurnQueued,
     PlatformAgentRead,
 )
@@ -188,6 +189,7 @@ def _session_read(
     *,
     agents: dict[UUID, SqlPlatformAgentVersion] | None = None,
     latest_runs: dict[UUID, AgentRunSummary] | None = None,
+    viewer_id: UUID | None = None,
 ) -> AgentSessionRead:
     agent = (
         db.get(SqlPlatformAgentVersion, value.agent_version_id)
@@ -198,6 +200,8 @@ def _session_read(
         raise SessionNotFound
     return AgentSessionRead(
         id=value.id,
+        is_shared=value.is_shared,
+        can_control=viewer_id is None or viewer_id == value.created_by_user_id,
         task_id=value.task_id,
         worktree_id=value.task_id,
         project_id=value.project_id,
@@ -206,7 +210,9 @@ def _session_read(
         agent_version=agent.version,
         agent_display_name=agent.display_name,
         harness=value.harness,
-        system_prompt=value.system_prompt,
+        system_prompt=value.system_prompt
+        if viewer_id is None or viewer_id == value.created_by_user_id
+        else None,
         created_by_user_id=value.created_by_user_id,
         title=value.title,
         status=value.status,
@@ -225,8 +231,10 @@ def _session_participant(db: DbSession, *, value: SqlAgentSession, user_id: UUID
     membership = project_policy.membership(SqlAlchemyTransaction(db), value.project_id, user_id)
     return (
         membership is not None
-        and membership.role is not ProjectRole.READ_ONLY
-        and value.created_by_user_id == user_id
+        and (
+            (membership.role is not ProjectRole.READ_ONLY and value.created_by_user_id == user_id)
+            or value.is_shared
+        )
         and project_policy.can(
             SqlAlchemyTransaction(db), value.project_id, user_id, ProjectAction.VIEW
         )
@@ -306,14 +314,19 @@ def list_agent_sessions(
     scope = project_policy.require_scope(
         SqlAlchemyTransaction(db), project_id, user.id, ProjectAction.VIEW
     )
-    if scope.membership.role is ProjectRole.READ_ONLY:
+    if scope.project.workspace_mode == "git" and scope.membership.role is ProjectRole.READ_ONLY:
         raise AuthorizationDenied
     values = list(
         db.scalars(
             select(SqlAgentSession)
             .where(
                 SqlAgentSession.project_id == project_id,
-                SqlAgentSession.created_by_user_id == user.id,
+                or_(
+                    SqlAgentSession.is_shared.is_(True),
+                    SqlAgentSession.created_by_user_id == user.id,
+                )
+                if scope.membership.role is not ProjectRole.READ_ONLY
+                else SqlAgentSession.is_shared.is_(True),
             )
             .order_by(SqlAgentSession.updated_at.desc(), SqlAgentSession.id.desc())
         )
@@ -328,7 +341,10 @@ def list_agent_sessions(
         )
     }
     latest_runs = _latest_runs(db, [value.id for value in selected])
-    return [_session_read(db, value, agents=agents, latest_runs=latest_runs) for value in selected]
+    return [
+        _session_read(db, value, agents=agents, latest_runs=latest_runs, viewer_id=user.id)
+        for value in selected
+    ]
 
 
 @router.get(
@@ -341,6 +357,7 @@ def get_agent_session(session_id: UUID, db: DbSession, user: CurrentUser) -> Age
     return _session_read(
         db,
         _session_scope(db, session_id=session_id, user_id=user.id, action=ProjectAction.VIEW),
+        viewer_id=user.id,
     )
 
 
@@ -453,7 +470,13 @@ def post_agent_session_message(
 
     binding = SqlRepositoryStore(db).session(value.project_id, value.id)
     if (
-        binding.enabled
+        (
+            binding.enabled
+            or project_policy.require_scope(
+                SqlAlchemyTransaction(db), value.project_id, user.id, ProjectAction.VIEW
+            ).project.workspace_mode
+            == "linear"
+        )
         and payload.requested_authority is not None
         and payload.requested_authority.destination == "PUBLIC"
     ):
@@ -574,7 +597,7 @@ async def _run_event_stream(
                 if (
                     run is None
                     or parent is None
-                    or run.requested_by_user_id != user_id
+                    or (run.requested_by_user_id != user_id and not parent.is_shared)
                     or not _session_participant(db, value=parent, user_id=user_id)
                 ):
                     return
@@ -591,6 +614,8 @@ async def _run_event_stream(
                 db.close()
             for event in events:
                 cursor = event.cursor
+                if parent.created_by_user_id != user_id and event.kind.value.startswith("TOOL_"):
+                    continue
                 yield _event_bytes(event, str(event.cursor))
                 heartbeat_at = time.monotonic()
             if terminal and not events:
@@ -692,6 +717,10 @@ async def _session_event_stream(
                 db.close()
             for run, event in rows:
                 cursor = run.queue_sequence, event.cursor
+                if session_value.created_by_user_id != user_id and event.kind.value.startswith(
+                    "TOOL_"
+                ):
+                    continue
                 yield _event_bytes(event, f"{cursor[0]}:{cursor[1]}")
                 heartbeat_at = time.monotonic()
             if archived and active_runs is None and not rows:
@@ -738,3 +767,25 @@ def stream_agent_session_events(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
     )
+
+
+@router.patch(
+    "/agent-sessions/{session_id}/visibility",
+    response_model=AgentSessionRead,
+    operation_id="setAgentSessionVisibility",
+    tags=["agent-sessions"],
+)
+def set_session_visibility(
+    session_id: UUID, body: AgentSessionVisibility, db: DbSession, user: CurrentUser
+) -> AgentSessionRead:
+    value = _session_scope(db, session_id=session_id, user_id=user.id, action=ProjectAction.VIEW)
+    if value.created_by_user_id != user.id:
+        raise AuthorizationDenied
+    scope = project_policy.require_scope(
+        SqlAlchemyTransaction(db), value.project_id, user.id, ProjectAction.CREATE_RESEARCH
+    )
+    if scope.project.workspace_mode != "linear":
+        raise HTTPException(status_code=409, detail="linear_mode_required")
+    value.is_shared = body.is_shared
+    db.commit()
+    return _session_read(db, value, viewer_id=user.id)

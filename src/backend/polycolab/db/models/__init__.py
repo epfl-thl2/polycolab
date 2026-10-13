@@ -362,6 +362,25 @@ from polycolab.db.models.agent_library import (
 from polycolab.db.models.agent_library import (
     SqlAgentLibraryVersion as SqlAgentLibraryVersion,
 )
+from polycolab.db.models.linear import (
+    SqlLinearBatch as SqlLinearBatch,
+)
+from polycolab.db.models.linear import (
+    SqlLinearCheckpoint as SqlLinearCheckpoint,
+)
+from polycolab.db.models.linear import SqlLinearConversion as SqlLinearConversion
+from polycolab.db.models.linear import (
+    SqlLinearFile as SqlLinearFile,
+)
+from polycolab.db.models.linear import (
+    SqlLinearOperation as SqlLinearOperation,
+)
+from polycolab.db.models.linear import (
+    SqlLinearRun as SqlLinearRun,
+)
+from polycolab.db.models.linear import (
+    SqlLinearWorkspace as SqlLinearWorkspace,
+)
 from polycolab.db.models.project_tasks import SqlProjectTask as SqlProjectTask
 from polycolab.db.models.repositories import (
     SqlProjectRepository as SqlProjectRepository,

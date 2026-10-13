@@ -80,10 +80,15 @@ def create_project(
     description: str | None,
     visibility: ProjectVisibility,
     commit: bool = True,
+    workspace_mode: str = "git",
 ) -> Project:
     """Create project, scope and owner atomically in the caller's transaction."""
     project = transaction.projects.create_project(
-        creator_id=creator.id, name=name, description=description, visibility=visibility
+        creator_id=creator.id,
+        name=name,
+        description=description,
+        visibility=visibility,
+        workspace_mode=workspace_mode,
     )
     if commit:
         transaction.commit()

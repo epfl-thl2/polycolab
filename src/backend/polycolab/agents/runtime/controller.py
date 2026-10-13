@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
+from pathlib import Path
 
 from pydantic import ValidationError
 
@@ -120,10 +121,45 @@ class AgentController:
                 raise CodexFailure("runtime_api_invalid")
             return cursor
 
+        channel: GuestChannel | None = None
+        session: CodexSession | None = None
+        output_directory: Path | None = None
+
         async def tool(
             name: str, arguments: dict[str, object], invocation: str, cursor: int
         ) -> dict[str, object]:
             await checkpoint()
+            if name == "workspace_status":
+                return await self.gateway.workspace(claim, self.worker_id, "status")
+            if name == "workspace_refresh":
+                if (
+                    channel is None
+                    or session is None
+                    or output_directory is None
+                    or session.local_tools
+                ):
+                    return {"error": "workspace_tools_active"}
+                await channel.checkpoint_repository(idle=True)
+                files = await blocking(
+                    collect_outputs, output_directory, spec.limits, selected={"workspace.bundle"}
+                )
+                if len(files) != 1:
+                    raise CodexFailure("repository_checkpoint_failed")
+                prepared = await self.gateway.workspace(
+                    claim, self.worker_id, "refresh", data=files[0].data, key=prefix + invocation
+                )
+                if "error" in prepared:
+                    return prepared
+                await channel.install_refresh(prepared)
+                await self.gateway.workspace(
+                    claim, self.worker_id, "refresh-ack", generation=int(prepared["generation"])
+                )
+                return {
+                    "refreshed": True,
+                    "instruction": (
+                        "Shared files changed. Re-read affected files and rerun relevant checks."
+                    ),
+                }
             if name == "export_artifact":
                 try:
                     declaration = ExportDeclaration.model_validate(arguments)
@@ -148,6 +184,7 @@ class AgentController:
         deadline = claim.deadline_at
 
         async def run() -> str:
+            nonlocal channel, session, output_directory
             inputs = await self.gateway.inputs(claim, self.worker_id)
             async with self.runtime.agent(
                 name=f"agent-{claim.run_id}-{claim.lease_generation}",
@@ -159,6 +196,7 @@ class AgentController:
                 generation=claim.lease_generation,
                 worker_id=self.worker_id,
             ) as (process, output):
+                output_directory = output
                 channel = GuestChannel(process, model, spec.max_model_requests)
                 task = CodexTask(
                     claim.model_id,
@@ -167,12 +205,23 @@ class AgentController:
                         {
                             "role": "system",
                             "content": (
-                                "Read-only artifact inputs are mounted at /inputs/<artifact UUID>. "
+                                "Read-only artifact inputs are mounted at /inputs/<artifact "
+                                "UUID>. "
                                 "Available input filenames: " + ", ".join(sorted(inputs)) + ". "
                                 "Write downloadable files under /outputs and register each with "
                                 "export_artifact. "
                                 + (
-                                    "On success, /workspace files are saved as uncommitted changes "
+                                    "On success, /workspace changes are integrated atomically "
+                                    "into the shared linear project. "
+                                    "People and other agents can keep editing. Use "
+                                    "workspace_status and workspace_refresh "
+                                    "between commands to inspect and incorporate newer shared "
+                                    "changes. "
+                                    "A conflicting result is preserved for reconciliation. "
+                                    if claim.repository is not None
+                                    and claim.repository.get("mode") == "linear"
+                                    else "On success, /workspace files are saved as uncommitted "
+                                    "changes "
                                     "for human review. "
                                     "Keep the checkout on its original branch. Integrate subagent "
                                     "worktrees before finishing. Ignored files are not saved."
@@ -182,12 +231,21 @@ class AgentController:
                             ),
                         },
                     ],
-                    [*claim.tools, EXPORT_TOOL],
+                    [
+                        *claim.tools,
+                        EXPORT_TOOL,
+                        *(
+                            WORKSPACE_TOOLS
+                            if claim.repository and claim.repository.get("mode") == "linear"
+                            else []
+                        ),
+                    ],
                     max_tool_calls=claim.max_tool_calls,
                     max_argument_bytes=claim.max_tool_argument_bytes,
                     max_result_bytes=claim.max_tool_result_bytes,
                 )
-                answer = await CodexSession(channel, task, event, tool).run()
+                session = CodexSession(channel, task, event, tool)
+                answer = await session.run()
                 if claim.repository is not None:
                     await channel.checkpoint_repository()
                 await self.runtime.stop_agent(process)
@@ -282,3 +340,28 @@ class AgentController:
         except OSError:
             # Retain the journal for idempotent startup reconciliation.
             pass
+
+
+WORKSPACE_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": name,
+            "description": description,
+            "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+        },
+    }
+    for name, description in (
+        (
+            "workspace_status",
+            "Read shared workspace revision and paths changed since your fixed input snapshot. "
+            "Does not modify your files.",
+        ),
+        (
+            "workspace_refresh",
+            "Between commands, merge newer shared changes into your isolated directory. Stop "
+            "all background processes first. Conflicts leave your files unchanged. Re-read "
+            "files and rerun checks after success.",
+        ),
+    )
+]
