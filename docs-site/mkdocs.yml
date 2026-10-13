@@ -85,6 +85,7 @@ nav:
   - Getting started: getting-started.md
   - Guides:
       - guides/index.md
+      - Agent library: agents.md
       - Projects and access: guides/projects.md
       - Research and revisions: guides/research.md
       - Collaboration and evidence: guides/collaboration-and-evidence.md

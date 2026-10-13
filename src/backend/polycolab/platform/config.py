@@ -269,6 +269,8 @@ class Settings(BaseSettings):
     verification_controller_poll_seconds: float = Field(default=0.25, gt=0, le=5)
     verification_api_max_request_bytes: int = Field(default=262_144, ge=1, le=10_000_000)
     verification_api_max_response_bytes: int = Field(default=1_000_000, ge=1, le=20_000_000)
+    agent_library_moderator_subjects: list[str] = Field(default_factory=list)
+
     catalogue_operator_subjects: list[str] = Field(default_factory=list)
     feature_agent_execution_enabled: bool = False
     execution_user_requests_per_minute: int = Field(default=30, ge=0, le=10_000)

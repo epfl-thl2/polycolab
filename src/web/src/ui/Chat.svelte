@@ -98,7 +98,7 @@
       <h2>Work with an agent today</h2>
       <p>Connect an external agent running on your own machine or infrastructure.</p>
       <div class="chat-links">
-        <Button href="/agents">Connect an external agent</Button><Button
+        <Button href="/agents/connections">Connect an external agent</Button><Button
           href="/projects?scope=public"
           variant="outline">Browse projects</Button
         >

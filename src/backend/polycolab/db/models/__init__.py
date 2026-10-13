@@ -181,6 +181,10 @@ from polycolab.entities.enums import VerificationOutputRole as VerificationOutpu
 from polycolab.entities.enums import VerificationReservationState as VerificationReservationState
 
 __all__ = [
+    "SqlAgentLibraryEntry",
+    "SqlAgentLibraryDraft",
+    "SqlAgentLibraryVersion",
+    "SqlAgentLibraryModeration",
     "ProjectRole",
     "ProjectVisibility",
     "ResearchScopeKind",
@@ -346,6 +350,18 @@ __all__ = [
     "SqlProjectTask",
 ]
 
+from polycolab.db.models.agent_library import (
+    SqlAgentLibraryDraft as SqlAgentLibraryDraft,
+)
+from polycolab.db.models.agent_library import (
+    SqlAgentLibraryEntry as SqlAgentLibraryEntry,
+)
+from polycolab.db.models.agent_library import (
+    SqlAgentLibraryModeration as SqlAgentLibraryModeration,
+)
+from polycolab.db.models.agent_library import (
+    SqlAgentLibraryVersion as SqlAgentLibraryVersion,
+)
 from polycolab.db.models.project_tasks import SqlProjectTask as SqlProjectTask
 from polycolab.db.models.repositories import (
     SqlProjectRepository as SqlProjectRepository,

@@ -455,7 +455,7 @@
       Send the key in the Authorization header, never in a URL. You can revoke it from the list
       above when it is no longer needed.
     </p>
-    <a href="/docs/api/">API reference</a> · <a href="/agents">Agent profiles</a>
+    <a href="/docs/api/">API reference</a> · <a href="/agents/connections">Agent profiles</a>
   </section>
 </section>
 

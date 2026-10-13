@@ -227,7 +227,7 @@ test('public project, separate agent contribution, inspection, comment and revoc
   await page.getByRole('button', { name: 'Discussion', exact: true }).click();
   await expect(page.getByText('Human review after agent reload.')).toBeVisible();
 
-  const inspectionContext = await browser.newContext();
+  const inspectionContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
   try {
     const publicInspection = await inspectionContext.newPage();
     await publicInspection.goto(`/projects/${projectId}/objects/${objectId}`);
@@ -245,7 +245,7 @@ test('public project, separate agent contribution, inspection, comment and revoc
     await inspectionContext.close();
   }
 
-  await page.goto('/agents');
+  await page.goto('/agents/connections');
   await page.getByRole('link', { name: 'Browser research agent' }).click();
   await expect(page.getByRole('heading', { name: 'Browser research agent' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Public contributions' })).toBeVisible();
@@ -267,7 +267,7 @@ test('public project, separate agent contribution, inspection, comment and revoc
     ).status(),
   ).toBe(401);
 
-  const anonymous = await browser.newContext();
+  const anonymous = await browser.newContext({ baseURL: new URL(page.url()).origin });
   try {
     const publicPage = await anonymous.newPage();
     await publicPage.goto(`/projects/${projectId}/objects/${objectId}`);
@@ -283,5 +283,117 @@ test('public project, separate agent contribution, inspection, comment and revoc
     expect(await publicBytes.body()).toEqual(evidence);
   } finally {
     await anonymous.close();
+  }
+});
+
+test('agent library publishes, preserves private drafts, and makes attributed copies', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(90_000);
+  async function signUp(target: typeof page, label: string) {
+    const errors: string[] = [];
+    target.on('pageerror', (error) => errors.push(error.message));
+    await target.goto('/signup?returnTo=%2Fagents%2Fyours');
+    const configuration = await target.request.get('/auth/config');
+    expect(configuration.status()).toBe(200);
+    expect((await configuration.json()).registration_mode).toBe('open');
+    try {
+      await expect(target.getByLabel('Display name', { exact: true })).toBeVisible({
+        timeout: 15_000,
+      });
+    } catch (error) {
+      // This runs before credentials or private content are entered.
+      console.log(
+        'Error: library signup page did not initialize',
+        JSON.stringify({ errors, headings: await target.locator('h1').allTextContents() }),
+      );
+      throw error;
+    }
+    await target.getByLabel('Display name', { exact: true }).fill(label);
+    await target
+      .getByLabel('Username', { exact: true })
+      .fill(`library-${randomUUID().slice(0, 12)}`);
+    await target.getByLabel('Password', { exact: true }).fill('library-browser-password');
+    await target.getByLabel('Confirm password').fill('library-browser-password');
+    await target.getByRole('button', { name: 'Create account', exact: true }).click();
+    await expect(target).toHaveURL(/\/agents\/yours$/);
+  }
+  await signUp(page, 'Library Author');
+  await page.getByRole('link', { name: 'Contribute', exact: true }).click();
+  const title = `Proof inspection ${randomUUID().slice(0, 8)}`;
+  await page.getByLabel('Title', { exact: true }).fill(title);
+  await page
+    .getByLabel('Description', { exact: true })
+    .fill('Check each inference and assumption.');
+  await page
+    .getByLabel('Prompt text', { exact: true })
+    .fill('Inspect every inference in the selected proof.');
+  await page.getByLabel('License', { exact: true }).fill('CC-BY-4.0');
+  await page.getByRole('button', { name: 'Save draft', exact: true }).click();
+  await expect(page).toHaveURL(/\/agents\/yours\/[0-9a-f-]+\/edit$/);
+  const entryId = new URL(page.url()).pathname.split('/')[3]!;
+  const anonymous = await browser.newContext({ baseURL: new URL(page.url()).origin });
+  const second = await browser.newContext({ baseURL: new URL(page.url()).origin });
+  try {
+    const publicPage = await anonymous.newPage();
+    const privateRead = await publicPage.request.get(`/api/v1/agent-library/${entryId}/draft`);
+    expect(privateRead.status()).toBe(401);
+    expect((await publicPage.request.get(`/api/v1/agent-library/${entryId}`)).status()).toBe(404);
+    await page.getByRole('button', { name: 'Preview publication', exact: true }).click();
+    await page.getByRole('button', { name: 'Publish', exact: true }).click();
+    await expect(page.getByRole('status')).toContainText('Published version 1');
+    await page.getByRole('link', { name: 'View published version', exact: true }).first().click();
+    await expect(page).toHaveURL(/\/agents\/library\/[0-9a-f-]+\/versions\/[0-9a-f-]+$/);
+    const exactUrl = page.url();
+    const versionId = new URL(exactUrl).pathname.split('/')[5]!;
+    await publicPage.goto('/agents');
+    await publicPage.getByLabel('Search', { exact: true }).fill(title);
+    await publicPage.getByRole('button', { name: 'Search', exact: true }).click();
+    await publicPage.getByRole('link', { name: title, exact: true }).click();
+    await expect(
+      publicPage.getByText('Inspect every inference in the selected proof.', { exact: true }),
+    ).toBeVisible();
+    await publicPage.reload();
+    await expect(publicPage.getByRole('heading', { name: title, exact: true })).toBeVisible();
+    const copyPage = await second.newPage();
+    await signUp(copyPage, 'Library Adapter');
+    await copyPage.goto(exactUrl);
+    await copyPage.getByRole('button', { name: 'Make a copy', exact: true }).click();
+    await expect(copyPage).toHaveURL(/\/agents\/yours\/[0-9a-f-]+\/edit$/);
+    await expect(
+      copyPage.getByRole('link', { name: 'View original version', exact: true }),
+    ).toHaveAttribute('href', `/agents/library/${entryId}/versions/${versionId}`);
+    await copyPage.reload();
+    await expect(copyPage.getByLabel('Prompt text', { exact: true })).toHaveValue(
+      'Inspect every inference in the selected proof.',
+    );
+    const copyId = new URL(copyPage.url()).pathname.split('/')[3]!;
+    expect((await publicPage.request.get(`/api/v1/agent-library/${copyId}`)).status()).toBe(404);
+    await page.goto(`/agents/yours/${entryId}/edit`);
+    await page
+      .getByLabel('Prompt text', { exact: true })
+      .fill('PRIVATE DRAFT — keep outside public views');
+    await page.getByRole('button', { name: 'Save draft', exact: true }).click();
+    await expect(page.getByRole('status')).toContainText('Private draft saved');
+    await publicPage.goto(exactUrl);
+    await expect(
+      publicPage.getByText('PRIVATE DRAFT — keep outside public views', { exact: true }),
+    ).toHaveCount(0);
+    await page.getByLabel('Prompt text', { exact: true }).fill('Second published instructions.');
+    await page.getByRole('button', { name: 'Preview publication', exact: true }).click();
+    await page.getByRole('button', { name: 'Publish', exact: true }).click();
+    await expect(page.getByRole('status')).toContainText('Published version 2');
+    await publicPage.reload();
+    await expect(
+      publicPage.getByText('Inspect every inference in the selected proof.', { exact: true }),
+    ).toBeVisible();
+    await publicPage.goto(`/agents/library/${entryId}`);
+    await expect(
+      publicPage.getByText('Second published instructions.', { exact: true }),
+    ).toBeVisible();
+  } finally {
+    await anonymous.close();
+    await second.close();
   }
 });

@@ -31,8 +31,9 @@
 <main id="main" class="page" tabindex="-1">
   <h1>External agents</h1>
   <p>
-    Manage keys in <a href="/settings/api-keys">Settings → API keys</a>. Agent identities and
-    contribution history persist when keys are rotated.
+    Manage keys in <a href="/settings/api-keys">Settings → API keys</a> and configure
+    <a href="/settings/model-providers">model providers</a>. Agent identities and contribution
+    history persist when keys are rotated.
   </p>
   {#if error}<p role="alert">{error}</p>
     <Button onclick={() => failedRead?.()}>Retry</Button>{/if}

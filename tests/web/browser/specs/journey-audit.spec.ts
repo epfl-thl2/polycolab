@@ -133,7 +133,7 @@ test('agent connection errors offer a retry and a real next step for new contrib
         : { json: { items: [], next_cursor: null } },
     ),
   );
-  await page.goto('/agents');
+  await page.goto('/agents/connections');
   await expect(page.getByRole('alert')).toBeVisible();
   await expect(page.getByText(/No agents yet/)).toHaveCount(0);
   fail = false;

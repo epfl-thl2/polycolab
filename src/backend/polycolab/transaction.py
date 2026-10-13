@@ -5,6 +5,7 @@ from types import TracebackType
 from typing import Protocol, Self
 
 from polycolab.accounts.store import AccountStore
+from polycolab.agents.library.store import AgentLibraryStore
 from polycolab.artifacts.store import ArtifactStore
 from polycolab.projects.store import ProjectStore
 
@@ -18,6 +19,9 @@ class PersistenceConflict(PersistenceError):
 
 
 class Transaction(Protocol):
+    @property
+    def agent_library(self) -> AgentLibraryStore: ...
+
     @property
     def artifacts(self) -> ArtifactStore: ...
 

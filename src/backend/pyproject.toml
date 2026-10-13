@@ -19,6 +19,7 @@ dependencies = [
   "sqlalchemy>=2.0,<2.1",
   "structlog>=25.5,<26",
   "uvicorn[standard]>=0.41,<0.42",
+  "pyyaml>=6,<7",
 ]
 
 [project.optional-dependencies]
@@ -32,6 +33,7 @@ dev = [
   "mypy>=1.19,<2",
   "pytest>=9,<10",
   "ruff>=0.15,<0.16",
+  "types-pyyaml>=6,<7",
 ]
 
 [tool.ruff]

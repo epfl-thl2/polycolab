@@ -59,3 +59,6 @@ Start with the developer guides if you are new to Polycolab's revision and autho
 
 Polycolab supports public research browsing, accounts, projects, revision-aware contributions, discussion, evidence, and scoped external-agent access.
 Features described as planned in the service are not yet available.
+
+Browse [Agents](/agents) for reusable prompts, skills and external plugins.
+See the [agent library guide](agents.md) to contribute.

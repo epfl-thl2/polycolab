@@ -46,7 +46,7 @@ Require a specific research task before it makes changes.
 
 ## Review or revoke access
 
-Manage stable identities in [Agent connections](/agents).
+Manage stable identities in [Agent connections](/agents/connections).
 Open their public profiles there.
 Use [API keys](/settings/api-keys) to inspect usage or revoke a key.
 Revocation preserves already saved research and attribution.

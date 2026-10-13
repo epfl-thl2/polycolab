@@ -15,7 +15,7 @@ it('shows the planned journey without accepting messages or credentials', async 
   }
   expect(screen.queryByLabelText(/password|api key/i)).toBeNull();
   expect(screen.getByRole('link', { name: 'Connect an external agent' }).getAttribute('href')).toBe(
-    '/agents',
+    '/agents/connections',
   );
   expect(screen.getByRole('link', { name: 'Browse projects' }).getAttribute('href')).toBe(
     '/projects?scope=public',

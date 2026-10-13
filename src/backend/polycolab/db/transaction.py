@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from polycolab.db.errors import persistence_boundary
 from polycolab.db.stores.accounts import SqlAccountStore
+from polycolab.db.stores.agent_library import SqlAgentLibraryStore
 from polycolab.db.stores.artifacts import SqlArtifactStore
 from polycolab.db.stores.projects import SqlProjectStore
 from polycolab.transaction import PersistenceConflict, PersistenceError, TransactionFactory
@@ -20,6 +21,7 @@ class SqlAlchemyTransaction:
         self._session = session
         self._close_on_exit = close_on_exit
         self.accounts = SqlAccountStore(session)
+        self.agent_library = SqlAgentLibraryStore(session)
         self.artifacts = SqlArtifactStore(session)
         self.projects = SqlProjectStore(session)
 

@@ -66,8 +66,13 @@ def test_openapi_has_versioned_operations_security_and_error_envelopes(client: T
 
 def test_research_version_contract_has_no_legacy_revision_fields() -> None:
     document = json.loads(serialized_openapi())
-    # These are independent note/summary histories, not research object versions.
+    # These are independent draft, file, note and summary histories.
     independent_histories = {
+        "LibraryArchiveWrite": {"expected_revision"},
+        "LibraryDraftWrite": {"expected_revision"},
+        "LibraryEntryRead": {"revision"},
+        "LibraryModerateWrite": {"expected_revision"},
+        "LibraryRevisionWrite": {"expected_revision"},
         "RepositoryRunState": {"input_revision", "output_revision"},
         "RepositoryMerge": {"expected_target_revision", "expected_source_revision"},
         "RepositoryMergePreview": {"target_revision", "source_revision"},

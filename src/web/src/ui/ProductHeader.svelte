@@ -112,7 +112,7 @@
               : active === 'docs'
                 ? 'Docs'
                 : active === 'agents'
-                  ? 'Agent connections'
+                  ? 'Agents'
                   : active === 'settings'
                     ? 'Settings'
                     : active === 'profile'
@@ -223,6 +223,7 @@
         <a href="/chat" aria-current={active === 'chat' ? 'page' : undefined}
           >Chat <PlannedBadge /></a
         >
+        <a href="/agents" aria-current={active === 'agents' ? 'page' : undefined}>Agents</a>
         <div
           class="product-docs-menu"
           role="group"
@@ -359,6 +360,7 @@
             {@render menuLink(projectsHref, 'Projects', active === 'projects')}
             {@render menuLink('/activity', 'Activity', active === 'activity')}
             {@render menuLink('/chat', 'Chat', active === 'chat')}
+            {@render menuLink('/agents', 'Agents', active === 'agents')}
             <DropdownMenu.Separator />
             <DropdownMenu.GroupHeading>Docs</DropdownMenu.GroupHeading>
             {@render menuLink('/docs/', 'Docs', active === 'docs')}

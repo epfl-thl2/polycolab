@@ -25,6 +25,10 @@ A real local account creates a public project and reveals a one-time credential.
 A separate credential-only HTTP context saves attributable research versions, a relationship, a comment and committed evidence, and receives 401 after human revocation.
 A fresh anonymous browser context still reads the exact research, comment and evidence bytes afterward.
 No API response is mocked.
+The same browser gate covers Agents library publication, private draft isolation, and attributed copies.
+Set `POLYCOLAB_RESEARCH_BROWSER_GREP="agent library"` with `POLYCOLAB_RESEARCH_BROWSER=1` to select that journey without running the other browser cases.
+After successfully running `pnpm run web:build` for the current source, set `POLYCOLAB_RESEARCH_REUSE_WEB_BUILD=1` to reuse those compiled assets instead of rebuilding inside the timed harness.
+Rebuild before using this option whenever browser source or documentation changes.
 
 This credential-bearing browser gate explicitly disables traces and places any failure artifacts in a private temporary directory removed when the harness exits.
 Do not enable persistent traces or publish DOM snapshots of the one-time secret.

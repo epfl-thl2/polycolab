@@ -44,7 +44,7 @@ Its actions use this order:
 6. Moderation.
 7. Sign out.
    Mobile uses the same account actions in a scrollable menu constrained to the viewport.
-   Agent connections remains accessible at `/agents` but is not in the account menu.
+   Agent connections remains accessible at `/agents/connections` but is not in the account menu.
    The available identity response does not expose a moderation capability, so the existing Moderation link remains visible.
    Its page explains the restriction and the API authorizes writes.
 
@@ -733,7 +733,7 @@ Older hash-only keys remain usable but require replacement to enable reveal.
 Revocation uses a row menu and confirmation dialog.
 Connection instructions are collapsed below the table.
 
-`/agents` links to key settings and retains project run history.
+`/agents/connections` links to key settings and retains project run history.
 The component holds the secret only in memory.
 It clears the secret when the dialog closes or navigation/account changes.
 See the [shared API contract](external-agent-api.md) for live membership reach, private shared research, immutable run destinations, and human-only boundaries.
@@ -825,3 +825,8 @@ identity, and bounded local storage restoration. Session API/store tests cover
 latest-run summaries, batching, and private requester access. These checks do not
 establish real-service browser behavior or deployment verification for the new
 shell. See [project files](project-files.md) for persistence and authority.
+
+## Agents library
+
+Agents is a public navigation destination at `/agents`, with Library, Yours and Connections.
+See the [agent library contract](agent-library.md) for contribution, versioning and moderation.

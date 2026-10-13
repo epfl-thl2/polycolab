@@ -7,7 +7,7 @@ from typing import Any
 
 REFERENCE_GROUPS = [
     {"name": "Access", "tags": ["identity", "agent-identities", "agent-keys"]},
-    {"name": "Discovery", "tags": ["search", "catalogue", "projects"]},
+    {"name": "Discovery", "tags": ["search", "catalogue", "projects", "agent-library"]},
     {
         "name": "Research",
         "tags": [
@@ -50,6 +50,11 @@ REFERENCE_GROUPS = [
 ]
 
 REFERENCE_TAGS = {
+    "agent-library": {
+        "name": "agent-library",
+        "x-displayName": "Agent library",
+        "description": "Public prompts, skills and plugin listings with human-owned drafts.",
+    },
     "agent-identities": {
         "name": "agent-identities",
         "x-displayName": "Agent identities",
@@ -251,6 +256,20 @@ REFERENCE_TAGS = {
 }
 
 OPERATION_SECTIONS = {
+    "listAgentLibrary": "agent-library",
+    "listOwnedAgentLibrary": "agent-library",
+    "createAgentLibraryEntry": "agent-library",
+    "getAgentLibraryDraft": "agent-library",
+    "updateAgentLibraryDraft": "agent-library",
+    "publishAgentLibraryEntry": "agent-library",
+    "copyAgentLibraryEntry": "agent-library",
+    "archiveAgentLibraryEntry": "agent-library",
+    "getAgentLibraryModerationState": "agent-library",
+    "moderateAgentLibraryEntry": "agent-library",
+    "getAgentLibraryEntry": "agent-library",
+    "listAgentLibraryVersions": "agent-library",
+    "getAgentLibraryVersion": "agent-library",
+    "downloadAgentLibrarySkill": "agent-library",
     "listWorktrees": "projects",
     "createWorktree": "projects",
     "getWorktree": "projects",

@@ -20,13 +20,14 @@ The [roadmap](../roadmap.md) identifies unfinished work.
 
 ## Guides
 
-| Document                                         | Purpose                                            |
-| ------------------------------------------------ | -------------------------------------------------- |
-| [Functional requirements](functional.md)         | Core capabilities and user actions.                |
-| [Human interface](human-interface.md)            | User journeys and interaction principles.          |
-| [Shared Library](library.md)                     | Public statements, admission, and project copies.  |
-| [Agent interface](agent-interface.md)            | Agent contributions and permission boundaries.     |
-| [Non-functional requirements](non-functional.md) | Essential integrity, privacy, and usability rules. |
+| Document                                         | Purpose                                                     |
+| ------------------------------------------------ | ----------------------------------------------------------- |
+| [Functional requirements](functional.md)         | Core capabilities and user actions.                         |
+| [Human interface](human-interface.md)            | User journeys and interaction principles.                   |
+| [Shared Library](library.md)                     | Public statements, admission, and project copies.           |
+| [Agent library](agents-library.md)               | Reusable prompts, skills, plugin listings and contribution. |
+| [Agent interface](agent-interface.md)            | Agent contributions and permission boundaries.              |
+| [Non-functional requirements](non-functional.md) | Essential integrity, privacy, and usability rules.          |
 
 ## Product boundaries
 

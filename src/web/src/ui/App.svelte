@@ -109,8 +109,8 @@
                   ? 'docs'
                   : path === '/connect'
                     ? 'connect'
-                    : path === '/agents'
-                      ? 'external-agents'
+                    : path === '/agents' || path.startsWith('/agents/')
+                      ? 'agent-library'
                       : path === '/projects' && projectScope === 'public'
                         ? 'public-projects'
                         : path === '/guide'
@@ -180,7 +180,7 @@
           docs: 'Documentation',
           connect: 'Connect',
           guide: 'Getting started',
-          'external-agents': 'Agent connections',
+          'agent-library': 'Agents',
           'public-projects': 'Projects',
           commons: 'Public research',
           recovery: 'Account recovery',
@@ -205,7 +205,7 @@
             ? ('explore' as const)
             : view === 'docs' || view === 'connect' || view === 'guide'
               ? ('docs' as const)
-              : view === 'external-agents'
+              : view === 'agent-library'
                 ? ('agents' as const)
                 : view === 'profile'
                   ? ('profile' as const)
@@ -226,7 +226,8 @@
 </script>
 
 <svelte:head
-  >{#if view !== 'library' && view !== 'project'}<title>{pageTitle} · Polycolab</title
+  >{#if view !== 'library' && view !== 'project' && view !== 'agent-library'}<title
+      >{pageTitle} · Polycolab</title
     >{/if}</svelte:head
 >
 
@@ -315,10 +316,12 @@
             data-sveltekit-reload>Open documentation</a
           >
         </main>
-      {:else if view === 'external-agents' && auth.signedIn}
-        {#await import('./ExternalAgents.svelte')}<main id="main" class="page" tabindex="-1">
-            <LoadingState>Opening agent connections…</LoadingState>
-          </main>{:then module}<module.default />{/await}
+      {:else if view === 'agent-library'}
+        {#key path + ':' + accountEpoch}
+          {#await import('./Agents.svelte')}<main id="main" class="page" tabindex="-1">
+              <LoadingState>Opening Agents…</LoadingState>
+            </main>{:then module}<module.default {path} {search} />{/await}
+        {/key}
       {:else if view === 'recovery'}
         {#if capabilities.enabled('email_recovery')}
           {#await import('./AccountRecovery.svelte') then module}<module.default

@@ -313,3 +313,12 @@ migrations before recreating core. The `pnpm run dev:docker` and
 `pnpm run dev:docker:apply` commands select `build` and `reuse`, respectively.
 For an upgrade failure, keep writers stopped and follow the recovery contract;
 do not automatically downgrade the database.
+
+## Agent library moderation
+
+Agents library access does not depend on hosted execution.
+Apply the PostgreSQL `20261013_agent_library` migration (or local SQLite `local_20261013_agent_library`) before running the matching application.
+Set `AGENT_LIBRARY_MODERATOR_SUBJECTS` to an explicit JSON list of verified human subjects allowed to hide and restore library entries.
+It defaults to an empty list and is separate from research and catalogue moderation authority.
+On the Moderation page, choose Agent library entry, enter its ID, load the current revision, and record a reason for hiding or restoring.
+Published versions remain immutable; restore a verified backup instead of downgrading away library history.

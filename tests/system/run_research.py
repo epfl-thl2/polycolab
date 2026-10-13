@@ -134,6 +134,7 @@ def main() -> int:
             env = {
                 **os.environ,
                 "APP_ENV": "local",
+                "WEB_DIST_DIR": str(ROOT / "src/web/dist"),
                 "AUTH_MODE": "local",
                 "BOOTSTRAP_ADMIN_PASSWORD": "Research-test-password-2026!",
                 "REGISTRATION_MODE": "open",
@@ -161,7 +162,11 @@ def main() -> int:
                 env=env,
             )
             browser_enabled = os.environ.get("POLYCOLAB_RESEARCH_BROWSER") == "1"
-            if browser_enabled:
+            reuse_browser_build = os.environ.get("POLYCOLAB_RESEARCH_REUSE_WEB_BUILD") == "1"
+            if browser_enabled and reuse_browser_build:
+                if not (ROOT / "src/web/dist/index.html").is_file():
+                    raise RuntimeError("production_browser_build_required")
+            if browser_enabled and not reuse_browser_build:
                 command(
                     ["pnpm", "run", "web:build"],
                     cwd=ROOT,
@@ -187,7 +192,8 @@ def main() -> int:
             with httpx.Client(
                 base_url=origin, headers={"Origin": origin}, timeout=10, trust_env=False
             ) as human:
-                for _ in range(100):
+                ready_deadline = time.monotonic() + 60
+                while time.monotonic() < ready_deadline:
                     if api.poll() is not None:
                         raise RuntimeError("api_start_failed")
                     try:
@@ -198,6 +204,14 @@ def main() -> int:
                     time.sleep(0.2)
                 else:
                     raise RuntimeError("api_ready_timeout")
+
+                if browser_enabled:
+                    browser_entry = human.get("/signup")
+                    if (
+                        browser_entry.status_code != 200
+                        or "text/html" not in browser_entry.headers.get("content-type", "")
+                    ):
+                        raise RuntimeError("production_browser_entry_unavailable")
 
                 def post(path: str, body: dict):
                     response = human.post(
@@ -468,6 +482,11 @@ def main() -> int:
                             "--config",
                             str(ROOT / "tests/system/playwright.config.ts"),
                             str(ROOT / "tests/system/specs/public-agent-real-service.spec.ts"),
+                            *(
+                                ["--grep", os.environ["POLYCOLAB_RESEARCH_BROWSER_GREP"]]
+                                if os.environ.get("POLYCOLAB_RESEARCH_BROWSER_GREP")
+                                else []
+                            ),
                             "--trace",
                             "off",
                             "--output",
@@ -481,16 +500,14 @@ def main() -> int:
                             "POLYCOLAB_INTEGRATION_RESEARCH": "1",
                         },
                     )
-                    print(
-                        "PASS: production browser public project, external agent, "
-                        "inspection and revocation"
-                    )
+                    print("PASS: selected production browser journeys")
             command(
                 [
                     sys.executable,
                     "-m",
                     "pytest",
                     "../../tests/backend/test_external_agents_postgresql.py",
+                    "../../tests/backend/test_agent_library_postgresql.py",
                     "../../tests/backend/test_project_migration.py",
                     "-q",
                 ],
