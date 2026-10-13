@@ -1,4 +1,6 @@
 # Host service configuration; no database URL or inline secrets.
+backend = "microsandbox"
+sandbox_version = "0.6.18"
 api_url = "http://127.0.0.1:8000"
 poll_seconds = 5.0
 capacity = 4

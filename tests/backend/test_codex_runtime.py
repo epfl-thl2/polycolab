@@ -603,6 +603,8 @@ def test_hosted_controller_stops_before_collecting_only_declared_files(
     gateway.export.side_effect = lambda *args: actions.append("uploaded")
     image = ImagePolicy(spec().image, "AGENT", "0.154.0", "b" * 64, "c" * 64, "test")
     runtime = SimpleNamespace(
+        backend="microsandbox",
+        version="0.6.18",
         images={spec().image.rsplit(":", 1)[-1]: image},
         agent=attempt,
         stop_agent=stopped,
@@ -627,7 +629,7 @@ def test_hosted_controller_stops_before_collecting_only_declared_files(
         from dataclasses import replace
 
         claim = replace(claim, repository={"branch": f"sessions/{uuid4()}", "commit": "a" * 40})
-    asyncio.run(AgentController(gateway, runtime, "hosted").execute(claim))  # type: ignore[arg-type]
+    asyncio.run(AgentController(gateway, runtime, "hosted").execute(claim))
     if provider_error:
         gateway.export.assert_not_awaited()
         gateway.save_repository.assert_not_awaited()
@@ -649,3 +651,22 @@ def test_hosted_controller_stops_before_collecting_only_declared_files(
         assert gateway.save_repository.call_args.args[-1] == b"repository bundle"
     gateway.export.assert_awaited_once()
     assert gateway.export.call_args.args[-1] == b"result"
+
+
+def test_native_codex_client_metadata_is_not_forwarded_to_provider() -> None:
+    payload = validated_request(
+        {
+            "model": "test",
+            "stream": True,
+            "store": False,
+            "input": [{"role": "user", "content": "Synthetic native prompt"}],
+            "client_metadata": {"local_identifier": "not-provider-input"},
+        },
+        model="test",
+        max_output_tokens=100,
+        max_input_bytes=1024,
+    )
+    assert "client_metadata" not in payload
+    assert "not-provider-input" not in json.dumps(payload)
+    assert payload["store"] is False
+    assert payload["max_output_tokens"] == 100

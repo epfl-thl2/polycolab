@@ -63,7 +63,7 @@ class RuntimeRequest(BaseModel):
     engine: Literal["builtin", "codex"] = "builtin"
     incarnation: str | None = Field(default=None, max_length=36)
     slot_id: int | None = Field(default=None, ge=0, le=63)
-    protocol_version: int = 4
+    protocol_version: int = 5
 
 
 class LeaseRequest(RuntimeRequest):
@@ -202,7 +202,7 @@ def _finish_claim_failure(session: Session, run: SqlAgentRun, worker_id: str, co
 @router.post("/claims", response_model=None)
 def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str, object]:
     _authorize_worker(request)
-    if payload.engine == "codex" and payload.protocol_version != 4:
+    if payload.engine == "codex" and payload.protocol_version != 5:
         raise RuntimeApiConflict("executor_protocol_mismatch")
     settings = request.app.state.settings
     session = request.app.state.session_factory()
@@ -230,7 +230,9 @@ def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str
                 if (
                     executor is None
                     or payload.incarnation != executor.incarnation
-                    or payload.protocol_version != 4
+                    or payload.protocol_version != 5
+                    or executor.sandbox_backend != settings.runtime_sandbox_backend
+                    or executor.sandbox_version != settings.runtime_sandbox_version
                     or payload.slot_id is None
                     or utc(executor.expires_at) <= utc_now()
                     or executor.image_digest
@@ -242,6 +244,8 @@ def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str
                 session,
                 worker_id=payload.worker_id,
                 lease_seconds=settings.runtime_lease_seconds,
+                sandbox_backend=settings.runtime_sandbox_backend,
+                sandbox_version=settings.runtime_sandbox_version,
                 capacity=settings.hosted_agent_capacity,
                 slot_id=payload.slot_id,
                 incarnation=payload.incarnation,
@@ -602,6 +606,10 @@ def confirm_runtime_termination(run_id: UUID, payload: LeaseRequest, request: Re
 
 
 class ExecutorReadiness(RuntimeRequest):
+    sandbox_backend: Literal["microsandbox", "gvisor"] = "microsandbox"
+    sandbox_version: str = Field(
+        default="0.6.18", min_length=1, max_length=128, pattern=r"^[a-zA-Z0-9._+-]+$"
+    )
     image_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     capacity: int = Field(ge=0, le=64)
     slot_states: dict[int, Literal["AVAILABLE", "BUSY", "QUARANTINED"]] = Field(
@@ -614,7 +622,13 @@ def executor_readiness(payload: ExecutorReadiness, request: Request) -> Response
     from polycolab.execution.hosts import HostConflict, advertise
 
     _authorize_worker(request)
-    configured = request.app.state.settings.runtime_codex_image
+    settings = request.app.state.settings
+    if (payload.sandbox_backend, payload.sandbox_version) != (
+        settings.runtime_sandbox_backend,
+        settings.runtime_sandbox_version,
+    ):
+        raise RuntimeApiConflict("runtime_backend_mismatch")
+    configured = settings.runtime_codex_image
     if configured is None or configured.rsplit("@sha256:", 1)[-1] != payload.image_digest:
         raise RuntimeApiConflict("runtime_image_mismatch")
     if payload.incarnation is None:
@@ -628,6 +642,8 @@ def executor_readiness(payload: ExecutorReadiness, request: Request) -> Response
                 image=payload.image_digest,
                 states=dict(payload.slot_states),
                 protocol=payload.protocol_version,
+                backend=payload.sandbox_backend,
+                version=payload.sandbox_version,
             )
         except HostConflict as exc:
             raise RuntimeApiConflict(str(exc)) from None

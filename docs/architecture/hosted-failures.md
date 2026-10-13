@@ -69,18 +69,35 @@ Capture versions, image digest, host resources, scenario, expected invariant and
 Record content-free identifiers and timing only.
 Do not remove the legacy worker or claim production readiness until these deployment gates pass.
 
-## Known controller defects queued for the next development iteration
+## Shared controller hardening
 
-The controller audit identified these unresolved failure cases:
+Read tools omit write-provenance headers; write tools retain their source cursor.
+Invalid guest Unicode and malformed claims become bounded protocol errors.
+Input preparation, output collection, journal acknowledgement and scratch removal
+run off the async loop. Cancellation joins filesystem work before cleanup.
+Startup retries transient readiness and termination-report failures; journal
+acknowledgement failures retain the record for an idempotent retry.
+Reconciliation includes retired slots after a capacity reduction. Claim responses
+are checked against the request interval, and elapsed transport time reduces the
+remaining lease budget.
 
-1. Read tools receive a write-provenance header and their rejection can stop the pool.
-2. Malformed guest Unicode and malformed claims can escape run-level error handling.
-3. Synchronous filesystem operations can block all heartbeats.
-4. Transient API failures during startup can leave the service stopped.
-5. Journal acknowledgement errors can escape after successful run completion.
-6. Reducing capacity can prevent reconciliation of old slot journals.
-7. Delayed claim responses can be mistaken for host clock skew.
+`test_executor_backends.py` covers backend identity, read/write provenance,
+malformed frames and claims, delayed responses, cancellation-safe filesystem work,
+retired slots, launch policy and quarantine. These regressions complement the
+native tests; they do not prove all host failure modes.
 
-The automated evidence above does not cover all these failures.
-Fix them with regressions before treating hosted delivery as accepted.
-Native acceptance is still outstanding.
+The Docker/gVisor native suite is separate from the microsandbox VM suite:
+
+```sh
+POLYCOLAB_GVISOR_TEST_CONFIG=/etc/polycolab-execution/controller.toml \
+  uv run --directory src/backend pytest ../../tests/execution/test_gvisor_native.py -v
+```
+
+Use an idle disposable host with two finite slots. The suite checks real Codex
+startup, offline networking, read-only inputs, output transfer, cleanup, independent
+deadlines with intact, truncated and removed journals, controller SIGKILL/reconciliation
+and cancellation without stopping the other slot. Journal restoration in these
+synthetic tests occurs only after observing termination; production recovery still
+requires valid journal records. Resource exhaustion,
+daemon outage, reboot and live-provider acceptance remain
+separate deployment gates.

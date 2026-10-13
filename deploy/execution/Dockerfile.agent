@@ -8,6 +8,7 @@ RUN test -x /usr/bin/python3 && npm install --global @openai/codex@0.154.0 \
     && codex --version | grep -Fx 'codex-cli 0.154.0' \
     && mkdir -p /workspace /inputs /outputs /opt/polycolab /home/agent \
     && chown -R 1000:1000 /workspace /outputs /home/agent
+COPY src/backend/polycolab/execution/guest_start.py /opt/polycolab/guest_start.py
 COPY src/backend/polycolab/execution/guest_bridge.py /opt/polycolab/guest_bridge.py
 COPY src/backend/polycolab/execution/guest_repository.py /opt/polycolab/guest_repository.py
 ENV HOME=/home/agent CODEX_HOME=/home/agent/.codex

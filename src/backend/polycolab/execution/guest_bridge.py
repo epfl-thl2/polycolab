@@ -50,7 +50,7 @@ def main() -> None:
                 body = json.loads(self.rfile.read(count))
                 if not isinstance(body, dict):
                     raise ValueError
-            except ValueError, UnicodeError:
+            except (ValueError, UnicodeError):
                 self.send_error(400)
                 return
             answer: queue.Queue[dict[str, object]] = queue.Queue(maxsize=1)
@@ -75,7 +75,7 @@ def main() -> None:
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
                 self.wfile.write(data)
-            except queue.Empty, ValueError, OSError:
+            except (queue.Empty, ValueError, OSError):
                 self.close_connection = True
             finally:
                 with pending_lock:

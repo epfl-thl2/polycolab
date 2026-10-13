@@ -12,7 +12,10 @@ class RuntimeSpec(BaseModel):
 
     engine: Literal["codex"] = "codex"
     engine_version: Literal["0.154.0"] = "0.154.0"
-    sandbox_version: Literal["0.6.18"] = "0.6.18"
+    sandbox_backend: Literal["microsandbox", "gvisor"] = "microsandbox"
+    sandbox_version: str = Field(
+        default="0.6.18", min_length=1, max_length=128, pattern=r"^[a-zA-Z0-9._+-]+$"
+    )
     image: str = Field(pattern=r"^[^\s]+@sha256:[0-9a-f]{64}$")
     policy_version: Literal[1] = 1
     max_model_requests: int = Field(default=4, ge=1, le=16)

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Install this wrapper, its Python module and configuration as root-owned files.
+exec /usr/bin/python3 /usr/local/libexec/polycolab-gvisor-host.py /etc/polycolab-execution/gvisor-host.json "$@"

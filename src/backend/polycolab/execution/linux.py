@@ -16,19 +16,32 @@ import stat
 import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from contextvars import ContextVar
 from datetime import UTC, datetime
 from importlib.metadata import version
 from pathlib import Path
 from uuid import uuid4
 
+from polycolab.execution.host_io import (
+    PipeProcess as PipeProcess,
+)
+from polycolab.execution.host_io import (
+    atomic_record as atomic_record,
+)
+from polycolab.execution.host_io import (
+    blocking,
+)
+from polycolab.execution.host_io import (
+    command as command,
+)
 from polycolab.execution.microsandbox import (
     MICROSANDBOX_VERSION,
     ImagePolicy,
     MicrosandboxRuntime,
     Process,
 )
+from polycolab.execution.runtime import SlotQuarantined as SlotQuarantined
 from polycolab.execution.sandbox import SandboxUnavailable
+from polycolab.execution.slots import SlotPool
 from polycolab.verification.contracts import ResourceLimits, validate_path
 
 
@@ -48,122 +61,14 @@ def isolated_executor() -> None:
         raise SandboxUnavailable("executor_cpu_unbounded")
 
 
-class SlotQuarantined(SandboxUnavailable):
-    pass
+class LinuxRuntime(MicrosandboxRuntime, SlotPool):
+    backend = "microsandbox"
+    version = MICROSANDBOX_VERSION
 
-
-def atomic_record(path: Path, value: dict[str, object]) -> None:
-    encoded = json.dumps(value, separators=(",", ":")).encode()
-    if len(encoded) > 16384:
-        raise SandboxUnavailable("attempt_journal_limit")
-    temporary = path.with_suffix(".tmp")
-    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
-    try:
-        remaining = memoryview(encoded)
-        while remaining:
-            written = os.write(fd, remaining)
-            if written <= 0:
-                raise OSError("attempt journal write failed")
-            remaining = remaining[written:]
-        os.fsync(fd)
-    finally:
-        os.close(fd)
-    os.replace(temporary, path)
-    fd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
-    try:
-        os.fsync(fd)
-    finally:
-        os.close(fd)
-
-
-class PipeProcess:
-    def __init__(self, process: asyncio.subprocess.Process, log_bytes: int) -> None:
-        self.process, self.remaining = process, log_bytes
-        self.unit: str | None = None
-
-    async def send(self, data: bytes) -> None:
-        if self.process.stdin is None:
-            raise SandboxUnavailable("executor_stdin_closed")
-        self.process.stdin.write(data)
-        await self.process.stdin.drain()
-
-    async def receive(self) -> bytes | None:
-        assert self.process.stdout is not None
-        try:
-            data = await self.process.stdout.readline()
-        except ValueError:
-            raise SandboxUnavailable("executor_frame_limit") from None
-        if not data:
-            return None
-        self.remaining -= len(data)
-        if self.remaining < 0:
-            raise SandboxUnavailable("executor_log_limit")
-        return data.rstrip(b"\n")
-
-    async def wait(self) -> int:
-        return await self.process.wait()
-
-
-async def command(
-    *args: str, timeout: float = 15, allow_missing: bool = False, env: dict[str, str] | None = None
-) -> bytes:
-    process = await asyncio.create_subprocess_exec(
-        *args,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.DEVNULL,
-        limit=65_536,
-        env=env,
-    )
-    try:
-        async with asyncio.timeout(timeout):
-            assert process.stdout is not None
-            data = bytearray()
-            while chunk := await process.stdout.read(4096):
-                if len(data) + len(chunk) > 65536:
-                    raise SandboxUnavailable("host_command_output_limit")
-                data.extend(chunk)
-            await process.wait()
-            stdout = bytes(data)
-    except BaseException:
-        process.kill()
-        await process.wait()
-        raise
-    if len(stdout) > 65_536 or (process.returncode != 0 and not allow_missing):
-        raise SandboxUnavailable("host_command_failed")
-    return stdout
-
-
-class LinuxRuntime(MicrosandboxRuntime):
     def __init__(self, state_dir: Path, images: tuple[ImagePolicy, ...], capacity: int) -> None:
         super().__init__(state_dir, images)
-        self.capacity = capacity
         self.images_checked = False
-        self.slots: asyncio.Queue[Path] = asyncio.Queue()
-        for ordinal in range(capacity):
-            self.slots.put_nowait(state_dir / "slots" / str(ordinal))
-        self.terminated: list[dict[str, object]] = []
-        self.states = {ordinal: "AVAILABLE" for ordinal in range(capacity)}
-        self.reserved: ContextVar[Path | None] = ContextVar("hosted_slot", default=None)
-
-    @asynccontextmanager
-    async def reserve(self) -> AsyncIterator[int | None]:
-        try:
-            slot = self.slots.get_nowait()
-            while self.states[int(slot.name)] == "QUARANTINED":
-                slot = self.slots.get_nowait()
-        except asyncio.QueueEmpty:
-            yield None
-            return
-        ordinal = int(slot.name)
-        self.states[ordinal] = "BUSY"
-        token = self.reserved.set(slot)
-        try:
-            yield ordinal
-        finally:
-            self.reserved.reset(token)
-            if self.states[ordinal] != "QUARANTINED":
-                self.states[ordinal] = "AVAILABLE"
-                self.slots.put_nowait(slot)
+        self.initialize_slots(capacity)
 
     async def check_ready(self) -> None:
         if platform.system() != "Linux" or platform.machine() != "x86_64":
@@ -174,9 +79,13 @@ class LinuxRuntime(MicrosandboxRuntime):
             raise SandboxUnavailable("kvm_unavailable")
         if not Path("/sys/fs/cgroup/cgroup.controllers").is_file():
             raise SandboxUnavailable("cgroup_v2_required")
+        devices: set[int] = set()
         for ordinal in range(self.capacity):
             slot = self.state_dir / "slots" / str(ordinal)
             info = slot.lstat()
+            if info.st_dev in devices:
+                raise SandboxUnavailable("distinct_slot_filesystems_required")
+            devices.add(info.st_dev)
             if (
                 not stat.S_ISDIR(info.st_mode)
                 or info.st_uid != os.geteuid()
@@ -254,11 +163,13 @@ class LinuxRuntime(MicrosandboxRuntime):
         self.terminated = []
         for record in sorted((self.state_dir / "attempts").glob("*.json")):
             value = json.loads(record.read_text())
+            if value.get("backend", "microsandbox") != self.backend:
+                raise SandboxUnavailable("journal_backend_mismatch")
             unit = value["unit"]
             if not isinstance(unit, str) or unit != f"polycolab-attempt-{record.stem}.service":
                 raise SandboxUnavailable("invalid_attempt_journal")
             ordinal = int(str(value["slot"]).rsplit("/", 1)[-1])
-            if not 0 <= ordinal < self.capacity or value["slot"] != str(
+            if not 0 <= ordinal < 64 or value["slot"] != str(
                 self.state_dir / "slots" / str(ordinal)
             ):
                 raise SandboxUnavailable("invalid_attempt_journal")
@@ -266,9 +177,11 @@ class LinuxRuntime(MicrosandboxRuntime):
                 await self._stop(unit)
                 work = self.state_dir / "slots" / str(ordinal) / "work"
                 if work.exists():
-                    shutil.rmtree(work)
+                    await blocking(shutil.rmtree, work)
                 self.terminated.append(value)
             except SandboxUnavailable, OSError:
+                if ordinal >= self.capacity:
+                    raise SandboxUnavailable("retired_slot_cleanup_unconfirmed") from None
                 self.states[ordinal] = "QUARANTINED"
         self.slots = asyncio.Queue()
         for ordinal, state in self.states.items():
@@ -309,40 +222,47 @@ class LinuxRuntime(MicrosandboxRuntime):
                 raise SandboxUnavailable("attempt_resource_mismatch")
             work = slot / "work"
             if work.exists():
-                shutil.rmtree(work)
-            work.mkdir(mode=0o700)
+                await blocking(shutil.rmtree, work)
             source, output = work / "inputs", work / "outputs"
-            source.mkdir()
-            output.mkdir()
-            if sum(map(len, inputs.values())) > 16 * 1024**2:
-                raise SandboxUnavailable("sandbox_input_limit_exceeded")
-            for path, data in inputs.items():
-                validate_path(path)
-                target = source / path
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(data)
-            config = {
-                "name": name,
-                "image": image.reference,
-                "limits": limits.model_dump(mode="json"),
-                "deadline": deadline.isoformat(),
-                "work": str(work),
-            }
-            (work / "attempt.json").write_text(json.dumps(config))
-            record.parent.mkdir(mode=0o700, exist_ok=True)
-            atomic_record(
-                record,
-                {
-                    "version": 1,
-                    "unit": unit,
-                    "run_id": run_id,
-                    "generation": generation,
-                    "worker_id": worker_id,
-                    "slot": str(slot),
-                },
-            )
+
+            def prepare() -> None:
+                work.mkdir(mode=0o700)
+                source.mkdir()
+                output.mkdir()
+                if sum(map(len, inputs.values())) > 16 * 1024**2:
+                    raise SandboxUnavailable("sandbox_input_limit_exceeded")
+                for path, data in inputs.items():
+                    validate_path(path)
+                    target = source / path
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(data)
+                config = {
+                    "name": name,
+                    "image": image.reference,
+                    "limits": limits.model_dump(mode="json"),
+                    "deadline": deadline.isoformat(),
+                    "work": str(work),
+                }
+                (work / "attempt.json").write_text(json.dumps(config))
+                record.parent.mkdir(mode=0o700, exist_ok=True)
+                atomic_record(
+                    record,
+                    {
+                        "version": 2,
+                        "backend": "microsandbox",
+                        "unit": unit,
+                        "run_id": run_id,
+                        "generation": generation,
+                        "worker_id": worker_id,
+                        "slot": str(slot),
+                    },
+                )
+
+            await blocking(prepare)
             # SDK image/cache/runtime writes all remain in this bounded slot.
-            cpu_quota = min(limits.cpu_count, limits.cpu_seconds / remaining) * 100
+            cpu_quota = int(min(limits.cpu_count, limits.cpu_seconds / remaining) * 100)
+            if cpu_quota < 1:
+                raise SandboxUnavailable("cpu_budget_below_host_quota_precision")
             process = await asyncio.create_subprocess_exec(
                 "systemd-run",
                 "--user",
@@ -355,7 +275,7 @@ class LinuxRuntime(MicrosandboxRuntime):
                 "--property=TimeoutStopSec=5",
                 f"--property=RuntimeMaxSec={remaining:.3f}",
                 f"--property=MemoryMax={limits.memory_bytes + 512 * 1024**2}",
-                f"--property=CPUQuota={cpu_quota:.3f}%",
+                f"--property=CPUQuota={cpu_quota}%",
                 "--property=TasksMax=256",
                 "--property=NoNewPrivileges=yes",
                 "--property=ProtectSystem=strict",
@@ -398,7 +318,7 @@ class LinuxRuntime(MicrosandboxRuntime):
                         await process.wait()
                 work = slot / "work"
                 if work.exists():
-                    shutil.rmtree(work)
+                    await blocking(shutil.rmtree, work)
                 stopped = True
 
             async def guarded_cleanup() -> None:
@@ -410,7 +330,8 @@ class LinuxRuntime(MicrosandboxRuntime):
                         atomic_record(
                             record,
                             {
-                                "version": 1,
+                                "version": 2,
+                                "backend": "microsandbox",
                                 "unit": unit,
                                 "run_id": run_id,
                                 "generation": generation,
@@ -448,9 +369,3 @@ class LinuxRuntime(MicrosandboxRuntime):
         await self._stop(process.unit)
         async with asyncio.timeout(5):
             await process.wait()
-
-    def acknowledge(self, run_id: str, generation: int) -> None:
-        for record in (self.state_dir / "attempts").glob("*.json"):
-            data = json.loads(record.read_text())
-            if data["run_id"] == run_id and data["generation"] == generation:
-                record.unlink()

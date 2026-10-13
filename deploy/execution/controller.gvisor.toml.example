@@ -1,0 +1,13 @@
+# Native Linux controller; start with one finite slot.
+backend = "gvisor"
+sandbox_version = "release-20261005.0"
+docker_socket = "/var/run/docker.sock"
+docker_runtime = "polycolab-runsc"
+host_helper = "/usr/local/libexec/polycolab-gvisor-host"
+api_url = "http://127.0.0.1:8000"
+capacity = 1
+poll_seconds = 5.0
+agent_credential_file = "/etc/polycolab-execution/agent-token"
+worker_id = "codex-gvisor"
+state_dir = "/var/lib/polycolab-execution"
+# Add the accepted digest-pinned [[images]] policy described in README.md.

@@ -11,7 +11,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from polycolab.agents.runtime.remote import RuntimeClaim, RuntimeGatewayError
 
@@ -35,6 +35,21 @@ class ClaimEnvelope(BaseModel):
     input_manifest: list[dict[str, Any]] = Field(default_factory=list)
     server_time: datetime | None = None
     repository: dict[str, str] | None = None
+
+    @field_validator("tools")
+    @classmethod
+    def valid_tool_definitions(cls, tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        for tool in tools:
+            function = tool.get("function")
+            if (
+                tool.get("type") != "function"
+                or not isinstance(function, dict)
+                or not isinstance(function.get("name"), str)
+                or not isinstance(function.get("description"), str)
+                or not isinstance(function.get("parameters"), dict)
+            ):
+                raise ValueError("invalid tool definition")
+        return tools
 
 
 class RuntimeClient:
@@ -106,7 +121,10 @@ class RuntimeClient:
         headers: dict[str, str] | None = None,
         timeout: float = 30,
     ) -> Any:
-        body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode()
+        try:
+            body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode()
+        except ValueError, TypeError, RecursionError:
+            raise RuntimeGatewayError("runtime_api_invalid") from None
         if len(body) > 400_000:
             raise RuntimeGatewayError("runtime_request_too_large")
         try:
@@ -132,6 +150,7 @@ class RuntimeClient:
                     if response.status_code >= 500:
                         raise RuntimeGatewayError("runtime_api_failed")
                     value = json.loads(data)
+                    json.dumps(value, ensure_ascii=False).encode("utf-8")
                     if response.status_code == 409:
                         code = (
                             value.get("error", {}).get("code", "lease_lost")
@@ -144,10 +163,12 @@ class RuntimeClient:
                     return value
         except httpx.HTTPError, TimeoutError:
             raise RuntimeGatewayError("runtime_api_unavailable") from None
-        except ValueError, TypeError, AttributeError:
+        except ValueError, TypeError, AttributeError, RecursionError:
             raise RuntimeGatewayError("runtime_api_invalid") from None
 
     async def claim(self, worker_id: str, *, slot_id: int | None = None) -> RuntimeClaim | None:
+        sent_at = datetime.now(UTC)
+        started = asyncio.get_running_loop().time()
         value = await self.post(
             "/internal/v1/runtime/claims",
             {
@@ -155,21 +176,29 @@ class RuntimeClient:
                 "engine": "codex",
                 "incarnation": self.incarnation,
                 "slot_id": slot_id,
-                "protocol_version": 4,
+                "protocol_version": 5,
             },
         )
         if value is None:
             return None
-        envelope = ClaimEnvelope.model_validate(value)
+        try:
+            envelope = ClaimEnvelope.model_validate(value)
+        except ValidationError:
+            raise RuntimeGatewayError("runtime_api_invalid") from None
+        elapsed = asyncio.get_running_loop().time() - started
         if envelope.server_time is not None and (
             envelope.server_time.tzinfo is None
-            or abs((datetime.now(UTC) - envelope.server_time).total_seconds()) > 5
+            or not sent_at - timedelta(seconds=5)
+            <= envelope.server_time
+            <= datetime.now(UTC) + timedelta(seconds=5)
         ):
             raise RuntimeGatewayError("host_clock_skew")
         if envelope.deadline_at.tzinfo is None:
             raise RuntimeGatewayError("runtime_api_invalid")
         fields = envelope.model_dump(exclude={"lease_seconds"})
-        return RuntimeClaim(**fields, lease_for=timedelta(seconds=envelope.lease_seconds))
+        return RuntimeClaim(
+            **fields, lease_for=timedelta(seconds=max(0, envelope.lease_seconds - elapsed))
+        )
 
     async def lease(self, claim: RuntimeClaim, worker_id: str, action: str, **payload: Any) -> Any:
         return await self.post(
@@ -200,13 +229,19 @@ class RuntimeClient:
         invocation: str,
         cursor: int,
     ) -> dict[str, object]:
+        from polycolab.agents.runtime.tool_policy import WRITE_TOOL_NAMES
+
         value = await self.post(
             "/internal/v1/tools/call",
             {"name": name, "arguments": arguments},
             headers={
                 "Authorization": f"Bearer {claim.tool_capability}",
                 "X-Polycolab-Tool-Invocation": invocation,
-                "X-Polycolab-Source-Event-Cursor": str(cursor),
+                **(
+                    {"X-Polycolab-Source-Event-Cursor": str(cursor)}
+                    if name in WRITE_TOOL_NAMES
+                    else {}
+                ),
             },
         )
         if not isinstance(value, dict):

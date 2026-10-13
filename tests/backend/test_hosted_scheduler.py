@@ -9,11 +9,12 @@ from uuid import UUID, uuid4
 import pytest
 from alembic import command
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import select, text
 from test_codex_runtime import spec
 from test_runtime_api import _queue_run
 from test_scheduling_foundation import scheduler_pg_schema as scheduler_pg_schema
 
+from polycolab.agents.runtime.spec import RuntimeSpec
 from polycolab.agents.sessions import append_user_message_and_queue_run, create_agent_session
 from polycolab.app.application import create_app
 from polycolab.db.models import SqlAgentRun, SqlExecutionSlotLease, SqlUser
@@ -39,7 +40,9 @@ def hosted_client(request: pytest.FixtureRequest, client: TestClient) -> Iterato
     app.state.engine.dispose()
 
 
-def new_hosted(client: TestClient, ancestor: UUID | None = None) -> UUID:
+def new_hosted(
+    client: TestClient, ancestor: UUID | None = None, *, runtime_spec: RuntimeSpec | None = None
+) -> UUID:
     app = cast(Any, client.app)
     if ancestor is None:
         _, ancestor = _queue_run(client)
@@ -64,7 +67,7 @@ def new_hosted(client: TestClient, ancestor: UUID | None = None) -> UUID:
             gateway_profile_id=previous.gateway_profile_id,
             content_md="Hosted execution",
             deadline_at=utc_now() + timedelta(minutes=5),
-            runtime_spec=spec().model_dump(mode="json"),
+            runtime_spec=(runtime_spec or spec()).model_dump(mode="json"),
         )
         return run.id
 
@@ -132,9 +135,9 @@ def test_executor_identity_and_quarantine_fence(hosted_client: TestClient) -> No
             db,
             worker_id="host",
             incarnation="current",
-            image="0" * 64,
+            image="a" * 64,
             states={0: "AVAILABLE", 1: "QUARANTINED"},
-            protocol=4,
+            protocol=5,
         )
 
         def attempt(incarnation: str, slot_id: int) -> SqlAgentRun | None:
@@ -147,7 +150,7 @@ def test_executor_identity_and_quarantine_fence(hosted_client: TestClient) -> No
                 capacity=4,
                 user_capacity=2,
                 project_capacity=2,
-                image_digest="0" * 64,
+                image_digest="a" * 64,
             )
 
         with pytest.raises(RuntimeApiConflict, match="executor_not_ready"):
@@ -160,9 +163,9 @@ def test_executor_identity_and_quarantine_fence(hosted_client: TestClient) -> No
             db,
             worker_id="host",
             incarnation="current",
-            image="0" * 64,
+            image="a" * 64,
             states={0: "QUARANTINED", 1: "QUARANTINED"},
-            protocol=4,
+            protocol=5,
         )
         from polycolab.execution.hosts import release_elapsed
 
@@ -215,13 +218,65 @@ def test_merge_upgrade_preserves_existing_branch_data(
     engine, config, _ = scheduler_pg_schema
     command.upgrade(config, previous_head)
     user_id = uuid4()
-    with Session(engine) as db:
-        db.add(SqlUser(id=user_id, issuer="merge-test", subject="retained-account"))
-        db.commit()
+    # Seed the historical schema without using today's mapped user columns.
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO users (id, issuer, subject, created_at, updated_at) "
+                "VALUES (:id, 'merge-test', 'retained-account', :now, :now)"
+            ),
+            {"id": user_id, "now": utc_now()},
+        )
     command.upgrade(config, "head")
     with Session(engine) as db:
         retained = db.get(SqlUser, user_id)
         assert retained is not None and retained.subject == "retained-account"
     from alembic.script import ScriptDirectory
 
-    assert ScriptDirectory.from_config(config).get_heads() == ["20261013_agent_library"]
+    assert ScriptDirectory.from_config(config).get_heads() == ["20261013_executors"]
+
+
+def test_claim_requires_frozen_backend_version_and_image(hosted_client: TestClient) -> None:
+    from polycolab.execution.hosts import advertise
+
+    run_id = new_hosted(
+        hosted_client,
+        runtime_spec=spec().model_copy(
+            update={"sandbox_backend": "gvisor", "sandbox_version": "release-test"}
+        ),
+    )
+    app = cast(Any, hosted_client.app)
+    with app.state.session_factory() as db:
+        for backend, version, image in (
+            ("microsandbox", "0.6.18", "a" * 64),
+            ("gvisor", "release-other", "a" * 64),
+            ("gvisor", "release-test", "b" * 64),
+            ("gvisor", "release-test", "a" * 64),
+        ):
+            advertise(
+                db,
+                worker_id="matching-host",
+                incarnation="current",
+                image=image,
+                states={0: "AVAILABLE"},
+                protocol=5,
+                backend=backend,
+                version=version,
+            )
+            claimed = allocator.claim(
+                db,
+                worker_id="matching-host",
+                incarnation="current",
+                slot_id=0,
+                lease_seconds=30,
+                capacity=1,
+                user_capacity=1,
+                project_capacity=1,
+                image_digest=image,
+                sandbox_backend=backend,
+                sandbox_version=version,
+            )
+            if (backend, version, image) == ("gvisor", "release-test", "a" * 64):
+                assert claimed is not None and claimed.id == run_id
+            else:
+                assert claimed is None

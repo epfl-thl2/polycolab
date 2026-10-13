@@ -34,3 +34,10 @@ This single-node fixture provides no replication or production recovery evidence
 `test_hosted_native.py` is opt-in on an idle disposable Linux execution account.
 It tests two actual VMs, cancellation containment, Codex initialization and work directory cleanup.
 See the [hosted failure matrix](../../docs/architecture/hosted-failures.md) for prerequisites, invocation and remaining provider/browser/resource gates.
+
+`test_gvisor_native.py` is the Docker/runsc counterpart. Set
+`POLYCOLAB_GVISOR_TEST_CONFIG` to an idle disposable gVisor controller configuration
+with two finite slots. It tests real Codex initialization, read-only inputs,
+offline networking, output transfer, cleanup, independent deadlines with intact,
+truncated and removed journals, controller SIGKILL/reconciliation and two-slot
+cancellation. See the [gVisor setup](../../deploy/execution/gvisor.md).

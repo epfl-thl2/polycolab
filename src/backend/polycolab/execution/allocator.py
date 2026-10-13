@@ -106,7 +106,13 @@ def _serialize(session: Session) -> SqlExecutionClassState:
 
 
 def _candidate(
-    session: Session, now: datetime, tenant_capacity: int, project_capacity: int
+    session: Session,
+    now: datetime,
+    tenant_capacity: int,
+    project_capacity: int,
+    sandbox_backend: str = "microsandbox",
+    sandbox_version: str = "0.6.18",
+    image_digest: str | None = None,
 ) -> SqlAgentRun | None:
     user = aliased(SqlExecutionFairnessState)
     project = aliased(SqlExecutionFairnessState)
@@ -188,6 +194,15 @@ def _candidate(
             & (project.tenant_id == SqlAgentRun.project_id),
         )
         .where(
+            func.coalesce(SqlAgentRun.runtime_spec["sandbox_backend"].as_string(), "microsandbox")
+            == sandbox_backend,
+            func.coalesce(SqlAgentRun.runtime_spec["sandbox_version"].as_string(), "0.6.18")
+            == sandbox_version,
+            *(
+                [SqlAgentRun.runtime_spec["image"].as_string().endswith("@sha256:" + image_digest)]
+                if image_digest is not None
+                else []
+            ),
             SqlAgentRun.status == AgentRunStatus.QUEUED,
             SqlAgentSession.status == AgentSessionStatus.ACTIVE,
             SqlExecutionWorkItem.policy_version == POLICY.version,
@@ -218,6 +233,8 @@ def claim(
     slot_id: int | None = None,
     incarnation: str | None = None,
     image_digest: str | None = None,
+    sandbox_backend: str = "microsandbox",
+    sandbox_version: str = "0.6.18",
 ) -> SqlAgentRun | None:
     from polycolab.agents.sessions import _append_event_locked, claim_next_run_in_transaction
     from polycolab.entities.enums import AgentRunEventKind
@@ -226,7 +243,15 @@ def claim(
         return None
     for _ in range(100):
         now = utc_now()
-        candidate = _candidate(session, now, user_capacity, project_capacity)
+        candidate = _candidate(
+            session,
+            now,
+            user_capacity,
+            project_capacity,
+            sandbox_backend,
+            sandbox_version,
+            image_digest,
+        )
         if candidate is None:
             session.rollback()
             return None
@@ -244,9 +269,11 @@ def claim(
                 if (
                     executor is None
                     or executor.incarnation != incarnation
-                    or executor.protocol_version != 4
+                    or executor.protocol_version != 5
                     or utc(executor.expires_at) <= utc_now()
                     or executor.image_digest != image_digest
+                    or executor.sandbox_backend != sandbox_backend
+                    or executor.sandbox_version != sandbox_version
                     or slot_id is None
                 ):
                     from polycolab.agents.runtime.errors import RuntimeApiConflict
@@ -260,7 +287,15 @@ def claim(
             ):
                 session.rollback()
                 return None
-            candidate = _candidate(session, now, user_capacity, project_capacity)
+            candidate = _candidate(
+                session,
+                now,
+                user_capacity,
+                project_capacity,
+                sandbox_backend,
+                sandbox_version,
+                image_digest,
+            )
             if candidate is None or candidate.id != run_id:
                 session.rollback()
                 continue

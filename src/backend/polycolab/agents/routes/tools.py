@@ -8,7 +8,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from polycolab.accounts.authentication import AuthenticationRequired, bearer_token
 from polycolab.agents.tools import (
     ALL_TOOL_NAMES,
-    DIRECT_TOOL_NAMES,
     ToolCapabilityInvalid,
     execute_tool,
 )
@@ -35,11 +34,9 @@ def call_tool(payload: ToolRequest, request: Request) -> dict[str, object]:
         if invocation is not None and (not invocation or len(invocation) > 200):
             raise AuthenticationRequired
         source_cursor = request.headers.get("x-polycolab-source-event-cursor")
-        writes = DIRECT_TOOL_NAMES | {
-            "submit_proposal",
-            "submit_verification",
-            "cancel_verification",
-        }
+        from polycolab.agents.runtime.tool_policy import WRITE_TOOL_NAMES
+
+        writes = WRITE_TOOL_NAMES
         if payload.name in writes and (
             invocation is None
             or source_cursor is None

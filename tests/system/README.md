@@ -154,3 +154,37 @@ It starts a real API and Vite on unused loopback ports with temporary migrated S
 It exercises registration, research, Library copying, activity and uploads without mocking HTTP or changing the user's local database or Docker services.
 The runner stops its process groups and removes its temporary data on exit.
 Persistent restart, migration backup/rollback and storage integrity are additionally covered by `tests/backend/test_local_development.py`.
+
+## Native Docker/gVisor browser gate
+
+`run_hosted.py` creates unique disposable PostgreSQL/Garage services and serves the
+compiled browser from a test-only core. A native executor on an idle SSH host
+connects through a loopback reverse tunnel. Only model Responses are deterministic;
+core authorization, persistence, controller, Codex and Docker/runsc are real.
+
+```sh
+POLYCOLAB_GVISOR_SSH_HOST=YOUR_TEST_ALIAS \
+POLYCOLAB_GVISOR_REMOTE_SOURCE=/absolute/disposable/source \
+  uv run --directory src/backend python ../../tests/system/run_hosted.py
+```
+
+The remote source must contain matching backend code, its locked `.venv`, and
+`controller.toml` with the accepted gVisor image and prepared finite slots. No
+controller may already use that state directory. The runner uses one slot and
+creates its own temporary runtime token; it does not use a deployed application's
+credential. Port 55073 on the remote loopback interface must be free, or set
+`POLYCOLAB_GVISOR_REMOTE_PORT`. SSH must permit reverse forwarding.
+
+The fixture initializes the project's Main worktree before creating its first
+conversation. This gate does not cover concurrent first-time worktree initialization
+and chat creation on a new project.
+The browser sends a chat, exercises a scoped research read and sandbox command,
+checks a saved project file, downloads a declared artifact from Garage, reloads
+history and sends a follow-up.
+Set `POLYCOLAB_HOSTED_DEV=1` to use an isolated Vite frontend for integration
+debugging. The default builds and serves production assets; a Vite result does
+not establish production-build acceptance.
+The runner stops its controller and removes only its own Compose project and
+volumes. It retains private synthetic diagnostics on failure. This gate does not
+establish live provider behavior, full resource-exhaustion coverage or production
+readiness.

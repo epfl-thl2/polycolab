@@ -29,6 +29,12 @@ from polycolab.agents.context import (
 )
 from polycolab.agents.proposal_version_schemas import ObjectVersionProposalSubmit
 from polycolab.agents.proposals import ProposalInvalid, submit_proposal
+from polycolab.agents.runtime.tool_policy import (
+    DIRECT_TOOL_NAMES as DIRECT_TOOL_NAMES,
+)
+from polycolab.agents.runtime.tool_policy import (
+    VERIFICATION_TOOL_NAMES as VERIFICATION_TOOL_NAMES,
+)
 from polycolab.db.models import (
     SqlAgentRun,
     SqlAgentSession,
@@ -68,19 +74,7 @@ from polycolab.verification.contracts import VerificationJobReference
 from polycolab.verification.version_contracts import VersionJobRead, VersionJobSubmission
 
 TOOL_NAMES = frozenset({"get_context", "get_object_version", "get_dependencies", "submit_proposal"})
-DIRECT_TOOL_NAMES = frozenset(
-    {
-        "write_object_version",
-        "create_relation",
-        "write_summary",
-        "comment_on_object_version",
-        "report_progress",
-        "review_object_version",
-    }
-)
-VERIFICATION_TOOL_NAMES = frozenset(
-    {"submit_verification", "inspect_verification", "cancel_verification"}
-)
+
 ALL_TOOL_NAMES = TOOL_NAMES | DIRECT_TOOL_NAMES | VERIFICATION_TOOL_NAMES
 
 

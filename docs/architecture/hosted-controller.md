@@ -1,7 +1,7 @@
 # Hosted controller
 
-The repository implements a Linux hosted-agent controller using microsandbox 0.6.18 and Codex CLI 0.154.0.
-**Native acceptance and deployment are outstanding:** deployment requires an accepted Linux host, curated image, and real VM/Codex/provider/browser journey.
+The Linux hosted-agent controller supports explicit Docker/gVisor and microsandbox 0.6.18 backends, sharing Codex CLI 0.154.0, API transport, scheduling and output handling.
+Production enablement requires an accepted Linux host, curated image and the remaining containment/provider/browser acceptance gates.
 See the [deployment procedure](../../deploy/execution/README.md).
 
 ## Implemented
@@ -13,6 +13,21 @@ Systemd independently limits wall time, CPU share, memory and process count.
 `execution/executor.py` refuses bare execution without actual Linux cgroup containment.
 Inside that boundary, `execution/microsandbox.py` creates a fresh digest-pinned, non-root, offline VM.
 
+`execution/docker.py` launches digest-pinned Docker containers with the configured
+runsc runtime. It never falls back to ordinary Docker. gVisor uses systrap without
+KVM. A fixed administrator-owned helper creates a system-level workload slice and
+an independent deadline guard. It verifies runtime cgroup membership before
+releasing the guest start barrier. All writable mounts use one finite slot;
+inputs and the container root are read-only. Guests receive no network, Docker
+socket, canonical repository mount or host credential.
+
+The gVisor deadline guard derives its termination target from the validated attempt
+UUID and fixed cgroup namespace. It requires no Docker response or controller
+journal access, including when the controller state directory is unavailable.
+Launch and readiness retain state ownership and journal validation. Termination
+does not repair missing journals or authorize reuse: recovery still requires valid
+bookkeeping and confirmed cleanup.
+
 Guest CPU/process limits supplement host containment.
 There is no host-process fallback for guest work.
 
@@ -21,7 +36,7 @@ Startup holds an exclusive state lock, stops journaled attempts and reports exac
 The controller quarantines a slot with unconfirmed cleanup while healthy slots continue.
 Its physical reservation remains occupied until the controller confirms cleanup, even beyond the usual release bound.
 Other reservations survive logical lease loss until confirmed termination or the independent deadline plus 30 seconds.
-Protocol version 2, controller incarnation and physical slot binding fence new claims.
+Protocol version 5, controller incarnation and physical slot binding fence new claims.
 
 Readiness cannot replace an unexpired controller incarnation.
 
@@ -51,7 +66,7 @@ The gateway buffers responses until it validates terminal usage.
 This is not live provider-token streaming.
 
 The guest can register an `export_artifact` declaration for a file in `/outputs`.
-After stopping the VM, the controller reads only those paths with descriptor-based link/path/type/count/byte checks, then uploads verified bytes through the API.
+After stopping the sandbox, the controller reads only those paths with descriptor-based link/path/type/count/byte checks, then uploads verified bytes through the API.
 Downloads require a completed run and its owner, including the shared artifact endpoint.
 These artifacts cannot be attached directly to research.
 Session output is not publication, proof certification or a retained whole project.
@@ -87,7 +102,8 @@ The selected gateway profile still supplies the model endpoint and remains a per
 
 New provider profiles default to Responses.
 The migration preserves historical profiles as chat-completions.
-`RUNTIME_CODEX_IMAGE` pins the immutable runtime specification for new/resumed runs.
+`RUNTIME_CODEX_IMAGE`, `RUNTIME_SANDBOX_BACKEND` and `RUNTIME_SANDBOX_VERSION` pin the immutable runtime specification for new/resumed runs.
+Readiness and claims require the matching backend, version and image. Historical specs without a backend retain microsandbox identity.
 Legacy workers cannot claim these runs.
 External agents continue using their existing credentials and shared research APIs.
 
@@ -98,7 +114,7 @@ The old private-API worker and Compose service remain until native acceptance pa
 They are not a fallback for hosted Codex runs.
 Remove that compatibility implementation only after the real deployment succeeds.
 
-`execution/preflight.py` checks the Linux prerequisites and loads/verifies a curated image archive in every slot.
+`execution/preflight.py` checks backend-specific prerequisites. Microsandbox preflight can load an image archive into each slot. Docker/gVisor preflight verifies the administrator-installed runtime and a preloaded repository digest.
 It does not prove containment.
 The deployment procedure specifies native resource-exhaustion, offline-network, credential, crash/restart, cancellation, stale-result, provider and browser acceptance.
 Those results are still required before production enablement.
@@ -107,11 +123,11 @@ Standalone Python/Lean runner images and verification assurance are separate fut
 Local protocol tests use synthetic Codex frames.
 Artifact tests use in-memory object storage.
 PostgreSQL tests use disposable schemas on the local service.
-None of these constitutes native sandbox or deployed end-to-end evidence.
+The opt-in gVisor native suite exercises real Codex startup, read-only inputs, offline networking, cleanup, independent deadlines and cancellation across two slots. It does not establish live-provider or production deployment acceptance.
 
 ## Verification
 
 The [execution test guide](../../tests/execution/README.md) describes local and native checks.
 Local mocked tests do not establish Linux containment, provider acceptance, or deployment readiness.
-Resolve the [known failure cases](hosted-failures.md) before production enablement.
+Review the [failure acceptance matrix](hosted-failures.md) before production enablement.
 Complete the native gates before production enablement.

@@ -13,8 +13,7 @@ import sys
 import tomllib
 from pathlib import Path
 
-from polycolab.execution.linux import LinuxRuntime
-from polycolab.execution.service import ServiceConfig, exclusive_controller_state
+from polycolab.execution.service import ServiceConfig, exclusive_controller_state, make_runtime
 
 
 async def image_check(reference: str, archive: str | None) -> None:
@@ -33,9 +32,14 @@ async def image_check(reference: str, archive: str | None) -> None:
 
 
 async def check(config: ServiceConfig, archive: Path | None) -> None:
-    runtime = LinuxRuntime(Path(config.state_dir), config.images, config.capacity)
-    await runtime.check_ready()
+    runtime = make_runtime(config)
     with exclusive_controller_state(Path(config.state_dir)):
+        if config.backend == "gvisor":
+            if archive is not None:
+                raise ValueError("Preload the digest-pinned Docker image before preflight")
+            await runtime.check_ready()
+            print("Docker/gVisor prerequisites passed; native acceptance still required.")
+            return
         for ordinal in range(config.capacity):
             slot = Path(config.state_dir) / "slots" / str(ordinal)
             for image in config.images:
@@ -62,6 +66,7 @@ async def check(config: ServiceConfig, archive: Path | None) -> None:
                     if child.returncode is None:
                         child.kill()
                         await child.wait()
+    await runtime.check_ready()
     print(
         "Host prerequisites and cached image identities passed; native acceptance still required."
     )

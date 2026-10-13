@@ -16,8 +16,8 @@ from polycolab.agents.runtime.remote import (
     WorkerTerminalStatus,
 )
 from polycolab.agents.runtime.spec import RuntimeSpec
-from polycolab.execution.linux import LinuxRuntime, SlotQuarantined
-from polycolab.execution.microsandbox import GuestChannel
+from polycolab.execution.host_io import blocking
+from polycolab.execution.runtime import GuestChannel, HostedRuntime, SlotQuarantined
 from polycolab.execution.sandbox import SandboxUnavailable, UnsafeSandboxOutput, collect_outputs
 
 
@@ -25,7 +25,7 @@ class AgentController:
     def __init__(
         self,
         gateway: RuntimeClient,
-        runtime: LinuxRuntime,
+        runtime: HostedRuntime,
         worker_id: str,
     ) -> None:
         self.gateway, self.runtime, self.worker_id = gateway, runtime, worker_id
@@ -69,6 +69,8 @@ class AgentController:
             image is None
             or image.language != "AGENT"
             or image.toolchain_version != spec.engine_version
+            or spec.sandbox_backend != self.runtime.backend
+            or spec.sandbox_version != self.runtime.version
         ):
             await self._finish(claim, "FAILED", "sandbox_environment_unavailable")
             return
@@ -192,7 +194,7 @@ class AgentController:
                 selected = set(exports) | (
                     {"workspace.bundle"} if claim.repository is not None else set()
                 )
-                files = collect_outputs(output, spec.limits, selected=selected)
+                files = await blocking(collect_outputs, output, spec.limits, selected=selected)
                 if {item.path for item in files} != selected:
                     raise CodexFailure("artifact_export_missing")
             for item in files:
@@ -275,4 +277,8 @@ class AgentController:
             failure_code=failure,
             final_message_md=text,
         )
-        self.runtime.acknowledge(str(claim.run_id), claim.lease_generation)
+        try:
+            await blocking(self.runtime.acknowledge, str(claim.run_id), claim.lease_generation)
+        except OSError:
+            # Retain the journal for idempotent startup reconciliation.
+            pass

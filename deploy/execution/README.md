@@ -2,12 +2,12 @@
 
 The application and PostgreSQL remain in Compose.
 A dedicated, unprivileged Linux account runs the hosted controller as a **systemd user service**.
-Each attempt runs in its own transient systemd unit and fresh offline microsandbox VM.
+Select the backend explicitly: [Docker/gVisor](gvisor.md), or microsandbox as described below.
+Each microsandbox attempt runs in its own transient systemd unit and fresh offline VM.
 The controller uses private APIs.
 It has no database or provider credential.
 
-The deployment has no selected host.
-These installation steps remain **unverified**.
+The microsandbox installation steps remain **unverified**.
 The image and native containment boundary still require acceptance.
 Standalone Python/Lean verification remains disabled.
 
@@ -117,9 +117,9 @@ Legacy workers cannot claim runs with a hosted Codex runtime specification.
 
 ## Recovery service and rollout
 
-Apply migrations through `20261008_project_tasks` before starting the new API and controller. The API owns the recovery background job.
+Apply migrations through `20261013_executors` before starting the new API and controller. The API owns the recovery background job.
 Drain the old controller before upgrading.
-New hosted claims require private protocol version 3 and an explicit physical slot.
+New hosted claims require private protocol version 5 and an explicit physical slot.
 
 The reconciler shares the core application database pool.
 It polls every five seconds; keep core running when executor admission is disabled.
@@ -137,7 +137,7 @@ Keep the API, its background jobs, and historical data available.
 Do not downgrade away completion receipts or delete quarantined reservations.
 See the [failure acceptance matrix](../../docs/architecture/hosted-failures.md).
 
-Docker-free development uses forward SQLite migrations through `local_20261008_project_tasks`.
+Docker-free development uses forward SQLite migrations through `local_20261013_executors`.
 Existing local accounts, research and uploads are retained, with a pre-upgrade backup.
 Hosted VMs still require the separate Linux host.
 The PostgreSQL merge revision preserves both previous migration histories and supports upgrading from either `20260915_submission_numbers` or `20260915_hosted_recovery`.
@@ -145,7 +145,7 @@ The PostgreSQL merge revision preserves both previous migration histories and su
 ## Project repository checkout
 
 Rebuild the curated agent image with Git and the guest repository helper before
-using protocol 4. Successful file outputs are saved as uncommitted changes in the
+using protocol 5. Successful file outputs are saved as uncommitted changes in the
 canonical worktree for human review. Keep Codex state in `/home/agent/.codex`, outside `/workspace`.
 The API alone mounts the persistent repository volume. Hosted slots receive a
 bounded bundle for an exact commit, clone it into `/workspace`, and export their

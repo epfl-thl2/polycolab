@@ -8,20 +8,20 @@ There is no bare-host execution fallback; tests inject candidate VM handles.
 from __future__ import annotations
 
 import asyncio
-import base64
 import hashlib
-import json
 import shutil
 import tempfile
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from importlib.metadata import version
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, Protocol
+from typing import TYPE_CHECKING
 
-from polycolab.agents.runtime.codex import CodexFailure, decode_frame
+from polycolab.agents.runtime.codex import CodexFailure
+from polycolab.execution.runtime import GuestChannel as GuestChannel
+from polycolab.execution.runtime import ImagePolicy as ImagePolicy
+from polycolab.execution.runtime import Process as Process
 from polycolab.execution.sandbox import (
     SandboxOutput,
     SandboxResult,
@@ -34,33 +34,6 @@ if TYPE_CHECKING:
     from microsandbox import ExecHandle, Sandbox
 
 MICROSANDBOX_VERSION = "0.6.18"
-ModelRequest = Callable[[dict[str, object]], Awaitable[bytes]]
-
-
-@dataclass(frozen=True)
-class ImagePolicy:
-    reference: str
-    language: Literal["AGENT", "PYTHON", "LEAN"]
-    toolchain_version: str
-    dependency_lock_digest: str
-    build_digest: str
-    platform_identity: str
-
-    def __post_init__(self) -> None:
-        from pydantic import TypeAdapter
-
-        from polycolab.verification.contracts import Digest
-
-        digest = self.reference.rsplit("@sha256:", 1)
-        if len(digest) != 2 or not digest[0]:
-            raise ValueError("curated image must be pinned by digest")
-        TypeAdapter(Digest).validate_python(digest[1])
-
-
-class Process(Protocol):
-    async def send(self, data: bytes) -> None: ...
-    async def receive(self) -> bytes | None: ...
-    async def wait(self) -> int: ...
 
 
 class SdkProcess:
@@ -106,71 +79,6 @@ class SdkProcess:
     async def wait(self) -> int:
         code, _ = await self.handle.wait()
         return code
-
-
-class GuestChannel:
-    """Host-side framing: the guest may request only model generation or Codex I/O."""
-
-    def __init__(self, process: Process, model: ModelRequest, max_model_requests: int) -> None:
-        self.process, self.model = process, model
-        self.remaining = max_model_requests
-        self.last_model_id = 0
-
-    async def send(self, message: dict[str, object]) -> None:
-        await self._send("codex", message)
-
-    async def _send(self, kind: str, payload: dict[str, object]) -> None:
-        await self.process.send(json.dumps({"kind": kind, "payload": payload}).encode() + b"\n")
-
-    async def checkpoint_repository(self) -> None:
-        await self._send("repository", {})
-        for _ in range(4096):
-            data = await self.process.receive()
-            if data is None:
-                raise CodexFailure("repository_checkpoint_failed")
-            frame = decode_frame(data)
-            payload = frame.get("payload")
-            if frame.get("kind") == "repository":
-                if not isinstance(payload, dict) or not isinstance(payload.get("commit"), str):
-                    raise CodexFailure("repository_checkpoint_failed")
-                return
-            if frame.get("kind") != "codex":
-                raise CodexFailure("repository_checkpoint_failed")
-        raise CodexFailure("repository_checkpoint_failed")
-
-    async def receive(self) -> dict[str, object]:
-        while True:
-            data = await self.process.receive()
-            if data is None:
-                raise CodexFailure("codex_stream_incomplete")
-            frame = decode_frame(data)
-            kind, payload = frame.get("kind"), frame.get("payload")
-            if not isinstance(payload, dict):
-                raise CodexFailure("codex_protocol_invalid")
-            if kind == "codex":
-                return payload
-            request_id, body = payload.get("id"), payload.get("body")
-            if (
-                kind != "model"
-                or type(request_id) is not int
-                or request_id != self.last_model_id + 1
-                or not isinstance(body, dict)
-            ):
-                raise CodexFailure("codex_protocol_invalid")
-            self.remaining -= 1
-            if self.remaining < 0:
-                raise CodexFailure("model_request_limit_exceeded")
-            self.last_model_id = request_id
-            response = await self.model(body)
-            if len(response) > 1_000_000:
-                raise CodexFailure("model_response_too_large")
-            await self._send(
-                "model",
-                {
-                    "id": request_id,
-                    "body": base64.b64encode(response).decode("ascii"),
-                },
-            )
 
 
 class MicrosandboxRuntime:

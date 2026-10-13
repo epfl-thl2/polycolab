@@ -37,6 +37,8 @@ LOCAL_TOOL_TYPES = frozenset({"function", "custom", "local_shell"})
 def validated_request(
     body: dict[str, Any], *, model: str, max_output_tokens: int, max_input_bytes: int
 ) -> dict[str, Any]:
+    # Codex adds local client metadata; it is not provider input or retained history.
+    body = {key: value for key, value in body.items() if key != "client_metadata"}
     if (
         set(body) - ALLOWED_FIELDS
         or body.get("model") != model

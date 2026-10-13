@@ -6,6 +6,7 @@ from datetime import datetime
 from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import AliasChoices, AnyUrl, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -167,6 +168,10 @@ class Settings(BaseSettings):
         le=32,
     )
     runtime_codex_image: str | None = Field(default=None, pattern=r"^[^\s]+@sha256:[0-9a-f]{64}$")
+    runtime_sandbox_backend: Literal["microsandbox", "gvisor"] = "microsandbox"
+    runtime_sandbox_version: str = Field(
+        default="0.6.18", min_length=1, max_length=128, pattern=r"^[a-zA-Z0-9._+-]+$"
+    )
     runtime_run_timeout_seconds: int = Field(default=300, ge=10, le=3600)
     runtime_sse_poll_seconds: float = Field(default=0.25, gt=0, le=5)
     runtime_sse_heartbeat_seconds: int = Field(default=15, ge=5, le=60)

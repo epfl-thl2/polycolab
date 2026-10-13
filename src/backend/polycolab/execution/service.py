@@ -1,4 +1,4 @@
-"""Host controller lifecycle. Microsandbox deployment acceptance remains gated."""
+"""Host controller lifecycle for explicitly selected, accepted sandbox backends."""
 
 from __future__ import annotations
 
@@ -13,18 +13,24 @@ import tomllib
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, field_validator
 
+from polycolab.execution.host_io import blocking
 from polycolab.execution.linux import LinuxRuntime
-from polycolab.execution.microsandbox import ImagePolicy
+from polycolab.execution.runtime import HostedRuntime, ImagePolicy
 from polycolab.execution.sandbox import SandboxUnavailable
 
 
 class ServiceConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
+    backend: Literal["microsandbox", "gvisor"] = "microsandbox"
+    sandbox_version: str = "0.6.18"
+    docker_socket: str = "/var/run/docker.sock"
+    docker_runtime: str = "polycolab-runsc"
+    host_helper: str = "/usr/local/libexec/polycolab-gvisor-host"
     api_url: str
     credential_file: str | None = None
     agent_credential_file: str | None = None
@@ -145,11 +151,29 @@ async def serve_pool(
         await controller.gateway.close()
 
 
+def make_runtime(config: ServiceConfig) -> HostedRuntime:
+    if config.backend == "gvisor":
+        from polycolab.execution.docker import DockerRuntime
+
+        return DockerRuntime(
+            Path(config.state_dir),
+            config.images,
+            config.capacity,
+            version=config.sandbox_version,
+            socket=config.docker_socket,
+            helper=config.host_helper,
+            runtime_name=config.docker_runtime,
+        )
+    if config.sandbox_version != "0.6.18":
+        raise ValueError("unsupported microsandbox version")
+    return LinuxRuntime(Path(config.state_dir), config.images, config.capacity)
+
+
 async def run(config: ServiceConfig) -> None:
     from polycolab.agents.runtime.client import RuntimeClient
     from polycolab.agents.runtime.controller import AgentController
 
-    runtime = LinuxRuntime(Path(config.state_dir), config.images, config.capacity)
+    runtime = make_runtime(config)
     await runtime.check_ready()
     with exclusive_controller_state(Path(config.state_dir)):
         await runtime.reconcile()
@@ -157,12 +181,6 @@ async def run(config: ServiceConfig) -> None:
         if credential is None:
             raise ValueError("agent credential file required")
         gateway = RuntimeClient(config.api_url, read_credential(Path(credential)))
-        for old in runtime.terminated:
-            await gateway.post(
-                f"/internal/v1/runtime/runs/{old['run_id']}/terminated",
-                {"worker_id": old["worker_id"], "lease_generation": old["generation"]},
-            )
-            runtime.acknowledge(str(old["run_id"]), int(str(old["generation"])))
         controller = AgentController(gateway, runtime, config.worker_id)
         stop = asyncio.Event()
         loop = asyncio.get_running_loop()
@@ -185,18 +203,46 @@ async def run(config: ServiceConfig) -> None:
                         ),
                         "slot_states": runtime.states,
                         "incarnation": gateway.incarnation,
-                        "protocol_version": 4,
+                        "protocol_version": 5,
+                        "sandbox_backend": runtime.backend,
+                        "sandbox_version": runtime.version,
                     },
                 )
 
             from polycolab.agents.runtime.remote import RuntimeGatewayError
+
+            for old in runtime.terminated:
+                while not stop.is_set():
+                    try:
+                        await gateway.post(
+                            f"/internal/v1/runtime/runs/{old['run_id']}/terminated",
+                            {"worker_id": old["worker_id"], "lease_generation": old["generation"]},
+                        )
+                        await blocking(
+                            runtime.acknowledge, str(old["run_id"]), int(str(old["generation"]))
+                        )
+                        break
+                    except RuntimeGatewayError as exc:
+                        if exc.code not in {"runtime_api_unavailable", "runtime_api_failed"}:
+                            raise
+                    except OSError:
+                        # Retain the journal and retry its idempotent confirmation.
+                        pass
+                    try:
+                        await asyncio.wait_for(stop.wait(), timeout=5)
+                    except TimeoutError:
+                        pass
 
             while not stop.is_set():
                 try:
                     await advertise()
                     break
                 except RuntimeGatewayError as exc:
-                    if exc.code not in {"runtime_api_unavailable", "executor_incarnation_conflict"}:
+                    if exc.code not in {
+                        "runtime_api_unavailable",
+                        "runtime_api_failed",
+                        "executor_incarnation_conflict",
+                    }:
                         raise
                     try:
                         await asyncio.wait_for(stop.wait(), timeout=5)
@@ -220,6 +266,7 @@ async def run(config: ServiceConfig) -> None:
                     serve_pool(controller, stop, config.poll_seconds, config.capacity)
                 )
         finally:
+            await gateway.close()
             for signum in (signal.SIGTERM, signal.SIGINT):
                 loop.remove_signal_handler(signum)
 

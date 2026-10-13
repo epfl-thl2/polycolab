@@ -103,6 +103,8 @@ def _codex_spec(request: Request) -> dict[str, object] | None:
         return None  # Legacy admission during the disabled, pre-cutover period.
     return RuntimeSpec(
         image=settings.runtime_codex_image,
+        sandbox_backend=settings.runtime_sandbox_backend,
+        sandbox_version=settings.runtime_sandbox_version,
         max_model_requests=settings.runtime_max_model_rounds,
         max_attempts=settings.runtime_max_attempts,
         max_output_tokens=settings.gateway_max_output_tokens,

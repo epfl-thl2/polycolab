@@ -820,7 +820,13 @@ class SqlHostedExecutor(Base):
         CheckConstraint("capacity BETWEEN 0 AND 64", name="hosted_executors_capacity_check"),
     )
     incarnation: Mapped[str] = mapped_column(String(36), default="legacy")
-    protocol_version: Mapped[int] = mapped_column(Integer, default=4)
+    protocol_version: Mapped[int] = mapped_column(Integer, default=5)
+    sandbox_backend: Mapped[str] = mapped_column(
+        String(16), default="microsandbox", server_default="microsandbox"
+    )
+    sandbox_version: Mapped[str] = mapped_column(
+        String(128), default="0.6.18", server_default="0.6.18"
+    )
     worker_id: Mapped[str] = mapped_column(String(200), primary_key=True)
     image_digest: Mapped[str] = mapped_column(String(64))
     capacity: Mapped[int] = mapped_column(Integer)

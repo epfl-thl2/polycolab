@@ -48,6 +48,8 @@ def decode_frame(data: bytes) -> dict[str, object]:
         raise CodexFailure("codex_frame_too_large")
     try:
         result = json.loads(data)
+        # Escaped lone surrogates are legal JSON but invalid UTF-8 protocol text.
+        json.dumps(result, ensure_ascii=False).encode("utf-8")
     except ValueError, UnicodeError, RecursionError:
         raise CodexFailure("codex_protocol_invalid") from None
     if not isinstance(result, dict):

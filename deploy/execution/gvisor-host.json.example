@@ -1,0 +1,9 @@
+{
+  "state_dir": "/var/lib/polycolab-execution",
+  "executor_uid": 1001,
+  "docker_socket": "/var/run/docker.sock",
+  "runtime_name": "polycolab-runsc",
+  "runsc_path": "/opt/polycolab-runsc/runsc",
+  "runsc_version": "release-20261005.0",
+  "runsc_sha256": "REPLACE_WITH_VERIFIED_BINARY_SHA256"
+}

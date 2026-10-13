@@ -22,8 +22,10 @@ def advertise(
     image: str,
     states: dict[int, str],
     protocol: int,
+    backend: str = "microsandbox",
+    version: str = "0.6.18",
 ) -> None:
-    if protocol != 4 or not states or set(states) != set(range(len(states))):
+    if protocol != 5 or not states or set(states) != set(range(len(states))):
         raise HostConflict("executor_protocol_mismatch")
     _serialize(session)
     row = session.get(SqlHostedExecutor, worker_id)
@@ -33,6 +35,7 @@ def advertise(
         row = SqlHostedExecutor(worker_id=worker_id)
         session.add(row)
     row.incarnation, row.protocol_version, row.image_digest = incarnation, protocol, image
+    row.sandbox_backend, row.sandbox_version = backend, version
     row.capacity = sum(state != "QUARANTINED" for state in states.values())
     row.expires_at = utc_now() + timedelta(seconds=45)
     session.flush()
