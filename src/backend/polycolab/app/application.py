@@ -49,6 +49,7 @@ from polycolab.agents.external import (
     ExternalAgentUploadInterrupted,
 )
 from polycolab.agents.proposals import ProposalStale
+from polycolab.app.maintenance import maintenance_lifespan
 from polycolab.app.reference import arrange_reference
 from polycolab.db.session import database_is_ready, make_engine, make_session_factory
 from polycolab.db.transaction import make_transaction_factory
@@ -413,12 +414,16 @@ def create_app(
     settings: Settings | None = None,
     identity_verifier: IdentityVerifier | None = None,
     invitation_delivery: InvitationDelivery | None = None,
+    *,
+    background_jobs: bool = False,
 ) -> FastAPI:
+    """Build an app; the deployment entrypoint enables jobs, isolated callers opt in."""
     settings = settings or get_settings()
     configure_logging(settings)
     pool_meter = PoolMeter(settings, PoolRole.API)
     engine = make_engine(settings, pool_class=pool_meter.pool_class)
     app = FastAPI(
+        lifespan=maintenance_lifespan if background_jobs else None,
         title="Polycolab application service",
         version=settings.service_version,
         docs_url=None,
@@ -1111,4 +1116,4 @@ def create_app(
     return app
 
 
-app = create_app()
+app = create_app(background_jobs=True)

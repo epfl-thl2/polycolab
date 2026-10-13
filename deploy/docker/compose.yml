@@ -19,30 +19,14 @@ services:
       - '127.0.0.1:${POLYCOLAB_POSTGRES_PORT:-5432}:5432'
     networks: [backend]
 
-  migrate:
-    build:
-      context: ../..
-      dockerfile: src/backend/Dockerfile
-    env_file:
-      - path: .env
-        required: true
-    environment:
-      PUBLIC_APP_ORIGIN: ${PUBLIC_APP_ORIGIN:-http://localhost:8000}
-      DATABASE_URL: ${POLYCOLAB_COMPOSE_DATABASE_URL:-postgresql+psycopg://polycolab:polycolab@postgres:5432/polycolab}
-    depends_on:
-      postgres:
-        condition: service_healthy
-    command: ['alembic', 'upgrade', 'head']
-    networks: [backend]
-
-  garage:
+  object-storage:
     extends:
       file: ../garage/compose.yaml
       service: garage
     ports: !reset []
     networks: [backend]
 
-  api:
+  core:
     volumes:
       - workspace-repositories:/var/lib/polycolab/repositories
     build:
@@ -60,16 +44,16 @@ services:
       DATABASE_POOL_TIMEOUT_SECONDS: ${POLYCOLAB_API_DATABASE_POOL_TIMEOUT_SECONDS:-30}
       ALLOWED_ORIGINS: '${ALLOWED_ORIGINS:-["http://localhost:8000", "http://localhost:5173"]}'
       PROJECT_REPOSITORY_DIRECTORY: /var/lib/polycolab/repositories
-      ARTIFACT_S3_ENDPOINT: ${POLYCOLAB_COMPOSE_ARTIFACT_S3_ENDPOINT:-http://garage:3900}
+      ARTIFACT_S3_ENDPOINT: ${POLYCOLAB_COMPOSE_ARTIFACT_S3_ENDPOINT:-http://object-storage:3900}
       ARTIFACT_S3_BUCKET: ${ARTIFACT_S3_BUCKET:-polycolab-artifacts}
       ARTIFACT_S3_REGION: ${ARTIFACT_S3_REGION:-garage}
       ARTIFACT_S3_ACCESS_KEY: ${ARTIFACT_S3_ACCESS_KEY:-GK0123456789abcdef0123456789}
       ARTIFACT_S3_SECRET_KEY: ${ARTIFACT_S3_SECRET_KEY:-local-only-garage-secret}
     depends_on:
-      garage:
+      object-storage:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
     command:
       [
         'sh',
@@ -91,47 +75,6 @@ services:
       - '127.0.0.1:${POLYCOLAB_API_PORT:-8000}:8000'
     networks: [backend]
 
-  community:
-    build:
-      context: ../..
-      dockerfile: src/backend/Dockerfile
-    env_file:
-      - path: .env
-        required: true
-    environment:
-      APP_ENV: ${APP_ENV:-local}
-      PUBLIC_APP_ORIGIN: ${PUBLIC_APP_ORIGIN:-http://localhost:8000}
-      DATABASE_URL: ${POLYCOLAB_COMPOSE_DATABASE_URL:-postgresql+psycopg://polycolab:polycolab@postgres:5432/polycolab}
-      DATABASE_POOL_SIZE: ${POLYCOLAB_COMMUNITY_DATABASE_POOL_SIZE:-2}
-      DATABASE_MAX_OVERFLOW: ${POLYCOLAB_COMMUNITY_DATABASE_MAX_OVERFLOW:-0}
-      DATABASE_POOL_TIMEOUT_SECONDS: ${POLYCOLAB_COMMUNITY_DATABASE_POOL_TIMEOUT_SECONDS:-30}
-    depends_on:
-      api:
-        condition: service_healthy
-    command: ['python', '-m', 'polycolab.community_consumer']
-    # Application-owned canonical outbox consumer, separate from agent workers.
-    networks: [backend]
-
-  execution-reconciler:
-    build:
-      context: ../..
-      dockerfile: src/backend/Dockerfile
-    env_file:
-      - path: .env
-        required: true
-    environment:
-      APP_ENV: ${APP_ENV:-local}
-      PUBLIC_APP_ORIGIN: ${PUBLIC_APP_ORIGIN:-http://localhost:8000}
-      DATABASE_URL: ${POLYCOLAB_COMPOSE_DATABASE_URL:-postgresql+psycopg://polycolab:polycolab@postgres:5432/polycolab}
-      DATABASE_POOL_SIZE: 2
-      DATABASE_MAX_OVERFLOW: 0
-      DATABASE_POOL_TIMEOUT_SECONDS: 5
-    depends_on:
-      api:
-        condition: service_healthy
-    command: ['python', '-m', 'polycolab.execution.reconciler']
-    networks: [backend]
-
   worker:
     profiles: [execution]
     build:
@@ -140,7 +83,7 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-local}
       PUBLIC_APP_ORIGIN: ${PUBLIC_APP_ORIGIN:-http://localhost:8000}
-      RUNTIME_INTERNAL_API_URL: http://api:8000
+      RUNTIME_INTERNAL_API_URL: http://core:8000
       RUNTIME_WORKER_ID: ${RUNTIME_WORKER_ID:-compose-builtin-worker}
       RUNTIME_WORKER_TOKEN: ${RUNTIME_WORKER_TOKEN:-polycolab-local-runtime-worker-token}
       RUNTIME_WORKER_POLL_SECONDS: ${RUNTIME_WORKER_POLL_SECONDS:-0.25}
@@ -149,7 +92,7 @@ services:
       RUNTIME_API_MAX_REQUEST_BYTES: ${RUNTIME_API_MAX_REQUEST_BYTES:-400000}
       RUNTIME_API_MAX_RESPONSE_BYTES: ${RUNTIME_API_MAX_RESPONSE_BYTES:-1000000}
     depends_on:
-      api:
+      core:
         condition: service_healthy
     command: ['python', '-m', 'polycolab.builtin_worker']
     # No published port and no database credential: the worker reaches all

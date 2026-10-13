@@ -10,6 +10,8 @@ Workers use authenticated APIs and receive no database credential.
 - The Svelte browser uses the generated TypeScript client.
   FastAPI serves the production browser bundle and public/private APIs.
 - FastAPI owns authorization, research changes, and canonical PostgreSQL state.
+  Its single-process lifespan also runs notifications, hosted recovery, and artifact cleanup
+  in independent background threads sharing the application database pool.
   Local development uses SQLite with separate migrations.
 - Artifact metadata lives in the database.
   Bytes use configured object storage or the local development filesystem.

@@ -1,18 +1,6 @@
-# Optional override; no host TCP port and no changes to API or private workers.
+# Optional operator diagnostics for the core application. No extra consumer.
 services:
-  community:
+  core:
     environment:
       OPERATOR_DIAGNOSTICS_ENABLED: 'true'
       OPERATOR_DIAGNOSTICS_SUBJECTS: ${OPERATOR_DIAGNOSTICS_SUBJECTS:?Set the verified operator subject JSON list}
-    command:
-      - python
-      - -m
-      - polycolab.community_consumer
-      - --metrics-uds
-      - /run/polycolab-community/metrics.sock
-    volumes:
-      - type: bind
-        source: ${POLYCOLAB_COMMUNITY_METRICS_DIR:?Set an existing private directory owned by the container UID}
-        target: /run/polycolab-community
-        bind:
-          create_host_path: false

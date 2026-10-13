@@ -57,10 +57,23 @@ def test_compose_paths_and_production_isolation(tmp_path: Path) -> None:
         ],
         env,
     )
+    assert (
+        not {"api", "garage", "migrate", "community", "execution-reconciler"}
+        & local["services"].keys()
+    )
     assert local["name"] == "polycolab"
     assert local["volumes"]["postgres-data"]["name"] == "polycolab_postgres-data"
-    assert Path(local["services"]["garage"]["volumes"][0]["source"]).is_file()
-    for name in ("api", "migrate", "community", "execution-reconciler"):
+    for volume in ("garage-data", "garage-metadata", "workspace-repositories"):
+        assert local["volumes"][volume]["name"] == f"polycolab_{volume}"
+    assert local["services"]["core"]["environment"]["ARTIFACT_S3_ENDPOINT"] == (
+        "http://object-storage:3900"
+    )
+    assert local["services"]["worker"]["environment"]["RUNTIME_INTERNAL_API_URL"] == (
+        "http://core:8000"
+    )
+    assert set(local["services"]["core"]["depends_on"]) == {"postgres", "object-storage"}
+    assert Path(local["services"]["object-storage"]["volumes"][0]["source"]).is_file()
+    for name in ("core",):
         service = local["services"][name]
         assert service["environment"]["REGISTRATION_MODE"] == "open"
         assert "@postgres:5432/" in service["environment"]["DATABASE_URL"]
@@ -90,12 +103,9 @@ def test_compose_paths_and_production_isolation(tmp_path: Path) -> None:
         ],
         production_env,
     )
-    for name in ("api", "migrate", "community", "execution-reconciler"):
+    assert set(production["services"]) == {"postgres", "core", "object-storage"}
+    for name in ("core",):
         service = production["services"][name]
         expected = {"APP_ENV": "production", "REGISTRATION_MODE": "closed"}
-        if name == "execution-reconciler":
-            expected.update(
-                DATABASE_POOL_SIZE="2", DATABASE_MAX_OVERFLOW="0", DATABASE_POOL_TIMEOUT_SECONDS="5"
-            )
         assert service["environment"] == expected
         assert "build" not in service

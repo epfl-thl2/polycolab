@@ -59,9 +59,14 @@ These are not fleet-wide saturation observations.
 Sample the gauge over time.
 An instantaneous zero does not rule out earlier contention.
 
-## Optional community-process export
+## Standalone community-process export
 
-The community consumer exports its own `role="community"` pool observations only when explicitly launched with `--metrics-uds /absolute/private/path/metrics.sock`.
+The standard monolith runs notification processing inside core and reports its
+shared pool under `role="api"`. No community socket or extra consumer is needed.
+The standalone command remains available for isolated diagnostics; do not run it
+alongside core.
+
+The standalone community consumer exports its own `role="community"` pool observations only when explicitly launched with `--metrics-uds /absolute/private/path/metrics.sock`.
 The directory must meet these conditions:
 
 - It already exists.
@@ -109,18 +114,12 @@ It waits for the current consumer transaction before disposing the engine.
 It does not impose a hard deadline on already blocked SQL.
 Use the deployment's database statement limits and process termination policy for that separate bound.
 
-An optional [Compose override](observability/compose.yaml) changes only the community command/environment and mounts a pre-existing private socket directory:
+The optional [Compose override](observability/compose.yaml) enables operator diagnostics
+on the core application's existing protected metrics endpoint. It starts no separate
+consumer and requires no Unix socket directory. Supply the verified operator subjects
+through `OPERATOR_DIAGNOSTICS_SUBJECTS`.
 
-```sh
-docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml -f deploy/observability/compose.yaml config --quiet
-```
-
-Supply `POLYCOLAB_COMMUNITY_METRICS_DIR` through the operator environment.
-Prepare its ownership for the actual container UID.
-The current image defaults to root.
-The override refuses to create a missing host path and publishes no port.
-It does not enable catalogue processing, start a scraper or launch any services when checking configuration.
-Do not run the base stack wholesale while agent execution is on hold.
+The following socket guidance applies only to the standalone diagnostic command.
 
 A scraper/proxy must have local socket access under the same trusted UID or an equivalently protected shared-volume arrangement.
 It must also present a valid operator identity.

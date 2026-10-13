@@ -19,7 +19,9 @@ Use the [protected telemetry guide](OBSERVABILITY.md) for canonical community ba
 That guide also covers the opt-in, operator-authenticated community pool exporter over a private Unix socket.
 The default consumer command remains listener-free.
 
-`docker/compose.yml` starts PostgreSQL, Garage, a migration job, FastAPI, and the community consumer.
+`docker/compose.yml` defines `postgres`, `object-storage` (Garage), and `core`
+(FastAPI, the browser application, and background jobs).
+The deployment launcher runs migrations in a temporary core container before starting core.
 Use `--profile execution` for the private built-in worker.
 FastAPI is the production web service and serves the compiled Svelte bundle and JSON API.
 Public projects, Library, agent keys, artifacts, and scoped direct contributions are standard features with no enable/disable flags.
@@ -52,7 +54,7 @@ Production preflight requires PostgreSQL and complete S3 storage settings.
 Do not print resolved secret-bearing configuration.
 
 ```sh
-docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up --build
+bash deploy/scripts/deploy-stack.sh build --env-file deploy/docker/.env -f deploy/docker/compose.yml
 curl http://127.0.0.1:8000/health/live
 curl http://127.0.0.1:8000/health/ready
 ```
@@ -66,12 +68,12 @@ If host port 5432 is occupied, select another loopback port.
 The API continues to use PostgreSQL port 5432 on the private Compose network:
 
 ```sh
-POLYCOLAB_POSTGRES_PORT=55432 docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up --build
+POLYCOLAB_POSTGRES_PORT=55432 bash deploy/scripts/deploy-stack.sh build --env-file deploy/docker/.env -f deploy/docker/compose.yml
 ```
 
 The local Compose profile uses the built-in account provider.
 Open `http://127.0.0.1:8000` after building the web bundle into the API image, or `http://127.0.0.1:5173` while running Vite locally.
-Set a random `BOOTSTRAP_ADMIN_PASSWORD` before the first `docker compose up`.
+Set a random `BOOTSTRAP_ADMIN_PASSWORD` before the first deployment.
 Compose creates the fixed `admin` account after migrations and before the API starts.
 The API stores only password verifiers and opaque session digests in PostgreSQL.
 Built-in accounts are the default in every environment: `AUTH_MODE=local` names the built-in provider, not a development-only mode.
@@ -128,11 +130,14 @@ In Vite development, the reference reads the current worktree's generated `src/w
 Run `pnpm run api:contract` after changing the API contract.
 Application requests still use `POLYCOLAB_API_PROXY_TARGET` (port 8000 by default), so inspecting the new reference does not start or migrate the matching backend.
 
-The dedicated migration service applies the locked Alembic chain before API startup.
+The deployment launcher waits for PostgreSQL and object storage, then applies the
+locked Alembic chain through `docker compose run --rm --no-deps -T core python -m polycolab.operations.migrate`.
+Migration failure leaves core stopped; the temporary container is removed.
+Use the launcher for startup and upgrades: plain `docker compose up` does not run migrations.
 Local PostgreSQL is exposed only on loopback, using `POLYCOLAB_POSTGRES_PORT` (default 5432).
 Host-run API and migration commands must use that selected port.
 Container-to-container traffic always uses 5432.
-Staging and production should run migrations as a dedicated deployment job, not in every application replica.
+Production runs the same temporary job with configuration preflight before Alembic.
 
 ## Local deployment
 
@@ -151,10 +156,11 @@ Existing version-1 sessions keep their four-tool contract.
 Hosted execution has separate controls and defaults to disabled.
 Direct-write authority does not grant permission to start execution services.
 
-The `community` Compose service processes catalogue/research outbox events for private notifications and deterministic progress summaries.
-It is an application-owned database consumer, separate from the database-free agent worker.
-Outside Compose, run `uv --directory src/backend run python -m polycolab.community_consumer` with the same application/database environment as the API.
-It commits bounded recipient batches, resumes after restart, and performs no model calls.
+The core application processes catalogue/research outbox events for private notifications and deterministic progress summaries.
+Its background jobs also recover hosted runs and clean expired staged artifacts.
+They use separate sessions from the shared application database pool, commit bounded batches, and stop with the application.
+Run one application process on one host; independent replicas are outside this deployment model.
+Do not start standalone consumers alongside core.
 
 Moderator assignment requires an explicit JSON list of verified human subjects in `CATALOGUE_OPERATOR_SUBJECTS`.
 It defaults to `[]`.
@@ -164,7 +170,7 @@ The Svelte Library supplies discovery, admission, revision history and project i
 
 Local browser and integration tests do not establish deployment acceptance for the combined src/web/API image.
 
-`docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up --build` starts PostgreSQL, Garage, migrations, FastAPI, the community consumer and hosted-run reconciler.
+`bash deploy/scripts/deploy-stack.sh build --env-file deploy/docker/.env -f deploy/docker/compose.yml` starts PostgreSQL, Garage, migrations, FastAPI with notification, recovery, and artifact-cleanup jobs.
 Enable the `execution` profile and matching API capability explicitly to start a private built-in worker.
 The worker publishes no port.
 It reaches model and tool gateways only at `RUNTIME_INTERNAL_API_URL` on the backend network.
@@ -184,10 +190,10 @@ Storage/database credentials must match the application settings.
 
 ```sh
 docker compose --env-file /private/path/compose.env -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml config --quiet
-docker compose --env-file /private/path/compose.env -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml up -d
+bash deploy/scripts/deploy-stack.sh pull --env-file /private/path/compose.env -f deploy/docker/compose.yml -f deploy/docker/compose.production.yml
 ```
 
-The production overlay removes local database ports and application environment defaults, uses the same image for migration and API, and runs `python -m polycolab.deployment_preflight` before migration/startup.
+The production overlay removes local database ports and application environment defaults, uses the core image for both migration and application startup, and runs `python -m polycolab.deployment_preflight` before migration/startup.
 Configure a real origin, key service, storage and operator-managed HTTPS ingress.
 Registration defaults closed.
 Bootstrap the administrator using the existing private bootstrap password setting.
@@ -228,16 +234,16 @@ Reload after editing a guide.
 
 ## Hosted execution recovery in development
 
-Both `pnpm run dev:local` and the canonical `deploy/docker/compose.yml` run the application-owned hosted reconciler.
+Both `pnpm run dev:local` and the canonical `deploy/docker/compose.yml` run hosted reconciliation inside the core application.
 It keeps expired runs and provider reservations recoverable without requiring a live Linux controller.
 The native controller remains separate and opt-in.
 Local development does not emulate a VM.
 Set hosted image/capacity options in the shared `deploy/docker/.env` only when preparing hosted execution.
 See [Linux hosted agents](execution/README.md).
 
-The Docker reconciler uses two database connections with zero overflow.
-Production overrides use the same private application environment file as the API.
-Applying Docker settings recreates the reconciler along with the API and community consumer.
+Background jobs share the API connection budget.
+Applying Docker settings recreates the API and its background jobs together.
+See the service-renaming upgrade procedure below before applying the new Compose model.
 
 ## Recoverable agent API keys
 
@@ -255,13 +261,13 @@ Existing hash-only agent keys still work but cannot be revealed.
 
 ## Persistent project files
 
-The API mounts `project-repositories` at `/var/lib/polycolab/repositories`.
+Core mounts `workspace-repositories` at `/var/lib/polycolab/repositories`.
 Set `PROJECT_REPOSITORY_DIRECTORY` to this absolute path in the private
 production environment file; the production overlay resets local environment
 entries. Docker-free development uses `.local/repositories`. Git must be
 installed on the API host (the application image includes it).
 
-For a host directory, replace the API volume mapping with
+For a host directory, replace the core volume mapping with
 `/absolute/host/project-repositories:/var/lib/polycolab/repositories` and grant
 the container API user read/write access. Keep it on one host with local POSIX
 file locking. Sandboxes receive clones through the API; they never mount this
@@ -273,3 +279,37 @@ Browser files can ship first; rebuild and verify the protocol-3 hosted controlle
 and curated image before enabling agent checkout. See the
 [project-file contract](../docs/architecture/project-files.md) for coordinated
 SQL/Git backups, restore checks, quotas, and rollback.
+
+## Upgrade from the previous service names
+
+The launcher refuses legacy `api`, `garage`, `migrate`, `community`, or
+`execution-reconciler` containers in the selected Compose project, including stopped
+containers. This prevents two Garage instances from opening the same volumes.
+
+1. Drain execution and stop writers, including the old worker and background consumers.
+2. Follow the [recovery contract](RECOVERY.md) to capture PostgreSQL, both Garage
+   volumes, project repositories, and required key material together. Check the old
+   API's mounts before removing it; preserve any container-local project files.
+3. Stop and remove only the five legacy service containers listed above. Keep
+   PostgreSQL, the worker, and every named volume. Do not use `down -v`, volume
+   pruning, or blanket orphan removal. Retain the previous image and configuration
+   for rollback.
+4. In private settings, change internal S3 URLs from `http://garage:3900` to
+   `http://object-storage:3900` and internal application URLs from `http://api:8000`
+   to `http://core:8000`. External S3 endpoints and public origins stay as configured.
+5. Run the launcher with the same Compose project name and environment files.
+   Include `--profile execution` if using the legacy worker; it is stopped before
+   migrations and restarted only when selected by the profile.
+6. Verify login, existing project files and artifact downloads before reopening writes.
+
+Volume keys remain `postgres-data`, `garage-metadata`, `garage-data`, and
+`workspace-repositories`. Ports, bucket/region settings, and existing
+`POLYCOLAB_API_*` configuration variables retain their names and meanings.
+The standalone Garage and disposable test stacks keep their own service names.
+
+Launcher modes are `build` for local images, `pull` for published production images,
+and `reuse` to reapply configuration with existing application images. All modes run
+migrations before recreating core. The `pnpm run dev:docker` and
+`pnpm run dev:docker:apply` commands select `build` and `reuse`, respectively.
+For an upgrade failure, keep writers stopped and follow the recovery contract;
+do not automatically downgrade the database.

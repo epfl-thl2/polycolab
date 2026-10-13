@@ -9,20 +9,12 @@ services:
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set an explicit database password}
     ports: !reset []
-  garage:
+  object-storage:
     environment:
       GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:?Set a production storage RPC secret}
       GARAGE_DEFAULT_ACCESS_KEY: ${GARAGE_DEFAULT_ACCESS_KEY:?Set a production storage access key}
       GARAGE_DEFAULT_SECRET_KEY: ${GARAGE_DEFAULT_SECRET_KEY:?Set a production storage secret}
-  migrate:
-    <<: *application
-    build: !reset null
-    environment: !reset {}
-    env_file: !override
-      - path: ${POLYCOLAB_ENV_FILE:?Set an absolute private application env file}
-        required: true
-    command: ['sh', '-ec', 'python -m polycolab.deployment_preflight && alembic upgrade head']
-  api:
+  core:
     <<: *application
     build: !reset null
     environment: !reset {}
@@ -35,23 +27,6 @@ services:
         '-ec',
         'python -m polycolab.deployment_preflight && python -m polycolab.bootstrap_admin && exec uvicorn polycolab.main:app --host 0.0.0.0 --port 8000 --no-proxy-headers',
       ]
-  community:
-    <<: *application
-    build: !reset null
-    environment: !reset {}
-    env_file: !override
-      - path: ${POLYCOLAB_ENV_FILE:?Set an absolute private application env file}
-        required: true
-  execution-reconciler:
-    <<: *application
-    build: !reset null
-    environment: !override
-      DATABASE_POOL_SIZE: 2
-      DATABASE_MAX_OVERFLOW: 0
-      DATABASE_POOL_TIMEOUT_SECONDS: 5
-    env_file: !override
-      - path: ${POLYCOLAB_ENV_FILE:?Set an absolute private application env file}
-        required: true
   worker:
     image: ${POLYCOLAB_IMAGE:?Set an immutable application image digest}
     build: !reset null

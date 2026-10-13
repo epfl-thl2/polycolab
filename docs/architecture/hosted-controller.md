@@ -64,7 +64,7 @@ New hosted admissions require a live matching executor.
 Existing chat, history, follow-ups, cancellation and reconnect APIs remain in place.
 Standalone verification stays disabled in this hosted-first service and UI.
 
-The application-owned `execution-reconciler` Compose service runs bounded recovery batches every five seconds, even with no live executor or new claims.
+The core application background reconciler runs bounded recovery batches every five seconds, even with no live executor or new claims.
 Expired hosted runs with any possible provider/tool/contribution effect fail with an explicit-resume code.
 Only attempts known to precede external effects can requeue, within their original deadline and attempt budget.
 Deadline and cancellation transitions revoke capabilities.

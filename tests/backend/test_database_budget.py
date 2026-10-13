@@ -46,10 +46,9 @@ def test_cli_returns_failure_for_overcommit(capsys: pytest.CaptureFixture[str]) 
 def test_compose_budgets_only_database_using_services() -> None:
     root = Path(__file__).resolve().parents[2]
     compose = (root / "deploy/docker/compose.yml").read_text()
-    api = compose.split("  api:\n", 1)[1].split("  community:\n", 1)[0]
-    community = compose.split("  community:\n", 1)[1].split("  worker:\n", 1)[0]
+    api = compose.split("  core:\n", 1)[1].split("  worker:\n", 1)[0]
     worker = compose.split("  worker:\n", 1)[1]
-    for section in (api, community):
+    for section in (api,):
         for field in (
             "DATABASE_POOL_SIZE",
             "DATABASE_MAX_OVERFLOW",

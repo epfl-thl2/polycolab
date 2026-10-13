@@ -60,22 +60,15 @@ Recalculate before scaling or rolling out a changed pool.
 
 ## Compose and environment examples
 
-Compose budgets its processes as follows:
+The single-process core shares one pool across HTTP requests, notifications,
+hosted recovery, and artifact cleanup. Each job uses its own session.
+The default pool size is 5 with 5 overflow connections: at most 10 total.
+Pools acquire connections lazily. Migrations retain their separate NullPool.
 
-| Process            | Pool size | Overflow | Maximum connections |
-| ------------------ | --------- | -------- | ------------------- |
-| API                | 5         | 5        | 10                  |
-| Community consumer | 2         | 0        | 2                   |
-| Hosted reconciler  | 2         | 0        | 2                   |
-
-All three processes together can use at most 14 application connections.
-Pools acquire connections lazily.
-This is an upper bound, not a claim that all are open.
-The disabled catalogue consumer exits without creating its engine, but budgeting its enabled maximum prevents a flag change from silently invalidating the plan.
-
-Override Compose interpolation variables per service using `POLYCOLAB_API_DATABASE_POOL_SIZE`, `POLYCOLAB_API_DATABASE_MAX_OVERFLOW`, `POLYCOLAB_API_DATABASE_POOL_TIMEOUT_SECONDS`, and corresponding `POLYCOLAB_COMMUNITY_...` names.
+Override Compose interpolation variables with `POLYCOLAB_API_DATABASE_POOL_SIZE`,
+`POLYCOLAB_API_DATABASE_MAX_OVERFLOW`, and `POLYCOLAB_API_DATABASE_POOL_TIMEOUT_SECONDS`.
 Staging/production environment templates provide the generic application names above.
-Set consumer-specific values in the actual deployment.
+Do not add separate consumer pools to the standard monolith budget.
 Neither template is a measured production capacity recommendation.
 
 Use configuration inspection to check these values.

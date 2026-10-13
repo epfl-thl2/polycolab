@@ -117,13 +117,12 @@ Legacy workers cannot claim runs with a hosted Codex runtime specification.
 
 ## Recovery service and rollout
 
-Apply migrations through `20261008_project_tasks` before starting the new API, controller and `execution-reconciler` service in `deploy/docker/compose.yml`.
+Apply migrations through `20261008_project_tasks` before starting the new API and controller. The API owns the recovery background job.
 Drain the old controller before upgrading.
 New hosted claims require private protocol version 3 and an explicit physical slot.
 
-The reconciler uses application database authority with a pool of two and zero overflow.
-Include that pool in the deployment connection budget.
-It polls every five seconds and must remain running when executor admission is disabled.
+The reconciler shares the core application database pool.
+It polls every five seconds; keep core running when executor admission is disabled.
 The reconciler needs no extra provider or controller credential.
 
 A run that may have dispatched a provider request or changed research requires explicit user resume after runner loss.
@@ -134,7 +133,7 @@ The default deadline remains 300 seconds from admission, including queue time.
 
 For rollback, stop new admissions.
 Drain or fence controllers.
-Keep the API, historical data, and reconciler available.
+Keep the API, its background jobs, and historical data available.
 Do not downgrade away completion receipts or delete quarantined reservations.
 See the [failure acceptance matrix](../../docs/architecture/hosted-failures.md).
 

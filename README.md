@@ -96,9 +96,9 @@ The command starts these processes:
 
 - Vite.
 - The Python API, which reloads after source changes.
-- The community consumer.
-- The reconciler for hosted runs.
-- The artifact cleanup process.
+
+The API owns notification processing, hosted-run recovery, and artifact cleanup
+as background jobs in the same process.
 
 The local services store accounts and research in `.local/polycolab.db`.
 They store uploads in `.local/artifacts/`.
@@ -114,6 +114,12 @@ Restart the command after changes to `deploy/docker/.env`.
 Source changes reload automatically.
 
 ### Run with Docker
+
+Docker uses `core`, `postgres`, and `object-storage`, with an optional `worker`.
+`pnpm run dev:docker` runs migrations in a temporary core container before startup.
+For installations using the old service names, follow the
+[Compose upgrade procedure](deploy/README.md#upgrade-from-the-previous-service-names)
+before starting the new stack.
 
 1. Before the first start, set `BOOTSTRAP_ADMIN_PASSWORD` in `deploy/docker/.env`.
 2. Start the Docker services:

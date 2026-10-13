@@ -72,18 +72,14 @@ try {
       PUBLIC_APP_ORIGIN: process.env.PUBLIC_APP_ORIGIN || 'http://localhost:8000',
     };
     await run(
-      'docker',
+      'bash',
       [
-        'compose',
+        resolve(root, 'deploy/scripts/deploy-stack.sh'),
+        mode === 'apply' ? 'reuse' : 'build',
         '--env-file',
         config,
         '-f',
         resolve(root, 'deploy/docker/compose.yml'),
-        'up',
-        '-d',
-        ...(mode === 'apply'
-          ? ['--force-recreate', 'api', 'community', 'execution-reconciler']
-          : ['--build']),
       ],
       env,
     );
@@ -128,15 +124,6 @@ try {
             '--port',
             '8000',
           ],
-        ],
-        [
-          'uv',
-          ['run', '--directory', 'src/backend', 'python', '-m', 'polycolab.community_consumer'],
-        ],
-        ['uv', ['run', '--directory', 'src/backend', 'python', '-m', 'polycolab.artifact_gc']],
-        [
-          'uv',
-          ['run', '--directory', 'src/backend', 'python', '-m', 'polycolab.execution.reconciler'],
         ],
         [
           'pnpm',
