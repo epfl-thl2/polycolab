@@ -2126,6 +2126,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get default files
+         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         */
+        get: operations["getDefaultFiles"];
+        put?: never;
+        /**
+         * Change default files
+         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         */
+        post: operations["changeDefaultFiles"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/invitations": {
         parameters: {
             query?: never;
@@ -5015,6 +5039,49 @@ export interface components {
          * @enum {string}
          */
         CorrespondenceStatus: "MATCHES" | "PARTIAL" | "MISMATCH" | "UNASSESSED";
+        /** DefaultFileCommand */
+        DefaultFileCommand: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "list" | "read" | "write" | "rename" | "delete";
+            /** Content */
+            content?: string | null;
+            /** Content Base64 */
+            content_base64?: string | null;
+            /** Destination */
+            destination?: string | null;
+            /** Expected Digest */
+            expected_digest?: string | null;
+            /**
+             * Path
+             * @default
+             */
+            path: string;
+        };
+        /** DefaultFileRead */
+        DefaultFileRead: {
+            /** Binary */
+            binary: boolean;
+            /** Content */
+            content?: string | null;
+            /** Content Base64 */
+            content_base64?: string | null;
+            /** Digest */
+            digest: string;
+            /** Path */
+            path: string;
+            /** Size */
+            size: number;
+        };
+        /** DefaultFilesRead */
+        DefaultFilesRead: {
+            /** Files */
+            files: components["schemas"]["DefaultFileRead"][];
+            /** Writable */
+            writable: boolean;
+        };
         ErrorEnvelope: {
             error: {
                 code: string;
@@ -6269,7 +6336,7 @@ export interface components {
              * @default git
              * @enum {string}
              */
-            workspace_mode: "linear" | "git";
+            workspace_mode: "default" | "linear" | "git";
         };
         /** ProjectMemberRead */
         ProjectMemberRead: {
@@ -6303,7 +6370,7 @@ export interface components {
              * @default git
              * @enum {string}
              */
-            workspace_mode: "linear" | "git";
+            workspace_mode: "default" | "linear" | "git";
         };
         /** ProjectReferenceCreate */
         ProjectReferenceCreate: {
@@ -6510,7 +6577,7 @@ export interface components {
              * @default git
              * @enum {string}
              */
-            workspace_mode: "linear" | "git";
+            workspace_mode: "default" | "linear" | "git";
         };
         /** ProjectVersionCopyRead */
         ProjectVersionCopyRead: {
@@ -19871,6 +19938,198 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentContributionRead"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Request too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Request or mutation budget exhausted */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getDefaultFiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefaultFilesRead"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Request too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Request or mutation budget exhausted */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    changeDefaultFiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DefaultFileCommand"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefaultFileRead"] | components["schemas"]["DefaultFilesRead"];
                 };
             };
             /** @description Authentication required */

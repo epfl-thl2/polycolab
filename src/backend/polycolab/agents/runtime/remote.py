@@ -493,6 +493,7 @@ class ApiBackedWorker:
                                 if call.name
                                 in {
                                     "submit_proposal",
+                                    "project_files",
                                     "write_object_version",
                                     "create_relation",
                                     "write_summary",

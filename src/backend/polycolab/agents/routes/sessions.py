@@ -475,7 +475,7 @@ def post_agent_session_message(
             or project_policy.require_scope(
                 SqlAlchemyTransaction(db), value.project_id, user.id, ProjectAction.VIEW
             ).project.workspace_mode
-            == "linear"
+            in {"linear", "default"}
         )
         and payload.requested_authority is not None
         and payload.requested_authority.destination == "PUBLIC"
@@ -784,7 +784,7 @@ def set_session_visibility(
     scope = project_policy.require_scope(
         SqlAlchemyTransaction(db), value.project_id, user.id, ProjectAction.CREATE_RESEARCH
     )
-    if scope.project.workspace_mode != "linear":
+    if scope.project.workspace_mode not in {"linear", "default"}:
         raise HTTPException(status_code=409, detail="linear_mode_required")
     value.is_shared = body.is_shared
     db.commit()

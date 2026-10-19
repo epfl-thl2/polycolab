@@ -26,6 +26,7 @@ export type Draft = {
   originalContent: string;
 };
 export type ProjectContext = {
+  defaultFiles?: boolean;
   linear?: import('../lib/linear-session').LinearSession;
   tasks?: ReturnType<typeof import('../lib/project-tasks-api').createProjectTasksApi>;
   repository?: ReturnType<typeof import('../lib/repository-api').createRepositoryApi>;
@@ -52,6 +53,10 @@ export const projectContext = () => getContext<ProjectContext>(contextKey);
 export const explain = (error: unknown) => {
   const status = (error as { status?: number })?.status;
   const code = (error as { code?: string })?.code;
+  if (code === 'file_changed')
+    return 'This file changed since you opened it. Your edits are retained. Copy them before reloading the current file.';
+  if (code === 'file_exists' || code === 'file_path_conflict')
+    return 'That path is already in use. Choose another file path.';
   if (code === 'task_storage_disabled')
     return 'Working-copy storage is unavailable. Try again after it is enabled.';
   if (code === 'task_archived')

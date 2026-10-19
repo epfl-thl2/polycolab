@@ -56,7 +56,7 @@ export interface ResearchApi {
     sort?: 'updated' | 'name' | 'name_desc' | 'relevance',
   ): Promise<Page<Project>>;
   createProject(input: {
-    workspace_mode?: 'linear' | 'git';
+    workspace_mode?: 'default' | 'linear' | 'git';
     name: string;
     description?: string;
     visibility: components['schemas']['ProjectVisibility'];

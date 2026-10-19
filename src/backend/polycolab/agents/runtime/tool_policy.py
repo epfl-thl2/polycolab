@@ -14,6 +14,7 @@ VERIFICATION_TOOL_NAMES = frozenset(
     {"submit_verification", "inspect_verification", "cancel_verification"}
 )
 WRITE_TOOL_NAMES = DIRECT_TOOL_NAMES | {
+    "project_files",
     "submit_proposal",
     "submit_verification",
     "cancel_verification",

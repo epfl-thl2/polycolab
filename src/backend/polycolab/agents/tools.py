@@ -75,12 +75,21 @@ from polycolab.verification.version_contracts import VersionJobRead, VersionJobS
 
 TOOL_NAMES = frozenset({"get_context", "get_object_version", "get_dependencies", "submit_proposal"})
 
-ALL_TOOL_NAMES = TOOL_NAMES | DIRECT_TOOL_NAMES | VERIFICATION_TOOL_NAMES
+ALL_TOOL_NAMES = TOOL_NAMES | DIRECT_TOOL_NAMES | VERIFICATION_TOOL_NAMES | {"project_files"}
 
 
 def allowed_tools(session: Session, run: SqlAgentRun) -> frozenset[str]:
     authority = run_grants.requested(session, run.id)
     names = set(TOOL_NAMES)
+    from polycolab.db.models import SqlProject
+
+    project = session.get(SqlProject, run.project_id)
+    if (
+        project is not None
+        and project.workspace_mode == "default"
+        and (authority is None or authority.destination != "PUBLIC")
+    ):
+        names.add("project_files")
     if authority is not None:
         if {"CREATE_RECORD", "REVISE_RECORD"} & set(authority.allowed_operations):
             names.add("write_object_version")
@@ -102,6 +111,28 @@ def allowed_tools(session: Session, run: SqlAgentRun) -> frozenset[str]:
 def definitions(session: Session, run: SqlAgentRun) -> list[dict[str, object]]:
     values = list(PLATFORM_TOOL_DEFINITIONS)
     names = allowed_tools(session, run)
+    if "project_files" in names:
+        from polycolab.projects.default_files import DefaultAgentFileCommand
+
+        values.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": "project_files",
+                    "description": (
+                        "Access current files in this project's server directory. "
+                        "List or read before editing. Writes, renames, and deletes apply "
+                        "immediately without version history. Use the read digest as "
+                        "expected_digest; omit it only to create a file. Use content for "
+                        "UTF-8 text or content_base64 for binary data. These files are "
+                        "accessed through this tool, not mounted in your execution directory. "
+                        "Read returns byte ranges; list returns at most 100 files. Continue "
+                        "with next_offset and the same expected_digest for further read ranges."
+                    ),
+                    "parameters": DefaultAgentFileCommand.model_json_schema(),
+                },
+            }
+        )
     schemas = (
         ("write_object_version", AgentObjectVersionWrite),
         ("create_relation", AgentRelationshipWrite),
@@ -421,6 +452,34 @@ def execute_tool(
     capability, run, manifest = authorize_tool(session, token=token, tool_name=name)
     if name not in allowed_tools(session, run):
         raise ToolCapabilityInvalid
+    if name == "project_files":
+        from polycolab.projects.default_files import (
+            DefaultAgentFileCommand,
+            DefaultFiles,
+            agent_result,
+        )
+
+        if (
+            verification_settings is None
+            or verification_settings.project_repository_directory is None
+            or idempotency_key is None
+            or source_event_cursor is None
+        ):
+            raise ToolCapabilityInvalid
+        try:
+            command = DefaultAgentFileCommand.model_validate(arguments)
+        except ValidationError as exc:
+            raise ToolCapabilityInvalid from exc
+        files = DefaultFiles(
+            SqlAlchemyTransaction(session),
+            verification_settings.project_repository_directory,
+            run.project_id,
+            run.requested_by_user_id,
+            verification_settings.project_repository_max_bytes,
+        )
+        file_result = agent_result(files, command)
+        session.commit()
+        return file_result
     if name in VERIFICATION_TOOL_NAMES:
         from polycolab.verification import tools as verification_tools
 

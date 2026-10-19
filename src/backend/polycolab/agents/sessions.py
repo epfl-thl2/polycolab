@@ -190,7 +190,7 @@ def create_agent_session(
     """Create a shared project session pinned to a platform v1 agent definition."""
 
     project = session.get(SqlProject, project_id)
-    if project is not None and project.workspace_mode == "linear":
+    if project is not None and project.workspace_mode in {"linear", "default"}:
         task_id = None
     elif task_id is None:
         task_id = session.scalar(
@@ -294,7 +294,7 @@ def append_user_message_and_queue_run(
     if parent.status is not AgentSessionStatus.ACTIVE:
         raise SessionStateError("session is archived")
     if parent.task_id is not None and (
-        linear_project is None or linear_project.workspace_mode != "linear"
+        linear_project is None or linear_project.workspace_mode not in {"linear", "default"}
     ):
         task = session.get(SqlProjectTask, parent.task_id)
         if task is None or task.archived_at is not None:
@@ -564,7 +564,7 @@ def claim_next_run_in_transaction(
                     ~exists(
                         select(SqlProject.id).where(
                             SqlProject.id == SqlAgentRun.project_id,
-                            SqlProject.workspace_mode == "linear",
+                            SqlProject.workspace_mode.in_(["linear", "default"]),
                         )
                     ),
                     earlier_session.task_id == SqlAgentSession.task_id,
@@ -603,7 +603,7 @@ def claim_next_run_in_transaction(
                 exists(
                     select(SqlProject.id).where(
                         SqlProject.id == SqlAgentRun.project_id,
-                        SqlProject.workspace_mode == "linear",
+                        SqlProject.workspace_mode.in_(["linear", "default"]),
                     )
                 ),
                 exists(
@@ -1138,7 +1138,7 @@ def resume_run(
     if parent.status is not AgentSessionStatus.ACTIVE:
         raise SessionStateError("session is archived")
     if parent.task_id is not None and (
-        linear_project is None or linear_project.workspace_mode != "linear"
+        linear_project is None or linear_project.workspace_mode not in {"linear", "default"}
     ):
         task = session.get(SqlProjectTask, parent.task_id)
         if task is None or task.archived_at is not None:

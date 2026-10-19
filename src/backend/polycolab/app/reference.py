@@ -291,6 +291,8 @@ OPERATION_SECTIONS = {
     "resolveLinearBatch": "projects",
     "revertLinearBatch": "projects",
     "diffLinearCheckpoint": "projects",
+    "getDefaultFiles": "projects",
+    "changeDefaultFiles": "projects",
     "getLinearProject": "projects",
     "getLinearFile": "projects",
     "changeLinearFiles": "projects",

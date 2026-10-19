@@ -292,6 +292,7 @@ def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str
             from polycolab.db.stores.repositories import SqlRepositoryStore
 
             project = session.get(SqlProject, run.project_id)
+            is_default = project is not None and project.workspace_mode == "default"
             is_linear = project is not None and project.workspace_mode == "linear"
             repository_enabled = (
                 is_linear
@@ -332,7 +333,7 @@ def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str
                     _finish_claim_failure(session, run, payload.worker_id, "runtime_spec_missing")
                     return Response(status_code=status.HTTP_204_NO_CONTENT)
                 RuntimeSpec.model_validate(run.runtime_spec)
-                if settings.project_repository_directory is not None:
+                if settings.project_repository_directory is not None and not is_default:
                     from polycolab.projects.routes.repository import service as repository_service
 
                     if is_linear:

@@ -145,7 +145,13 @@ def _member_read(
     member_count: int,
 ) -> ProjectMemberRead:
     return ProjectMemberRead(
-        workspace_mode="linear" if project.workspace_mode == "linear" else "git",
+        workspace_mode=(
+            "default"
+            if project.workspace_mode == "default"
+            else "linear"
+            if project.workspace_mode == "linear"
+            else "git"
+        ),
         id=project.id,
         name=project.name,
         description=project.description,
