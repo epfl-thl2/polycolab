@@ -7,10 +7,22 @@ HTTP and never receives database or provider credentials.
 
 ## Host preparation
 
-Use Linux x86_64, cgroup v2, systemd, Python 3.14, and Docker with the systemd
+Use Linux x86_64 or ARM64, cgroup v2, systemd, Python 3.14, and Docker with the systemd
 cgroup driver. gVisor uses `systrap`; it does not require `/dev/kvm`. Keep the
 application's Docker configuration intact when preparing a disposable test host.
 A separate test daemon needs its own socket, data root, execution root and PID file.
+
+The controller requires a cached Linux image matching the host architecture:
+
+| Linux host (`uname -m`) | OCI build platform | Image policy `platform_identity` |
+| ----------------------- | ------------------ | -------------------------------- |
+| `x86_64`                | `linux/amd64`      | `linux-x86_64`                   |
+| `aarch64` or `arm64`    | `linux/arm64`      | `linux-aarch64`                  |
+
+These architectures are supported by [upstream gVisor](https://gvisor.dev/docs/user_guide/install/).
+Preflight rejects unsupported hosts and images for a different architecture.
+On macOS, run the controller and Docker/runsc inside a separately provisioned
+Linux VM with the prerequisites above. The controller does not run directly on macOS.
 
 1. Create a dedicated execution account and install the locked backend environment
    with `uv --directory src/backend sync --frozen`. The microsandbox extra is not
@@ -18,6 +30,7 @@ A separate test daemon needs its own socket, data root, execution root and PID f
 2. Install a verified, pinned runsc distribution in a root-owned directory. Keep
    its companion binaries with it. Record the distribution checksum, version and
    SHA-256 of the runsc binary. The example version is `release-20261005.0`.
+   Select the `x86_64` distribution for x86 hosts and `aarch64` for ARM64 hosts.
 3. Register this runtime in the chosen Docker daemon's configuration, merging with
    its existing settings. Restart that daemon only during an approved maintenance
    window:
@@ -60,11 +73,25 @@ A separate test daemon needs its own socket, data root, execution root and PID f
 
 ## Image and controller
 
-Build [Dockerfile.agent](Dockerfile.agent) using an approved digest-pinned Node
-base containing Python 3.11 or newer. It installs Codex 0.154.0 and the pinned guest
-bridge. Push it to the approved registry and preload its exact `@sha256:` reference
-into the selected daemon. Loading a tar archive alone may not preserve a repository
-digest; preflight requires the exact reference in Docker's `RepoDigests`.
+Build [Dockerfile.agent](Dockerfile.agent) for the host's OCI platform using an
+approved digest-pinned Node/glibc base for that architecture containing Python
+3.11 or newer. It installs Codex 0.154.0 for the build platform and the pinned guest
+bridge. For example, build an ARM64 image from the repository root:
+
+```sh
+docker build --platform linux/arm64 \
+  --build-arg BASE_IMAGE=REGISTRY/approved-node@sha256:BASE_MANIFEST_DIGEST \
+  --file deploy/execution/Dockerfile.agent \
+  --tag REGISTRY/agent:arm64 .
+docker push REGISTRY/agent:arm64
+```
+
+For x86_64, use `--platform linux/amd64` and a matching base and image tag.
+Record each architecture's image manifest digest and build evidence separately.
+Use the architecture-specific manifest digest for the controller and API settings.
+Preload that exact `@sha256:` reference into the selected daemon. Loading a tar
+archive alone may not preserve a repository digest; preflight requires the exact
+reference in Docker's `RepoDigests`.
 The controller never pulls an image during a run.
 
 Copy [controller.gvisor.toml.example](controller.gvisor.toml.example) to the
@@ -80,6 +107,7 @@ build_digest = "BUILD_RECIPE_SHA256"
 platform_identity = "linux-x86_64"
 ```
 
+For ARM64, use `platform_identity = "linux-aarch64"` and the ARM64 image digest.
 Use real 64-character digests. Store the private runtime token in the account-owned
 mode-0600 credential file outside the slots. Use HTTPS for a non-loopback core URL.
 Run preflight as the execution account:
@@ -118,7 +146,11 @@ POLYCOLAB_GVISOR_TEST_CONFIG=/etc/polycolab-execution/controller.toml \
 ```
 
 These tests exercise actual Codex startup, offline networking, input/output transfer,
-cleanup and the independent deadline. They do not establish live provider behavior
+cleanup and the independent deadline. Run them separately on x86_64 and ARM64
+with each architecture's pinned image before enabling that deployment.
+Record the host architecture and runsc distribution checksum with the results.
+Mocked architecture checks do not establish native ARM64 acceptance.
+These tests do not establish live provider behavior
 or production readiness. Complete the [failure acceptance gates](../../docs/architecture/hosted-failures.md)
 before enabling production.
 

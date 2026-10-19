@@ -72,7 +72,10 @@ class DockerRuntime(SlotPool):
         )
 
     async def check_ready(self) -> None:
-        if platform.system() != "Linux" or platform.machine() != "x86_64" or not self.images:
+        architecture = {"x86_64": "amd64", "aarch64": "arm64", "arm64": "arm64"}.get(
+            platform.machine()
+        )
+        if platform.system() != "Linux" or architecture is None or not self.images:
             raise SandboxUnavailable("linux_runtime_required")
         info = json.loads(await self.host("check"))
         if (info["runsc_version"], info["docker_socket"], info["runtime_name"]) != (
@@ -100,7 +103,7 @@ class DockerRuntime(SlotPool):
             value = json.loads(await self.docker("image", "inspect", image.reference))[0]
             if (
                 image.reference not in value.get("RepoDigests", [])
-                or value["Architecture"] != "amd64"
+                or value["Architecture"] != architecture
                 or value["Os"] != "linux"
                 or value["Config"].get("Volumes")
             ):

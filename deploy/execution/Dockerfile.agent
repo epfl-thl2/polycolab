@@ -1,5 +1,6 @@
 # Build from the repository root. Supply an approved digest-pinned Node image
-# containing Python 3 and glibc. Record the resulting image digest in the registry.
+# containing Python 3 and glibc for the executor's linux/amd64 or linux/arm64 platform.
+# Record the resulting architecture-specific image digest in the registry.
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 USER root

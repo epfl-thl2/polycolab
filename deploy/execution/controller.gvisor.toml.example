@@ -1,4 +1,4 @@
-# Native Linux controller; start with one finite slot.
+# Native Linux x86_64 or ARM64 controller; start with one finite slot.
 backend = "gvisor"
 sandbox_version = "release-20261005.0"
 docker_socket = "/var/run/docker.sock"
@@ -11,3 +11,4 @@ agent_credential_file = "/etc/polycolab-execution/agent-token"
 worker_id = "codex-gvisor"
 state_dir = "/var/lib/polycolab-execution"
 # Add the accepted digest-pinned [[images]] policy described in README.md.
+# Use a native image: linux-x86_64 for amd64, linux-aarch64 for arm64.

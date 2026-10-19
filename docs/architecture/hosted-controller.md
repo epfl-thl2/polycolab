@@ -1,6 +1,8 @@
 # Hosted controller
 
 The Linux hosted-agent controller supports explicit Docker/gVisor and microsandbox 0.6.18 backends, sharing Codex CLI 0.154.0, API transport, scheduling and output handling.
+Docker/gVisor accepts x86_64 and ARM64 Linux hosts and requires cached images for
+the host architecture. Microsandbox remains restricted to Linux x86_64.
 Production enablement requires an accepted Linux host, curated image and the remaining containment/provider/browser acceptance gates.
 See the [deployment procedure](../../deploy/execution/README.md).
 
@@ -124,6 +126,7 @@ Local protocol tests use synthetic Codex frames.
 Artifact tests use in-memory object storage.
 PostgreSQL tests use disposable schemas on the local service.
 The opt-in gVisor native suite exercises real Codex startup, read-only inputs, offline networking, cleanup, independent deadlines and cancellation across two slots. It does not establish live-provider or production deployment acceptance.
+Native acceptance is required separately for each enabled host architecture and image.
 
 ## Verification
 

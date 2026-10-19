@@ -37,6 +37,106 @@ def runtime(path: Path) -> DockerRuntime:
     )
 
 
+@pytest.fixture
+def prepared_gvisor_runtime(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> DockerRuntime:
+    import os
+
+    adapter = runtime(tmp_path)
+    (tmp_path / "slots" / "0").mkdir(parents=True, mode=0o700)
+    monkeypatch.setattr(os.path, "ismount", lambda _: True)
+    monkeypatch.setattr(os, "statvfs", lambda _: SimpleNamespace(f_blocks=1024, f_frsize=4096))
+    monkeypatch.setattr(
+        adapter,
+        "host",
+        AsyncMock(
+            return_value=json.dumps(
+                {
+                    "runsc_version": adapter.version,
+                    "docker_socket": adapter.socket,
+                    "runtime_name": adapter.runtime_name,
+                }
+            ).encode()
+        ),
+    )
+    return adapter
+
+
+@pytest.mark.parametrize(
+    "machine,image_architecture,accepted",
+    [
+        ("x86_64", "amd64", True),
+        ("aarch64", "arm64", True),
+        ("arm64", "arm64", True),
+        ("x86_64", "arm64", False),
+        ("aarch64", "amd64", False),
+        ("arm64", "amd64", False),
+        ("aarch64", "arm", False),
+    ],
+)
+def test_gvisor_readiness_requires_native_image_architecture(
+    prepared_gvisor_runtime: DockerRuntime,
+    monkeypatch: pytest.MonkeyPatch,
+    machine: str,
+    image_architecture: str,
+    accepted: bool,
+) -> None:
+    import platform
+
+    adapter = prepared_gvisor_runtime
+    monkeypatch.setattr(platform, "system", lambda: "Linux")
+    monkeypatch.setattr(platform, "machine", lambda: machine)
+    image = next(iter(adapter.images.values()))
+    docker = AsyncMock(
+        return_value=json.dumps(
+            [
+                {
+                    "RepoDigests": [image.reference],
+                    "Architecture": image_architecture,
+                    "Os": "linux",
+                    "Config": {},
+                }
+            ]
+        ).encode()
+    )
+    monkeypatch.setattr(adapter, "docker", docker)
+    if accepted:
+        asyncio.run(adapter.check_ready())
+    else:
+        with pytest.raises(SandboxUnavailable, match="cached_image_identity_mismatch"):
+            asyncio.run(adapter.check_ready())
+    docker.assert_awaited_once_with("image", "inspect", image.reference)
+
+
+@pytest.mark.parametrize(
+    "system,machine",
+    [
+        ("Linux", "armv7l"),
+        ("Linux", "riscv64"),
+        ("Darwin", "arm64"),
+        ("Darwin", "x86_64"),
+        ("Windows", "AMD64"),
+    ],
+)
+def test_gvisor_readiness_rejects_unsupported_hosts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    system: str,
+    machine: str,
+) -> None:
+    import platform
+
+    adapter = runtime(tmp_path)
+    monkeypatch.setattr(platform, "system", lambda: system)
+    monkeypatch.setattr(platform, "machine", lambda: machine)
+    host, docker = AsyncMock(), AsyncMock()
+    monkeypatch.setattr(adapter, "host", host)
+    monkeypatch.setattr(adapter, "docker", docker)
+    with pytest.raises(SandboxUnavailable, match="linux_runtime_required"):
+        asyncio.run(adapter.check_ready())
+    host.assert_not_awaited()
+    docker.assert_not_awaited()
+
+
 def test_old_specs_keep_microsandbox_identity() -> None:
     value = spec().model_dump()
     value.pop("sandbox_backend")
@@ -410,31 +510,14 @@ def test_claim_rejects_malformed_tool_definitions() -> None:
 
 
 def test_preflight_rejects_shared_slot_filesystem(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    prepared_gvisor_runtime: DockerRuntime, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import os
     import platform
 
-    adapter = runtime(tmp_path)
+    adapter = prepared_gvisor_runtime
     adapter.initialize_slots(2)
-    for index in range(2):
-        (tmp_path / "slots" / str(index)).mkdir(parents=True, mode=0o700)
+    (adapter.state_dir / "slots" / "1").mkdir(mode=0o700)
     monkeypatch.setattr(platform, "system", lambda: "Linux")
     monkeypatch.setattr(platform, "machine", lambda: "x86_64")
-    monkeypatch.setattr(os.path, "ismount", lambda _: True)
-    monkeypatch.setattr(os, "statvfs", lambda _: SimpleNamespace(f_blocks=1024, f_frsize=4096))
-    monkeypatch.setattr(
-        adapter,
-        "host",
-        AsyncMock(
-            return_value=json.dumps(
-                {
-                    "runsc_version": adapter.version,
-                    "docker_socket": adapter.socket,
-                    "runtime_name": adapter.runtime_name,
-                }
-            ).encode()
-        ),
-    )
     with pytest.raises(SandboxUnavailable, match="distinct_slot_filesystems_required"):
         asyncio.run(adapter.check_ready())

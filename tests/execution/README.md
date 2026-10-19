@@ -41,3 +41,6 @@ with two finite slots. It tests real Codex initialization, read-only inputs,
 offline networking, output transfer, cleanup, independent deadlines with intact,
 truncated and removed journals, controller SIGKILL/reconciliation and two-slot
 cancellation. See the [gVisor setup](../../deploy/execution/gvisor.md).
+Run the suite separately on Linux x86_64 and ARM64 with matching pinned images.
+Record the host architecture, image digest and runsc distribution checksum.
+Mocked readiness checks do not establish native acceptance for either architecture.
