@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import ProjectTabStrip from '../../../src/web/src/ui/ProjectTabStrip.svelte';
+import ProjectTabStrip from '../../../src/web/src/pages/project/components/ProjectTabStrip.svelte';
 import type { ProjectTab } from '../../../src/web/src/lib/project-tabs';
 afterEach(cleanup);
 const tabs: ProjectTab[] = [

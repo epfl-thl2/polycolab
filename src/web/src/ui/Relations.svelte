@@ -6,7 +6,7 @@
   import { NativeSelect } from '../lib/components/ui/native-select';
   import { Textarea } from '../lib/components/ui/textarea';
   import { toStore } from 'svelte/store';
-  import ProjectRelationships from './ProjectRelationships.svelte';
+  import ProjectRelationships from '../pages/project/components/ProjectRelationships.svelte';
   import { loadProjectMap } from '../lib/project-map';
   import { createQuery, createInfiniteQuery } from '@tanstack/svelte-query';
   import { projectContext, explain } from '../svelte-lib/context';

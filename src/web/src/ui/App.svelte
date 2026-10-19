@@ -285,7 +285,7 @@
         {#if !auth.loaded}<main id="main" class="page">
             <LoadingState>Opening project…</LoadingState>
           </main>
-        {:else}{#await import('./ProjectRoute.svelte') then module}{#key projectId}<module.default
+        {:else}{#await import('../pages/project/ProjectRoute.svelte') then module}{#key projectId}<module.default
                 {projectId}
                 {path}
               />{/key}{/await}{/if}
@@ -376,7 +376,11 @@
             <LoadingState>Loading settings…</LoadingState>
           </main>{:then module}<module.default {path} />{/await}
       {:else if projectId}
-        {#await import('./Project.svelte')}<main id="main" class="page" tabindex="-1">
+        {#await import('../pages/project/Project.svelte')}<main
+            id="main"
+            class="page"
+            tabindex="-1"
+          >
             <LoadingState>Opening research…</LoadingState>
           </main>{:then module}{#key projectId}<module.default {projectId} {path} />{/key}{/await}
       {:else}<main id="main" class="page" tabindex="-1">

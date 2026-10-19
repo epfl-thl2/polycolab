@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import ProjectFiles from '../../../src/web/src/ui/ProjectFiles.svelte';
+import ProjectFiles from '../../../src/web/src/pages/project/components/ProjectFiles.svelte';
 import { contextKey } from '../../../src/web/src/svelte-lib/context';
 import { encodeFile } from '../../../src/web/src/lib/repository-api';
 

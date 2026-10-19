@@ -5,6 +5,20 @@ Run it locally with `pnpm run web:dev`.
 Vite proxies `/api`, `/auth`, `/health`, and `/public` to the local FastAPI process.
 Browser requests use the generated API client and relative same-origin paths in production.
 
+Project page composition lives in `src/web/src/pages/project/`:
+
+- The directory root owns the project entry point, section renderer, and Default, Git, and
+  Linear workbenches.
+- `components/` owns project navigation, tabs, panels, worktrees, file browsing,
+  and linear-history controls.
+- `sections/` owns the overview, research, documents, map, activity, records,
+  references, conversations, proposals, verification, agent connection, and settings screens.
+
+General-purpose UI and shared research widgets remain in `src/web/src/ui/`.
+Other pages remain there until migrated. SvelteKit route files remain in
+`src/web/src/routes/`, and `ui/App.svelte` loads the project page. Project data
+adapters and state helpers remain in `src/web/src/lib/`.
+
 The public `/SKILL.md` endpoint serves the canonical external-agent instructions from `skills/polycolab/SKILL.md`.
 SvelteKit imports that source as raw Markdown and prerenders it into the web build.
 FastAPI serves the built file anonymously with a Markdown content type and returns 404 if it is missing.

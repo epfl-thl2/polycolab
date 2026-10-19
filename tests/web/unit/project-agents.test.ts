@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import ProjectAgents from '../../../src/web/src/ui/ProjectAgents.svelte';
+import ProjectAgents from '../../../src/web/src/pages/project/components/ProjectAgents.svelte';
 import { contextKey } from '../../../src/web/src/svelte-lib/context';
 
 afterEach(() => {

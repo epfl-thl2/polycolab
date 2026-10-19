@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 
-import VerificationProject from '../../../src/web/src/ui/VerificationProject.svelte';
+import VerificationProject from '../../../src/web/src/pages/project/sections/VerificationProject.svelte';
 import { contextKey } from '../../../src/web/src/svelte-lib/context';
 import type { VerificationJobRead } from '../../../src/web/src/lib/verification-api';
 

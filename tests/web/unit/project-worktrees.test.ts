@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import ProjectWorktrees from '../../../src/web/src/ui/ProjectWorktrees.svelte';
+import ProjectWorktrees from '../../../src/web/src/pages/project/components/ProjectWorktrees.svelte';
 import { contextKey } from '../../../src/web/src/svelte-lib/context';
 
 const tree = { id: 'proof', title: 'Proof', branch: 'tasks/proof', archived_at: null };
