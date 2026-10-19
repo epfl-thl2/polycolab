@@ -1,7 +1,6 @@
 <script lang="ts">
   import AccountMenu from './AccountMenu.svelte';
   import BrandWordmark from './BrandWordmark.svelte';
-  import PlannedBadge from './PlannedBadge.svelte';
   import * as Alert from '../lib/components/ui/alert';
   import { onMount, type Snippet } from 'svelte';
   import { Button, buttonVariants } from '../lib/components/ui/button';
@@ -27,7 +26,6 @@
 
   type Destination =
     | 'agents'
-    | 'chat'
     | 'search'
     | 'activity'
     | 'explore'
@@ -101,27 +99,25 @@
   );
   const mobileContext = $derived(
     projectName ??
-      (active === 'chat'
-        ? 'Chat'
-        : active === 'search'
-          ? 'Home'
-          : active === 'activity'
-            ? 'Activity'
-            : active === 'explore'
-              ? 'Library'
-              : active === 'docs'
-                ? 'Docs'
-                : active === 'agents'
-                  ? 'Agents'
-                  : active === 'settings'
-                    ? 'Settings'
-                    : active === 'profile'
-                      ? 'Profile'
-                      : active === 'moderation'
-                        ? 'Moderation'
-                        : active === 'projects'
-                          ? 'Projects'
-                          : 'Home'),
+      (active === 'search'
+        ? 'Home'
+        : active === 'activity'
+          ? 'Activity'
+          : active === 'explore'
+            ? 'Library'
+            : active === 'docs'
+              ? 'Docs'
+              : active === 'agents'
+                ? 'Agents'
+                : active === 'settings'
+                  ? 'Settings'
+                  : active === 'profile'
+                    ? 'Profile'
+                    : active === 'moderation'
+                      ? 'Moderation'
+                      : active === 'projects'
+                        ? 'Projects'
+                        : 'Home'),
   );
 
   async function signOut() {
@@ -220,9 +216,6 @@
         <a href={projectsHref} aria-current={active === 'projects' ? 'page' : undefined}>Projects</a
         >
         <a href="/activity" aria-current={active === 'activity' ? 'page' : undefined}>Activity</a>
-        <a href="/chat" aria-current={active === 'chat' ? 'page' : undefined}
-          >Chat <PlannedBadge /></a
-        >
         <a href="/agents" aria-current={active === 'agents' ? 'page' : undefined}>Agents</a>
         <div
           class="product-docs-menu"
@@ -359,7 +352,6 @@
             {@render menuLink('/library', 'Library', active === 'explore')}
             {@render menuLink(projectsHref, 'Projects', active === 'projects')}
             {@render menuLink('/activity', 'Activity', active === 'activity')}
-            {@render menuLink('/chat', 'Chat', active === 'chat')}
             {@render menuLink('/agents', 'Agents', active === 'agents')}
             <DropdownMenu.Separator />
             <DropdownMenu.GroupHeading>Docs</DropdownMenu.GroupHeading>
@@ -413,10 +405,7 @@
             aria-hidden="true"
           />{:else if href === '/docs/getting-started/'}<BookOpen
             aria-hidden="true"
-          />{:else if href === '/docs/developers/'}<Code
-            aria-hidden="true"
-          />{/if}{label}{#if href === '/chat'}
-          <PlannedBadge />{/if}</a
+          />{:else if href === '/docs/developers/'}<Code aria-hidden="true" />{/if}{label}</a
       >
     {/snippet}
   </DropdownMenu.Item>

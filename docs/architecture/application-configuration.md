@@ -40,7 +40,8 @@ Mail queue delivery remains an operator integration requirement.
 
 This repository has no SMTP delivery daemon.
 Do not configure recovery as available until that delivery path is operational.
-Unfinished Chat, directory and session-administration services remain planned.
+Direct provider chat does not require agent execution to be enabled.
+Directory and session-administration services remain planned.
 
 `PUBLIC_PROJECT_MODERATOR_SUBJECTS` is the explicit human allowlist for hiding or restoring public-project research.
 It is separate from catalogue operators.

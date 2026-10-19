@@ -89,3 +89,14 @@ it('redirects old project bookmarks and preserves their query', () => {
     '/demo/projects/id?panel=map',
   );
 });
+
+it('opens the existing project conversations for retired direct-chat bookmarks', () => {
+  expect(canonicalUiLocation('/projects/project/chat', '')).toBe('/projects/project/sessions');
+  expect(canonicalUiLocation('/projects/project/chat/', '?source=bookmark')).toBe(
+    '/projects/project/sessions?source=bookmark',
+  );
+  expect(canonicalUiLocation('/workspaces/project/chat', '')).toBe('/projects/project/sessions');
+  expect(canonicalUiLocation('/projects/project/sessions/chat', '')).toBe(
+    '/projects/project/sessions/chat',
+  );
+});

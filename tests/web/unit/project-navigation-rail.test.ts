@@ -33,6 +33,7 @@ it('uses explicit overview and project paths with the selected section', async (
   ).toBe(false);
   expect(screen.getByRole('button', { name: 'Open account menu' })).toBeTruthy();
   expect(screen.queryByRole('link', { name: 'Agents' })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Chat' })).toBeNull();
 });
 it('keeps the icon rail fixed on hover and keyboard focus with no pin control', async () => {
   const { container } = setup();
@@ -51,6 +52,7 @@ it('shows the mobile drawer expanded and limits project management links', () =>
   expect(screen.queryByRole('button', { name: 'Pin project navigation' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Project settings' })).toBeNull();
   expect(screen.getByRole('link', { name: 'Agent connect' })).toBeTruthy();
+  expect(screen.queryByRole('link', { name: 'Chat' })).toBeNull();
 });
 it('preserves modified clicks for opening navigation in another tab', async () => {
   const { onNavigate } = setup();

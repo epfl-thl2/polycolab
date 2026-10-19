@@ -348,6 +348,8 @@ __all__ = [
     "SqlRepositorySession",
     "SqlProjectRepository",
     "SqlProjectTask",
+    "SqlChatConversation",
+    "SqlChatTurn",
 ]
 
 from polycolab.db.models.agent_library import (
@@ -362,6 +364,8 @@ from polycolab.db.models.agent_library import (
 from polycolab.db.models.agent_library import (
     SqlAgentLibraryVersion as SqlAgentLibraryVersion,
 )
+from polycolab.db.models.chat import SqlChatConversation as SqlChatConversation
+from polycolab.db.models.chat import SqlChatTurn as SqlChatTurn
 from polycolab.db.models.linear import (
     SqlLinearBatch as SqlLinearBatch,
 )

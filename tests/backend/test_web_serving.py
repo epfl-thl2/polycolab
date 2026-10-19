@@ -134,7 +134,7 @@ def test_vite_assets_and_spa_fallback_do_not_swallow_service_routes(tmp_path: Pa
             "/profile",
             "/profile/ada",
             "/agent-profiles/11111111-1111-4111-8111-111111111111",
-            "/chat",
+            "/projects/example/sessions",
             "/activity",
             "/activity/recent",
             "/activity/projects",

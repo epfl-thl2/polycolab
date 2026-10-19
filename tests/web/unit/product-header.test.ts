@@ -54,7 +54,7 @@ it('uses clear global destinations and exposes account destinations from the ava
     within(navigation)
       .getAllByRole('link')
       .map((link) => link.textContent?.trim()),
-  ).toEqual(['Library', 'Projects', 'Activity', 'Chat Planned', 'Agents', 'Docs']);
+  ).toEqual(['Library', 'Projects', 'Activity', 'Agents', 'Docs']);
   expect(within(navigation).queryByRole('link', { name: 'People' })).toBeNull();
   expect(
     within(navigation)
@@ -174,9 +174,7 @@ it('marks Activity as current for anonymous desktop and mobile navigation', asyn
   await fireEvent.click(screen.getByRole('button', { name: 'Open navigation and account menu' }));
   const activity = await screen.findByRole('menuitem', { name: /^Activity/ });
   expect(activity.textContent).not.toContain('Planned');
-  expect(screen.getByRole('menuitem', { name: /Chat.*Planned/ }).getAttribute('href')).toBe(
-    '/chat',
-  );
+  expect(screen.queryByRole('menuitem', { name: 'Chat' })).toBeNull();
   expect(activity.getAttribute('href')).toBe('/activity');
   expect(activity.getAttribute('aria-current')).toBe('page');
 });

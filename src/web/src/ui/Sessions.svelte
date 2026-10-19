@@ -18,7 +18,8 @@
   import type { AgentRun } from '../lib/agent-sessions-api';
   import { prepareTurn, type TurnDraft } from '../lib/run-authority';
   import Markdown from './Markdown.svelte';
-  import { ArrowUp, ChevronDown, RotateCcw, SlidersHorizontal, Sparkles } from '@lucide/svelte';
+  import ChatComposer from './ChatComposer.svelte';
+  import { ChevronDown, RotateCcw, SlidersHorizontal, Sparkles } from '@lucide/svelte';
   import { Popover } from 'bits-ui';
   import { chatPanelPortal } from '../lib/chat-panel-portal';
   import { tick } from 'svelte';
@@ -82,7 +83,6 @@
           JSON.stringify(batch.changes);
     });
   });
-  let newChatInput = $state<HTMLTextAreaElement | null>(null);
   let sessionChatInput = $state<HTMLTextAreaElement | null>(null);
   const promptStarters = [
     'Summarize this project',
@@ -317,7 +317,6 @@
   $effect(() => {
     void draft;
     void tick().then(() => {
-      if (newChatInput) fitChatInput(newChatInput);
       if (sessionChatInput) fitChatInput(sessionChatInput);
     });
   });
@@ -548,196 +547,173 @@
     {#if allSessions}<header class="project-chat-intro">
         <h1>All sessions</h1>
       </header>{/if}
-    {#if !allSessions}<div class="project-chat-start-group">
-        <form class="project-chat-start" onsubmit={create}>
-          <div class="project-chat-config-bar" aria-label="Chat configuration">
-            <Popover.Root bind:open={customizationOpen}>
-              <Popover.Trigger
-                type="button"
-                class="project-chat-customize-trigger"
+    {#if !allSessions}<ChatComposer
+        bind:value={draft}
+        label="Message the agent"
+        onsubmit={create}
+        disabled={Boolean(newChatSendReason)}
+        sendReason={newChatVisibleSendReason}
+        prompts={promptStarters}
+      >
+        {#snippet configuration()}
+          <Popover.Root bind:open={customizationOpen}>
+            <Popover.Trigger
+              type="button"
+              class="project-chat-customize-trigger"
+              aria-label="Customize chat"
+              disabled={Boolean(startingSessionId)}
+            >
+              <SlidersHorizontal class="size-4" aria-hidden="true" />
+              <span>{hasCustomSettings ? 'Custom' : 'Customize'}</span>
+            </Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Content
+                side="top"
+                align="end"
+                sideOffset={10}
+                class="project-chat-customization-popover"
+                role="dialog"
                 aria-label="Customize chat"
-                disabled={Boolean(startingSessionId)}
               >
-                <SlidersHorizontal class="size-4" aria-hidden="true" />
-                <span>{hasCustomSettings ? 'Custom' : 'Customize'}</span>
-              </Popover.Trigger>
-              <Popover.Portal>
-                <Popover.Content
-                  side="top"
-                  align="end"
-                  sideOffset={10}
-                  class="project-chat-customization-popover"
-                  role="dialog"
-                  aria-label="Customize chat"
-                >
-                  <header class="project-chat-customization-header">
-                    <h2>Customize chat</h2>
-                    <p>
-                      {selectedAgent
-                        ? agentDescription(selectedAgent.agent_kind)
-                        : 'Configure this conversation.'}
-                    </p>
-                  </header>
-                  <div class="project-chat-customization-fields">
-                    <Field.Label
-                      >Context scope<NativeSelect
-                        aria-label="Context scope"
-                        bind:value={contextScope}
-                        disabled={Boolean(startingSessionId)}
-                      >
-                        <option value="project">Entire project</option>
-                        <option value="selected">Selected research</option>
-                        <option value="custom">Custom scope</option>
-                      </NativeSelect></Field.Label
-                    >
-                    <Field.Label
-                      >Response style<NativeSelect
-                        aria-label="Response style"
-                        bind:value={responseStyle}
-                        disabled={Boolean(startingSessionId)}
-                      >
-                        <option value="balanced">Balanced</option>
-                        <option value="concise">Concise</option>
-                        <option value="detailed">Detailed</option>
-                      </NativeSelect></Field.Label
-                    >
-                    <a href="/settings/model-providers">Manage AI providers</a>
-                    <button
-                      type="button"
-                      class="project-chat-custom-toggle"
-                      aria-pressed={configurationMode === 'custom'}
+                <header class="project-chat-customization-header">
+                  <h2>Customize chat</h2>
+                  <p>
+                    {selectedAgent
+                      ? agentDescription(selectedAgent.agent_kind)
+                      : 'Configure this conversation.'}
+                  </p>
+                </header>
+                <div class="project-chat-customization-fields">
+                  <Field.Label
+                    >Context scope<NativeSelect
+                      aria-label="Context scope"
+                      bind:value={contextScope}
                       disabled={Boolean(startingSessionId)}
-                      onclick={() => setCustomConfiguration(configurationMode !== 'custom')}
                     >
-                      <span>
-                        <strong>Custom instructions</strong>
-                        <small>Add a session-specific system prompt through Hosted Codex.</small>
-                      </span>
-                      <span class="project-chat-custom-toggle-state"
-                        >{configurationMode === 'custom' ? 'On' : 'Off'}</span
-                      >
-                    </button>
-                    {#if configurationMode === 'custom'}
-                      {#if !hostedAvailable}
-                        <p class="project-chat-unavailable" role="status">
-                          Hosted Codex is unavailable right now. You can review these options, but
-                          cannot start a customized chat.
-                        </p>
-                      {/if}
-                      <Field.Label
-                        >System prompt<Textarea
-                          required
-                          aria-label="System prompt"
-                          placeholder="Give the agent instructions for this chat…"
-                          maxlength={10000}
-                          bind:value={customSystemPrompt}
-                          disabled={Boolean(startingSessionId)}
-                        /></Field.Label
-                      >
-                      <p class="muted project-chat-config-help">
-                        Added to the base agent instructions for this session.
-                      </p>
-                      <Field.Label
-                        >Harness<NativeSelect aria-label="Harness" value="codex" disabled>
-                          <option value="codex">Hosted Codex</option>
-                        </NativeSelect></Field.Label
-                      >
-                    {/if}
-                  </div>
-                  <footer class="project-chat-customization-footer">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      class="project-chat-reset"
+                      <option value="project">Entire project</option>
+                      <option value="selected">Selected research</option>
+                      <option value="custom">Custom scope</option>
+                    </NativeSelect></Field.Label
+                  >
+                  <Field.Label
+                    >Response style<NativeSelect
+                      aria-label="Response style"
+                      bind:value={responseStyle}
                       disabled={Boolean(startingSessionId)}
-                      onclick={resetNewChatSettings}
-                      ><RotateCcw class="size-4" aria-hidden="true" />Reset to defaults</Button
                     >
-                  </footer>
-                </Popover.Content>
-              </Popover.Portal>
-            </Popover.Root>
-          </div>
-          <div class="project-chat-composer-surface">
-            <Textarea
-              required
-              aria-label="Message the agent"
-              placeholder="Ask a question or describe what you want to do…"
-              bind:value={draft}
-              bind:ref={newChatInput}
-              onkeydown={composerKeydown}
-            />
-            {#if !worktreeId && $repositoryState.data?.enabled && hostedAvailable}
-              <label
-                ><input type="checkbox" bind:checked={useProjectFiles} disabled={busy} /> Use project
-                files (saved changes are shared with members)</label
-              >
-            {/if}
-            <div class="project-chat-start-footer">
-              {#if newChatVisibleSendReason}<span class="project-chat-send-reason" role="status"
-                  >{newChatVisibleSendReason}</span
-                >{/if}
-              <div class="project-chat-composer-preset">
-                <DropdownMenu.Root>
-                  <DropdownMenu.Trigger
+                      <option value="balanced">Balanced</option>
+                      <option value="concise">Concise</option>
+                      <option value="detailed">Detailed</option>
+                    </NativeSelect></Field.Label
+                  >
+                  <a href="/settings/model-providers">Manage AI providers</a>
+                  <button
                     type="button"
-                    class="project-chat-agent-trigger"
-                    aria-label="Choose agent"
-                    disabled={Boolean(startingSessionId) || !availableAgents.length}
+                    class="project-chat-custom-toggle"
+                    aria-pressed={configurationMode === 'custom'}
+                    disabled={Boolean(startingSessionId)}
+                    onclick={() => setCustomConfiguration(configurationMode !== 'custom')}
                   >
-                    <Sparkles class="size-4" aria-hidden="true" />
-                    <span class="project-chat-agent-trigger-copy">
-                      <strong>{selectedAgent?.display_name ?? 'Loading agents…'}</strong>
-                      {#if selectedAgent}<small>v{selectedAgent.version}</small>{/if}
+                    <span>
+                      <strong>Custom instructions</strong>
+                      <small>Add a session-specific system prompt through Hosted Codex.</small>
                     </span>
-                    <ChevronDown class="size-3" aria-hidden="true" />
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Content
-                    side="top"
-                    align="end"
-                    sideOffset={8}
-                    class="project-chat-agent-menu"
+                    <span class="project-chat-custom-toggle-state"
+                      >{configurationMode === 'custom' ? 'On' : 'Off'}</span
+                    >
+                  </button>
+                  {#if configurationMode === 'custom'}
+                    {#if !hostedAvailable}
+                      <p class="project-chat-unavailable" role="status">
+                        Hosted Codex is unavailable right now. You can review these options, but
+                        cannot start a customized chat.
+                      </p>
+                    {/if}
+                    <Field.Label
+                      >System prompt<Textarea
+                        required
+                        aria-label="System prompt"
+                        placeholder="Give the agent instructions for this chat…"
+                        maxlength={10000}
+                        bind:value={customSystemPrompt}
+                        disabled={Boolean(startingSessionId)}
+                      /></Field.Label
+                    >
+                    <p class="muted project-chat-config-help">
+                      Added to the base agent instructions for this session.
+                    </p>
+                    <Field.Label
+                      >Harness<NativeSelect aria-label="Harness" value="codex" disabled>
+                        <option value="codex">Hosted Codex</option>
+                      </NativeSelect></Field.Label
+                    >
+                  {/if}
+                </div>
+                <footer class="project-chat-customization-footer">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    class="project-chat-reset"
+                    disabled={Boolean(startingSessionId)}
+                    onclick={resetNewChatSettings}
+                    ><RotateCcw class="size-4" aria-hidden="true" />Reset to defaults</Button
                   >
-                    <DropdownMenu.Label>Choose an agent</DropdownMenu.Label>
-                    <DropdownMenu.Separator />
-                    <DropdownMenu.RadioGroup bind:value={agentId}>
-                      {#each availableAgents as agent (agent.id)}
-                        <DropdownMenu.RadioItem value={agent.id} class="project-chat-agent-option">
-                          <span class="project-chat-agent-option-icon">
-                            <Sparkles class="size-4" aria-hidden="true" />
-                          </span>
-                          <span class="project-chat-agent-option-copy">
-                            <span>
-                              <strong>{agent.display_name}</strong>
-                              <small>v{agent.version}</small>
-                            </span>
-                            <small>{agentDescription(agent.agent_kind)}</small>
-                          </span>
-                        </DropdownMenu.RadioItem>
-                      {/each}
-                    </DropdownMenu.RadioGroup>
-                  </DropdownMenu.Content>
-                </DropdownMenu.Root>
-              </div>
-              <Button
-                type="submit"
-                size="icon"
-                class="project-chat-send"
-                aria-label="Send message"
-                disabled={Boolean(newChatSendReason)}
-                ><ArrowUp class="size-4" aria-hidden="true" /></Button
-              >
-            </div>
-          </div>
-        </form>
-        <div class="project-chat-prompt-starters" aria-label="Suggested prompts">
-          {#each promptStarters as starter (starter)}<Button
-              variant="outline"
-              size="sm"
-              onclick={() => (draft = starter)}>{starter}</Button
-            >{/each}
-        </div>
-      </div>
+                </footer>
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
+        {/snippet}
+        {#snippet contextControls()}
+          {#if !worktreeId && $repositoryState.data?.enabled && hostedAvailable}
+            <label
+              ><input type="checkbox" bind:checked={useProjectFiles} disabled={busy} /> Use project files
+              (saved changes are shared with members)</label
+            >
+          {/if}
+        {/snippet}
+        {#snippet preset()}
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger
+              type="button"
+              class="project-chat-agent-trigger"
+              aria-label="Choose agent"
+              disabled={Boolean(startingSessionId) || !availableAgents.length}
+            >
+              <Sparkles class="size-4" aria-hidden="true" />
+              <span class="project-chat-agent-trigger-copy">
+                <strong>{selectedAgent?.display_name ?? 'Loading agents…'}</strong>
+                {#if selectedAgent}<small>v{selectedAgent.version}</small>{/if}
+              </span>
+              <ChevronDown class="size-3" aria-hidden="true" />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content
+              side="top"
+              align="end"
+              sideOffset={8}
+              class="project-chat-agent-menu"
+            >
+              <DropdownMenu.Label>Choose an agent</DropdownMenu.Label>
+              <DropdownMenu.Separator />
+              <DropdownMenu.RadioGroup bind:value={agentId}>
+                {#each availableAgents as agent (agent.id)}
+                  <DropdownMenu.RadioItem value={agent.id} class="project-chat-agent-option">
+                    <span class="project-chat-agent-option-icon">
+                      <Sparkles class="size-4" aria-hidden="true" />
+                    </span>
+                    <span class="project-chat-agent-option-copy">
+                      <span>
+                        <strong>{agent.display_name}</strong>
+                        <small>v{agent.version}</small>
+                      </span>
+                      <small>{agentDescription(agent.agent_kind)}</small>
+                    </span>
+                  </DropdownMenu.RadioItem>
+                {/each}
+              </DropdownMenu.RadioGroup>
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
+        {/snippet}
+      </ChatComposer>
       {#if $available.isError}<Alert.Root variant="destructive" role="alert"
           >{explain($available.error)}</Alert.Root
         >{/if}

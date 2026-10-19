@@ -74,6 +74,8 @@ export function canonicalUiLocation(path: string, search: string) {
   const renamed = path
     .replace(/^\/workspaces(?=\/|$)/, '/projects')
     .replace(/^\/demo\/workspaces(?=\/|$)/, '/demo/projects');
+  if (/^\/projects\/[^/]+\/chat\/?$/.test(renamed))
+    return renamed.replace(/\/chat\/?$/, '/sessions') + search;
   if (renamed !== path) return renamed + search;
   if (path === '/activity/workspaces') return '/activity/projects' + search;
   if (path === '/settings/providers') return '/settings/model-providers' + search;
