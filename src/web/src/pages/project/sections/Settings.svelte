@@ -15,7 +15,7 @@
   import { goto } from '$app/navigation';
   import { projectContext, explain } from '../../../svelte-lib/context';
   import { ApiError, type Project, type Role } from '../../../lib/research-api';
-  let { project }: { project: Project } = $props();
+  let { project, embedded = false }: { project: Project; embedded?: boolean } = $props();
   const { api, query } = projectContext();
   let visibility = $state(untrack(() => project.visibility));
   let name = $state(untrack(() => project.name));
@@ -69,10 +69,10 @@
   };
 </script>
 
-<header class="settings-header">
-  <h1>Project settings</h1>
-  <p>Manage project details, access, and lifecycle.</p>
-</header>
+{#if !embedded}<header class="settings-header">
+    <h1>Project settings</h1>
+    <p>Manage project details, access, and lifecycle.</p>
+  </header>{/if}
 {#if !owner}<p>Only project owners can manage settings and membership.</p>{:else}
   {#if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>{/if}{#if notice}<p
       role="status"

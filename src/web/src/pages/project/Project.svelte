@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, tick, type Snippet } from 'svelte';
+  import { onMount, tick, setContext, untrack, type Snippet } from 'svelte';
   import { projectLayoutKey, readProjectLayout } from '../../lib/project-layout';
   import type { ObjectVersion } from '../../lib/research-api';
   import type { Activity } from '../../lib/history-api';
@@ -12,7 +12,7 @@
   import * as Alert from '../../lib/components/ui/alert';
   import { Button, buttonVariants } from '../../lib/components/ui/button';
   import { toStore } from 'svelte/store';
-  import { createInfiniteQuery, createQuery } from '@tanstack/svelte-query';
+  import { createQuery, createInfiniteQuery } from '@tanstack/svelte-query';
   import * as Sheet from '../../lib/components/ui/sheet';
   import {
     Settings,
@@ -37,7 +37,9 @@
   import { accountHref } from '../../lib/account-navigation';
   import { canWriteResearch, restrictionMessage } from '../../lib/access';
   import { page } from '$app/state';
-  import { goto } from '$app/navigation';
+  import { beforeNavigate, goto } from '$app/navigation';
+  import { projectDialogsKey, projectUtility, type ProjectUtility } from './project-dialogs';
+  import ProjectUtilityDialogs from './components/ProjectUtilityDialogs.svelte';
   import type { ProjectMap } from '../../lib/project-map';
   import ProjectMapPanel from './components/ProjectMapPanel.svelte';
   let mapData = $state<ProjectMap>();
@@ -50,7 +52,7 @@
   const mapFocus = $derived(mapData?.objects.find((object) => object.id === mapObjectId));
   import ProductHeader from '../../ui/ProductHeader.svelte';
   let { projectId, path }: { projectId: string; path: string } = $props();
-  const { api, agents, auth, capabilities } = projectContext();
+  const { api, agents, auth, capabilities, query } = projectContext();
   let leftClosed = $state(false);
   let rightClosed = $state(false);
   let maximized = $state(false);
@@ -174,6 +176,38 @@
       : false,
   );
   const canManage = $derived(member && $project.data?.current_user_role === 'OWNER');
+  let utility = $state<ProjectUtility>();
+  let utilityFocus = $state<HTMLElement>();
+  $effect(() => {
+    void projectId;
+    utility = undefined;
+    utilityFocus = undefined;
+  });
+  function openUtility(value: ProjectUtility) {
+    if (!member || (value === 'settings' && !canManage)) return;
+    utilityFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
+    utility = value;
+    mobileLeft = false;
+    mobileRight = false;
+  }
+  setContext(projectDialogsKey, { open: openUtility });
+  beforeNavigate(({ to, cancel }) => {
+    if (!member || !to) return;
+    const selected = projectUtility(projectId, to.url.pathname);
+    if (!selected || (selected === 'settings' && !canManage)) return;
+    cancel();
+    openUtility(selected);
+  });
+  // Existing bookmarked utility URLs open over the overview instead of taking over the workbench.
+  $effect(() => {
+    const selected = projectUtility(projectId, page.url.pathname);
+    if (member && selected && (selected !== 'settings' || canManage)) {
+      untrack(() => openUtility(selected));
+      void goto(`/projects/${projectId}/overview`, { replaceState: true });
+    }
+  });
+
   const canPublish = $derived(
     Boolean(member && $project.data?.current_user_role === 'OWNER' && !$project.data.archived_at),
   );
@@ -215,10 +249,21 @@
   }
 </script>
 
+{#if member && $project.data}<ProjectUtilityDialogs
+    project={$project.data}
+    bind:utility
+    returnFocus={utilityFocus}
+  />{/if}
+
 <svelte:head><title>{$project.data?.name ?? 'Project'} · Polycolab</title></svelte:head>
 
 {#if member && $project.data}
-  {#if $project.data.workspace_mode === 'linear'}{#await import('./LinearWorkbench.svelte')}<LoadingState
+  {#if $project.data.workspace_mode === 'default'}{#await import('./DefaultWorkbench.svelte')}<LoadingState
+        >Opening project…</LoadingState
+      >{:then module}<module.default
+        project={$project.data}
+        {path}
+      />{/await}{:else if $project.data.workspace_mode === 'linear'}{#await import('./LinearWorkbench.svelte')}<LoadingState
         >Opening shared project…</LoadingState
       >{:then module}<module.default
         project={$project.data}

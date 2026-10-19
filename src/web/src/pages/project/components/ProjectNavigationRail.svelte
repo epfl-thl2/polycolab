@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { projectDialogs, type ProjectUtility } from '../project-dialogs';
   import * as Tooltip from '../../../lib/components/ui/tooltip';
   import * as DropdownMenu from '../../../lib/components/ui/dropdown-menu';
   import AccountMenu from '../../../ui/AccountMenu.svelte';
@@ -6,9 +7,9 @@
   import { accountHref } from '../../../lib/account-navigation';
   import {
     FolderKanban,
+    FolderOpen,
+    MessageSquare,
     PanelsLeftBottom,
-    Files,
-    Map as MapIcon,
     History,
     Plug,
     Settings,
@@ -22,7 +23,12 @@
     onNavigate,
     expanded = false,
     showBrand = true,
+    onOpenUtility,
+    selectedPanel,
+    onSelectPanel,
   }: {
+    selectedPanel?: 'chats' | 'files';
+    onSelectPanel?: (panel: 'chats' | 'files') => void;
     auth: Auth;
     projectId: string;
     section: string;
@@ -30,7 +36,14 @@
     onNavigate: (href: string) => void;
     expanded?: boolean;
     showBrand?: boolean;
+    onOpenUtility?: () => void;
   } = $props();
+  const dialogs = projectDialogs();
+  function openUtility(value: ProjectUtility) {
+    onOpenUtility?.();
+    if (dialogs) dialogs.open(value);
+    else onNavigate(`/projects/${projectId}/${value}`);
+  }
   let accountError = $state('');
   async function signOut() {
     accountError = '';
@@ -40,11 +53,13 @@
       accountError = 'Sign-out failed. Please retry.';
     }
   }
+  const panelLinks = [
+    ['chats', 'Chats', MessageSquare],
+    ['files', 'Files', FolderOpen],
+  ] as const;
   const links = [
     ['overview', 'Overview', FolderKanban],
     ['sessions', 'Project', PanelsLeftBottom],
-    ['research', 'Research objects', Files],
-    ['map', 'Map', MapIcon],
     ['activity', 'Activity', History],
   ] as const;
   function navigate(event: MouseEvent, href: string) {
@@ -80,6 +95,22 @@
   </Tooltip.Root>
 {/snippet}
 
+{#snippet utilityButton(value: ProjectUtility, label: string, Icon: typeof Plug)}
+  <Tooltip.Root disabled={expanded}>
+    <Tooltip.Trigger onclick={() => openUtility(value)}>
+      {#snippet child({ props })}<button
+          {...props}
+          type="button"
+          class="rail-link"
+          aria-label={label}
+          aria-haspopup="dialog"
+          ><Icon size={18} aria-hidden="true" /><span class="label">{label}</span></button
+        >{/snippet}
+    </Tooltip.Trigger>
+    <Tooltip.Content side="right">{label}</Tooltip.Content>
+  </Tooltip.Root>
+{/snippet}
+
 <Tooltip.Provider delayDuration={250}>
   <div class="rail-slot" class:reserved={expanded}>
     <aside class="navigation-rail" class:open={expanded} aria-label="Project navigation">
@@ -97,25 +128,33 @@
         </Tooltip.Root>
       {/if}
       <nav class="main-links" aria-label="Project sections">
-        {#each links as [id, label, Icon] (id)}
-          {@render navLink(`/projects/${projectId}/${id}`, label, Icon, section === id)}
-        {/each}
+        {#if onSelectPanel}
+          {#each panelLinks as [id, label, Icon] (id)}
+            <Tooltip.Root disabled={expanded}>
+              <Tooltip.Trigger>
+                {#snippet child({ props })}<button
+                    {...props}
+                    type="button"
+                    class="rail-link"
+                    aria-label={label}
+                    aria-pressed={selectedPanel === id}
+                    onclick={() => onSelectPanel?.(id)}
+                  >
+                    <Icon size={18} aria-hidden="true" /><span class="label">{label}</span>
+                  </button>{/snippet}
+              </Tooltip.Trigger>
+              <Tooltip.Content side="right">{label}</Tooltip.Content>
+            </Tooltip.Root>
+          {/each}
+        {:else}
+          {#each links as [id, label, Icon] (id)}
+            {@render navLink(`/projects/${projectId}/${id}`, label, Icon, section === id)}
+          {/each}
+        {/if}
       </nav>
       <nav class="footer-links" aria-label="Project tools">
-        {@render navLink(
-          `/projects/${projectId}/agent-connect`,
-          'Agent connect',
-          Plug,
-          section === 'agent-connect',
-        )}
-        {#if canManage}
-          {@render navLink(
-            `/projects/${projectId}/settings`,
-            'Project settings',
-            Settings,
-            section === 'settings',
-          )}
-        {/if}
+        {@render utilityButton('agent-connect', 'Agent connect', Plug)}
+        {#if canManage}{@render utilityButton('settings', 'Project settings', Settings)}{/if}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger
             class="rail-link profile-link"
@@ -175,10 +214,10 @@
     z-index: 30;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 4px;
     width: 56px;
     overflow: hidden;
-    padding: 10px 7px;
+    padding: 0 0 10px;
     border-right: 1px solid var(--border);
     color: var(--foreground);
     background: var(--sidebar, var(--background));
@@ -190,6 +229,7 @@
     display: flex;
     flex-direction: column;
     gap: 5px;
+    margin-inline: 7px;
   }
   .footer-links {
     margin-top: auto;
@@ -216,6 +256,7 @@
   }
   :global(.navigation-rail .rail-link:hover),
   :global(.navigation-rail .rail-link[aria-current='page']),
+  :global(.navigation-rail .rail-link[aria-pressed='true']),
   :global(.navigation-rail .rail-link[data-state='open']) {
     background: var(--brand-soft);
     color: var(--brand-strong);
@@ -223,19 +264,16 @@
   .rail-brand {
     display: flex;
     align-items: center;
-    gap: 10px;
-    min-height: 40px;
-    padding: 6px;
+    gap: 0;
+    flex-shrink: 0;
+    height: 60px;
+    padding: 0;
     color: var(--foreground);
     font-size: 15px;
     font-weight: 600;
     text-decoration: none;
   }
-  .rail-brand img {
-    width: 28px;
-    height: 28px;
-    flex-shrink: 0;
-  }
+
   :global(.navigation-rail .rail-link:focus-visible) {
     outline: 2px solid var(--ring);
     outline-offset: -2px;
@@ -251,5 +289,10 @@
   }
   :global(.navigation-rail .profile-link) {
     margin-top: 7px;
+  }
+  .rail-brand img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
   }
 </style>

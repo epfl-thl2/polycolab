@@ -20,6 +20,7 @@
     restoreProjectTabs,
     type ProjectTab,
   } from '../../lib/project-tabs';
+  import { projectDialogs, projectUtility } from './project-dialogs';
   import ProjectNavigationRail from './components/ProjectNavigationRail.svelte';
   import ProjectWorktrees from './components/ProjectWorktrees.svelte';
   import ProjectPanelHeader from './components/ProjectPanelHeader.svelte';
@@ -120,8 +121,14 @@
   const storageKey = $derived(
     account ? `polycolab.workbench.v2:${account}:${projectId}` : undefined,
   );
+  const dialogs = projectDialogs();
   function navigate(href: string, replaceState = false) {
     shell?.closeDrawer();
+    const utility = projectUtility(projectId, new URL(href, 'http://project.local').pathname);
+    if (utility && dialogs) {
+      dialogs.open(utility);
+      return;
+    }
     void goto(href, { noScroll: true, keepFocus: true, replaceState });
   }
   function navigateLayout(href: string) {
@@ -614,6 +621,7 @@
           section={['settings', 'agent-connect'].includes(section) ? section : railSection}
           canManage={project.current_user_role === 'OWNER'}
           onNavigate={navigateLayout}
+          onOpenUtility={() => shell?.closeDrawer()}
         />
       {/snippet}
       {#snippet left(placement)}

@@ -18,7 +18,7 @@
     size?: 'default' | 'sm';
   } = $props();
   const { api, records, auth } = projectContext();
-  let workspaceMode = $state<'linear' | 'git'>('linear');
+  let workspaceMode = $state<'default' | 'linear' | 'git'>('default');
   let visibility = $state<'PUBLIC' | 'PRIVATE'>('PUBLIC');
   let open = $state(false);
   let projects = $state<Awaited<ReturnType<typeof api.listProjects>>['items']>([]);
@@ -116,8 +116,9 @@
           >{/if}
         {#if !destination}<Field.Label
             >Workspace<NativeSelect bind:value={workspaceMode}
-              ><option value="linear">Linear history</option><option value="git">Git</option
-              ></NativeSelect
+              ><option value="default">Default — files and chat</option><option value="linear"
+                >Linear history</option
+              ><option value="git">Git</option></NativeSelect
             ></Field.Label
           ><Field.Label
             >Project name<Input

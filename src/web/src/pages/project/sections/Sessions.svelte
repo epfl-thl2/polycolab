@@ -45,6 +45,7 @@
   const executionEnabled = $derived(applicationCapabilities?.enabled('agent_execution') ?? false);
   const repository = projectContext().repository;
   const linear = projectContext().linear;
+  const defaultFiles = projectContext().defaultFiles;
   let useProjectFiles = $state(false);
   const repositoryState = createQuery(
     toStore(() => ({
@@ -303,7 +304,10 @@
     if (!$capabilities.data?.execution_available) return 'Agent execution is unavailable.';
     if (active) return 'Wait for the current run to finish.';
     if (!profileId) return 'Choose an AI provider in Chat settings.';
-    if (destination === 'PUBLIC' && (linear || useProjectFiles || $sessionRepository.data?.enabled))
+    if (
+      destination === 'PUBLIC' &&
+      (linear || defaultFiles || useProjectFiles || $sessionRepository.data?.enabled)
+    )
       return 'Project files are private. Choose a private contribution destination for this session.';
     if (!(destination === 'PUBLIC' ? publicTask.trim() : draft.trim()))
       return destination === 'PUBLIC' ? 'Write a public task to send.' : 'Write a message to send.';
@@ -511,6 +515,9 @@
     } finally {
       busy = false;
     }
+  }
+  function threadHeaderPortal(node: HTMLElement, active: boolean) {
+    if (linear || defaultFiles) return chatPanelPortal(node, active);
   }
 </script>
 
@@ -757,10 +764,11 @@
     >
       Session unavailable. Return to the session list.
     </Alert.Root>{:else}
-    <header class="project-chat-thread-header">
-      <a href={`/projects/${projectId}/sessions`}>← All sessions</a>
+    <header class="project-chat-thread-header" use:threadHeaderPortal={isVisible}>
+      {#if !linear && !defaultFiles}<a href={`/projects/${projectId}/sessions`}>← All sessions</a
+        >{/if}
       <h1>{$session.data?.title || $session.data?.agent_display_name}</h1>
-      {#if linear && $session.data?.can_control !== false}<Button
+      {#if (linear || defaultFiles) && $session.data?.can_control !== false}<Button
           variant="outline"
           onclick={async () => {
             try {

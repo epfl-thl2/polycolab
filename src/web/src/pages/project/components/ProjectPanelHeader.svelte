@@ -1,10 +1,21 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  let { title, actions }: { title: string; actions?: Snippet } = $props();
+  let {
+    title,
+    actions,
+    onTitleClick,
+  }: { title: string; actions?: Snippet; onTitleClick?: () => void } = $props();
 </script>
 
 <header class="project-panel-header">
-  <h2>{title}</h2>
+  <h2>
+    {#if onTitleClick}<button
+        type="button"
+        aria-label={`Project information: ${title}`}
+        aria-haspopup="dialog"
+        onclick={onTitleClick}>{title}</button
+      >{:else}{title}{/if}
+  </h2>
   {#if actions}<div class="header-actions">{@render actions()}</div>{/if}
 </header>
 
@@ -31,6 +42,17 @@
     font-size: 12px;
     font-weight: 600;
     line-height: 16px;
+  }
+  h2 button {
+    text-align: left;
+    cursor: pointer;
+  }
+  h2 button:hover {
+    text-decoration: underline;
+  }
+  h2 button:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
   .header-actions :global(button) {
     height: 20px;

@@ -2013,6 +2013,10 @@ summary {
   color: var(--muted-foreground);
   font-size: 13px;
 }
+/* Portaled controls stay hidden when their sidebar view is unavailable. */
+.project-chat-side-controls[hidden] {
+  display: none;
+}
 .project-chat-side-controls {
   display: grid;
   gap: 12px;

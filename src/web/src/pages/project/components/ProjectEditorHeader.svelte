@@ -30,7 +30,13 @@
     ondownload,
     ondelete,
     onerror,
+    showChanges = true,
+    onrenamecommit,
+    onreload,
   }: {
+    showChanges?: boolean;
+    onrenamecommit?: () => void;
+    onreload?: () => void;
     path: string;
     mode?: 'source' | 'preview' | 'changes';
     renaming?: boolean;
@@ -60,12 +66,16 @@
     ...(markdown
       ? [{ value: 'preview' as const, label: 'Preview', hint: 'Preview Markdown', icon: Eye }]
       : []),
-    {
-      value: 'changes' as const,
-      label: 'Changes',
-      hint: 'Changes from HEAD, including unsaved edits',
-      icon: GitCompareArrows,
-    },
+    ...(showChanges
+      ? [
+          {
+            value: 'changes' as const,
+            label: 'Changes',
+            hint: 'Changes from HEAD, including unsaved edits',
+            icon: GitCompareArrows,
+          },
+        ]
+      : []),
   ]);
   let copied = $state(false);
   let copiedPath = $state('');
@@ -93,7 +103,10 @@
       if (event.isComposing) return;
       if (event.key === 'Enter') {
         event.preventDefault();
-        if (path.trim()) renaming = false;
+        if (path.trim() && renaming) {
+          renaming = false;
+          onrenamecommit?.();
+        }
       }
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -118,7 +131,10 @@
           disabled={!writable || busy || binary}
           spellcheck="false"
           onblur={() => {
-            if (path.trim()) renaming = false;
+            if (path.trim() && renaming) {
+              renaming = false;
+              onrenamecommit?.();
+            }
           }}
         />
       {:else}
@@ -233,6 +249,9 @@
         <DropdownMenu.Item class="text-[11px]" disabled={busy || !saved} onSelect={ondownload}
           ><Download size={14} />Download</DropdownMenu.Item
         >
+        {#if onreload}<DropdownMenu.Item class="text-[11px]" disabled={busy} onSelect={onreload}
+            >Reload / discard edits</DropdownMenu.Item
+          >{/if}
         <DropdownMenu.Separator />
         <DropdownMenu.Item
           class="text-[11px]"

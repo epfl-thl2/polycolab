@@ -1,9 +1,33 @@
 # Linear projects
 
-Projects select `git` or `linear` at creation. The browser offers Linear history by
-default; omitted API fields retain the Git default.
+Projects select `default`, `git`, or `linear` at creation. The browser offers Default
+initially; omitted API fields retain the Git default. Linear remains available for
+live collaboration and retained history.
 Existing projects keep their mode. Library copies into a new project also accept a
 mode. Project research versions and publication authority are unchanged.
+
+## Browser workbench
+
+Linear projects use the shared project shell with a chat-first center and no
+visible document or conversation tabs. Opening a project starts a new chat;
+conversations and unsent drafts are selected in the left sidebar. Drafts stay
+mounted while users switch conversations or inspect a file. Files open in the center editor. The editor
+uses Git’s compact toolbar without Git diff controls, and provides source and preview views.
+
+Chats and Files in the navigation rail select the left sidebar without replacing
+the current conversation. Chats contains New chat, the user's conversations and
+drafts, and Shared with you when shared conversations exist, with pagination.
+Files contains the file tree and creation/upload controls. The project name opens
+an information modal. Overview and research Activity are absent from the rail.
+The right sidebar provides File, History, Agent changes, and contextual
+details or agent history. Agent changes holds conflict review and revert controls. Checkpoints,
+restore, and any converted Git archive live in History.
+
+Both workbenches provide resizable, collapsible side panels and mobile drawers.
+Linear History exposes checkpoints and restore instead of Git source control.
+The linear explorer uses the shared file tree; its toolbar opens file creation
+and upload controls. New-file creation uses an inline path field with Enter to
+create and Escape to cancel.
 
 ## Durable collaboration
 

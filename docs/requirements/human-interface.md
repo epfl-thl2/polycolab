@@ -40,13 +40,27 @@ Require confirmation.
 The project uses four panes. A thin navigation rail at the far left provides
 icons for existing project pages at a fixed width, with accessible labels and
 tooltips. Hover and keyboard focus do not expand it. Rail selections switch page
-layouts. In the Project layout, the left panel lists Main and named worktrees,
+layouts in Git mode. In the Git Project layout, the left panel lists Main and named worktrees,
 with the current user's conversations nested beneath each. The middle panel holds unified tabs
 for chats, files, research objects, and diffs, with New chat as the default view.
-The right panel switches between Explorer, Source control, and Details.
+
+New projects initially select Default mode: a server directory of current files,
+with a chat center and file explorer, explicit saves, and no file version history.
+Linear remains available for live collaboration and retained checkpoints; Git
+retains its branch and worktree interface. Existing projects keep their mode.
+Git's right panel switches between Explorer, Source control, and Details.
+
+Default and Linear use Chats and Files rail buttons to switch the left panel
+between conversations and the file tree. Selecting a file opens its contents in
+the center editor. Their middle panel has a white toolbar with no navigation tabs and no title for
+a new chat. The project name opens project information in a modal;
+Overview and research Activity do not appear in their rail. Linear retains file
+history and agent-change review on the right; Default has no file history.
+Agent-run history stays with its conversation. Agent connect and Settings remain
+modal actions at the bottom of the rail.
 
 - **Keep navigation distinct from content.** Page navigation belongs in the
-  far-left rail; worktrees and their conversations belong in the left panel. Make
+  far-left rail; in Git mode, worktrees and their conversations belong in the left panel. Make
   the selected worktree, conversation, and content tab clear. Selecting a worktree
   switches Explorer to its files. New conversations use the selected worktree.
 - **Keep context stable.** Switching tabs or right-panel tools preserves drafts,
@@ -57,7 +71,7 @@ The right panel switches between Explorer, Source control, and Details.
   editing, and deletion controls with the object or file they affect. Closing a
   tab must preserve unsaved work or ask before discarding it.
 - **Use space deliberately.** Allow panels to be resized or collapsed, preserving
-  the user's layout preferences. Explorer opens files in middle-panel tabs;
+  the user's layout preferences. In Git, Explorer opens files in middle-panel tabs;
   Source control exposes changes and diffs; Details shows relevant context and
   actions for the active content.
 - **Adapt to small screens.** Provide focused views and clear return actions while

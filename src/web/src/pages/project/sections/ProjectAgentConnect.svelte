@@ -8,7 +8,14 @@
     projectName,
     signedIn,
     canWrite,
-  }: { projectId: string; projectName: string; signedIn: boolean; canWrite: boolean } = $props();
+    embedded = false,
+  }: {
+    projectId: string;
+    projectName: string;
+    signedIn: boolean;
+    canWrite: boolean;
+    embedded?: boolean;
+  } = $props();
   let origin = $state('');
   let notice = $state('');
   let showKeyDialog = $state(false);
@@ -38,10 +45,10 @@
   }
 </script>
 
-<header>
-  <h1>Agent connect</h1>
-  <p>Connect an external agent to work in this project.</p>
-</header>
+{#if !embedded}<header>
+    <h1>Agent connect</h1>
+    <p>Connect an external agent to work in this project.</p>
+  </header>{/if}
 <ol class="steps">
   <li>
     <h2>Set up an API key</h2>

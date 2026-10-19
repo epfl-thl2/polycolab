@@ -12,7 +12,7 @@ function setup(extra = {}) {
   const result = render(ProjectNavigationRail, {
     auth,
     projectId: 'project',
-    section: 'research',
+    section: 'overview',
     canManage: true,
     onNavigate,
     ...extra,
@@ -21,9 +21,7 @@ function setup(extra = {}) {
 }
 it('uses explicit overview and project paths with the selected section', async () => {
   const { onNavigate } = setup();
-  expect(screen.getByRole('link', { name: 'Research objects' }).getAttribute('aria-current')).toBe(
-    'page',
-  );
+  expect(screen.getByRole('link', { name: 'Overview' }).getAttribute('aria-current')).toBe('page');
   await fireEvent.click(screen.getByRole('link', { name: 'Overview' }));
   expect(onNavigate).toHaveBeenCalledWith('/projects/project/overview');
   await fireEvent.click(screen.getByRole('link', { name: /^Project$/ }));
@@ -34,6 +32,8 @@ it('uses explicit overview and project paths with the selected section', async (
   expect(screen.getByRole('button', { name: 'Open account menu' })).toBeTruthy();
   expect(screen.queryByRole('link', { name: 'Agents' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Chat' })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Map' })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Research objects' })).toBeNull();
 });
 it('keeps the icon rail fixed on hover and keyboard focus with no pin control', async () => {
   const { container } = setup();
@@ -53,10 +53,12 @@ it('shows the mobile drawer expanded and limits project management links', () =>
   expect(screen.queryByRole('link', { name: 'Project settings' })).toBeNull();
   expect(screen.getByRole('link', { name: 'Agent connect' })).toBeTruthy();
   expect(screen.queryByRole('link', { name: 'Chat' })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Map' })).toBeNull();
+  expect(screen.queryByRole('link', { name: 'Research objects' })).toBeNull();
 });
 it('preserves modified clicks for opening navigation in another tab', async () => {
   const { onNavigate } = setup();
-  await fireEvent.click(screen.getByRole('link', { name: 'Map' }), { ctrlKey: true });
+  await fireEvent.click(screen.getByRole('link', { name: 'Activity' }), { ctrlKey: true });
   expect(onNavigate).not.toHaveBeenCalled();
 });
 

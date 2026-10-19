@@ -24,7 +24,7 @@
   const { api, query, auth } = projectContext();
   let search = $state('');
   let visibility = $state<'PUBLIC' | 'PRIVATE'>('PUBLIC');
-  let workspaceMode = $state<'linear' | 'git'>('linear');
+  let workspaceMode = $state<'default' | 'linear' | 'git'>('default');
   let searchDraft = $state('');
   let searchInput = $state<HTMLInputElement | null>(null);
   type Category = 'active' | 'owned' | 'shared' | 'archived';
@@ -175,9 +175,9 @@
             <form onsubmit={create}>
               <Field.Label
                 >Workspace mode<NativeSelect bind:value={workspaceMode}
-                  ><option value="linear">Linear history — live collaboration</option><option
-                    value="git">Git — branches and worktrees</option
-                  ></NativeSelect
+                  ><option value="default">Default — files and chat</option><option value="linear"
+                    >Linear history — live collaboration</option
+                  ><option value="git">Git — branches and worktrees</option></NativeSelect
                 ></Field.Label
               >
               <Field.Label

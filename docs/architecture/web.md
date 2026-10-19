@@ -18,6 +18,26 @@ General-purpose UI and shared research widgets remain in `src/web/src/ui/`.
 Other pages remain there until migrated. SvelteKit route files remain in
 `src/web/src/routes/`, and `ui/App.svelte` loads the project page. Project data
 adapters and state helpers remain in `src/web/src/lib/`.
+`components/ProjectShell.svelte` owns the shared Default, Git, and Linear workbench grid,
+panel widths, splitters, collapse/reopen controls, and mobile drawers. Workbenches
+supply navigation, left-panel, toolbar, main-content, and right-panel snippets.
+`ChatWorkbenchShell` owns the common Default and Linear navigation and left panel.
+Chats and Files rail buttons switch that panel between conversations and the file
+tree without navigating away from the center conversation. The project-name
+button opens the project-information modal. These modes omit Overview and
+research Activity from the rail. Their middle panel has a white toolbar with panel controls and no navigation tabs.
+New chats leave the title blank; existing conversation titles appear on desktop.
+Conversation titles and sharing actions appear in Agent history for these modes. `ChatWorkbenchPages` owns their mounted chat and section pages,
+including shared spacing and draft retention. `ProjectFileExplorer` and
+`ProjectFileView` own their common file toolbar, explorer, and editor layout.
+Default and Linear open file contents in the center editor. `ProjectFileView` reuses Git’s `ProjectEditorHeader` without Git diff
+controls. Mode-specific controllers supply file operations and history tools.
+Git binds its persisted layout preferences to the shell; mode-specific data and
+file, conversation, and history behavior remain in the workbenches. All three modes
+use the same responsive breakpoints and 8px keyboard resize step.
+
+The project navigation rail shows the logo in Default, Git, and Linear modes, including
+the expanded mobile navigation drawer. The logo links to `/projects`.
 
 The public `/SKILL.md` endpoint serves the canonical external-agent instructions from `skills/polycolab/SKILL.md`.
 SvelteKit imports that source as raw Markdown and prerenders it into the web build.
@@ -150,8 +170,9 @@ colors and Canard tool/agent-status accents, with a white editing surface.
 
 Project cards, section navigation and panel controls use the shared 16px Lucide outline style, with distinct icons for each section.
 
-Map follows Overview.
-One Research navigation item covers objects and their saved revisions.
+For v0.1.0, the member project navigation rail exposes Overview, Project, and
+Activity. Map and Research objects are hidden in Default, Git, and Linear modes,
+including mobile drawers. Their direct routes remain available.
 Research record and References are hidden from project navigation. Existing direct
 routes and saved data remain available.
 
@@ -234,7 +255,11 @@ a chat refreshes messages and runs, then resumes events from its retained cursor
 without discarding its draft. Chat context controls are
 moved into the active Details host by `chat-panel-portal`.
 
-Agent connect opens a setup guide for the project.
+Agent connect and Project settings open in `ProjectUtilityDialogs` over the current
+workbench in all three project modes. The rail uses dialog buttons; opening a
+modal does not navigate or unmount the current chat or editor. Escape or Close
+returns focus to the invoking control. Existing member utility URLs open the
+modal over Overview. Settings remains owner-only.
 It includes account key setup and copyable instructions containing the project URL and ID.
 It also links to SKILL.md and external-agent documentation.
 Visitors can read the guide.
@@ -707,7 +732,9 @@ Profile editing, bio, interests, pins and complete calendar aggregation remain p
 
 ## Agent API keys
 
-The project **Agent connect** page at `/projects/{id}/agent-connect` opens the existing account key creation dialog in place.
+The project **Agent connect** modal opens the existing account key creation dialog
+in place. The legacy `/projects/{id}/agent-connect` link opens that modal over the
+project overview for members.
 It links to account-wide key settings.
 It provides a copyable prompt with the deployment origin, canonical `/SKILL.md` URL, project ID, and project URL.
 The prompt contains no key, treats the project name as data, and asks the agent to wait for a specific research task before writing.

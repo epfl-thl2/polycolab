@@ -1,6 +1,6 @@
 # Default projects
 
-Default stores current files on the server without version control.
+Default is the browser's initial choice for new projects and Library copies.
 Existing projects keep their mode. API callers that omit `workspace_mode` retain
 the Git default for compatibility. No database migration is needed: the existing
 mode column accepts `default`, `linear`, and `git`.
@@ -25,6 +25,23 @@ file. Files are limited to 700 KB, 2,000 files, and the configured project byte 
 Owners and contributors can edit; read-only members can inspect. Outsiders cannot
 read project files, including files in public projects. Archived projects reject
 writes. Backup the current project volume alongside the database.
+
+## Browser
+
+Default uses the shared project shell, logo, navigation, chat center, and resizable
+side panels. Chats and Files in the navigation rail select the left panel: either
+conversations and drafts, or the file tree with creation and upload controls.
+The project name opens an information modal. Overview and research Activity are
+not rail destinations in this mode. The right panel has a white background and
+shows files; the chat agent-history panel is hidden. Existing research links can
+still open contextual details. Opening a file selects its editor in the center. The compact editor toolbar is shared
+with Git; new files use an inline path field with Enter to create and Escape to
+cancel. There are no document tabs or file-history controls.
+Files support creation, upload, explicit save, download, rename, and deletion.
+Unsaved edits block opening another file or leaving the project and remain visible
+after a save conflict. Unsaved file edits must be saved or discarded before changing views. Reload
+fetches current bytes; it does not merge concurrent edits. Default does not use
+Linear's Yjs collaboration service.
 
 ## Agents
 
