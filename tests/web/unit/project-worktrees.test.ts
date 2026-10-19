@@ -1,3 +1,4 @@
+import { QueryClient } from '@tanstack/svelte-query';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import ProjectWorktrees from '../../../src/web/src/pages/project/components/ProjectWorktrees.svelte';
@@ -11,8 +12,10 @@ const chat = (id: string, task_id: string | null) => ({
   agent_display_name: 'Researcher',
   updated_at: '2026-01-01',
 });
+const clients: QueryClient[] = [];
 afterEach(() => {
   cleanup();
+  for (const client of clients.splice(0)) client.clear();
   vi.restoreAllMocks();
 });
 function setup(options = {}) {
@@ -31,6 +34,8 @@ function setup(options = {}) {
   const onSelectWorktree = vi.fn().mockResolvedValue(true);
   const onOpenSession = vi.fn();
   const onNewChat = vi.fn();
+  const query = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  clients.push(query);
   render(ProjectWorktrees, {
     props: {
       projectId: 'project',
@@ -44,7 +49,7 @@ function setup(options = {}) {
       onWorktreesChange: vi.fn(),
       ...options,
     },
-    context: new Map([[contextKey, { tasks, agents }]]),
+    context: new Map([[contextKey, { tasks, agents, query }]]),
   });
   return { tasks, agents, onSelectWorktree, onOpenSession, onNewChat };
 }

@@ -1,5 +1,10 @@
 <script lang="ts">
   import { MessageSquarePlus, Square, RotateCcw } from '@lucide/svelte';
+  import {
+    createProjectSessions,
+    projectSessionItems,
+    invalidateSession,
+  } from '../../../lib/session-queries';
   import type { AgentSession } from '../../../lib/agent-sessions-api';
   import { projectContext, explain } from '../../../svelte-lib/context';
 
@@ -19,15 +24,18 @@
     canReadChats?: boolean;
   } = $props();
   const { agents, query } = projectContext();
-  let sessions = $state<AgentSession[]>([]);
-  let cursor = $state<string>();
-  let loading = $state(true);
-  let error = $state('');
+  const chats = createProjectSessions(
+    agents,
+    () => projectId,
+    () => canReadChats,
+    query,
+  );
+  const sessions = $derived(canReadChats ? projectSessionItems($chats.data) : []);
+  const loading = $derived(canReadChats && ($chats.isPending || $chats.isFetchingNextPage));
+  const error = $derived(canReadChats && $chats.isError ? explain($chats.error) : '');
+  const cursor = $derived(canReadChats && $chats.hasNextPage);
   let actionError = $state<{ sessionId: string; message: string }>();
   let cancelling = $state('');
-  let generation = 0;
-  let loadedPages = 1;
-  let fetching = false;
   const cancellable = (session: AgentSession) =>
     session.latest_run &&
     ['QUEUED', 'CLAIMED', 'RUNNING'].includes(session.latest_run.status) &&
@@ -46,82 +54,18 @@
     [...sessions].sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at)),
   );
 
-  async function refresh(id: string, version: number, more = false) {
-    if (!canReadChats) {
-      loading = false;
-      return;
-    }
-    if (fetching) return;
-    fetching = true;
-    if (more) loading = true;
-    try {
-      if (more) {
-        const page = await agents.listSessions(id, cursor);
-        if (version !== generation) return;
-        sessions = [
-          ...sessions,
-          ...page.items.filter((item) => !sessions.some((s) => s.id === item.id)),
-        ];
-        cursor = page.nextCursor;
-        loadedPages += 1;
-      } else {
-        let next: string | undefined;
-        const items: AgentSession[] = [];
-        for (let index = 0; index < loadedPages; index += 1) {
-          const page = await agents.listSessions(id, next);
-          if (version !== generation) return;
-          items.push(...page.items);
-          next = page.nextCursor;
-          if (!next) break;
-        }
-        sessions = items;
-        cursor = next;
-      }
-      error = '';
-    } catch (reason) {
-      if (version === generation) error = explain(reason);
-    } finally {
-      if (version === generation) {
-        loading = false;
-        fetching = false;
-      }
-    }
-  }
-  $effect(() => {
-    const id = projectId;
-    const readable = canReadChats;
-    const version = ++generation;
-    sessions = [];
-    cursor = undefined;
-    error = '';
-    actionError = undefined;
-    loadedPages = 1;
-    loading = true;
-    fetching = false;
-    if (!readable) {
-      loading = false;
-      return;
-    }
-    void refresh(id, version);
-    const timer = setInterval(() => void refresh(id, version), 5000);
-    return () => {
-      generation += 1;
-      clearInterval(timer);
-    };
-  });
   async function cancel(session: AgentSession) {
     if (!cancellable(session) || cancelling) return;
-    const version = generation;
     const id = projectId;
     cancelling = session.id;
     actionError = undefined;
     try {
       await agents.cancelRun(session.latest_run!.id);
-      if (version !== generation) return;
+      if (id !== projectId) return;
       await query.invalidateQueries({ queryKey: ['session-runs', session.id] });
-      await refresh(id, version);
+      await invalidateSession(query, id, session.id);
     } catch (reason) {
-      if (version === generation) actionError = { sessionId: session.id, message: explain(reason) };
+      if (id === projectId) actionError = { sessionId: session.id, message: explain(reason) };
     } finally {
       cancelling = '';
     }
@@ -136,7 +80,7 @@
       >{/if}
   </div>
   {#if error}<div class="panel-error" role="alert">
-      {error}<button onclick={() => refresh(projectId, generation)}>Retry</button>
+      {error}<button onclick={() => $chats.refetch()}>Retry</button>
     </div>{/if}
   <div class="session-list" aria-busy={loading}>
     {#if loading && !sessions.length}<p class="empty" role="status">Loading chats…</p>
@@ -178,10 +122,7 @@
           </p>{/if}
       </div>
     {/each}
-    {#if cursor}<button
-        class="load-more"
-        disabled={loading}
-        onclick={() => refresh(projectId, generation, true)}
+    {#if cursor}<button class="load-more" disabled={loading} onclick={() => $chats.fetchNextPage()}
         >{loading ? 'Loading…' : 'Load more chats'}</button
       >{/if}
   </div>

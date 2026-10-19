@@ -1,5 +1,9 @@
 <script lang="ts">
-  import { onMount, tick, setContext, untrack, type Snippet } from 'svelte';
+  import { onMount, onDestroy, tick, setContext, untrack, type Snippet } from 'svelte';
+  import { createProjectSessions } from '../../lib/session-queries';
+  import { provideChatDrafts } from '../../lib/chat-drafts.svelte';
+  const chatDraftStore = provideChatDrafts();
+  onDestroy(() => chatDraftStore.clear());
   import { projectLayoutKey, readProjectLayout } from '../../lib/project-layout';
   import type { ObjectVersion } from '../../lib/research-api';
   import type { Activity } from '../../lib/history-api';
@@ -12,7 +16,7 @@
   import * as Alert from '../../lib/components/ui/alert';
   import { Button, buttonVariants } from '../../lib/components/ui/button';
   import { toStore } from 'svelte/store';
-  import { createQuery, createInfiniteQuery } from '@tanstack/svelte-query';
+  import { createQuery } from '@tanstack/svelte-query';
   import * as Sheet from '../../lib/components/ui/sheet';
   import {
     Settings,
@@ -211,15 +215,12 @@
   const canPublish = $derived(
     Boolean(member && $project.data?.current_user_role === 'OWNER' && !$project.data.archived_at),
   );
-  const sessions = createInfiniteQuery(
-    toStore(() => ({
-      queryKey: ['sessions', projectId],
-      enabled: canWrite,
-      initialPageParam: undefined as string | undefined,
-      queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
-        agents.listSessions(projectId, pageParam),
-      getNextPageParam: (p: { nextCursor?: string }) => p.nextCursor,
-    })),
+  const sessions = createProjectSessions(
+    agents,
+    () => projectId,
+    () => canWrite,
+    query,
+    false,
   );
   const visibleSessions = $derived(
     ($sessions.data?.pages.flatMap((p) => p.items) ?? []).slice(0, 5),

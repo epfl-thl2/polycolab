@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { chatDraftKey } from '../../lib/chat-drafts.svelte';
   import type { Project, ObjectVersion } from '../../lib/research-api';
   import type { Activity } from '../../lib/history-api';
   import type { ProjectMap } from '../../lib/project-map';
@@ -125,7 +126,7 @@
       }}
     />{/await}
 {:else if section === 'sessions'}
-  {#if canWrite || project.workspace_mode === 'linear'}{#await import('./sections/Sessions.svelte')}<LoadingState
+  {#if canWrite || ['linear', 'default'].includes(project.workspace_mode)}{#await import('./sections/Sessions.svelte')}<LoadingState
       >
         Opening private sessions…
       </LoadingState>{:then module}{#key selectedId}<module.default
@@ -136,7 +137,7 @@
             : undefined}
           view={selectedId ? 'chat' : 'list'}
           isVisible={active}
-          {onState}
+          draftKey={chatDraftKey(projectId, href)}
           {onCreated}
         />{/key}{/await}{:else}<h1>Private sessions</h1>
     <p>Agent sessions are available to active contributors and owners.</p>{/if}

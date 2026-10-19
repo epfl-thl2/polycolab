@@ -8,7 +8,7 @@
   import { beforeNavigate, goto } from '$app/navigation';
   import { projectContext, contextKey, explain } from '../../svelte-lib/context';
   import type { Project } from '../../lib/research-api';
-  import type { AgentSession } from '../../lib/agent-sessions-api';
+  import { createProjectSessions, projectSessionItems } from '../../lib/session-queries';
   import type { LinearCheckpoint, LinearDocument } from '../../lib/linear-api';
   import { LinearSession } from '../../lib/linear-session';
   import { bytesToBase64 } from '../../lib/repository-api';
@@ -59,45 +59,15 @@
   const editorSessions = new ProjectEditorSessions();
   let tabs = $state<ProjectTab[]>([]);
   let activeId = $state('');
-  let sessions = $state<AgentSession[]>([]);
-  let chatsLoaded = $state(false);
-  let chatsError = $state('');
-  let moreChats = $state(false);
-  let chatsLoading = $state(false);
-  let chatPages = 1;
-  let chatsGeneration = 0;
+  const chats = createProjectSessions(context.agents, () => project.id);
+  const sessions = $derived(projectSessionItems($chats.data));
+  const chatsLoaded = $derived(!$chats.isPending);
+  const chatsError = $derived($chats.isError ? explain($chats.error) : '');
+  const moreChats = $derived($chats.hasNextPage);
+  const chatsLoading = $derived($chats.isFetching);
   async function refreshChats() {
-    if (chatsLoading) return;
-    const generation = chatsGeneration;
-    chatsLoading = true;
-    try {
-      const items: AgentSession[] = [];
-      let cursor: string | undefined;
-      for (let i = 0; i < chatPages; i++) {
-        const result = await context.agents.listSessions(project.id, cursor);
-        items.push(...result.items);
-        cursor = result.nextCursor;
-        if (!cursor) break;
-      }
-      if (generation !== chatsGeneration) return;
-      sessions = items;
-      moreChats = Boolean(cursor);
-      chatsLoaded = true;
-      chatsError = '';
-    } catch (cause) {
-      if (generation === chatsGeneration) chatsError = explain(cause);
-    } finally {
-      if (generation === chatsGeneration) chatsLoading = false;
-    }
+    await $chats.refetch();
   }
-  onMount(() => {
-    void refreshChats();
-    const interval = setInterval(() => void refreshChats(), 5000);
-    return () => {
-      chatsGeneration++;
-      clearInterval(interval);
-    };
-  });
   let lastChatHref = $state('');
   let selectionVersion = 0;
   const canChat = $derived(
@@ -334,8 +304,7 @@
   {newChat}
   {refreshChats}
   loadMore={() => {
-    chatPages++;
-    void refreshChats();
+    void $chats.fetchNextPage();
   }}
 >
   {#if error}<p role="alert">{error}</p>{/if}
@@ -356,7 +325,6 @@
     bind:mapPanelTab
     onCreated={(id) => {
       navigate(`/projects/${project.id}/sessions/${id}`);
-      void refreshChats();
     }}
     onInspect={() => {
       rightMode = 'details';

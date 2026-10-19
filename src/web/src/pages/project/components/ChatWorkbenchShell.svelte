@@ -6,6 +6,8 @@
   import { projectContext } from '../../../svelte-lib/context';
   import { Button } from '../../../lib/components/ui/button';
   import { MessageSquarePlus, PanelLeftClose } from '@lucide/svelte';
+  import { untrack } from 'svelte';
+  import { sessionTitles } from '../../../lib/session-queries';
   import { projectDialogs } from '../project-dialogs';
   import ProjectShell from './ProjectShell.svelte';
   import ProjectNavigationRail from './ProjectNavigationRail.svelte';
@@ -50,6 +52,10 @@
     files: Snippet;
   } = $props();
   const context = projectContext();
+  const titles = sessionTitles(
+    context.query,
+    untrack(() => project.id),
+  );
   const dialogs = projectDialogs();
   let leftMode = $state<'chats' | 'files'>('chats');
   function selectPanel(panel: 'chats' | 'files') {
@@ -86,7 +92,7 @@
   {#snippet toolbar()}
     <div class="chat-title">
       {#if section === 'sessions' && entity && entity !== 'new'}
-        {sessions.find((session) => session.id === entity)?.title || ''}
+        {$titles[entity] || ''}
       {/if}
     </div>
   {/snippet}
@@ -144,9 +150,8 @@
         {href}
         aria-current={entity === session.id && section === 'sessions' ? 'page' : undefined}
         onclick={(event) => openChat(event, href)}
-        ><span>{session.title || session.agent_display_name}</span>{#if session.is_shared}<small
-            >Shared</small
-          >{/if}</a
+        ><span>{$titles[session.id] || session.title || session.agent_display_name}</span
+        >{#if session.is_shared}<small>Shared</small>{/if}</a
       >
     {/each}
     {#if chatsLoaded && !draftChats.length && !sessions.some((item) => item.can_control)}<p
@@ -163,7 +168,7 @@
           {href}
           aria-current={entity === session.id && section === 'sessions' ? 'page' : undefined}
           onclick={(event) => openChat(event, href)}
-          >{session.title || session.agent_display_name}</a
+          >{$titles[session.id] || session.title || session.agent_display_name}</a
         >
       {/each}
     </nav>{/if}

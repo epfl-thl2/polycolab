@@ -12,6 +12,7 @@
       "$lib/*": ["src/lib/*"],
       "@playwright/test": ["node_modules/@playwright/test"],
       "vitest": ["node_modules/vitest"],
+      "@tanstack/svelte-query": ["node_modules/@tanstack/svelte-query"],
       "@testing-library/svelte": ["node_modules/@testing-library/svelte"]
     },
     "module": "preserve",

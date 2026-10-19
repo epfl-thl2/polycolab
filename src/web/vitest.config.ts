@@ -13,6 +13,7 @@ export default defineConfig({
         new URL('../../tests/web/unit/fixtures/navigation.ts', import.meta.url),
       ),
       $lib: fileURLToPath(new URL('./src/lib/', import.meta.url)),
+      '@tanstack/svelte-query': `${workspaceNodeModules}@tanstack/svelte-query`,
       '@testing-library/svelte': `${workspaceNodeModules}@testing-library/svelte`,
       'oidc-client-ts': `${workspaceNodeModules}oidc-client-ts`,
     },

@@ -41,6 +41,7 @@
       active={tab.id === activeId}
       onState={(update) =>
         untrack(() => {
+          if (tab.kind === 'chat') return;
           const current = tabs.find((item) => item.id === tab.id);
           if (!current) return;
           const label = update.label ?? current.label;

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { chatDrafts, ChatDrafts, chatDraftKey } from '../../lib/chat-drafts.svelte';
+  import { sessionTitles } from '../../lib/session-queries';
   import { canonicalUiLocation } from '../../lib/ui-location';
   import { SvelteMap } from 'svelte/reactivity';
   import { onMount, tick, untrack, type Snippet } from 'svelte';
@@ -32,11 +34,26 @@
   let { project, path }: { project: Project; path: string } = $props();
   const { auth, drafts, capabilities, tasks: taskApi, agents, query } = projectContext();
   const projectId = $derived(project.id);
+  const chatDraftStore = chatDrafts() ?? new ChatDrafts();
+  const titles = sessionTitles(
+    query,
+    untrack(() => project.id),
+  );
+  function presentTab(tab: ProjectTab): ProjectTab {
+    if (tab.kind !== 'chat') return tab;
+    const sessionId = new URL(tab.href, 'http://project.local').pathname.split('/')[4];
+    return {
+      ...tab,
+      label: sessionId === 'new' ? 'New chat' : $titles[sessionId] || 'Chat',
+      dirty: chatDraftStore.isDirty(chatDraftKey(projectId, tab.href)),
+    };
+  }
   const canWrite = $derived(
     canWriteResearch(project.current_user_role, Boolean(project.archived_at)),
   );
   const canChat = $derived(canWrite && Boolean(capabilities?.enabled('agent_execution')));
   let tabs = $state<ProjectTab[]>([]);
+  const displayTabs = $derived(tabs.map(presentTab));
   let activeId = $state('');
   let ready = $state(false);
   let handledRoute = '';
@@ -486,6 +503,7 @@
   }
   function updateTab(id: string, state: { label?: string; dirty: boolean }) {
     untrack(() => {
+      if (mountedTabs.some((tab) => tab.id === id && tab.kind === 'chat')) return;
       for (const [branch, saved] of branchTabs) {
         if (branch === tabsBranch) continue;
         const cached = saved.tabs.find((item) => item.id === id);
@@ -530,7 +548,19 @@
     if (!tab) return;
     if (tab.kind === 'file') {
       if (!files?.closeProjectFile(id.slice(5))) return;
-    } else if (tab.dirty && !confirm(`Discard unsaved changes in ${tab.label}?`)) return;
+    } else if (
+      presentTab(tab).dirty &&
+      !confirm(`Discard unsaved changes in ${presentTab(tab).label}?`)
+    )
+      return;
+    if (tab.kind === 'chat') {
+      const key = chatDraftKey(projectId, tab.href);
+      const elsewhere = [...branchTabs.entries()].some(
+        ([branch, saved]) => branch !== tabsBranch && saved.tabs.some((item) => item.id === id),
+      );
+      if (elsewhere) chatDraftStore.discard(key);
+      else chatDraftStore.delete(key);
+    }
     if (tab.kind === 'object')
       drafts.delete(
         `${projectId}:${new URL(tab.href, 'http://project.local').pathname.split('/')[4]}`,
@@ -561,9 +591,10 @@
   }
   function hasUnsavedDrafts() {
     return (
-      tabs.some((tab) => tab.dirty) ||
+      tabs.some((tab) => presentTab(tab).dirty) ||
       [...branchTabs.entries()].some(
-        ([branch, saved]) => branch !== workingBranch && saved.tabs.some((tab) => tab.dirty),
+        ([branch, saved]) =>
+          branch !== workingBranch && saved.tabs.some((tab) => presentTab(tab).dirty),
       ) ||
       files?.hasUnsavedProjectFiles()
     );
@@ -646,7 +677,7 @@
       {/snippet}
       {#snippet toolbar()}
         {#if projectView}<ProjectTabStrip
-            {tabs}
+            tabs={displayTabs}
             {activeId}
             onselect={selectTab}
             onclose={closeTab}

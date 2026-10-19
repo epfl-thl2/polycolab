@@ -2,7 +2,7 @@
   import { untrack } from 'svelte';
   import ProjectPanelHeader from './ProjectPanelHeader.svelte';
   import { Plus, ChevronRight, GitBranch, MessageSquarePlus } from '@lucide/svelte';
-  import type { AgentSession } from '../../../lib/agent-sessions-api';
+  import { createProjectSessions, projectSessionItems } from '../../../lib/session-queries';
   import type { ProjectTask as Worktree } from '../../../lib/project-tasks-api';
   import { projectContext, explain } from '../../../svelte-lib/context';
 
@@ -31,9 +31,16 @@
     onNewChat: (worktree?: Worktree) => void;
     onWorktreesChange: (items: Worktree[]) => void;
   } = $props();
-  const { tasks: api, agents } = projectContext();
+  const { tasks: api, agents, query } = projectContext();
   let worktrees = $state<Worktree[]>([]);
-  let sessions = $state<AgentSession[]>([]);
+  const chats = createProjectSessions(
+    agents,
+    () => projectId,
+    () => canReadChats,
+    query,
+  );
+  const sessions = $derived(canReadChats ? projectSessionItems($chats.data) : []);
+  const chatError = $derived(canReadChats && $chats.isError ? explain($chats.error) : '');
   let expanded = $state(new Set<string>(['main']));
   let archivedOpen = $state(false);
   let createOpen = $state(false);
@@ -45,10 +52,9 @@
   let error = $state('');
   let actionError = $state('');
   let worktreeCursor = $state<string>();
-  let sessionCursor = $state<string>();
+  const sessionCursor = $derived(canReadChats && $chats.hasNextPage);
   let generation = 0;
   let worktreePages = 1;
-  let sessionPages = 1;
   let fetching = false;
   let request: { name: string; id: string } | undefined;
   const current = $derived(
@@ -71,44 +77,21 @@
     if (fetching) return;
     fetching = true;
     try {
-      const results = await Promise.allSettled([
-        (async () => {
-          const items: Worktree[] = [];
-          let cursor: string | undefined;
-          if (api && repositoryEnabled)
-            for (let i = 0; i < worktreePages; i++) {
-              const page = await api.list(id, cursor);
-              items.push(...page.items);
-              cursor = page.nextCursor;
-              if (!cursor) break;
-            }
-          return { items, cursor };
-        })(),
-        (async () => {
-          const items: AgentSession[] = [];
-          let cursor: string | undefined;
-          if (canReadChats)
-            for (let i = 0; i < sessionPages; i++) {
-              const page = await agents.listSessions(id, cursor);
-              items.push(...page.items);
-              cursor = page.nextCursor;
-              if (!cursor) break;
-            }
-          return { items, cursor };
-        })(),
-      ]);
+      const items: Worktree[] = [];
+      let cursor: string | undefined;
+      if (api && repositoryEnabled)
+        for (let i = 0; i < worktreePages; i++) {
+          const page = await api.list(id, cursor);
+          items.push(...page.items);
+          cursor = page.nextCursor;
+          if (!cursor) break;
+        }
       if (version !== generation) return;
-      const [trees, chats] = results;
-      const errors: string[] = [];
-      if (trees.status === 'fulfilled') {
-        worktrees = trees.value.items;
-        worktreeCursor = trees.value.cursor;
-      } else errors.push(explain(trees.reason));
-      if (chats.status === 'fulfilled') {
-        sessions = chats.value.items;
-        sessionCursor = chats.value.cursor;
-      } else errors.push(explain(chats.reason));
-      error = errors.join(' ');
+      worktrees = items;
+      worktreeCursor = cursor;
+      error = '';
+    } catch (reason) {
+      if (version === generation) error = explain(reason);
     } finally {
       if (version === generation) {
         loading = false;
@@ -120,19 +103,14 @@
     const id = projectId;
     // Retry when repository availability arrives after the first render.
     const available = repositoryEnabled;
-    const readable = canReadChats;
     untrack(() => {
       void available;
-      void readable;
       generation++;
       worktreePages = 1;
-      sessionPages = 1;
       fetching = false;
       loading = true;
       worktrees = [];
-      sessions = [];
       worktreeCursor = undefined;
-      sessionCursor = undefined;
       expanded = new Set(['main']);
       name = '';
       createOpen = false;
@@ -282,6 +260,9 @@
   {#if error}<p class="error" role="alert">
       {error}<button onclick={() => refresh(projectId, generation)}>Retry</button>
     </p>{/if}
+  {#if chatError}<p class="error" role="alert">
+      {chatError}<button onclick={() => $chats.refetch()}>Retry conversations</button>
+    </p>{/if}
   {#if actionError}<p class="error" role="alert">{actionError}</p>{/if}
   <div class="tree-list" aria-busy={loading}>
     {#if !worktrees.some((tree) => tree.branch === 'main')}{@render row(undefined)}{/if}
@@ -308,11 +289,9 @@
       >{/if}
     {#if sessionCursor}<button
         class="load-more"
-        disabled={loading}
+        disabled={$chats.isFetching}
         onclick={() => {
-          sessionPages++;
-          loading = true;
-          void refresh(projectId, generation);
+          void $chats.fetchNextPage();
         }}>Load more conversations</button
       >{/if}
   </div>

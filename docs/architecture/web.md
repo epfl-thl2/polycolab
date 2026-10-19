@@ -251,8 +251,9 @@ row also has a New conversation action. Main conversations have no task binding;
 named worktrees use their existing saved-branch binding. These actions create independent draft tabs;
 a draft query identifier keeps each composer distinct until it creates a session.
 `ProjectPage` keeps opened route components mounted behind inactive tabs;
-`ProjectFiles` owns the shared file editor state. Chat drafts and object edits
-report dirty state to the shell. Dirty closes ask before discarding; project
+`ProjectFiles` owns the shared file editor state. Object edits report dirty state
+to the shell; chat dirty state is derived from the project draft store. Dirty closes
+ask before discarding; project
 exit and browser unload also protect drafts. Route-backed tabs preserve query
 parameters for their own content instead of reading the active page's query.
 Layout preferences and validated route-tab URLs are stored per account and
@@ -262,6 +263,30 @@ inactive chat tabs pause their session event streams and run polling. Reactivati
 a chat refreshes messages and runs, then resumes events from its retained cursor
 without discarding its draft. Chat context controls are
 moved into the active Details host by `chat-panel-portal`.
+
+Chat state has separate owners in Default, Linear, and Git. `session-queries.ts`
+defines the shared paginated session list and session-detail queries. Conversation
+lists use that cache instead of maintaining local copies and refresh loops. Active
+lists and session details refresh every five seconds; session mutations and run
+transitions invalidate the relevant entries. Chat titles are read-only projections
+of cached metadata (the freshest detail or list entry), with no callback that
+copies them into navigation state.
+
+`chat-drafts.svelte.ts` owns one in-memory draft store per mounted project, supplied
+through Svelte context. Saved-chat drafts are keyed by project and session; new
+chats include their route draft identifier and worktree. Inputs bind directly to
+private-message and public-task fields. Session creation and turn request identities
+stay with the draft for safe retries. Successful sends clear only submitted text;
+text typed while a request is pending remains available. Failed sends retain text
+and retry identities. Creating a session replaces the new-chat route only after
+its first turn is accepted.
+
+Workbenches own navigation and panel selection. Git derives chat tab titles and
+unsaved indicators from the cache and draft store, including drafts on inactive
+branches. Explicit discard clears a draft; project teardown clears the store.
+Drafts are not persisted to local storage or the backend. Other composer settings
+remain local to the mounted session component. File and research-document state
+ownership is unchanged.
 
 Agent connect and Project settings open in `ProjectUtilityDialogs` over the current
 workbench in all three project modes. The rail uses dialog buttons; opening a

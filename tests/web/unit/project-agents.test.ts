@@ -1,10 +1,13 @@
+import { QueryClient } from '@tanstack/svelte-query';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import ProjectAgents from '../../../src/web/src/pages/project/components/ProjectAgents.svelte';
 import { contextKey } from '../../../src/web/src/svelte-lib/context';
 
+const clients: QueryClient[] = [];
 afterEach(() => {
   cleanup();
+  for (const client of clients.splice(0)) client.clear();
   vi.restoreAllMocks();
 });
 const session = (id: string, status = 'RUNNING') => ({
@@ -28,7 +31,8 @@ function setup(
   };
   const onOpenSession = vi.fn();
   const onNewChat = vi.fn();
-  const query = { invalidateQueries: vi.fn().mockResolvedValue(undefined) };
+  const query = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  clients.push(query);
   render(ProjectAgents, {
     props: {
       projectId: 'project',
