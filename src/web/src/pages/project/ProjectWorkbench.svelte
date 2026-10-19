@@ -4,20 +4,10 @@
   import { onMount, tick, untrack, type Snippet } from 'svelte';
   import { goto, beforeNavigate } from '$app/navigation';
   import { page } from '$app/state';
-  import {
-    PanelLeftOpen,
-    PanelRightClose,
-    PanelRightOpen,
-    FolderOpen,
-    GitBranch,
-    Info,
-    History,
-    Menu,
-    X,
-  } from '@lucide/svelte';
+  import { FolderOpen, GitBranch, Info, History } from '@lucide/svelte';
   import { Button } from '../../lib/components/ui/button';
-  import * as Sheet from '../../lib/components/ui/sheet';
-  import * as Tooltip from '../../lib/components/ui/tooltip';
+  import ProjectShell from './components/ProjectShell.svelte';
+  import ProjectToolsHeader from './components/ProjectToolsHeader.svelte';
   import { projectContext, explain } from '../../svelte-lib/context';
   import type { ProjectTask } from '../../lib/project-tasks-api';
   import { canWriteResearch } from '../../lib/access';
@@ -54,8 +44,7 @@
   let agentWidth = $state(260);
   let rightWidth = $state(280);
   let rightMode = $state<'explorer' | 'source-control' | 'details'>('explorer');
-  let mobilePanel = $state<'navigation' | 'agents' | 'tools' | undefined>();
-  let drag = $state<{ side: 'agents' | 'tools'; x: number; width: number }>();
+  let shell = $state<ProjectShell>();
   let filesEnabled = $state(false);
   let filesBusy = $state(false);
   let files = $state<ProjectFiles>();
@@ -115,7 +104,6 @@
     },
   });
   const selectionPanel = $derived(selectionPanels[section]);
-  const toolsVisible = $derived((projectView || selectionPanel?.hasSelection) && !rightClosed);
   const entity = $derived(activeUrl.pathname.split('/')[4]);
   const showLayoutHeading = $derived(
     !['overview', 'agent-connect', 'settings', 'research', 'map', 'activity'].includes(section),
@@ -133,7 +121,7 @@
     account ? `polycolab.workbench.v2:${account}:${projectId}` : undefined,
   );
   function navigate(href: string, replaceState = false) {
-    mobilePanel = undefined;
+    shell?.closeDrawer();
     void goto(href, { noScroll: true, keepFocus: true, replaceState });
   }
   function navigateLayout(href: string) {
@@ -558,13 +546,11 @@
   }
   function inspect() {
     if (!projectView && !selectionPanel) {
-      agentsClosed = false;
-      if (matchMedia('(max-width:760px)').matches) mobilePanel = 'agents';
+      shell?.showPanel('left');
       return;
     }
     rightMode = 'details';
-    rightClosed = false;
-    if (matchMedia('(max-width:760px)').matches) mobilePanel = 'tools';
+    shell?.showPanel('tools');
   }
   function hasUnsavedDrafts() {
     return (
@@ -585,24 +571,9 @@
       return;
     if (hasUnsavedDrafts() && !confirm('Leave this project and discard unsaved drafts?')) cancel();
   });
-  function resize(event: PointerEvent) {
-    if (!drag) return;
-    const width = drag.width + (event.clientX - drag.x) * (drag.side === 'agents' ? 1 : -1);
-    if (drag.side === 'agents') agentWidth = Math.max(220, Math.min(360, width));
-    else rightWidth = Math.max(240, Math.min(460, width));
-  }
-  function resizeKey(event: KeyboardEvent, side: 'agents' | 'tools') {
-    if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
-    event.preventDefault();
-    const d = (event.key === 'ArrowRight' ? 8 : -8) * (side === 'agents' ? 1 : -1);
-    if (side === 'agents') agentWidth = Math.max(220, Math.min(360, agentWidth + d));
-    else rightWidth = Math.max(240, Math.min(460, rightWidth + d));
-  }
 </script>
 
 <svelte:window
-  onpointermove={resize}
-  onpointerup={() => (drag = undefined)}
   onbeforeunload={(event) => {
     if (hasUnsavedDrafts()) event.preventDefault();
   }}
@@ -623,221 +594,32 @@
   onCloseView={(view) => closeTab(`diff:${view}`)}
 >
   {#snippet children(editor, navigator)}
-    <div class="project-shell">
-      <div
-        class="project-body"
-        class:resizing={Boolean(drag)}
-        style={`--agent-width:${!agentsClosed ? agentWidth : 0}px;--agent-handle:${!agentsClosed ? 1 : 0}px;--tools-width:${toolsVisible ? rightWidth : 0}px;--tools-handle:${toolsVisible ? 1 : 0}px;--rail-width:56px`}
-      >
-        <div class="project-rail">
-          <ProjectNavigationRail
-            {auth}
-            {projectId}
-            section={['settings', 'agent-connect'].includes(section) ? section : railSection}
-            canManage={project.current_user_role === 'OWNER'}
-            showBrand={agentsClosed}
-            onNavigate={navigateLayout}
-          />
-        </div>
-        {#if !agentsClosed}<aside class="project-agents" aria-label={`${leftPanelTitle} panel`}>
-            <div class="conversation-panel" hidden={!projectView}>
-              <ProjectWorktrees
-                {projectId}
-                activeSessionId={section === 'sessions' ? entity : undefined}
-                canReadChats={canWrite}
-                {canChat}
-                onNewChat={newWorktreeChat}
-                activeWorktreeId={selectedWorktree?.id}
-                repositoryEnabled={filesEnabled}
-                canCreate={canWrite}
-                onSelectWorktree={selectWorktree}
-                onWorktreesChange={cacheTasks}
-                onOpenSession={openSession}
-              />
-            </div>
-            {#if !projectView}<div class="layout-panel">{@render layoutPanel()}</div>{/if}
-          </aside>
-          <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-          <div
-            class="splitter agents-splitter"
-            role="separator"
-            aria-label="Resize left panel"
-            aria-orientation="vertical"
-            aria-valuemin="220"
-            aria-valuemax="360"
-            aria-valuenow={agentWidth}
-            tabindex="0"
-            onpointerdown={(event) => {
-              event.preventDefault();
-              drag = { side: 'agents', x: event.clientX, width: agentWidth };
-            }}
-            onkeydown={(event) => resizeKey(event, 'agents')}
-          ></div>{/if}
-        <section class="project-center" aria-label="Project workbench">
-          <div class="project-tabbar">
-            <div class="tabbar-controls" class:desktop-hidden={!agentsClosed}>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Open navigation"
-                onclick={() => (mobilePanel = 'navigation')}
-                class="mobile-toggle"><Menu size={16} /></Button
-              >
-              {#if showLayoutHeading}<span class="compact-project-name" title={project.name}
-                  >{project.name}</span
-                >{/if}
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={agentsClosed ? 'Show left panel' : 'Hide left panel'}
-                onclick={() => {
-                  if (matchMedia('(max-width:760px)').matches) mobilePanel = 'agents';
-                  else agentsClosed = false;
-                }}><PanelLeftOpen size={16} /></Button
-              >
-            </div>
-            {#if projectView}<ProjectTabStrip
-                {tabs}
-                {activeId}
-                onselect={selectTab}
-                onclose={closeTab}
-                onreorder={reorder}
-                onpin={(id) => {
-                  if (id.startsWith('file:')) files?.pinProjectFile(id.slice(5));
-                }}
-                onnewchat={canChat && !selectedWorktree?.archived_at ? () => newChat() : undefined}
-              />{:else if showLayoutHeading}<div class="layout-heading">
-                {layoutLabels[section]}
-              </div>{/if}
-            {#if projectView || selectionPanel?.hasSelection}<div
-                class="tabbar-controls tools-toggle"
-                class:desktop-hidden={!rightClosed}
-              >
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={rightClosed ? 'Show tools' : 'Hide tools'}
-                  onclick={() => {
-                    if (matchMedia('(max-width:760px)').matches) mobilePanel = 'tools';
-                    else rightClosed = false;
-                  }}><PanelRightOpen size={16} /></Button
-                >
-              </div>
-            {/if}
-          </div>
-          {#if contextError}<div class="context-error" role="alert">{contextError}</div>{/if}
-          <main id="main" class="project-main" tabindex="-1">
-            {#if layoutHref}<div class="project-page">
-                <ProjectPage
-                  {project}
-                  href={layoutHref}
-                  active={true}
-                  onState={() => {}}
-                  onCreated={() => {}}
-                  onInspect={inspect}
-                  bind:selectedResearch
-                  bind:researchCreationOpen
-                  bind:researchCountLabel
-                  bind:selectedActivity
-                  bind:mapData
-                  bind:mapObjectId
-                  bind:mapPanelTab
-                />
-              </div>{/if}
-            {#if projectView && !active}<div class="workbench-empty">
-                Open a conversation or file to get started.
-              </div>{/if}
-            {#each mountedTabs.filter((tab) => tab.kind !== 'file' && tab.kind !== 'diff' && tab.id !== 'files:') as tab (tab.id)}
-              <div class="project-page" hidden={!projectView || tab.id !== activeId}>
-                <ProjectPage
-                  {project}
-                  href={tab.href}
-                  active={projectView && tab.id === activeId}
-                  onState={(state) => updateTab(tab.id, state)}
-                  onCreated={(id) => created(tab.id, id)}
-                  onInspect={inspect}
-                  bind:selectedResearch
-                  bind:selectedActivity
-                  bind:mapData
-                  bind:mapObjectId
-                  bind:mapPanelTab
-                />
-              </div>
-            {/each}
-            <div
-              class="project-file-page"
-              hidden={!projectView ||
-                (active?.kind !== 'file' && active?.kind !== 'diff' && active?.id !== 'files:')}
-            >
-              {@render editor()}
-            </div>
-          </main>
-        </section>
-        {#if toolsVisible}
-          <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-          <div
-            class="splitter tools-splitter"
-            role="separator"
-            aria-label="Resize tools"
-            aria-orientation="vertical"
-            aria-valuemin="240"
-            aria-valuemax="460"
-            aria-valuenow={rightWidth}
-            tabindex="0"
-            onpointerdown={(event) => {
-              event.preventDefault();
-              drag = { side: 'tools', x: event.clientX, width: rightWidth };
-            }}
-            onkeydown={(event) => resizeKey(event, 'tools')}
-          ></div>
-          <aside class="project-tools" aria-label={selectionPanel?.label ?? 'Project tools'}>
-            {@render tools('desktop', navigator)}
-          </aside>
-        {/if}
-      </div>
-    </div>
-    <Sheet.Root
-      open={Boolean(mobilePanel)}
-      onOpenChange={(open) => {
-        if (!open) mobilePanel = undefined;
-      }}
-      ><Sheet.Content
-        side={mobilePanel === 'tools' ? 'right' : 'left'}
-        class="p-0"
-        showCloseButton={false}
-      >
-        <Sheet.Title class="sr-only"
-          >{mobilePanel === 'tools'
-            ? (selectionPanel?.label ?? 'Project tools')
-            : mobilePanel === 'agents'
-              ? leftPanelTitle
-              : 'Navigation'}</Sheet.Title
-        >
-        <div class="mobile-panel">
-          {#if mobilePanel !== 'tools'}
-            <header class="panel-heading" class:left-panel-controls={mobilePanel === 'agents'}>
-              {#if mobilePanel === 'navigation'}<span>Navigation</span>{/if}
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Close drawer"
-                onclick={() => (mobilePanel = undefined)}><X size={14} /></Button
-              >
-            </header>
-          {/if}
-          {#if mobilePanel === 'navigation'}<ProjectNavigationRail
-              {auth}
-              {projectId}
-              section={['settings', 'agent-connect'].includes(section) ? section : railSection}
-              canManage={project.current_user_role === 'OWNER'}
-              expanded
-              showBrand={false}
-              onNavigate={navigateLayout}
-            />
-          {:else if mobilePanel === 'agents' && !projectView}<div class="layout-panel">
-              {@render layoutPanel()}
-            </div>
-          {:else if mobilePanel === 'agents'}<ProjectWorktrees
+    <ProjectShell
+      bind:this={shell}
+      projectName={project.name}
+      leftTitle={leftPanelTitle}
+      rightLabel={selectionPanel?.label ?? 'Project tools'}
+      toolsAvailable={Boolean(projectView || selectionPanel?.hasSelection)}
+      showProjectName={showLayoutHeading}
+      bind:leftClosed={agentsClosed}
+      bind:rightClosed
+      bind:leftWidth={agentWidth}
+      bind:rightWidth
+    >
+      {#snippet navigation(expanded)}
+        <ProjectNavigationRail
+          {expanded}
+          {auth}
+          {projectId}
+          section={['settings', 'agent-connect'].includes(section) ? section : railSection}
+          canManage={project.current_user_role === 'OWNER'}
+          onNavigate={navigateLayout}
+        />
+      {/snippet}
+      {#snippet left(placement)}
+        {#if placement === 'desktop' || projectView}
+          <div class="conversation-panel" hidden={!projectView}>
+            <ProjectWorktrees
               {projectId}
               activeSessionId={section === 'sessions' ? entity : undefined}
               canReadChats={canWrite}
@@ -850,10 +632,76 @@
               onWorktreesChange={cacheTasks}
               onOpenSession={openSession}
             />
-          {:else if mobilePanel === 'tools'}{@render tools('mobile', navigator)}{/if}
+          </div>
+        {/if}
+        {#if !projectView}<div class="layout-panel">{@render layoutPanel()}</div>{/if}
+      {/snippet}
+      {#snippet toolbar()}
+        {#if projectView}<ProjectTabStrip
+            {tabs}
+            {activeId}
+            onselect={selectTab}
+            onclose={closeTab}
+            onreorder={reorder}
+            onpin={(id) => {
+              if (id.startsWith('file:')) files?.pinProjectFile(id.slice(5));
+            }}
+            onnewchat={canChat && !selectedWorktree?.archived_at ? () => newChat() : undefined}
+          />{:else if showLayoutHeading}<div class="layout-heading">
+            {layoutLabels[section]}
+          </div>{/if}
+      {/snippet}
+      {#snippet notice()}{#if contextError}<div class="context-error" role="alert">
+            {contextError}
+          </div>{/if}{/snippet}
+
+      {#if layoutHref}<div class="project-page">
+          <ProjectPage
+            {project}
+            href={layoutHref}
+            active={true}
+            onState={() => {}}
+            onCreated={() => {}}
+            onInspect={inspect}
+            bind:selectedResearch
+            bind:researchCreationOpen
+            bind:researchCountLabel
+            bind:selectedActivity
+            bind:mapData
+            bind:mapObjectId
+            bind:mapPanelTab
+          />
+        </div>{/if}
+      {#if projectView && !active}<div class="workbench-empty">
+          Open a conversation or file to get started.
+        </div>{/if}
+      {#each mountedTabs.filter((tab) => tab.kind !== 'file' && tab.kind !== 'diff' && tab.id !== 'files:') as tab (tab.id)}
+        <div class="project-page" hidden={!projectView || tab.id !== activeId}>
+          <ProjectPage
+            {project}
+            href={tab.href}
+            active={projectView && tab.id === activeId}
+            onState={(state) => updateTab(tab.id, state)}
+            onCreated={(id) => created(tab.id, id)}
+            onInspect={inspect}
+            bind:selectedResearch
+            bind:selectedActivity
+            bind:mapData
+            bind:mapObjectId
+            bind:mapPanelTab
+          />
         </div>
-      </Sheet.Content></Sheet.Root
-    >
+      {/each}
+      <div
+        class="project-file-page"
+        hidden={!projectView ||
+          (active?.kind !== 'file' && active?.kind !== 'diff' && active?.id !== 'files:')}
+      >
+        {@render editor()}
+      </div>
+
+      {#snippet right(placement)}{@render tools(placement, navigator)}{/snippet}
+    </ProjectShell>
   {/snippet}
 </ProjectFiles>
 {#snippet layoutPanel()}
@@ -888,7 +736,7 @@
             variant="outline"
             aria-haspopup="dialog"
             onclick={async () => {
-              mobilePanel = undefined;
+              shell?.closeDrawer();
               await tick();
               researchCreationOpen = true;
             }}>Create object</Button
@@ -907,57 +755,25 @@
   </div>
 {/snippet}
 {#snippet tools(placement: 'desktop' | 'mobile', navigator?: Snippet)}
-  {@const closeLabel =
-    placement === 'mobile' ? 'Close drawer' : selectionPanel ? 'Close details' : 'Collapse tools'}
-  <Tooltip.Provider delayDuration={250}>
-    <header class="tools-header">
-      {#if selectionPanel}<span class="details-heading">Details</span>{:else}<div
-          class="tool-switcher"
-          role="tablist"
-          aria-label="Project tools"
-        >
-          {#each [['explorer', 'Explorer', FolderOpen], ['source-control', 'Source control', GitBranch], ['details', section === 'objects' ? 'Details' : 'Agent history', section === 'objects' ? Info : History]] as const as [id, label, Icon] (id)}
-            <Tooltip.Root>
-              <Tooltip.Trigger>
-                {#snippet child({ props })}
-                  <button
-                    {...props}
-                    role="tab"
-                    aria-label={label}
-                    aria-selected={rightMode === id}
-                    disabled={filesBusy}
-                    onclick={() => (rightMode = id)}><Icon size={14} aria-hidden="true" /></button
-                  >
-                {/snippet}
-              </Tooltip.Trigger>
-              <Tooltip.Content class="text-[11px] px-2 py-1">{label}</Tooltip.Content>
-            </Tooltip.Root>
-          {/each}
-        </div>{/if}
-      <Tooltip.Root>
-        <Tooltip.Trigger>
-          {#snippet child({ props })}
-            <Button
-              {...props}
-              variant="ghost"
-              size="icon-sm"
-              aria-label={closeLabel}
-              onclick={() => {
-                if (placement === 'desktop') rightClosed = true;
-                else mobilePanel = undefined;
-              }}
-              >{#if placement === 'desktop'}<PanelRightClose size={14} />{:else}<X
-                  size={14}
-                />{/if}</Button
-            >
-          {/snippet}
-        </Tooltip.Trigger>
-        <Tooltip.Content class="text-[11px] px-2 py-1">
-          {closeLabel}
-        </Tooltip.Content>
-      </Tooltip.Root>
-    </header>
-  </Tooltip.Provider>
+  <ProjectToolsHeader
+    items={[
+      ['explorer', 'Explorer', FolderOpen],
+      ['source-control', 'Source control', GitBranch],
+      [
+        'details',
+        section === 'objects' ? 'Details' : 'Agent history',
+        section === 'objects' ? Info : History,
+      ],
+    ]}
+    value={rightMode}
+    onselect={(value) => (rightMode = value as typeof rightMode)}
+    {placement}
+    detailsOnly={Boolean(selectionPanel)}
+    disabled={filesBusy}
+    onclose={() => {
+      shell?.closePanel('tools', placement);
+    }}
+  />
   <div class="tool-content">
     {#if selectionPanel}<div class="selection-details">
         <ProjectSectionPanel
@@ -1007,10 +823,6 @@
   }
   .selection-details {
     padding: 12px;
-  }
-  .details-heading {
-    font-size: 12px;
-    font-weight: 600;
   }
   .workbench-empty {
     display: grid;
@@ -1077,87 +889,6 @@
     background: var(--accent-soft);
     font-size: 12px;
   }
-  .project-shell,
-  .mobile-panel {
-    --project-nav-height: 32px;
-  }
-  .project-shell {
-    display: flex;
-    flex-direction: column;
-    height: 100dvh;
-    overflow: hidden;
-    background: var(--background);
-  }
-  .compact-project-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .project-tabbar {
-    display: flex;
-    min-width: 0;
-    flex-shrink: 0;
-    background: var(--sidebar);
-  }
-  .project-tabbar > :global(.project-tab-strip) {
-    flex: 1;
-  }
-  .tabbar-controls {
-    height: var(--project-nav-height);
-    box-sizing: border-box;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 0 12px;
-    border-bottom: 1px solid var(--border);
-  }
-  .compact-project-name {
-    max-width: 180px;
-    font-size: 12px;
-    color: var(--brand-strong);
-  }
-  .desktop-hidden {
-    display: none;
-  }
-  .project-body {
-    display: grid;
-    grid-template-columns:
-      var(--rail-width) var(--agent-width) var(--agent-handle) minmax(0, 1fr)
-      var(--tools-handle) var(--tools-width);
-    flex: 1;
-    min-height: 0;
-  }
-  .project-rail {
-    grid-column: 1;
-    grid-row: 1;
-    position: relative;
-    z-index: 20;
-    min-height: 0;
-  }
-  .project-agents {
-    grid-column: 2;
-    grid-row: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    min-width: 0;
-    background: var(--sidebar);
-  }
-  .project-center {
-    grid-column: 4;
-    grid-row: 1;
-    min-width: 0;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-  }
-  .project-main {
-    flex: 1;
-    min-height: 0;
-    min-width: 0;
-    overflow: hidden;
-    position: relative;
-  }
   .project-page {
     height: 100%;
     overflow: auto;
@@ -1167,98 +898,8 @@
     height: 100%;
     min-height: 0;
   }
-  .project-main [hidden] {
+  [hidden] {
     display: none !important;
-  }
-  .project-tools {
-    grid-column: 6;
-    grid-row: 1;
-    min-width: 0;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    background: var(--sidebar);
-  }
-  .panel-heading {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: var(--project-nav-height);
-    min-height: var(--project-nav-height);
-    box-sizing: border-box;
-    padding: 0 12px;
-    border-bottom: 1px solid var(--border);
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 16px;
-    background: var(--sidebar);
-    flex-shrink: 0;
-  }
-  .left-panel-controls {
-    justify-content: flex-end;
-  }
-  .splitter {
-    cursor: col-resize;
-    touch-action: none;
-    background: var(--background);
-    grid-row: 1;
-  }
-  .splitter:hover,
-  .splitter:focus-visible {
-    background: var(--primary);
-    outline: 0;
-  }
-  .agents-splitter,
-  .tools-splitter {
-    position: relative;
-    z-index: 1;
-    background: var(--border);
-  }
-  .agents-splitter::before,
-  .tools-splitter::before {
-    content: '';
-    position: absolute;
-    inset: 0 -3px;
-  }
-  .agents-splitter {
-    grid-column: 3;
-  }
-  .tools-splitter {
-    grid-column: 5;
-  }
-  .tools-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: var(--project-nav-height);
-    box-sizing: border-box;
-    padding: 0 12px;
-    border-bottom: 1px solid var(--border);
-    background: var(--sidebar);
-    flex-shrink: 0;
-  }
-  .tool-switcher {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  .tool-switcher button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    border-radius: 4px;
-    color: var(--muted-foreground);
-  }
-  .tool-switcher button[aria-selected='true'] {
-    color: var(--sidebar-accent-foreground);
-    background: var(--sidebar-accent);
-  }
-  .tool-switcher button:focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: -2px;
   }
   .tool-content {
     flex: 1;
@@ -1274,72 +915,9 @@
     color: var(--muted-foreground);
     line-height: 1.6;
   }
-  .mobile-panel {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  :global(.mobile-toggle) {
-    display: none;
-  }
-  .tabbar-controls :global(button),
-  .tools-header > :global(button),
-  .panel-heading :global(button) {
-    width: 20px;
-    height: 20px;
-    min-height: 0;
-    padding: 0;
-  }
-  .tabbar-controls :global(button svg),
-  .tools-header > :global(button svg),
-  .panel-heading :global(button svg) {
-    width: 14px;
-    height: 14px;
-  }
-  @media (max-width: 1050px) and (min-width: 761px) {
-    .project-body {
-      grid-template-columns:
-        var(--rail-width) min(var(--agent-width), 220px) var(--agent-handle)
-        minmax(0, 1fr) var(--tools-handle) min(var(--tools-width), 240px);
-    }
-  }
   @media (max-width: 760px) {
-    .project-body {
-      display: flex;
-    }
-    .project-center {
-      width: 100%;
-    }
-    .project-rail,
-    .project-agents,
-    .project-tools,
-    .splitter {
-      display: none;
-    }
     .project-page {
       padding: 16px;
-    }
-    .project-tabbar {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-    }
-    .project-tabbar > :global(.project-tab-strip) {
-      grid-row: 2;
-      grid-column: 1 / -1;
-    }
-    .tabbar-controls {
-      min-height: var(--project-nav-height);
-      min-width: 0;
-      display: flex;
-      grid-row: 1;
-    }
-    .compact-project-name {
-      max-width: none;
-      flex: 1;
-    }
-    :global(.mobile-toggle) {
-      display: inline-flex;
     }
   }
 </style>
