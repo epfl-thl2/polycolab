@@ -1,6 +1,5 @@
 <script lang="ts">
   import BrandWordmark from './BrandWordmark.svelte';
-  import PlannedBadge from './PlannedBadge.svelte';
   import { Search as SearchIcon, X } from '@lucide/svelte';
   import HomepageContent from './HomepageContent.svelte';
   import DiscoveryState from './DiscoveryState.svelte';
@@ -160,7 +159,6 @@
     </form>
     {#if !term}<nav class="home-actions" aria-label="Ways to use Polycolab">
         <Button href="/docs/getting-started/" data-sveltekit-reload>Getting started</Button>
-        <Button href="/chat" variant="outline">Chat with built-in agent <PlannedBadge /></Button>
         <Button href="/SKILL.md" data-sveltekit-reload variant="outline">SKILL.md</Button>
       </nav>{/if}
   </section>

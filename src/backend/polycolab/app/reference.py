@@ -23,6 +23,7 @@ REFERENCE_GROUPS = [
     {"name": "Evidence", "tags": ["artifacts"]},
     {"name": "History", "tags": ["activity", "provenance"]},
     {"name": "Profiles", "tags": ["profiles"]},
+    {"name": "Chat", "tags": ["chat"]},
     {
         "name": "Human administration",
         "tags": [
@@ -50,6 +51,14 @@ REFERENCE_GROUPS = [
 ]
 
 REFERENCE_TAGS = {
+    "chat": {
+        "name": "chat",
+        "x-displayName": "Private chat",
+        "description": (
+            "Creator-private text conversations with a configured provider; "
+            "no execution worker required."
+        ),
+    },
     "agent-library": {
         "name": "agent-library",
         "x-displayName": "Agent library",
@@ -256,6 +265,10 @@ REFERENCE_TAGS = {
 }
 
 OPERATION_SECTIONS = {
+    "createChatConversation": "chat",
+    "listChatConversations": "chat",
+    "listChatTurns": "chat",
+    "sendChatTurn": "chat",
     "listAgentLibrary": "agent-library",
     "listOwnedAgentLibrary": "agent-library",
     "createAgentLibraryEntry": "agent-library",

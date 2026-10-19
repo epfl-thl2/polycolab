@@ -51,9 +51,7 @@ test('public search submits URL queries, reloads results and remains available o
     'href',
     '/SKILL.md',
   );
-  await expect(
-    tools.getByRole('link', { name: 'Chat with built-in agent Planned' }),
-  ).toHaveAttribute('href', '/chat');
+  await expect(page.locator('a[href="/chat"]')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Explore research', exact: true })).toHaveCount(0);
   await expect(
     page.getByRole('heading', { name: 'Turn a question into collaborative research', exact: true }),

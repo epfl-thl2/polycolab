@@ -613,3 +613,41 @@ def purge_expired_rate_windows(
     session.execute(delete(SqlExecutionRateWindow).where(SqlExecutionRateWindow.id.in_(ids)))
     session.commit()
     return len(ids)
+
+
+def lock_chat_admission(session: Session, *, user_id: UUID, project_id: UUID | None) -> None:
+    """Serialize retry identity and daily chat reservations, including uncapped windows."""
+    _lock_rate_window_scope(session, scope="user", scope_id=user_id)
+    if project_id is not None:
+        _lock_rate_window_scope(session, scope="project", scope_id=project_id)
+
+
+def enforce_chat_rate_limit(
+    session: Session,
+    *,
+    user_id: UUID,
+    project_id: UUID | None,
+    user_limit: int,
+    project_limit: int,
+    now: datetime,
+) -> None:
+    """Serialize chat admission and consume the configured request windows."""
+    _lock_rate_window_scope(session, scope="user", scope_id=user_id)
+    _consume_window(
+        session,
+        scope="user",
+        scope_id=user_id,
+        limit=user_limit,
+        now=now,
+        error_code="chat_rate_limited",
+    )
+    if project_id is not None:
+        _lock_rate_window_scope(session, scope="project", scope_id=project_id)
+        _consume_window(
+            session,
+            scope="project",
+            scope_id=project_id,
+            limit=project_limit,
+            now=now,
+            error_code="chat_rate_limited",
+        )

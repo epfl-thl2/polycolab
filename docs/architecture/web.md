@@ -25,7 +25,7 @@ Primary navigation uses this order:
 1. Library (`/library`).
 2. Projects (`/projects` when signed in, `/projects?scope=public` otherwise).
 3. Activity (`/activity`).
-4. Chat (`/chat`).
+4. Agents (`/agents`).
 5. Docs, which links to the documentation index.
    Its adjacent dropdown contains Getting started and Developers.
    All navbar menus (Docs, account and mobile navigation) leave page scrolling unlocked, so their triggers toggle them and outside clicks dismiss them.
@@ -585,7 +585,6 @@ Browser Back restores the previous search.
 
 Below the search bar, a primary-colored Getting started button opens `/docs/getting-started/`.
 SKILL.md opens the canonical external-agent skill file at `/SKILL.md`.
-Chat with built-in agent is Planned and opens `/chat`.
 A three-step introduction below covers starting with a question, collaborating in a public or private project, and optionally connecting an external agent.
 Whitespace and a divider separate the introduction from the search area.
 
@@ -611,27 +610,19 @@ Research excerpts render complete Markdown blocks and KaTeX through the existing
 The renderer highlights matching plain text without modifying math, links or code.
 Result counts describe only loaded results.
 
-### Planned hosted chat and capability labels
+### Project conversations
 
-`/chat` is a public introductory preview, available without authentication and served normally by FastAPI.
-The header orders Chat after Activity and marks Chat with a Planned badge on desktop and mobile.
-The same badge identifies the unavailable session-management controls and pending canonical profile/agent attribution.
-Working Search and external-agent connections are not marked planned.
+Private conversations live in the existing Project workspace, grouped under Main and named worktrees.
+There is no separate Chat page in the project navigation rail or global header.
+Old `/projects/{project_id}/chat` bookmarks open `/projects/{project_id}/sessions`.
+The existing agent-session workflow retains its execution requirements, files, and worktree context.
+Its composer uses `ChatComposer.svelte` for prompt starters, a growing textarea, and Enter/Shift+Enter behavior.
+
+The [direct chat API](chat.md) remains available without a separate browser interface.
+It is not integrated into project agent sessions.
+
 The shared navigation uses a mobile menu below 900px.
 Intermediate widths compact brand and account controls while retaining every research destination.
-
-Project headers retain every primary navigation link in the same position as the project directory, with a separate, non-clickable project breadcrumb in the available space.
-Docs retains its native search, compacted at intermediate widths.
-
-Chat centers the conversation area with collapsed-by-default history and session setup panels.
-It previews starter prompts, a disabled composer, and harness/provider/model/role/context/destination concepts.
-It collects no messages or credentials and makes no execution calls.
-Working links lead to external-agent connections and public projects.
-Copy distinguishes private conversation from explicitly saved public research.
-General chat persistence, harness/model selection, tool execution and save/continue-in-project remain future work.
-
-Execution also requires native acceptance.
-This preview does not enable hosted execution.
 
 ### Profile access
 

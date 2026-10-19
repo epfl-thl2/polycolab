@@ -5992,6 +5992,7 @@ test('project rail switches page layouts without adding tabs and restores chat d
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`/projects/${projectId}/sessions/new`);
   const rail = page.getByRole('complementary', { name: 'Project navigation', exact: true });
+  await expect(rail.getByRole('link', { name: 'Chat', exact: true })).toHaveCount(0);
   const composer = page.getByLabel('Message the agent').filter({ visible: true });
   await composer.fill('Keep this layout-switch draft');
   await expect(page.getByRole('tab', { name: /^New chat/ })).toHaveCount(1);
@@ -6028,6 +6029,7 @@ test('project rail switches page layouts without adding tabs and restores chat d
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: 'Open navigation', exact: true }).click();
   const drawer = page.getByRole('dialog');
+  await expect(drawer.getByRole('link', { name: 'Chat', exact: true })).toHaveCount(0);
   await drawer.getByRole('link', { name: 'Overview', exact: true }).click();
   await expect(page.getByRole('heading', { name: project.name, exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Hide left panel', exact: true }).click();
@@ -6293,4 +6295,18 @@ test('saved workbench tabs and dimensions survive the project route cutover', as
       ),
     )
     .toBe(true);
+});
+
+test('retired project Chat bookmarks open existing project conversations', async ({ page }) => {
+  await mock(page);
+  const chatRequests: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.startsWith('/api/v1/chat/'))
+      chatRequests.push(request.url());
+  });
+  await page.goto(`/projects/${projectId}/chat`);
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/sessions$`));
+  await expect(page.getByRole('heading', { name: 'All sessions', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Chat', exact: true })).toHaveCount(0);
+  expect(chatRequests).toEqual([]);
 });

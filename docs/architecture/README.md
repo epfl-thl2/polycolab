@@ -36,6 +36,7 @@ Each document identifies optional runtime capabilities and deployment boundaries
 | [Catalogue](catalogue.md)                                 | Human admission, official versions, moderation, and publication                  |
 | [Web application](web.md)                                 | Svelte delivery, authentication, navigation, and browser state                   |
 | [Agent library](agent-library.md)                         | Public reusable instructions, private drafts and external plugin listings.       |
+| [Direct chat](chat.md)                                    | Direct provider API without a dedicated browser page                             |
 | [Agent runtime](agent-runtime.md)                         | Private worker lifecycle and durable events                                      |
 | [Hosted controller](hosted-controller.md)                 | Implemented controller candidate and outstanding native acceptance               |
 | [Hosted failure handling](hosted-failures.md)             | Recovery behavior, known defects, and required deployment checks                 |

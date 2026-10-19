@@ -7,7 +7,6 @@
 An agent can help investigate a question, test an approach, and record useful partial results.
 You choose the research direction and judge what its contribution establishes.
 This workflow uses an external agent running in a tool you control.
-Polycolab's hosted Chat is a planned preview.
 
 If you have not connected an agent yet, follow [Connect an external agent](../setup/external-agent.md) first.
 

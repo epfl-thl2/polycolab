@@ -95,55 +95,53 @@
   const view = $derived(
     retiredPreview
       ? 'missing'
-      : path === '/chat'
-        ? 'chat'
-        : path === '/activity' || path === '/activity/recent' || path === '/activity/projects'
-          ? 'activity'
-          : path === '/search' || path === '/'
-            ? 'search'
-            : path === '/about'
-              ? 'about'
-              : path === '/library' || path.startsWith('/library/')
-                ? 'library'
-                : path === '/docs' || path.startsWith('/docs/')
-                  ? 'docs'
-                  : path === '/connect'
-                    ? 'connect'
-                    : path === '/agents' || path.startsWith('/agents/')
-                      ? 'agent-library'
-                      : path === '/projects' && projectScope === 'public'
-                        ? 'public-projects'
-                        : path === '/guide'
-                          ? 'guide'
-                          : path === '/commons' || path.startsWith('/commons/')
-                            ? 'commons'
-                            : [
-                                  '/account/password-reset',
-                                  '/account/reset-password',
-                                  '/account/verify-email',
-                                  '/forgot-password',
-                                  '/reset-password',
-                                  '/verify-email',
-                                ].includes(path)
-                              ? 'recovery'
-                              : path === '/signin'
-                                ? 'signin'
-                                : path === '/signup'
-                                  ? 'signup'
-                                  : path === '/profile' ||
-                                      /^\/(?:profile|agent-profiles)\/[^/]+$/.test(path)
-                                    ? 'profile'
-                                    : path === '/moderation'
-                                      ? 'moderation'
-                                      : path === '/settings' ||
-                                          (path.startsWith('/settings/') &&
-                                            path !== '/settings/notifications')
-                                        ? 'account-settings'
-                                        : projectId
-                                          ? 'project'
-                                          : path === '/projects'
-                                            ? 'home'
-                                            : 'missing',
+      : path === '/activity' || path === '/activity/recent' || path === '/activity/projects'
+        ? 'activity'
+        : path === '/search' || path === '/'
+          ? 'search'
+          : path === '/about'
+            ? 'about'
+            : path === '/library' || path.startsWith('/library/')
+              ? 'library'
+              : path === '/docs' || path.startsWith('/docs/')
+                ? 'docs'
+                : path === '/connect'
+                  ? 'connect'
+                  : path === '/agents' || path.startsWith('/agents/')
+                    ? 'agent-library'
+                    : path === '/projects' && projectScope === 'public'
+                      ? 'public-projects'
+                      : path === '/guide'
+                        ? 'guide'
+                        : path === '/commons' || path.startsWith('/commons/')
+                          ? 'commons'
+                          : [
+                                '/account/password-reset',
+                                '/account/reset-password',
+                                '/account/verify-email',
+                                '/forgot-password',
+                                '/reset-password',
+                                '/verify-email',
+                              ].includes(path)
+                            ? 'recovery'
+                            : path === '/signin'
+                              ? 'signin'
+                              : path === '/signup'
+                                ? 'signup'
+                                : path === '/profile' ||
+                                    /^\/(?:profile|agent-profiles)\/[^/]+$/.test(path)
+                                  ? 'profile'
+                                  : path === '/moderation'
+                                    ? 'moderation'
+                                    : path === '/settings' ||
+                                        (path.startsWith('/settings/') &&
+                                          path !== '/settings/notifications')
+                                      ? 'account-settings'
+                                      : projectId
+                                        ? 'project'
+                                        : path === '/projects'
+                                          ? 'home'
+                                          : 'missing',
   );
   const identity = createQuery(
     toStore(() => ({
@@ -173,7 +171,6 @@
       ? `Results for “${searchState.query.slice(0, 200)}”`
       : {
           search: 'Home',
-          chat: 'Chat',
           activity: 'Activity',
           about: 'About',
           library: 'Library',
@@ -195,27 +192,25 @@
         }[view],
   );
   const headerActive = $derived(
-    view === 'chat'
-      ? ('chat' as const)
-      : view === 'search'
-        ? ('search' as const)
-        : path === '/activity' || path.startsWith('/activity/')
-          ? ('activity' as const)
-          : view === 'commons' || view === 'library'
-            ? ('explore' as const)
-            : view === 'docs' || view === 'connect' || view === 'guide'
-              ? ('docs' as const)
-              : view === 'agent-library'
-                ? ('agents' as const)
-                : view === 'profile'
-                  ? ('profile' as const)
-                  : view === 'moderation'
-                    ? ('moderation' as const)
-                    : view === 'account-settings'
-                      ? ('settings' as const)
-                      : view === 'home' || view === 'public-projects'
-                        ? ('projects' as const)
-                        : undefined,
+    view === 'search'
+      ? ('search' as const)
+      : path === '/activity' || path.startsWith('/activity/')
+        ? ('activity' as const)
+        : view === 'commons' || view === 'library'
+          ? ('explore' as const)
+          : view === 'docs' || view === 'connect' || view === 'guide'
+            ? ('docs' as const)
+            : view === 'agent-library'
+              ? ('agents' as const)
+              : view === 'profile'
+                ? ('profile' as const)
+                : view === 'moderation'
+                  ? ('moderation' as const)
+                  : view === 'account-settings'
+                    ? ('settings' as const)
+                    : view === 'home' || view === 'public-projects'
+                      ? ('projects' as const)
+                      : undefined,
   );
   $effect(() => {
     if (auth.loaded && auth.signedIn && (view === 'signin' || view === 'signup')) {
@@ -251,8 +246,6 @@
             onRetry={() => void $identity.refetch()}
             onComplete={() => void $identity.refetch()}
           />{/await}
-      {:else if view === 'chat'}
-        {#await import('./Chat.svelte') then module}<module.default />{/await}
       {:else if view === 'activity'}
         {#await import('./Activity.svelte') then module}<module.default
             source={history.source}
