@@ -40,7 +40,10 @@ file, conversation, and history behavior remain in the workbenches. All three mo
 use the same responsive breakpoints and 8px keyboard resize step.
 
 The project navigation rail shows the logo in Default, Git, and Linear modes, including
-the expanded mobile navigation drawer. The logo links to `/projects`.
+the expanded mobile navigation drawer. The logo links to `/projects`. `ui/BrandMark.svelte` supplies the same fixed brand
+anchor to the project rail and homepage header. Shared theme tokens place the
+28px mark 14px from the left and 16px from the top on desktop; mobile uses an 8px
+top inset. Containers add no extra brand padding.
 
 The public `/SKILL.md` endpoint serves the canonical external-agent instructions from `skills/polycolab/SKILL.md`.
 SvelteKit imports that source as raw Markdown and prerenders it into the web build.
@@ -48,7 +51,9 @@ FastAPI serves the built file anonymously with a Markdown content type and retur
 The Docker web build includes `skills/`.
 Agent connections, the connection guide, and the API introduction link to this same resource.
 
-The product navbar spans the viewport, with 16px horizontal padding on desktop and 10px on mobile, independently of the page content width.
+The product navbar spans the viewport independently of the page content width.
+Its shared brand anchor starts at the left edge; the remaining right inset is
+16px on desktop and 10px on mobile.
 A small mathematical superscript **α** at the upper right of the brand identifies alpha development.
 It remains visible when compact layouts show only the brand mark.
 Compact outlined Planned pills continue to identify individual unfinished capabilities.
@@ -596,6 +601,8 @@ The app maps Groseille to primary actions and Canard to research accents.
 Documentation maps Canard to its primary role.
 Accessible neutral, status, and dark-surface extensions supplement the six official EPFL colors.
 The application theme continues to own typography and spacing, including a locally bundled Inter variable font.
+Main surfaces, cards, and dialogs use white; navigation and side panels use neutral
+light grey. Brand colors remain on controls, icons, selection accents, and status indicators.
 Production controls use shadcn-svelte components in `src/web/src/lib/components/ui/`.
 
 `src/web/components.json` selects the Lyra registry style: square control corners, compact text, and thin focus rings.

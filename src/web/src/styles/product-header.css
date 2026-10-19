@@ -21,11 +21,11 @@
   width: 100%;
   min-height: calc(var(--product-header-height) - 1px);
   gap: 24px;
-  padding: 0 16px 0 14px;
+  padding: 0 16px 0 0;
 }
 .product-header:not(.product-header-project) .product-header-brand {
   align-self: start;
-  margin-top: 16px;
+  margin-top: 0;
 }
 .product-header-inner-project {
   position: relative;
@@ -67,7 +67,8 @@
   gap: 10px;
   min-width: 0;
   height: var(--product-header-height);
-  padding: 16px 14px 0;
+  padding: 0 14px 0 0;
+  align-items: flex-start;
   background: var(--sidebar);
   border-right: 1px solid var(--line);
 }
@@ -97,10 +98,6 @@
 }
 .product-header-project-collapsed .product-project-brand .product-brand {
   display: none;
-}
-.product-header-project-collapsed .product-project-brand .product-brand-mark {
-  width: 24px;
-  height: 24px;
 }
 .product-header-project-collapsed .product-project-collapse {
   flex-basis: 28px;
@@ -211,7 +208,7 @@
 }
 .product-brand {
   display: flex;
-  gap: 7px;
+  gap: 0;
   align-items: center;
   font-size: 19px;
   line-height: 1.1;
@@ -219,19 +216,6 @@
 }
 .product-brand:hover {
   text-decoration: none;
-}
-.product-brand-mark {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
-}
-.product-brand-mark img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
 }
 .product-breadcrumb {
   display: flex;
@@ -414,7 +398,7 @@
     grid-template-columns: auto minmax(0, 1fr) 36px;
     min-height: var(--product-header-height);
     gap: 8px;
-    padding: 0 10px;
+    padding: 0 10px 0 0;
   }
   .product-breadcrumb,
   .product-navigation,
@@ -539,7 +523,7 @@
 }
 @media (min-width: 761px) and (max-width: 899px) {
   .product-header:not(.product-header-project) .product-header-inner {
-    padding-left: 14px;
+    padding-left: 0;
   }
   .product-header-project .product-breadcrumb,
   .product-header-project .product-header-account {
@@ -572,7 +556,7 @@
   .product-header-inner-project {
     grid-template-columns: auto minmax(0, 1fr) 36px;
     gap: 8px;
-    padding: 0 10px;
+    padding: 0 10px 0 0;
   }
   .product-header-inner-project::after {
     left: 0;

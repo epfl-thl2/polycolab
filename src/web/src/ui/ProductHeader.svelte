@@ -1,5 +1,6 @@
 <script lang="ts">
   import AccountMenu from './AccountMenu.svelte';
+  import BrandMark from './BrandMark.svelte';
   import BrandWordmark from './BrandWordmark.svelte';
   import * as Alert from '../lib/components/ui/alert';
   import { onMount, type Snippet } from 'svelte';
@@ -166,9 +167,7 @@
         aria-label="Polycolab home"
         aria-describedby="product-development-status"
       >
-        <span class="product-brand-mark" aria-hidden="true">
-          <img src="/brand/polycolab-mark.png" alt="" />
-        </span>
+        <BrandMark />
         <BrandWordmark descriptionId="product-development-status" />
       </a>
       {#if projectMode && onToggleSidebar}<Button

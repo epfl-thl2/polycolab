@@ -367,10 +367,7 @@ test('home and primary document do not wait for graphs, histories, or session tr
   await page.goto('/projects');
   await expect(page.getByRole('heading', { name: 'Projects', exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Spectral gaps', exact: true }).click();
-  await page
-    .getByRole('navigation', { name: 'Project sections' })
-    .getByRole('link', { name: 'Research objects', exact: true })
-    .click();
+  await page.goto(`/projects/${projectId}/research`);
   await expect(
     page.getByRole('link', { name: `Open object: ${revision.title}`, exact: true }),
   ).toBeVisible();
@@ -1252,10 +1249,7 @@ test('anonymous readers browse public projects and exact research after reload',
   await expect(page).toHaveTitle('Spectral gaps · Polycolab');
   await expect(page.locator('#main').getByRole('button')).toHaveCount(0);
   await expect(page.locator('#main').getByRole('link')).toHaveCount(0);
-  await page
-    .getByRole('navigation', { name: 'Project sections' })
-    .getByRole('link', { name: 'Research objects', exact: true })
-    .click();
+  await page.goto(`/projects/${projectId}/research`);
   await page.getByRole('link', { name: `Open object: ${revision.title}`, exact: true }).click();
   await expect(page.locator('#main').getByRole('heading', { name: revision.title })).toBeVisible();
   await expect(page).toHaveTitle(`${revision.title} · Polycolab`);
@@ -1934,8 +1928,14 @@ test('retains draft on conflict and requires explicit comparison before rebasing
   expect(writes[0]).toMatchObject({ expected_current_object_version_id: revisionId });
   await page.getByRole('button', { name: 'Use latest version as base, keep my draft' }).click();
   await expect(page.getByText('Draft retained. Review and save when ready.')).toBeVisible();
-  await page.getByRole('link', { name: 'Research objects', exact: true }).first().click();
-  await page.getByRole('link', { name: `Open object: ${revision.title}`, exact: true }).click();
+  await page
+    .getByRole('navigation', { name: 'Project sections' })
+    .getByRole('link', { name: 'Overview', exact: true })
+    .click();
+  await page
+    .getByRole('navigation', { name: 'Project sections' })
+    .getByRole('link', { name: 'Project', exact: true })
+    .click();
   await page.getByRole('button', { name: 'Edit', exact: true }).click();
   await expect(page.getByLabel('Markdown', { exact: true })).toHaveValue(
     'My preserved proof draft.',
@@ -2098,9 +2098,8 @@ test('project chat has distinct layout icons and an uncluttered composer', async
   await expect(rail.getByRole('link', { name: 'Project', exact: true }).locator('svg')).toHaveClass(
     /lucide-panels-left-bottom/,
   );
-  await expect(rail.getByRole('link', { name: 'Map', exact: true }).locator('svg')).toHaveClass(
-    /lucide-map/,
-  );
+  await expect(rail.getByRole('link', { name: 'Map', exact: true })).toHaveCount(0);
+  await expect(rail.getByRole('link', { name: 'Research objects', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Choose agent' })).toContainText('Researcher');
   await expect(page.getByLabel('AI provider')).toHaveCount(0);
   const suggested = page.getByLabel('Suggested prompts');
@@ -3154,40 +3153,16 @@ test('repeated project navigation stays responsive with layout modes and retaine
   await mock(page);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto(`/projects/${projectId}/research`);
+  await page.goto(`/projects/${projectId}/objects/${objectId}`);
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
   const navigation = page.getByRole('navigation', { name: 'Project sections', exact: true });
-  await expect(
-    page.getByRole('link', { name: `Open object: ${revision.title}`, exact: true }),
-  ).toBeVisible();
-
   for (let index = 0; index < 6; index++) {
-    await navigation.getByRole('link', { name: 'Map', exact: true }).click();
-    await page.getByLabel('Focus on an object', { exact: true }).fill('Spectral');
-    await page
-      .getByRole('list', { name: 'Focused object search results' })
-      .getByRole('button')
-      .first()
-      .click();
-    await expect(page.locator('.svelte-flow')).toHaveCount(1);
-    await navigation.getByRole('link', { name: 'Research objects', exact: true }).click();
-    await expect(page.locator('.svelte-flow')).toHaveCount(0);
-
-    await page.getByRole('link', { name: `Open object: ${revision.title}`, exact: true }).click();
-    if (index === 0) await page.getByRole('button', { name: 'Edit', exact: true }).click();
-    await expect(page.locator('textarea.editor')).toHaveCount(1);
-    await expect(page.locator('textarea.editor')).toBeVisible();
     await page.locator('textarea.editor').fill(`Retained draft ${index}`);
     await navigation.getByRole('link', { name: 'Activity', exact: true }).click();
     await expect(page.locator('textarea.editor')).toBeHidden();
+    await navigation.getByRole('link', { name: 'Overview', exact: true }).click();
     await navigation.getByRole('link', { name: 'Project', exact: true }).click();
-    await page.getByRole('button', { name: 'New chat tab', exact: true }).click();
-    await expect(page.getByLabel('Message the agent').filter({ visible: true })).toBeVisible();
-    await page
-      .getByLabel('Message the agent')
-      .filter({ visible: true })
-      .fill(`Chat draft ${index}`);
-    await navigation.getByRole('link', { name: 'Research objects', exact: true }).click();
-    await expect(page.locator('.svelte-flow')).toHaveCount(0);
+    await expect(page.locator('textarea.editor')).toBeVisible();
     await expect(page.locator('textarea.editor')).toHaveValue(`Retained draft ${index}`);
     expect(errors).toEqual([]);
   }
@@ -3618,15 +3593,12 @@ test('records production startup and cached-navigation timings', async ({ page }
   const homeMs = Date.now() - start;
   const homeJsGzip = (await Promise.all(scripts.values())).reduce((a, b) => a + b, 0);
   await page.getByRole('link', { name: 'Spectral gaps', exact: true }).click();
-  await page
-    .getByRole('navigation', { name: 'Project sections' })
-    .getByRole('link', { name: 'Research objects', exact: true })
-    .click();
+  await page.goto(`/projects/${projectId}/research`);
   await page.getByRole('link', { name: `Open object: ${revision.title}`, exact: true }).click();
   await expect(page.locator('#main').getByRole('heading', { name: revision.title })).toBeVisible();
   const times: number[] = [];
   for (let i = 0; i < 10; i++) {
-    await page.getByRole('link', { name: 'Research objects', exact: true }).first().click();
+    await page.goBack();
     await expect(
       page.getByRole('link', { name: `Open object: ${revision.title}`, exact: true }),
     ).toBeVisible();
@@ -4227,10 +4199,10 @@ test('rail layout modes have stable panel headers and mobile navigation', async 
   await mock(page);
   await page.goto(`/projects/${projectId}/overview`);
   const rail = page.getByRole('complementary', { name: 'Project navigation', exact: true });
+  await expect(rail.getByRole('link', { name: 'Map', exact: true })).toHaveCount(0);
+  await expect(rail.getByRole('link', { name: 'Research objects', exact: true })).toHaveCount(0);
   for (const [label, name] of [
     ['Overview', 'Project'],
-    ['Research objects', 'Research objects'],
-    ['Map', 'Map'],
     ['Activity', 'Activity'],
   ]) {
     await rail.getByRole('link', { name: label, exact: true }).click();
@@ -4241,6 +4213,8 @@ test('rail layout modes have stable panel headers and mobile navigation', async 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: 'Open navigation', exact: true }).click();
   const drawer = page.getByRole('dialog', { name: 'Navigation', exact: true });
+  await expect(drawer.getByRole('link', { name: 'Map', exact: true })).toHaveCount(0);
+  await expect(drawer.getByRole('link', { name: 'Research objects', exact: true })).toHaveCount(0);
   await drawer.getByRole('link', { name: 'Overview', exact: true }).click();
   await expect(drawer).toHaveCount(0);
   await expect(page.getByRole('heading', { name: project.name, level: 1 })).toBeVisible();
@@ -4387,10 +4361,7 @@ test('project overview centers the description without activity lists or request
   await expect(main.getByRole('list')).toHaveCount(0);
   await expect(main.getByRole('heading', { name: 'Recent changes' })).toHaveCount(0);
   expect(requests.some((path) => path.includes('/api/v1/activity'))).toBe(false);
-  await page
-    .getByRole('navigation', { name: 'Project sections' })
-    .getByRole('link', { name: 'Research objects', exact: true })
-    .click();
+  await page.goto(`/projects/${projectId}/research`);
   await page.getByRole('button', { name: 'Create object', exact: true }).click();
   await page.getByLabel('Object type').selectOption('PROBLEM');
   await expect(
@@ -5645,7 +5616,7 @@ test('retained chat tabs pause streams and resume with their cursor and draft', 
     .toBeGreaterThan(beforeRefresh);
   await page
     .getByRole('complementary', { name: 'Project navigation', exact: true })
-    .getByRole('link', { name: 'Research objects', exact: true })
+    .getByRole('link', { name: 'Activity', exact: true })
     .click();
   await expect.poll(async () => (await monitor()).active).toBe(0);
 });
@@ -5999,9 +5970,7 @@ test('project rail switches page layouts without adding tabs and restores chat d
   const projectWidth = (await page.getByRole('main').boundingBox())!.width;
   for (const [label, panel] of [
     ['Overview', 'Project panel'],
-    ['Research objects', 'Research objects panel'],
     ['Activity', 'Activity panel'],
-    ['Map', 'Map panel'],
   ]) {
     await rail.getByRole('link', { name: label, exact: true }).click();
     await expect(page.getByRole('complementary', { name: panel, exact: true })).toBeVisible();
@@ -6017,10 +5986,12 @@ test('project rail switches page layouts without adding tabs and restores chat d
   }
   await page.goBack();
   await expect(
-    page.getByRole('complementary', { name: 'Activity panel', exact: true }),
+    page.getByRole('complementary', { name: 'Project panel', exact: true }),
   ).toBeVisible();
   await page.goForward();
-  await expect(page.getByRole('complementary', { name: 'Map panel', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('complementary', { name: 'Activity panel', exact: true }),
+  ).toBeVisible();
   await rail.getByRole('link', { name: 'Project', exact: true }).click();
   await expect(composer).toHaveValue('Keep this layout-switch draft');
   await expect(page.getByRole('tab', { name: /^New chat/ })).toHaveCount(1);

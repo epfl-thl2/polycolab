@@ -110,8 +110,14 @@
 </script>
 
 <details>
-  <summary>AI file results ({batches.filter((b) => b.status === 'pending').length} pending)</summary
+  <summary
+    >Agent file changes ({batches.filter((b) => b.status === 'pending').length} to review)</summary
   >
+  <p>
+    Review changes made by your agents. Conflicting changes wait here for your decision; applied
+    changes can be reverted.
+  </p>
+  {#if !batches.length}<p>No agent file changes yet.</p>{/if}
   {#if error}<p role="alert">{error}</p>{/if}
   {#each batches as batch (batch.id)}<div class="batch">
       <span>{batch.status.replace('_', ' ')}</span>

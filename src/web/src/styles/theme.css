@@ -22,7 +22,7 @@
   --input: var(--polycolab-input);
   --ring: var(--polycolab-epfl-groseille);
   --radius: 0.5rem;
-  --sidebar: color-mix(in srgb, var(--polycolab-epfl-groseille) 2%, var(--polycolab-white));
+  --sidebar: var(--polycolab-surface-subtle);
   --sidebar-foreground: var(--foreground);
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
@@ -71,5 +71,17 @@
   --radius-lg: 8px;
   --shadow-raised: 0 8px 24px var(--polycolab-shadow);
   --product-header-height: 64px;
+  --brand-anchor-width: 56px;
+  --brand-anchor-height: 60px;
+  --brand-mark-size: 28px;
+  --brand-mark-left: 14px;
+  --brand-mark-top: 16px;
   --content-max: 1240px;
+}
+
+@media (max-width: 760px) {
+  :root {
+    --brand-anchor-height: 44px;
+    --brand-mark-top: 8px;
+  }
 }

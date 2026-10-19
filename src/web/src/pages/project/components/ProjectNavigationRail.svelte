@@ -1,5 +1,6 @@
 <script lang="ts">
   import { projectDialogs, type ProjectUtility } from '../project-dialogs';
+  import BrandMark from '../../../ui/BrandMark.svelte';
   import * as Tooltip from '../../../lib/components/ui/tooltip';
   import * as DropdownMenu from '../../../lib/components/ui/dropdown-menu';
   import AccountMenu from '../../../ui/AccountMenu.svelte';
@@ -119,7 +120,7 @@
           <Tooltip.Trigger>
             {#snippet child({ props })}
               <a {...props} class="rail-brand" href="/projects" aria-label="Polycolab projects">
-                <img src="/brand/polycolab-mark.png" alt="" />
+                <BrandMark />
                 <span class="label">Polycolab</span>
               </a>
             {/snippet}
@@ -215,7 +216,7 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    width: 56px;
+    width: var(--brand-anchor-width);
     overflow: hidden;
     padding: 0 0 10px;
     border-right: 1px solid var(--border);
@@ -266,7 +267,7 @@
     align-items: center;
     gap: 0;
     flex-shrink: 0;
-    height: 60px;
+    height: var(--brand-anchor-height);
     padding: 0;
     color: var(--foreground);
     font-size: 15px;
@@ -289,10 +290,5 @@
   }
   :global(.navigation-rail .profile-link) {
     margin-top: 7px;
-  }
-  .rail-brand img {
-    width: 28px;
-    height: 28px;
-    object-fit: contain;
   }
 </style>
