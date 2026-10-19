@@ -34,12 +34,14 @@ conversations and drafts, or the file tree with creation and upload controls.
 The project name opens an information modal. Overview and research Activity are
 not rail destinations in this mode. The right panel has a white background and
 shows files; the chat agent-history panel is hidden. Existing research links can
-still open contextual details. Opening a file selects its editor in the center. The compact editor toolbar is shared
+still open contextual details. Opening a file selects the right sidebar’s File view
+while the conversation stays in the center. The compact editor toolbar is shared
 with Git; new files use an inline path field with Enter to create and Escape to
 cancel. There are no document tabs or file-history controls.
 Files support creation, upload, explicit save, download, rename, and deletion.
 Unsaved edits block opening another file or leaving the project and remain visible
-after a save conflict. Unsaved file edits must be saved or discarded before changing views. Reload
+after a save conflict. Switching conversations, sidebar views, or mobile drawers
+retains the mounted editor and its draft. Reload
 fetches current bytes; it does not merge concurrent edits. Default does not use
 Linear's Yjs collaboration service.
 

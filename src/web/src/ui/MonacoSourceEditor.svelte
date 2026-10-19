@@ -81,6 +81,9 @@
   });
 
   onMount(() => {
+    // Keep the collaboration resources for this editor instance through teardown.
+    const sharedDocument = collaborative;
+    const sharedUndo = collaborativeUndo;
     let disposed = false;
     let instance: Monaco.editor.IStandaloneCodeEditor | undefined;
     let model: Monaco.editor.ITextModel | undefined;
@@ -101,7 +104,7 @@
     void import('../lib/monaco-loader')
       .then(({ monacoReady }) => monacoReady)
       .then(async (engine) => {
-        const collaboration = collaborative
+        const collaboration = sharedDocument
           ? await Promise.all([import('y-monaco'), import('yjs')])
           : undefined;
         if (disposed) return;
@@ -110,7 +113,7 @@
           sessions && sessionKey
             ? sessions.model(engine, sessionKey, value, languageId)
             : engine.editor.createModel(value, languageId);
-        if (!collaborative) syncEditorModel(model, value);
+        if (!sharedDocument) syncEditorModel(model, value);
         instance = engine.editor.create(container, {
           model,
           readOnly,
@@ -128,11 +131,11 @@
           padding: { top: 0 },
           ariaLabel: 'File contents',
         });
-        if (collaborative && collaboration) {
-          const text = collaborative.getText('content');
+        if (sharedDocument && collaboration) {
+          const text = sharedDocument.getText('content');
           binding = new collaboration[0].MonacoBinding(text, model, new Set([instance]));
           undo =
-            collaborativeUndo ??
+            sharedUndo ??
             new collaboration[1].UndoManager(text, { trackedOrigins: new Set([binding]) });
           undo.trackedOrigins.add(binding);
           instance.addCommand(engine.KeyMod.CtrlCmd | engine.KeyCode.KeyZ, () => undo?.undo());
@@ -171,7 +174,7 @@
       subscription?.dispose();
       binding?.destroy();
       if (binding) undo?.trackedOrigins.delete(binding);
-      if (!collaborativeUndo) undo?.destroy();
+      if (!sharedUndo) undo?.destroy();
       instance?.dispose();
       if (!sessions) model?.dispose();
     };

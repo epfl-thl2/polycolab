@@ -1,4 +1,8 @@
-export function chatPanelPortal(node: HTMLElement, active = true) {
+export function chatPanelPortal(
+  node: HTMLElement,
+  active = true,
+  hostAttribute = 'data-chat-panel-host',
+) {
   const origin = document.createComment('chat panel origin');
   node.before(origin);
   let frame = 0;
@@ -10,7 +14,7 @@ export function chatPanelPortal(node: HTMLElement, active = true) {
     }
     node.hidden = false;
     const placement = matchMedia('(max-width: 760px)').matches ? 'mobile' : 'desktop';
-    const host = document.querySelector<HTMLElement>(`[data-chat-panel-host="${placement}"]`);
+    const host = document.querySelector<HTMLElement>(`[${hostAttribute}="${placement}"]`);
     if (host) {
       if (node.parentElement !== host) host.append(node);
     } else {

@@ -30,8 +30,11 @@ New chats leave the title blank; existing conversation titles appear on desktop.
 Conversation titles and sharing actions appear in Agent history for these modes. `ChatWorkbenchPages` owns their mounted chat and section pages,
 including shared spacing and draft retention. `ProjectFileExplorer` and
 `ProjectFileView` own their common file toolbar, explorer, and editor layout.
-Default and Linear open file contents in the center editor. `ProjectFileView` reuses Git’s `ProjectEditorHeader` without Git diff
-controls. Mode-specific controllers supply file operations and history tools.
+Default and Linear open file contents in the right sidebar while chat stays in
+the center. `ProjectFileView` reuses Git’s `ProjectEditorHeader` without Git diff
+controls. `SidebarFileView` keeps one editor mounted and moves it between desktop
+and mobile panel hosts, preserving drafts when tools are switched or collapsed.
+Mode-specific controllers supply file operations and history tools.
 Git binds its persisted layout preferences to the shell; mode-specific data and
 file, conversation, and history behavior remain in the workbenches. All three modes
 use the same responsive breakpoints and 8px keyboard resize step.

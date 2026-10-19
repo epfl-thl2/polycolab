@@ -11,8 +11,10 @@ mode. Project research versions and publication authority are unchanged.
 Linear projects use the shared project shell with a chat-first center and no
 visible document or conversation tabs. Opening a project starts a new chat;
 conversations and unsent drafts are selected in the left sidebar. Drafts stay
-mounted while users switch conversations or inspect a file. Files open in the center editor. The editor
-uses Git’s compact toolbar without Git diff controls, and provides source and preview views.
+mounted while users switch conversations or inspect a file. Files open in the
+right sidebar’s File view while the conversation stays in the center. The editor
+uses Git’s compact toolbar without Git diff controls, and retains its state when
+switching sidebar views or mobile drawers.
 
 Chats and Files in the navigation rail select the left sidebar without replacing
 the current conversation. Chats contains New chat, the user's conversations and

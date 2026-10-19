@@ -52,7 +52,7 @@ Git's right panel switches between Explorer, Source control, and Details.
 
 Default and Linear use Chats and Files rail buttons to switch the left panel
 between conversations and the file tree. Selecting a file opens its contents in
-the center editor. Their middle panel has a white toolbar with no navigation tabs and no title for
+the right panel while chat remains in the middle. Their middle panel has a white toolbar with no navigation tabs and no title for
 a new chat. The project name opens project information in a modal;
 Overview and research Activity do not appear in their rail. Linear retains file
 history and agent-change review on the right; Default has no file history.

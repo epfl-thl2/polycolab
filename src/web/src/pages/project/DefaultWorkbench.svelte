@@ -20,6 +20,7 @@
   import { canWriteResearch } from '../../lib/access';
   import { Info, FileText } from '@lucide/svelte';
   import ProjectToolsHeader from './components/ProjectToolsHeader.svelte';
+  import SidebarFileView from './components/SidebarFileView.svelte';
   import DefaultFileEditor from './components/DefaultFileEditor.svelte';
   let { project }: { project: Project; path: string } = $props();
   const context = projectContext();
@@ -73,7 +74,6 @@
       clearInterval(interval);
     };
   });
-  let fileVisible = $state(false);
   let lastChatHref = $state('');
   let rightMode = $state('file');
   let error = $state('');
@@ -142,8 +142,6 @@
     workspace = await api.list(project.id);
   }
   function navigate(href: string) {
-    if (fileVisible && fileEditor && !fileEditor.canClose()) return;
-    fileVisible = false;
     shell?.closeDrawer();
     void goto(href);
   }
@@ -152,7 +150,6 @@
     navigate(`/projects/${project.id}/sessions/new?draft=${crypto.randomUUID()}`);
   }
   function openFile(name: string) {
-    fileVisible = true;
     rightMode = 'file';
     shell?.showPanel('tools');
     if (name !== filePath && fileEditor && !fileEditor.canClose()) return;
@@ -206,40 +203,25 @@
   }}
 >
   {#if error}<p role="alert">{error}</p>{/if}
-  {#if fileVisible}
-    {#if filePath}<DefaultFileEditor
-        bind:this={fileEditor}
-        projectId={project.id}
-        path={filePath}
-        writable={canChat && Boolean(workspace?.writable)}
-        onChanged={(name) => {
-          void attempt(refreshFiles);
-          if (name !== undefined) filePath = name;
-          if (name === '') rightMode = 'file';
-        }}
-      />{/if}
-  {/if}
-  <div class="chat-pages" hidden={fileVisible}>
-    <ChatWorkbenchPages
-      {project}
-      bind:tabs
-      {activeId}
-      bind:selectedResearch
-      bind:selectedActivity
-      bind:mapData
-      bind:mapObjectId
-      bind:mapPanelTab
-      onCreated={(id) => {
-        navigate(`/projects/${project.id}/sessions/${id}`);
-        void refreshChats();
-      }}
-      onInspect={() => {
-        if (section === 'sessions') return;
-        rightMode = 'details';
-        shell?.showPanel('tools');
-      }}
-    />
-  </div>
+  <ChatWorkbenchPages
+    {project}
+    bind:tabs
+    {activeId}
+    bind:selectedResearch
+    bind:selectedActivity
+    bind:mapData
+    bind:mapObjectId
+    bind:mapPanelTab
+    onCreated={(id) => {
+      navigate(`/projects/${project.id}/sessions/${id}`);
+      void refreshChats();
+    }}
+    onInspect={() => {
+      if (section === 'sessions') return;
+      rightMode = 'details';
+      shell?.showPanel('tools');
+    }}
+  />
 
   {#snippet right(placement)}
     <ProjectToolsHeader
@@ -255,7 +237,7 @@
       onclose={() => shell?.closePanel('tools', placement)}
     />
     <div class="tool-content">
-      {#if rightMode === 'file'}<p class="tool-empty">Open a file from Files to edit it.</p>
+      {#if rightMode === 'file'}<div class="file-host" data-file-panel-host={placement}></div>
         {#if !filePath}<p class="tool-empty">Choose a file from Files in the left sidebar.</p>{/if}
       {/if}
       {#if rightMode === 'details'}
@@ -289,6 +271,20 @@
   {/snippet}
 </ChatWorkbenchShell>
 
+<SidebarFileView active={rightMode === 'file'}>
+  {#if filePath}<DefaultFileEditor
+      bind:this={fileEditor}
+      projectId={project.id}
+      path={filePath}
+      writable={canChat && Boolean(workspace?.writable)}
+      onChanged={(name) => {
+        void attempt(refreshFiles);
+        if (name !== undefined) filePath = name;
+        if (name === '') rightMode = 'file';
+      }}
+    />{/if}
+</SidebarFileView>
+
 <style>
   .tool-content {
     flex: 1;
@@ -300,13 +296,8 @@
     font-size: 12px;
     color: var(--muted-foreground);
   }
-  .chat-pages {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
+  .file-host {
+    height: 100%;
     min-height: 0;
-  }
-  .chat-pages[hidden] {
-    display: none;
   }
 </style>

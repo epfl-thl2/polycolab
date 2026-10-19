@@ -29,6 +29,7 @@
   import LinearGitArchive from './components/LinearGitArchive.svelte';
   import LinearBatches from './components/LinearBatches.svelte';
   import Markdown from '../../ui/Markdown.svelte';
+  import SidebarFileView from './components/SidebarFileView.svelte';
   import ProjectFileView from './components/ProjectFileView.svelte';
   let { project, path }: { project: Project; path: string } = $props();
   const context = projectContext();
@@ -97,7 +98,6 @@
       clearInterval(interval);
     };
   });
-  let fileVisible = $state(false);
   let lastChatHref = $state('');
   let selectionVersion = 0;
   const canChat = $derived(
@@ -206,7 +206,6 @@
     }
   }
   function navigate(href: string) {
-    fileVisible = false;
     shell?.closeDrawer();
     void goto(href);
   }
@@ -232,7 +231,6 @@
     }
   });
   function openFile(filePath: string) {
-    fileVisible = true;
     rightMode = 'file';
     shell?.showPanel('tools');
     void loadFile(filePath, ++selectionVersion);
@@ -347,90 +345,24 @@
           >Download {name}</Button
         >{/each}
     </section>{/if}
-  {#if fileVisible}
-    {#if current}
-      <ProjectFileView
-        path={current.value.path}
-        bind:mode
-        bind:enhanced
-        bind:wordWrap
-        writable={writable && !current.value.deleted}
-        busy={false}
-        dirty={status === 'Saving…'}
-        {status}
-        binary={current.value.document === null}
-        onsave={() => {
-          void attempt(() => live.flush());
-        }}
-        onrename={(name) => {
-          void attempt(() =>
-            live.command([{ kind: 'rename', file_id: selectedFileId, path: name }]),
-          );
-        }}
-        ondelete={() => {
-          if (confirm(`Delete ${current.value.path}? Its saved history remains recoverable.`))
-            void attempt(() => live.command([{ kind: 'delete', file_id: selectedFileId }]));
-        }}
-        onerror={(message) => (error = message)}
-        download={() =>
-          download(
-            current.value.path,
-            current.value.document === null
-              ? Uint8Array.from(atob(current.value.content_base64), (c) => c.charCodeAt(0))
-              : text,
-          )}
-      >
-        {#if current.value.deleted}<p>
-            This file was deleted.
-          </p>{:else if current.value.document === null}<p>
-            Binary file. Download it to inspect its contents.
-          </p>{:else if mode === 'preview'}<Markdown content={text} />{:else if !enhanced}<textarea
-            wrap={wordWrap ? 'soft' : 'off'}
-            aria-label="File contents"
-            value={text}
-            disabled={!writable}
-            onkeydown={(event) => {
-              if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
-                event.preventDefault();
-                if (event.shiftKey) current.undo.redo();
-                else current.undo.undo();
-              }
-            }}
-            oninput={(event) => editPlain(event.currentTarget.value)}
-          ></textarea>{:else}{#key selectedFileId}<MonacoSourceEditor
-              bind:value={text}
-              {language}
-              {wordWrap}
-              collaborative={current.doc}
-              collaborativeUndo={current.undo}
-              sessions={editorSessions}
-              sessionKey={`${project.id}/${selectedFileId}`}
-              readOnly={!writable}
-              onError={() => (enhanced = false)}
-            />{/key}{/if}
-      </ProjectFileView>
-    {/if}
-  {/if}
-  <div class="chat-pages" hidden={fileVisible}>
-    <ChatWorkbenchPages
-      {project}
-      bind:tabs
-      {activeId}
-      bind:selectedResearch
-      bind:selectedActivity
-      bind:mapData
-      bind:mapObjectId
-      bind:mapPanelTab
-      onCreated={(id) => {
-        navigate(`/projects/${project.id}/sessions/${id}`);
-        void refreshChats();
-      }}
-      onInspect={() => {
-        rightMode = 'details';
-        shell?.showPanel('tools');
-      }}
-    />
-  </div>
+  <ChatWorkbenchPages
+    {project}
+    bind:tabs
+    {activeId}
+    bind:selectedResearch
+    bind:selectedActivity
+    bind:mapData
+    bind:mapObjectId
+    bind:mapPanelTab
+    onCreated={(id) => {
+      navigate(`/projects/${project.id}/sessions/${id}`);
+      void refreshChats();
+    }}
+    onInspect={() => {
+      rightMode = 'details';
+      shell?.showPanel('tools');
+    }}
+  />
 
   {#if !active}<p class="empty">Open a file or start a conversation.</p>{/if}
   {#snippet right(placement)}{@render tools(placement)}{/snippet}
@@ -467,7 +399,7 @@
     }}
   />
   <div class="tool-content">
-    {#if rightMode === 'file'}<p class="tool-empty">Open a file from Files to edit it.</p>
+    {#if rightMode === 'file'}<div class="file-host" data-file-panel-host={placement}></div>
       {#if !current}<p class="tool-empty">Choose a file from Files in the left sidebar.</p>{/if}
     {/if}
     <div class="agent-changes" hidden={rightMode !== 'changes'}>
@@ -546,15 +478,73 @@
   </div>
 {/snippet}
 
+<SidebarFileView active={rightMode === 'file'}>
+  {#if current}
+    <ProjectFileView
+      path={current.value.path}
+      bind:mode
+      bind:enhanced
+      bind:wordWrap
+      writable={writable && !current.value.deleted}
+      busy={false}
+      dirty={status === 'Saving…'}
+      {status}
+      binary={current.value.document === null}
+      onsave={() => {
+        void attempt(() => live.flush());
+      }}
+      onrename={(name) => {
+        void attempt(() => live.command([{ kind: 'rename', file_id: selectedFileId, path: name }]));
+      }}
+      ondelete={() => {
+        if (confirm(`Delete ${current.value.path}? Its saved history remains recoverable.`))
+          void attempt(() => live.command([{ kind: 'delete', file_id: selectedFileId }]));
+      }}
+      onerror={(message) => (error = message)}
+      download={() =>
+        download(
+          current.value.path,
+          current.value.document === null
+            ? Uint8Array.from(atob(current.value.content_base64), (c) => c.charCodeAt(0))
+            : text,
+        )}
+    >
+      {#if current.value.deleted}<p>
+          This file was deleted.
+        </p>{:else if current.value.document === null}<p>
+          Binary file. Download it to inspect its contents.
+        </p>{:else if mode === 'preview'}<Markdown content={text} />{:else if !enhanced}<textarea
+          wrap={wordWrap ? 'soft' : 'off'}
+          aria-label="File contents"
+          value={text}
+          disabled={!writable}
+          onkeydown={(event) => {
+            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+              event.preventDefault();
+              if (event.shiftKey) current.undo.redo();
+              else current.undo.undo();
+            }
+          }}
+          oninput={(event) => editPlain(event.currentTarget.value)}
+        ></textarea>{:else}{#key selectedFileId}<MonacoSourceEditor
+            bind:value={text}
+            {language}
+            {wordWrap}
+            collaborative={current.doc}
+            collaborativeUndo={current.undo}
+            sessions={editorSessions}
+            sessionKey={`${project.id}/${selectedFileId}`}
+            readOnly={!writable}
+            onError={() => (enhanced = false)}
+          />{/key}{/if}
+    </ProjectFileView>
+  {/if}
+</SidebarFileView>
+
 <style>
-  .chat-pages {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
+  .file-host {
+    height: 100%;
     min-height: 0;
-  }
-  .chat-pages[hidden] {
-    display: none;
   }
   .agent-changes {
     padding: 12px;
