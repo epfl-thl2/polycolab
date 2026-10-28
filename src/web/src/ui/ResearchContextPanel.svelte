@@ -1,7 +1,7 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import { proofStructure, statementObjectVersionIds } from '../lib/version-snapshot';
   import LoadingState from './LoadingState.svelte';
-  import * as Alert from '../lib/components/ui/alert';
   import { Button } from '../lib/components/ui/button';
   import { untrack } from 'svelte';
   import type { components } from '$lib/api-client';
@@ -67,6 +67,7 @@
     next_cursor: null,
   });
   let pending = $state(true);
+  let loaded = $state(false);
   let loadingAttempts = $state(false);
   let loadingNoteHistory = $state(false);
   let loadingSummaryHistory = $state(false);
@@ -166,7 +167,7 @@
     );
 
   async function load() {
-    pending = true;
+    pending = !loaded;
     error = '';
     try {
       const [
@@ -231,6 +232,7 @@
       error = explain(cause);
     } finally {
       pending = false;
+      if (!error) loaded = true;
     }
   }
 
@@ -419,11 +421,14 @@
   });
 </script>
 
+<FeedbackToast message={error} variant="error" action={{ label: 'Retry', run: load }} />
+
 <section aria-labelledby={`research-context-${record.id}`}>
   <h2 id={`research-context-${record.id}`}>Exact research context</h2>
   {#if pending}<LoadingState>Loading exact attempts, notes, summaries and assurance…</LoadingState>
-  {:else if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>
-    <Button type="submit" onclick={() => void load()}>Retry context</Button>
+  {:else if error && !loaded}<span class="panel-state">Unavailable</span><Button
+      onclick={() => load()}>Retry</Button
+    >
   {:else}
     {#if proofView}<ProofAssurance
         alternatives={[proofView]}

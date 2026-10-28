@@ -77,6 +77,21 @@ async function mockResearchApi(
   await page.route('**/api/v1/**', async (route: Route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    if (request.method() === 'GET' && path === `/api/v1/projects/${projectId}/repository`)
+      return route.fulfill({
+        json: {
+          enabled: false,
+          branch: 'main',
+          writable: false,
+          commit: null,
+          files: [],
+          branches: {},
+        },
+      });
+    if (request.method() === 'GET' && path === '/api/v1/project-references')
+      return route.fulfill({ json: { items: [], next_cursor: null } });
+    if (request.method() === 'GET' && path === '/api/v1/agent-sessions')
+      return route.fulfill({ json: [] });
     if (new URL(route.request().url()).pathname === '/api/v1/config')
       return route.fulfill({
         json: {
@@ -213,7 +228,10 @@ test('contributor creates, edits, and receives an actionable stale-revision conf
   await draft.fill('My revised proof draft.');
   await page.getByRole('button', { name: 'Save new version' }).click();
   await expect(
-    page.getByRole('main').getByRole('alert').filter({ hasText: 'changed while you were editing' }),
+    page
+      .locator('[data-feedback-toast]')
+      .getByRole('alert')
+      .filter({ hasText: 'changed while you were editing' }),
   ).toBeVisible();
   await expect(draft).toHaveValue('My revised proof draft.');
   await expect(page.getByRole('button', { name: 'Compare latest version' })).toBeVisible();
@@ -256,12 +274,14 @@ test('version editor sends a complete snapshot and retains its draft on conflict
       change_summary: null,
     },
   });
-  await expect(page.getByRole('main').getByRole('alert')).toContainText(
-    'changed while you were editing',
-  );
+  const conflict = page
+    .locator('[data-feedback-toast]')
+    .getByRole('alert')
+    .filter({ hasText: 'changed while you were editing' });
+  await expect(conflict).toContainText('changed while you were editing');
   await expect(draft).toHaveValue('My retained proof draft.');
   await expect(page.getByRole('heading', { name: 'Latest saved version 1' })).toBeVisible();
   await page.getByRole('button', { name: 'Use latest version as base, keep my draft' }).click();
   await expect(draft).toHaveValue('My retained proof draft.');
-  await expect(page.getByRole('main').getByRole('alert')).toHaveCount(0);
+  await expect(conflict).toHaveCount(0);
 });

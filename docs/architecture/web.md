@@ -318,6 +318,16 @@ with an explicit public authorization label and notice. Private drafts are retai
 The anchored Customize popover presents a prototype-only context scope and response style and discloses the implemented Hosted Codex system-prompt customization.
 Context scope and response style remain presentation state and are not submitted to the API.
 The project uses shared heading sizes, 14px navigation/body text, 16px research prose and standard buttons.
+Project operation results and alerts use one shared notification stack at the bottom right.
+The stack shows three notifications and can expand additional messages. Successes and informational
+messages expire after five seconds; errors and warnings remain until dismissed or resolved.
+Expiry pauses while hovered, focused, or the tab is hidden. Polling failures are deduplicated.
+The stack uses the browser top layer and moves inside the active dialog or sheet's focus scope.
+Successful messages survive navigation; project errors clear when leaving their project and all
+messages clear on account changes. Retry actions perform reads; write failures retain drafts for
+review and explicit resubmission. Saving, reconnecting, access, and run status stay in compact
+indicators. Comparisons, recovered text, and publication blockers stay in their review panels.
+Background refresh failures preserve loaded content; initial failures show an unavailable state.
 The overview leads with the project name and description.
 Members see visibility in the Project layout’s left panel; visitors see it in the right panel.
 The main overview presents the project description as readable Markdown, with an explicit empty state.

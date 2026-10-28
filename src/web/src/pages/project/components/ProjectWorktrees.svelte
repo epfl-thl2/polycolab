@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeedbackToast from '../../../ui/FeedbackToast.svelte';
   import { untrack } from 'svelte';
   import ProjectPanelHeader from './ProjectPanelHeader.svelte';
   import { Plus, ChevronRight, GitBranch, MessageSquarePlus } from '@lucide/svelte';
@@ -257,13 +258,17 @@
       </div>
     </form>{/if}
   {#if !repositoryEnabled}<p class="hint">File storage is unavailable.</p>{/if}
-  {#if error}<p class="error" role="alert">
-      {error}<button onclick={() => refresh(projectId, generation)}>Retry</button>
-    </p>{/if}
-  {#if chatError}<p class="error" role="alert">
-      {chatError}<button onclick={() => $chats.refetch()}>Retry conversations</button>
-    </p>{/if}
-  {#if actionError}<p class="error" role="alert">{actionError}</p>{/if}
+  <FeedbackToast
+    message={error}
+    variant="error"
+    action={{ label: 'Retry', run: () => refresh(projectId, generation) }}
+  />
+  <FeedbackToast message={actionError} variant={actionError ? 'error' : 'success'} />
+  <FeedbackToast
+    message={chatError}
+    variant="error"
+    action={{ label: 'Retry conversations', run: () => $chats.refetch() }}
+  />
   <div class="tree-list" aria-busy={loading}>
     {#if !worktrees.some((tree) => tree.branch === 'main')}{@render row(undefined)}{/if}
     {#if loading && !worktrees.length}<p class="hint" role="status">Loading worktrees…</p>{/if}
@@ -487,15 +492,6 @@
     padding: 5px;
     border: 1px solid var(--border);
     border-radius: 5px;
-  }
-  .error {
-    color: var(--destructive);
-    font-size: 11px;
-    overflow-wrap: anywhere;
-  }
-  .error button {
-    text-decoration: underline;
-    margin-left: 5px;
   }
   .load-more {
     width: 100%;

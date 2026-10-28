@@ -1,7 +1,7 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import { Checkbox } from '../lib/components/ui/checkbox';
   import * as Field from '../lib/components/ui/field';
-  import * as Alert from '../lib/components/ui/alert';
   import { Button } from '../lib/components/ui/button';
   import { Textarea } from '../lib/components/ui/textarea';
   import { explain } from '../svelte-lib/context';
@@ -118,6 +118,16 @@
   }
 </script>
 
+<FeedbackToast
+  message={preview?.blockers.length
+    ? 'Publication is blocked. Review the required changes.'
+    : preview && !preview.artifactBytesReady
+      ? 'Required artifact bytes are unavailable for publication.'
+      : ''}
+  variant="warning"
+  action={preview ? { label: 'Review blockers', href: `#preview-${preview.previewId}` } : undefined}
+/>
+
 <section class="panel" aria-labelledby="publication-workflow-heading">
   <h2 id="publication-workflow-heading">Selective publication</h2>
   <p>
@@ -162,8 +172,16 @@
     </Button>
   {/if}
 
-  {#if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>{/if}
-  {#if status}<p role="status">{status}</p>{/if}
+  {#if error}<FeedbackToast pending={busy} message={error} variant="error" />{/if}
+  <FeedbackToast
+    message={status}
+    variant={confirmed ? 'success' : 'info'}
+    action={confirmed
+      ? { label: 'Open public release', href: confirmed.publicHref }
+      : preview
+        ? { label: 'Review preview', href: `#preview-${preview.previewId}` }
+        : undefined}
+  />
 
   {#if preview}
     <section aria-labelledby={`preview-${preview.previewId}`}>

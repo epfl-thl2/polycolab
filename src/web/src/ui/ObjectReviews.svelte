@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import { UserRound, Sparkles, Check, History, ChevronDown } from '@lucide/svelte';
   import { createQuery } from '@tanstack/svelte-query';
   import { toStore } from 'svelte/store';
@@ -84,6 +85,12 @@
   }
 </script>
 
+<FeedbackToast
+  message={$reviews.isError ? explain($reviews.error) : ''}
+  variant="error"
+  action={{ label: 'Retry reviews', run: () => $reviews.refetch() }}
+/>
+
 <section aria-label="Version reviews" class="reviews">
   {#if canReview}
     <form onsubmit={submit} class="review-editor">
@@ -138,8 +145,11 @@
             }}>Cancel</Button
           >{/if}
       {:else if savedComment}<div class="own-comment"><Markdown content={savedComment} /></div>{/if}
-      {#if error}<p role="alert" class="error">{error} Your draft is retained.</p>{/if}
-      {#if notice}<span role="status" class="notice">{notice}</span>{/if}
+      <FeedbackToast
+        pending={busy}
+        message={error ? `${error} Your draft is retained.` : notice}
+        variant={error ? 'error' : 'success'}
+      />
     </form>
   {/if}
   <div class="list-heading">
@@ -149,7 +159,7 @@
     </Button>
   </div>
   {#if $reviews.isPending}<p class="empty" role="status">Loading reviews…</p>
-  {:else if $reviews.isError}<p role="alert">{explain($reviews.error)}</p>
+  {:else if !$reviews.data}<p class="empty">Reviews unavailable.</p>
     <Button variant="outline" onclick={() => $reviews.refetch()}>Retry reviews</Button>
   {:else}
     <div class="review-list">
@@ -257,10 +267,6 @@
     min-height: 52px;
     font-size: 13px;
   }
-  .notice {
-    color: var(--muted-foreground);
-    font-size: 12px;
-  }
   .own-comment {
     font-size: 13px;
   }
@@ -327,9 +333,5 @@
     border-radius: 6px;
     text-align: center;
     color: var(--muted-foreground);
-  }
-  .error {
-    margin: 0;
-    color: var(--destructive);
   }
 </style>

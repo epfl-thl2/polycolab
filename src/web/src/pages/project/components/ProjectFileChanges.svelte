@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeedbackToast from '../../../ui/FeedbackToast.svelte';
   import { onMount } from 'svelte';
   import type * as Monaco from 'monaco-editor';
   let {
@@ -95,7 +96,7 @@
 <div class="changes-surface">
   <div class="changes-caption">HEAD → Current file · includes unsaved edits</div>
   {#if loading}<p role="status">Loading changes…</p>{/if}
-  {#if error}<p role="alert">{error}</p>{/if}
+  {#if error}<FeedbackToast message={error} variant="error" />{/if}
   <div bind:this={container} class="changes-editor" aria-label="Changes from HEAD"></div>
 </div>
 

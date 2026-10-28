@@ -1,11 +1,11 @@
 <script lang="ts">
+  import FeedbackToast from '../../../ui/FeedbackToast.svelte';
   import { createInfiniteQuery } from '@tanstack/svelte-query';
   import { toStore } from 'svelte/store';
   import { Bot, UserRound } from '@lucide/svelte';
   import { projectContext, explain } from '../../../svelte-lib/context';
   import { activityView, type Activity } from '../../../lib/history-api';
   import { Button } from '../../../lib/components/ui/button';
-  import * as Alert from '../../../lib/components/ui/alert';
   import LoadingState from '../../../ui/LoadingState.svelte';
   import RelativeTime from '../../../ui/RelativeTime.svelte';
   import ObjectKindBadge from '../../../ui/ObjectKindBadge.svelte';
@@ -34,6 +34,12 @@
   const events = $derived($activity.data?.pages.flatMap((page) => page.items) ?? []);
 </script>
 
+<FeedbackToast
+  message={$activity.isError ? explain($activity.error) : ''}
+  variant="error"
+  action={{ label: 'Retry', run: () => $activity.refetch() }}
+/>
+
 <header class="activity-heading">
   <p class="muted">Changes in this project · Last 30 days</p>
   <Button variant="ghost" disabled={$activity.isFetching} onclick={() => $activity.refetch()}
@@ -41,9 +47,7 @@
   >
 </header>
 {#if $activity.isPending}<LoadingState>Loading project activity…</LoadingState>{/if}
-{#if $activity.isError}<Alert.Root variant="destructive" role="alert"
-    >{explain($activity.error)}</Alert.Root
-  ><Button
+{#if $activity.isError}<Button
     variant="outline"
     onclick={() =>
       $activity.isFetchNextPageError ? $activity.fetchNextPage() : $activity.refetch()}

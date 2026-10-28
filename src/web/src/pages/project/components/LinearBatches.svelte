@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeedbackToast from '../../../ui/FeedbackToast.svelte';
   import { onMount } from 'svelte';
   import { Button } from '../../../lib/components/ui/button';
   import { projectContext, explain } from '../../../svelte-lib/context';
@@ -109,6 +110,8 @@
   }
 </script>
 
+<FeedbackToast pending={busy} message={error} variant={error ? 'error' : 'success'} />
+
 <details>
   <summary
     >Agent file changes ({batches.filter((b) => b.status === 'pending').length} to review)</summary
@@ -118,7 +121,6 @@
     changes can be reverted.
   </p>
   {#if !batches.length}<p>No agent file changes yet.</p>{/if}
-  {#if error}<p role="alert">{error}</p>{/if}
   {#each batches as batch (batch.id)}<div class="batch">
       <span>{batch.status.replace('_', ' ')}</span>
       <Button variant="ghost" disabled={busy} onclick={() => act(() => review(batch))}

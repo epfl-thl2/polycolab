@@ -1,6 +1,6 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import LoadingState from './LoadingState.svelte';
-  import * as Alert from '../lib/components/ui/alert';
   import * as Field from '../lib/components/ui/field';
   import { Button } from '../lib/components/ui/button';
   import { Textarea } from '../lib/components/ui/textarea';
@@ -42,11 +42,15 @@
   }
 </script>
 
+<FeedbackToast
+  message={$comments.isError ? explain($comments.error) : ''}
+  variant="error"
+  action={{ label: 'Retry', run: () => $comments.refetch() }}
+/>
+
 <h2>Discussion</h2>
 {#if $comments.isPending}<LoadingState>Loading discussion…</LoadingState
-  >{:else if $comments.isError}<Alert.Root variant="destructive" role="alert">
-    {explain($comments.error)}
-  </Alert.Root>
+  >{:else if $comments.isError && !$comments.data}
   <Button type="submit" onclick={() => $comments.refetch()}>Retry</Button>{:else}<ul class="list">
     {#each $comments.data?.pages.flatMap((p) => p.items) ?? [] as comment (comment.id)}<li>
         <Markdown content={comment.body_md} /><small
@@ -62,10 +66,10 @@
     onclick={() => $comments.fetchNextPage()}>Load more comments</Button
   >{/if}{#if canWrite}<form class="mt-6" onsubmit={send}>
     <Field.Label>Add a Markdown comment<Textarea required bind:value={text}></Textarea></Field.Label
-    ><small>Attached to version {revisionId}</small>{#if error}<Alert.Root
-        variant="destructive"
-        role="alert">{error}</Alert.Root
-      >{/if}<Button type="submit" disabled={busy || !text.trim()}
+    ><small>Attached to version {revisionId}</small><FeedbackToast
+      message={error}
+      variant="error"
+    /><Button type="submit" disabled={busy || !text.trim()}
       >{busy ? 'Posting…' : 'Add comment'}</Button
     >
   </form>{/if}

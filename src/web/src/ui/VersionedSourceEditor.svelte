@@ -1,6 +1,6 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import LoadingState from './LoadingState.svelte';
-  import * as Alert from '../lib/components/ui/alert';
   import * as Field from '../lib/components/ui/field';
   import { Button } from '../lib/components/ui/button';
   import { Textarea } from '../lib/components/ui/textarea';
@@ -105,8 +105,12 @@
     </Button>
   </header>
   <p class="muted">Exact saved base {baseRevisionId}. Checks run only against saved versions.</p>
-  {#if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>{/if}
-  {#if status}<p role="status">{status} <a href={savedHref}>Open saved version</a></p>{/if}
+  <FeedbackToast
+    pending={busy}
+    message={error || status}
+    variant={error ? 'error' : 'success'}
+    action={!error && status ? { href: savedHref, label: 'Open saved version' } : undefined}
+  />
   <form
     onsubmit={(event) => {
       event.preventDefault();

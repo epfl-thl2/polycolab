@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeedbackToast from '../../../ui/FeedbackToast.svelte';
   import { onMount, onDestroy, tick, untrack, type Snippet } from 'svelte';
   import { SvelteMap } from 'svelte/reactivity';
   import { ProjectEditorSessions } from '../../../lib/project-editor-session';
@@ -35,9 +36,7 @@
     Plus,
     X,
     Download,
-    Check,
     LockKeyhole,
-    GitMerge,
     Ellipsis,
   } from '@lucide/svelte';
 
@@ -391,7 +390,7 @@
     }
     return value;
   }
-  async function refresh() {
+  async function refresh(acceptedSave = false) {
     if (!api || busy) return;
     const selectedBranch = branch;
     const version = sequence;
@@ -411,7 +410,9 @@
         }
       }
     } catch (cause) {
-      error = explain(cause);
+      error = acceptedSave
+        ? `Files saved, but the view could not refresh. ${explain(cause)}`
+        : explain(cause);
     }
   }
   onMount(() => {
@@ -446,8 +447,9 @@
     const commit = repoState.commit;
     const requestedBranch = branch;
     busy = true;
-    loadingFile = true;
     error = '';
+    notice = '';
+    loadingFile = true;
     try {
       const file = await api.file(projectId, commit, name);
       if (token !== sequence || branch !== requestedBranch || (!guard && dirty)) return;
@@ -511,6 +513,7 @@
     pendingOpen = undefined;
     busy = true;
     error = '';
+    notice = '';
     try {
       const next = await api.state(projectId, value);
       if (token !== sequence || !next.enabled) return false;
@@ -581,6 +584,8 @@
           ? { ...tab, base: saved.commit }
           : tab,
       );
+      // The acknowledged save is now the shared revision, even before the file list refreshes.
+      if (repoState) repoState = { ...repoState, commit: saved.commit };
       base = saved.commit;
       original = content;
       originalPath = path;
@@ -589,7 +594,7 @@
       latest = undefined;
       notice = 'Saved.';
       busy = false;
-      await refresh();
+      await refresh(true);
       if (historyOpen) {
         try {
           history = await api.history(projectId, branch);
@@ -630,8 +635,10 @@
   }
   async function compare() {
     const filePath = originalPath || path;
-    if (!api || !filePath) return;
+    if (!api || !filePath || busy) return;
     busy = true;
+    error = '';
+    notice = '';
     try {
       const current = await api.state(projectId, branch);
       repoState = current;
@@ -668,6 +675,7 @@
     }
     busy = true;
     error = '';
+    notice = '';
     try {
       const body: RepositorySave = {
         branch,
@@ -692,6 +700,8 @@
   }
   async function download() {
     if (!api || !originalPath || !base) return;
+    error = '';
+    notice = '';
     try {
       const file = await api.file(projectId, base, originalPath);
       const data = Uint8Array.from(atob(file.content_base64), (c) => c.charCodeAt(0));
@@ -710,6 +720,8 @@
   }
   async function reviewSaved() {
     if (!api || !repoState?.worktree_id || !repoState.commit) return;
+    error = '';
+    notice = '';
     try {
       const revision = repoState.commit;
       commitReview = {
@@ -728,6 +740,8 @@
     )
       return;
     busy = true;
+    error = '';
+    notice = '';
     const body = { revision: commitReview.revision, message: commitMessage.trim() };
     try {
       const saved = await api.commit(
@@ -741,6 +755,7 @@
       tabs = tabs.map((tab) =>
         tab.base === body.revision ? { ...tab, base: saved.revision } : tab,
       );
+      if (repoState) repoState = { ...repoState, commit: saved.revision };
       if (base === body.revision) base = saved.revision;
       stash();
       commitReview = undefined;
@@ -764,6 +779,8 @@
     )
       return;
     busy = true;
+    error = '';
+    notice = '';
     const body = { discard: repoState.commit };
     try {
       await api.discard(projectId, repoState.worktree_id, repoState.commit, key(body));
@@ -780,6 +797,8 @@
     historyOpen = onOpenView ? true : !historyOpen;
     if (historyOpen) onOpenView?.('history');
     if (!api || !historyOpen) return;
+    error = '';
+    notice = '';
     try {
       history = await api.history(projectId, branch);
     } catch (cause) {
@@ -788,6 +807,8 @@
   }
   async function showDiff(commit: string) {
     if (!api || !repoState?.commit) return;
+    error = '';
+    notice = '';
     try {
       diff = await api.diff(projectId, commit, repoState.head_commit || repoState.commit);
       diffCommit = commit;
@@ -808,6 +829,8 @@
     if (!api || unsavedCount) return;
     mergeTarget = update ? branch : 'main';
     mergeSource = update ? 'main' : branch;
+    error = '';
+    notice = '';
     try {
       preview = await api.preview(projectId, mergeTarget, mergeSource);
       onOpenView?.('merge');
@@ -851,6 +874,8 @@
         : null,
     };
     busy = true;
+    error = '';
+    notice = '';
     try {
       await api.merge(projectId, body, key(body));
       receipts.delete(JSON.stringify(body));
@@ -866,6 +891,25 @@
     }
   }
 </script>
+
+<FeedbackToast
+  pending={busy}
+  message={error || notice}
+  variant={error ? 'error' : 'success'}
+  action={error
+    ? editing
+      ? {
+          label: 'Review draft',
+          href: `/projects/${projectId}/files?file=${encodeURIComponent(path)}&branch=${encodeURIComponent(branch)}`,
+        }
+      : { label: 'Retry', run: refresh }
+    : undefined}
+/>
+<FeedbackToast
+  message={changed ? 'Shared files changed since you opened this draft.' : ''}
+  variant="warning"
+  action={{ label: 'Compare latest saved file', run: compare }}
+/>
 
 <svelte:window
   onkeydown={shortcut}
@@ -1025,6 +1069,7 @@
           <Button variant="outline" size="sm" onclick={showHistory}
             ><History size={14} />History &amp; differences</Button
           >
+
           {#if branch !== 'main'}
             <Button
               size="sm"
@@ -1069,9 +1114,11 @@
               disabled={busy || !commitMessage.trim() || commitReview.revision !== repoState.commit}
               onclick={commitSaved}>Commit changes</Button
             >
-            {#if commitReview.revision !== repoState.commit}<p>
-                Saved files changed. Review again before committing.
-              </p>{/if}
+            {#if commitReview.revision !== repoState.commit}<FeedbackToast
+                message="Saved files changed. Review again before committing."
+                variant="warning"
+                action={{ label: 'Review changes', run: reviewSaved }}
+              />{/if}
           {/if}
         </div>
       {/if}
@@ -1163,14 +1210,10 @@
 
 {#snippet editor()}
   <section class="project-files" class:review-surface={view !== 'file'} aria-label="Project files">
-    {#if error}<div class="message error" role="alert">{error}</div>{/if}
-    {#if notice}<div class="message notice" role="status">
-        <Check size={14} aria-hidden="true" />{notice}
-      </div>{/if}
     {#if !repoState}<div class="empty-editor">
         <FolderOpen size={32} />
         <p>Opening project files…</p>
-        <Button variant="outline" onclick={refresh}>Retry</Button>
+        <Button variant="outline" onclick={() => refresh()}>Retry</Button>
       </div>
     {:else if !repoState.enabled}<div class="empty-editor">
         <FolderOpen size={32} />
@@ -1179,23 +1222,6 @@
       </div>
     {:else}
       {#if view === 'file'}<div class="editor-column">
-          {#if branch !== 'main'}<div class="branch-banner">
-              <GitBranch size={15} aria-hidden="true" /><span>{branchLabel(branch)}</span><Button
-                size="sm"
-                disabled={!repoState.writable || busy || Boolean(unsavedCount)}
-                onclick={() => review()}><GitMerge size={14} />Merge into Main</Button
-              ><Button
-                size="sm"
-                variant="ghost"
-                disabled={!repoState.writable || busy || Boolean(unsavedCount)}
-                onclick={() => review(true)}>Update from Main</Button
-              >
-            </div>{/if}
-          {#if !repoState.writable}<div class="message readonly">
-              <LockKeyhole size={14} /><span
-                >This working copy is read-only, archived, or has queued or active agent work.</span
-              >
-            </div>{/if}
           {#if editing}
             <ProjectEditorHeader
               bind:path
@@ -1215,20 +1241,16 @@
               }}
               ondownload={download}
               ondelete={remove}
-              onerror={(message) => (error = message)}
+              onerror={(message) => {
+                notice = '';
+                error = message;
+              }}
+              onnotice={(message) => {
+                error = '';
+                notice = message;
+              }}
             />
-            {#if changed}<div class="stale-banner">
-                <div>
-                  <strong>Newer changes are available</strong>
-                  <p>Shared files changed since you opened this draft.</p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={busy || !(originalPath || path)}
-                  onclick={compare}>Compare latest saved file</Button
-                >
-              </div>{/if}
+
             <div
               class="editor-surface"
               id="file-editor"
@@ -1245,11 +1267,16 @@
                 </div>
               {:else if editorMode === 'changes'}
                 {#if changesLoading}<p class="changes-message" role="status">Loading changes…</p>
-                {:else if changesError}<div class="changes-message" role="alert">
-                    {changesError}<Button variant="ghost" size="sm" onclick={() => changesRetry++}
-                      >Retry</Button
-                    >
-                  </div>
+                {:else if changesError}<FeedbackToast
+                    message={changesError}
+                    variant="error"
+                    action={{
+                      label: 'Retry',
+                      run: () => {
+                        changesRetry++;
+                      },
+                    }}
+                  />
                 {:else}{#key currentEditorKey}<ProjectFileChanges
                       original={headContent}
                       modified={content}
@@ -1459,6 +1486,24 @@
         </section>
       {/if}
       <footer class="status-bar">
+        {#if branch !== 'main'}
+          <Button
+            size="sm"
+            disabled={!repoState.writable || busy || Boolean(unsavedCount)}
+            onclick={() => review()}>Merge into Main</Button
+          >
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!repoState.writable || busy || Boolean(unsavedCount)}
+            onclick={() => review(true)}>Update from Main</Button
+          >
+        {/if}
+        <span
+          >{#if !repoState.writable}<LockKeyhole size={12} />{/if}{repoState.writable
+            ? 'Editable'
+            : 'Read only'}</span
+        >
         <span><GitBranch size={12} />{branchLabel(branch)}</span><span
           >{unsavedCount
             ? `${unsavedCount} unsaved ${unsavedCount === 1 ? 'file' : 'files'}`
@@ -1828,41 +1873,9 @@
     font-size: 0.78rem;
     border-bottom: 1px solid var(--border);
   }
-  .error {
-    color: var(--danger);
-    background: var(--danger-soft);
-  }
-  .notice {
-    color: var(--success);
-    background: var(--success-soft);
-  }
   .readonly {
     color: var(--muted-foreground);
     background: var(--muted);
-  }
-  .stale-banner,
-  .branch-banner {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.65rem 0.85rem;
-    flex-wrap: wrap;
-    font-size: 0.75rem;
-    background: var(--info-soft);
-    border-bottom: 1px solid var(--border);
-  }
-  .stale-banner strong {
-    font-weight: 550;
-  }
-  .stale-banner p {
-    font-size: 0.72rem;
-    margin: 0.2rem 0 0;
-  }
-  .stale-banner > div {
-    flex: 1;
-  }
-  .branch-banner > span {
-    flex: 1;
   }
   .agent-copies {
     padding: 8px;

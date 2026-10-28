@@ -1,6 +1,7 @@
 <script lang="ts">
   import { projectDialogs, type ProjectUtility } from '../project-dialogs';
   import BrandMark from '../../../ui/BrandMark.svelte';
+  import FeedbackToast from '../../../ui/FeedbackToast.svelte';
   import * as Tooltip from '../../../lib/components/ui/tooltip';
   import * as DropdownMenu from '../../../lib/components/ui/dropdown-menu';
   import AccountMenu from '../../../ui/AccountMenu.svelte';
@@ -192,7 +193,7 @@
             {/if}
           </DropdownMenu.Content>
         </DropdownMenu.Root>
-        {#if accountError}<p role="alert">{accountError}</p>{/if}
+        {#if accountError}<FeedbackToast message={accountError} variant="error" />{/if}
       </nav>
     </aside>
   </div>

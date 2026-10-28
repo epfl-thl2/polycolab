@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import LoadingState from './LoadingState.svelte';
   import { onMount, tick, untrack } from 'svelte';
   import { syncEditorModel, type ProjectEditorSessions } from '../lib/project-editor-session';
@@ -182,7 +183,7 @@
 </script>
 
 {#if loading}<LoadingState>Loading enhanced source editor…</LoadingState>{/if}
-{#if error}<p role="alert">{error}</p>{/if}
+{#if error}<FeedbackToast message={error} variant="error" />{/if}
 <div
   bind:this={container}
   class="monaco-source-editor"

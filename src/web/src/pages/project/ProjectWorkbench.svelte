@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeedbackToast from '../../ui/FeedbackToast.svelte';
   import { chatDrafts, ChatDrafts, chatDraftKey } from '../../lib/chat-drafts.svelte';
   import { sessionTitles } from '../../lib/session-queries';
   import { canonicalUiLocation } from '../../lib/ui-location';
@@ -690,9 +691,7 @@
             {layoutLabels[section]}
           </div>{/if}
       {/snippet}
-      {#snippet notice()}{#if contextError}<div class="context-error" role="alert">
-            {contextError}
-          </div>{/if}{/snippet}
+      {#snippet notice()}<FeedbackToast message={contextError} variant="error" />{/snippet}
 
       {#if layoutHref}<div class="project-page">
           <ProjectPage
@@ -922,12 +921,6 @@
     background: var(--brand-soft);
   }
 
-  .context-error {
-    padding: 10px 16px;
-    color: var(--destructive);
-    background: var(--accent-soft);
-    font-size: 12px;
-  }
   .project-page {
     height: 100%;
     overflow: auto;

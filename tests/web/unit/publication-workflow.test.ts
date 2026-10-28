@@ -97,6 +97,11 @@ it('confirms only a deliberately reviewed server preview and exact digest', asyn
     expect.any(String),
   );
   expect(await screen.findByRole('link', { name: /Open immutable public release/ })).toBeTruthy();
+  expect(
+    screen
+      .getByText('Publication confirmed from the reviewed exact preview.')
+      .closest('[data-feedback-toast]'),
+  ).toBeTruthy();
 });
 
 it('retains selection but discards a stale preview before explicit reconfirmation', async () => {
@@ -122,6 +127,7 @@ it('retains selection but discards a stale preview before explicit reconfirmatio
     'textContent',
     expect.stringContaining('Request and explicitly review a fresh preview.'),
   );
+  expect(screen.getByRole('alert').closest('[data-feedback-toast]')).toBeTruthy();
   expect(selection.getAttribute('aria-checked')).toBe('true');
   expect(screen.queryByRole('region', { name: 'Exact sanitized public preview' })).toBeNull();
   expect(screen.getByRole('button', { name: 'Request exact preview' })).toBeTruthy();

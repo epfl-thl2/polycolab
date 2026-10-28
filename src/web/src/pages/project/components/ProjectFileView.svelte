@@ -1,4 +1,6 @@
 <script lang="ts">
+  import FeedbackToast from '../../../ui/FeedbackToast.svelte';
+  let notice = $state('');
   import type { Snippet } from 'svelte';
   import ProjectEditorHeader from './ProjectEditorHeader.svelte';
   let {
@@ -61,6 +63,7 @@
     {ondelete}
     {onerror}
     {onreload}
+    onnotice={(message) => (notice = message)}
     ondownload={download}
     onrename={() => {
       name = path;
@@ -71,6 +74,7 @@
       name = path;
     }}
   />
+  <FeedbackToast message={notice} />
   {#if status}<div class="save-workspace" role="status">{status}</div>{/if}
   <div class="editor-content">{@render children()}</div>
 </div>

@@ -64,7 +64,7 @@ it('opens chats and delegates resume to the existing chat controls', async () =>
   await fireEvent.click(screen.getByRole('button', { name: 'New conversation' }));
   expect(onNewChat).toHaveBeenCalledOnce();
 });
-it('loads the next cursor and keeps cancel failures beside the affected chat', async () => {
+it('loads the next cursor and reports cancel failures in a dismissible toast', async () => {
   const { agents } = setup();
   await screen.findByRole('button', { name: 'Load more chats' });
   agents.listSessions.mockResolvedValue({ items: [session('next')], nextCursor: undefined });
@@ -73,7 +73,12 @@ it('loads the next cursor and keeps cancel failures beside the affected chat', a
   expect(agents.listSessions).toHaveBeenLastCalledWith('project', 'page-2');
   agents.cancelRun.mockRejectedValue(new Error('Cancel unavailable'));
   await fireEvent.click(screen.getByRole('button', { name: 'Cancel run for Chat next' }));
-  expect((await screen.findByRole('alert')).textContent).toContain('Cancel unavailable');
+  const failure = await screen.findByRole('alert');
+  expect(failure.textContent).toContain('Cancel unavailable');
+  expect(failure.closest('[data-feedback-toast]')).toBeTruthy();
+  expect(failure.closest('.session')).toBeNull();
+  await fireEvent.click(screen.getByRole('button', { name: 'Dismiss notification' }));
+  expect(screen.queryByRole('alert')).toBeNull();
   expect(agents.cancelRun).toHaveBeenCalledWith('run-next');
 });
 it('shows list failures and supports retry', async () => {

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeedbackToast from '../../../ui/FeedbackToast.svelte';
   import { createQuery } from '@tanstack/svelte-query';
   import { toStore } from 'svelte/store';
   import { projectContext, explain } from '../../../svelte-lib/context';
@@ -27,8 +28,14 @@
   );
 </script>
 
+<FeedbackToast
+  message={$object.isError ? explain($object.error) : ''}
+  variant="error"
+  action={{ label: 'Retry', run: () => $object.refetch() }}
+/>
+
 {#if $object.isPending}<p class="muted" role="status">Loading object…</p>
-{:else if $object.isError}<p role="alert">{explain($object.error)}</p>
+{:else if $object.isError && !$object.data}
   <Button variant="outline" onclick={() => $object.refetch()}>Retry object</Button>
 {:else}<ProjectMapPanel
     {projectId}

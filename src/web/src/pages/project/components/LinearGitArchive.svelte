@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeedbackToast from '../../../ui/FeedbackToast.svelte';
   import { projectContext, explain } from '../../../svelte-lib/context';
   import {
     createRepositoryApi,
@@ -24,13 +25,14 @@
   }
 </script>
 
+<FeedbackToast message={error} variant={error ? 'error' : 'success'} />
+
 <details>
   <summary
     onclick={() => {
       if (!archive) void open();
     }}>Git archive · read only</summary
   >
-  {#if error}<p role="alert">{error}</p>{/if}
   {#if archive}<p>Preserved at conversion. New changes are in linear history.</p>
     {#each Object.keys(archive.branches ?? {}) as branch (branch)}<Button
         variant="ghost"

@@ -1,6 +1,6 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import LoadingState from './LoadingState.svelte';
-  import * as Alert from '../lib/components/ui/alert';
   import { Button } from '../lib/components/ui/button';
   import { toStore } from 'svelte/store';
   import { createInfiniteQuery } from '@tanstack/svelte-query';
@@ -23,11 +23,15 @@
   );
 </script>
 
+<FeedbackToast
+  message={$history.isError ? explain($history.error) : ''}
+  variant="error"
+  action={{ label: 'Retry', run: () => $history.refetch() }}
+/>
+
 <h2>Version history</h2>
 {#if $history.isPending}<LoadingState>Loading history…</LoadingState
-  >{:else if $history.isError}<Alert.Root variant="destructive" role="alert">
-    {explain($history.error)}
-  </Alert.Root>
+  >{:else if $history.isError && !$history.data}
   <Button type="submit" onclick={() => $history.refetch()}>Retry</Button>{:else}<ul class="list">
     {#each $history.data?.pages.flatMap((p) => p.items) ?? [] as revision (revision.id)}<li>
         <Button type="submit" variant="outline" class="" onclick={() => onselect(revision)}

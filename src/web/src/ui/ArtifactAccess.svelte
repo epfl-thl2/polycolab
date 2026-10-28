@@ -1,5 +1,5 @@
 <script lang="ts">
-  import * as Alert from '../lib/components/ui/alert';
+  import FeedbackToast from './FeedbackToast.svelte';
   import * as Field from '../lib/components/ui/field';
   import { Button } from '../lib/components/ui/button';
   import { Input } from '../lib/components/ui/input';
@@ -86,8 +86,7 @@
     Artifacts are untrusted data. A digest identifies bytes but does not grant download access.
   </p>
 
-  {#if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>{/if}
-  {#if status}<p role="status">{status}</p>{/if}
+  <FeedbackToast pending={busy} message={error || status} variant={error ? 'error' : 'success'} />
 
   {#each artifacts as artifact (artifact.artifactId)}
     <article class="panel" aria-labelledby={`artifact-${artifact.artifactId}`}>

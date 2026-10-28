@@ -3,6 +3,7 @@
   import ChatWorkbenchPages from './components/ChatWorkbenchPages.svelte';
   import ProjectFileExplorer from './components/ProjectFileExplorer.svelte';
 
+  import FeedbackToast from '../../ui/FeedbackToast.svelte';
   import { onMount, setContext, untrack } from 'svelte';
   import { page } from '$app/state';
   import { beforeNavigate, goto } from '$app/navigation';
@@ -50,7 +51,17 @@
   });
   const status = $derived.by(() => {
     void revision;
-    return live.error || (!live.connected ? 'Reconnecting…' : live.saving ? 'Saving…' : 'Saved');
+    return live.error
+      ? 'Save interrupted'
+      : !live.connected
+        ? 'Reconnecting…'
+        : live.saving
+          ? 'Saving…'
+          : 'Saved';
+  });
+  const liveError = $derived.by(() => {
+    void revision;
+    return live.error;
   });
   const recovery = $derived.by(() => {
     void revision;
@@ -307,7 +318,7 @@
     void $chats.fetchNextPage();
   }}
 >
-  {#if error}<p role="alert">{error}</p>{/if}
+  <FeedbackToast message={error || liveError} variant="error" />
   {#if recovery.length}<section aria-label="Recovered edits">
       <h3>Unsaved text recovery</h3>
       {#each recovery as [name, content] (name)}<Button onclick={() => download(name, content)}

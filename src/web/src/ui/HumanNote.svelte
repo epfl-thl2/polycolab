@@ -1,5 +1,5 @@
 <script lang="ts">
-  import * as Alert from '../lib/components/ui/alert';
+  import FeedbackToast from './FeedbackToast.svelte';
   import * as Field from '../lib/components/ui/field';
   import { Textarea } from '../lib/components/ui/textarea';
   import { Button } from '../lib/components/ui/button';
@@ -99,8 +99,7 @@
     <p>No dedicated human note has been created.</p>
   {/if}
 
-  {#if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>{/if}
-  {#if status}<p role="status">{status}</p>{/if}
+  <FeedbackToast pending={busy} message={error || status} variant={error ? 'error' : 'success'} />
 
   {#if canEdit && save}
     <form

@@ -29,6 +29,9 @@ it('keeps Monaco lazy and retains a stale source draft through exact-base compar
   const submit = screen.getByRole('button', { name: 'Save new source version' });
   await fireEvent.click(submit);
   expect((await screen.findByRole('alert')).textContent).toContain('draft is retained');
+  await fireEvent.click(screen.getByRole('button', { name: 'Dismiss notification' }));
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect((editor as HTMLTextAreaElement).value).toBe('draft');
   await fireEvent.click(screen.getByRole('button', { name: 'Load current source for comparison' }));
   expect(await screen.findByText('new saved source')).toBeTruthy();
   expect((editor as HTMLTextAreaElement).value).toBe('draft');

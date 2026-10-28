@@ -1,7 +1,7 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import { listReviews, type Review } from '../lib/reviews-api';
   import LoadingState from './LoadingState.svelte';
-  import * as Alert from '../lib/components/ui/alert';
   import { Button } from '../lib/components/ui/button';
   import { onMount } from 'svelte';
   import type { components } from '$lib/api-client';
@@ -46,6 +46,7 @@
   let relations = $state<RelationRead[]>([]);
   let history = $state<ManifestPage>({ items: [], next_cursor: null });
   let pending = $state(true);
+  let loaded = $state(false);
   let loadingMore = $state(false);
   let error = $state('');
   let previewSelection = $state<components['schemas']['PublicationVersionSelection']>();
@@ -120,7 +121,7 @@
   });
 
   async function load() {
-    pending = true;
+    pending = !loaded;
     error = '';
     try {
       const [relationPage, manifestPage, reviewPage] = await Promise.all([
@@ -136,6 +137,7 @@
       error = explain(cause);
     } finally {
       pending = false;
+      if (!error) loaded = true;
     }
   }
 
@@ -155,11 +157,14 @@
   onMount(() => void load());
 </script>
 
+<FeedbackToast message={error} variant="error" action={{ label: 'Retry', run: load }} />
+
 <section aria-labelledby={`publication-${record.id}`}>
   <h2 id={`publication-${record.id}`}>Publish exact research</h2>
   {#if pending}<LoadingState>Loading publication choices and history…</LoadingState>
-  {:else if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>
-    <Button type="submit" onclick={() => void load()}>Retry publication data</Button>
+  {:else if error && !loaded}<span class="panel-state">Unavailable</span><Button
+      onclick={() => load()}>Retry</Button
+    >
   {:else}
     {#if reviewCursor}<Button
         variant="outline"

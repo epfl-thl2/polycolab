@@ -1,6 +1,6 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import LoadingState from './LoadingState.svelte';
-  import * as Alert from '../lib/components/ui/alert';
   import * as Field from '../lib/components/ui/field';
   import { Button } from '../lib/components/ui/button';
   import { NativeSelect } from '../lib/components/ui/native-select';
@@ -76,12 +76,22 @@
   }
 </script>
 
+<FeedbackToast
+  message={$map.isError ? explain($map.error) : ''}
+  variant="error"
+  action={{ label: 'Retry', run: () => $map.refetch() }}
+/>
+<FeedbackToast
+  message={$objects.isError ? explain($objects.error) : ''}
+  variant="error"
+  action={{ label: 'Retry', run: () => $objects.refetch() }}
+/>
+
 <div class="heading">
   <h2>Relationships</h2>
   <a href={`/projects/${projectId}/map?object=${objectId}&revision=${revisionId}`}>View on map →</a>
 </div>
-{#if $map.isError}<Alert.Root variant="destructive" role="alert">{explain($map.error)}</Alert.Root
-  ><Button onclick={() => $map.refetch()}>Retry</Button>
+{#if $map.isError}<Button onclick={() => $map.refetch()}>Retry</Button>
 {:else if $map.isPending}<LoadingState>Loading relationships…</LoadingState>
 {:else}<ProjectRelationships
     {projectId}
@@ -110,15 +120,13 @@
                 .number}</option
             >{/if}{/each}</NativeSelect
       ></Field.Label
-    >{#if $objects.isError}<Alert.Root variant="destructive" role="alert">
-        {explain($objects.error)}
-      </Alert.Root>{/if}{#if $objects.hasNextPage}<Button
+    >{#if $objects.hasNextPage}<Button
         variant="outline"
         type="button"
         class=""
         onclick={() => $objects.fetchNextPage()}>Load more targets</Button
       >{/if}<Field.Label>Rationale<Textarea required bind:value={rationale}></Textarea></Field.Label
-    >{#if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>{/if}<Button
+    ><FeedbackToast message={error} variant="error" /><Button
       type="submit"
       disabled={busy || !target}>Save relationship</Button
     >

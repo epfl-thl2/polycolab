@@ -10,7 +10,6 @@
     Download,
     Trash2,
     WrapText,
-    Check,
   } from '@lucide/svelte';
   import * as Tooltip from '../../../lib/components/ui/tooltip';
   import * as DropdownMenu from '../../../lib/components/ui/dropdown-menu';
@@ -33,6 +32,7 @@
     showChanges = true,
     onrenamecommit,
     onreload,
+    onnotice,
   }: {
     showChanges?: boolean;
     onrenamecommit?: () => void;
@@ -52,6 +52,7 @@
     ondownload: () => void;
     ondelete: () => void;
     onerror: (message: string) => void;
+    onnotice: (message: string) => void;
   } = $props();
   const prefix = $derived(path.includes('/') ? path.slice(0, path.lastIndexOf('/') + 1) : '');
   const filename = $derived(path.slice(path.lastIndexOf('/') + 1) || 'Untitled');
@@ -77,24 +78,16 @@
         ]
       : []),
   ]);
-  let copied = $state(false);
-  let copiedPath = $state('');
   let renameRequested = false;
   async function copyPath() {
     const name = path;
     try {
       await navigator.clipboard.writeText(name);
-      copiedPath = name;
-      copied = true;
+      onnotice('File path copied.');
     } catch {
       onerror('Could not copy the file path.');
     }
   }
-  $effect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => (copied = false), 1600);
-    return () => clearTimeout(timer);
-  });
   function renameInput(node: HTMLInputElement) {
     const before = path;
     node.focus();
@@ -157,9 +150,6 @@
           >
         </Tooltip.Root>
       {/if}
-      {#if copied && path === copiedPath}<span class="copied" role="status"
-          ><Check size={12} />Copied</span
-        >{/if}
     </div>
     {#if !binary}
       <div class="view-toggle" role="group" aria-label="Editor view">
@@ -311,14 +301,6 @@
   .file-path:hover .filename {
     text-decoration: underline;
     text-underline-offset: 3px;
-  }
-  .copied {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    flex-shrink: 0;
-    font-size: 10px;
-    color: var(--muted-foreground);
   }
   input {
     height: 24px;

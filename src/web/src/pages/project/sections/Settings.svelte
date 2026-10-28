@@ -1,9 +1,11 @@
 <script lang="ts">
+  import { notificationService } from '../../../svelte-lib/notifications.svelte';
+  const notifications = notificationService();
+  import FeedbackToast from '../../../ui/FeedbackToast.svelte';
   import LinearConversion from '../components/LinearConversion.svelte';
   import ConfirmAction from '../../../ui/ConfirmAction.svelte';
   import { Confirmation } from '../../../svelte-lib/confirmation.svelte';
   const confirmation = new Confirmation();
-  import * as Alert from '../../../lib/components/ui/alert';
   import * as Field from '../../../lib/components/ui/field';
   import { Input } from '../../../lib/components/ui/input';
   import { Textarea } from '../../../lib/components/ui/textarea';
@@ -41,14 +43,28 @@
     task: () => Promise<unknown>,
     success: string,
     failure?: (reason: unknown) => string | undefined,
+    after?: () => Promise<unknown>,
   ) {
     busy = true;
+    notifications?.resolve(`${project.id}:settings-result`);
     error = '';
     notice = '';
     try {
       await task();
-      await query.invalidateQueries();
-      notice = success;
+      if (notifications)
+        notifications.publish({
+          key: `${project.id}:settings-result`,
+          projectId: project.id,
+          kind: 'success',
+          message: success,
+        });
+      else notice = success;
+      try {
+        await query.invalidateQueries();
+      } catch (reason) {
+        error = `${success} The view could not refresh. ${explain(reason)}`;
+      }
+      await after?.();
     } catch (reason) {
       error = failure?.(reason) ?? explain(reason);
     } finally {
@@ -69,16 +85,18 @@
   };
 </script>
 
+<FeedbackToast
+  message={$members.isError ? explain($members.error) : ''}
+  variant="error"
+  action={{ label: 'Retry', run: () => $members.refetch() }}
+/>
+
 {#if !embedded}<header class="settings-header">
     <h1>Project settings</h1>
     <p>Manage project details, access, and lifecycle.</p>
   </header>{/if}
 {#if !owner}<p>Only project owners can manage settings and membership.</p>{:else}
-  {#if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>{/if}{#if notice}<p
-      role="status"
-    >
-      {notice}
-    </p>{/if}
+  <FeedbackToast pending={busy} message={error || notice} variant={error ? 'error' : 'success'} />
   <div class="settings-stack">
     <LinearConversion {project} />
     <section class="settings-section" aria-labelledby="project-details-heading">
@@ -127,13 +145,17 @@
     </section>
     <section class="settings-section" aria-labelledby="members-heading">
       <div class="section-heading">
-        <h2 id="members-heading">Members</h2>
+        <div class="section-title-row">
+          <h2 id="members-heading">Members</h2>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Refresh members"
+            onclick={() => $members.refetch()}>Refresh</Button
+          >
+        </div>
         <p>Invite registered researchers and manage their roles.</p>
       </div>
-      {#if $members.isError}<Alert.Root variant="destructive" role="alert"
-          >{explain($members.error)}</Alert.Root
-        >
-        <Button type="button" onclick={() => $members.refetch()}>Retry</Button>{/if}
       <ul class="member-list">
         {#each $members.data?.pages.flatMap((p) => p.items) ?? [] as member (member.user_id)}<li>
             <div class="member-identity">
@@ -241,10 +263,12 @@
             if (
               await confirmation.ask(`Permanently delete ${project.name}? This cannot be undone.`)
             )
-              void perform(async () => {
-                await api.deleteProject(project.id);
-                await goto('/');
-              }, 'Project deleted.');
+              void perform(
+                () => api.deleteProject(project.id),
+                'Project deleted.',
+                undefined,
+                () => goto('/'),
+              );
           }}>Delete permanently</Button
         >
       </div>
@@ -283,6 +307,12 @@
   }
   .section-heading {
     margin-bottom: 20px;
+  }
+  .section-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
   }
   .section-heading h2 {
     margin: 0;

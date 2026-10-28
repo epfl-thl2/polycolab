@@ -1,7 +1,7 @@
 <script lang="ts">
+  import FeedbackToast from '../../../ui/FeedbackToast.svelte';
   import LoadingState from '../../../ui/LoadingState.svelte';
   import * as Field from '../../../lib/components/ui/field';
-  import * as Alert from '../../../lib/components/ui/alert';
   import { Input } from '../../../lib/components/ui/input';
   import { Button } from '../../../lib/components/ui/button';
   import { onMount } from 'svelte';
@@ -92,6 +92,12 @@
   });
 </script>
 
+<FeedbackToast
+  message={error}
+  variant="error"
+  action={{ label: 'Retry exact job', run: () => load() }}
+/>
+
 <section aria-labelledby="verification-title">
   <h1 id="verification-title">Verification jobs</h1>
   {#if !jobId}
@@ -113,8 +119,7 @@
       </LoadingState>{:then module}<module.default {projectId} canWrite={canSubmit} />{/await}
   {:else if pending}
     <LoadingState>Loading exact verification job…</LoadingState>
-  {:else if error}
-    <Alert.Root variant="destructive" role="alert">{error}</Alert.Root>
+  {:else if error && !job}
     <Button type="submit" onclick={() => void load()}>Retry exact job</Button>
   {:else if job && snapshot}
     <VerificationJob

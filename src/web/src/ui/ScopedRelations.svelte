@@ -1,11 +1,11 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import {
     displayRelationships,
     relationshipChoices,
     relationshipWrite,
     type DisplayRelationshipKind,
   } from '../lib/display-relationships';
-  import * as Alert from '../lib/components/ui/alert';
   import * as Field from '../lib/components/ui/field';
   import { Button } from '../lib/components/ui/button';
   import { NativeSelect } from '../lib/components/ui/native-select';
@@ -125,8 +125,11 @@
       : 'Public links may target only accessible public research.'} A relationship does not establish
     correctness.
   </p>
-  {#if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>{/if}
-  {#if saved}<p role="status">Relationship saved.</p>{/if}
+  <FeedbackToast
+    pending={busy}
+    message={error || (saved ? 'Relationship saved.' : '')}
+    variant={error ? 'error' : 'success'}
+  />
   <Button type="submit" disabled={busy} onclick={() => load()}>Reload relationships</Button>
   <ul>
     {#each visibleEdges as edge (edge.id)}<li>

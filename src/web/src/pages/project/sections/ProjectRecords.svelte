@@ -1,10 +1,10 @@
 <script lang="ts">
+  import FeedbackToast from '../../../ui/FeedbackToast.svelte';
   import {
     statementObjectVersionIds,
     editableVersionSnapshot,
   } from '../../../lib/version-snapshot';
   import LoadingState from '../../../ui/LoadingState.svelte';
-  import * as Alert from '../../../lib/components/ui/alert';
   import * as Field from '../../../lib/components/ui/field';
   import { Button } from '../../../lib/components/ui/button';
   import { Input } from '../../../lib/components/ui/input';
@@ -162,14 +162,23 @@
   }
 </script>
 
+<FeedbackToast
+  message={$selected.isError ? explain($selected.error) : ''}
+  variant="error"
+  action={{ label: 'Retry', run: () => $selected.refetch() }}
+/>
+<FeedbackToast
+  message={$listing.isError ? explain($listing.error) : ''}
+  variant="error"
+  action={{ label: 'Retry', run: () => $listing.refetch() }}
+/>
+
 {#if revisionId}
   <a href={`/projects/${projectId}/records`}
     >← {publicProject ? 'Project research' : 'Project research'}</a
   >
   {#if $selected.isPending}<LoadingState>Loading exact version…</LoadingState>
-  {:else if $selected.isError}<Alert.Root variant="destructive" role="alert"
-      >{explain($selected.error)}</Alert.Root
-    >
+  {:else if $selected.isError && !$selected.data}
     <Button type="submit" onclick={() => $selected.refetch()}>Retry</Button>
   {:else if $selected.data}
     {@const record = $selected.data}
@@ -300,11 +309,14 @@
         saved = '';
       }}>Add research</Button
     >{/if}
-  {#if saved}<p role="status">
-      {publicProject ? 'Saved publicly.' : 'Saved privately.'}
-      <a href={`/projects/${projectId}/records/${saved}`}>Read saved version</a>
-    </p>{/if}
-  {#if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>{/if}
+  <FeedbackToast
+    pending={busy}
+    message={error || (saved ? (publicProject ? 'Saved publicly.' : 'Saved privately.') : '')}
+    variant={error ? 'error' : 'success'}
+    action={!error && saved
+      ? { href: `/projects/${projectId}/records/${saved}`, label: 'Read saved version' }
+      : undefined}
+  />
   {#if creating && canWrite}<form
       class="panel"
       onsubmit={(event) => {
@@ -403,9 +415,7 @@
       >
     </form>{/if}
   {#if $listing.isPending}<LoadingState>Loading research…</LoadingState>
-  {:else if $listing.isError}<Alert.Root variant="destructive" role="alert"
-      >{explain($listing.error)}</Alert.Root
-    >
+  {:else if $listing.isError && !$listing.data}
     <Button type="submit" onclick={() => $listing.refetch()}>Retry</Button>
   {:else}
     {#each $listing.data?.pages.flatMap((page) => page.items) ?? [] as record (record.id)}<article

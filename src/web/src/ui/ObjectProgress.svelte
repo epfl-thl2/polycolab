@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import type { ObjectVersion, ResearchObject } from '../lib/research-api';
   import { editableVersionSnapshot } from '../lib/version-snapshot';
   import { objectProgress } from '../lib/object-progress';
@@ -108,7 +109,7 @@
   {:else}<span class="muted"
       >Reported progress: {objectProgress(version)?.label ?? 'Unassessed'}</span
     >{/if}
-  {#if error}<p role="alert">{error}</p>{/if}
+  <FeedbackToast pending={busy} message={error} variant={error ? 'error' : 'success'} />
 </form>
 
 <style>
