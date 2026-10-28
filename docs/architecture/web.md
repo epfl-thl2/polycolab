@@ -30,8 +30,9 @@ New chats leave the title blank; existing conversation titles appear on desktop.
 Conversation titles and sharing actions appear in Agent history for these modes. `ChatWorkbenchPages` owns their mounted chat and section pages,
 including shared spacing and draft retention. `ProjectFileExplorer` and
 `ProjectFileView` own their common file toolbar, explorer, and editor layout.
-Default and Linear open file contents in the right sidebar while chat stays in
-the center. `ProjectFileView` reuses Git’s `ProjectEditorHeader` without Git diff
+Default and Linear start with the right sidebar closed. Opening a file or
+requesting details opens it; the toolbar can also reopen it manually. File contents
+open in the right sidebar while chat stays in the center. `ProjectFileView` reuses Git’s `ProjectEditorHeader` without Git diff
 controls. `SidebarFileView` keeps one editor mounted and moves it between desktop
 and mobile panel hosts, preserving drafts when tools are switched or collapsed.
 Mode-specific controllers supply file operations and history tools.
@@ -302,6 +303,17 @@ New chat keeps a compact Customize bar above the composer.
 The message surface owns hover and focus emphasis independently of that bar.
 Agent preset selection sits in the composer action row beside Send and uses a radio menu with agent versions and purpose descriptions.
 New chat silently defaults to the first available gateway profile.
+Existing conversations reuse `ChatComposer` with the same 600px width, rounded
+message surface, growing textarea, and icon send button. The reply composer stays
+at the bottom while scrolling. While a run is active, its send button becomes
+Stop agent; cancellation shows a disabled stopping indicator until the run ends.
+Enter does not cancel a run, and unsent text is retained. After a stopped or failed
+run, users send another message to continue or give new instructions.
+Message typography is scoped to chat: 14px body text, 12px sender labels,
+14–18px Markdown headings, and compact paragraph and list spacing. Research
+documents retain their own typography.
+Public-destination turns use the separate public-task draft in that composer,
+with an explicit public authorization label and notice. Private drafts are retained.
 
 The anchored Customize popover presents a prototype-only context scope and response style and discloses the implemented Hosted Codex system-prompt customization.
 Context scope and response style remain presentation state and are not submitted to the API.

@@ -76,7 +76,7 @@ test('native gVisor chat completes and survives reload', async ({ page }) => {
   // A follow-up must use a fresh sandbox while retaining canonical chat history.
   await page.getByLabel('AI provider').selectOption(profileId);
   await page.getByLabel('Private message', { exact: true }).fill(`Follow up ${randomUUID()}`);
-  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await page.getByRole('button', { name: 'Send message', exact: true }).click();
   await expect(page.getByText('Native gVisor research completed.', { exact: true })).toHaveCount(
     2,
     { timeout: 60_000 },

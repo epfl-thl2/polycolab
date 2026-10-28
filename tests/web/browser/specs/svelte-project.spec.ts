@@ -2337,7 +2337,7 @@ test('failed agent message remains editable and successful retry uses the same r
   if (!(await page.getByLabel('AI provider').isVisible()))
     await page.getByRole('tab', { name: 'Agent history', exact: true }).click();
   await expect(page.getByLabel('AI provider')).toBeVisible();
-  await expect(page.locator('.project-chat-composer .project-chat-send-reason')).toHaveText(
+  await expect(page.locator('.project-chat-reply .project-chat-send-reason')).toHaveText(
     'Choose an AI provider in Chat settings.',
   );
   await page.screenshot({ path: '/tmp/polycolab-enabled-chat-after.png' });
@@ -2352,13 +2352,13 @@ test('failed agent message remains editable and successful retry uses the same r
     .getByLabel('Exact committed artifact IDs (comma or whitespace separated)')
     .fill('artifact-exact-1, artifact-exact-1');
   await page.getByLabel('Private message', { exact: true }).fill('Explore the gap.');
-  await expect(page.locator('.project-chat-composer .project-chat-send-reason')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(page.locator('.project-chat-reply .project-chat-send-reason')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Send message', exact: true }).click();
   await expect(page.locator('.error-toast').getByRole('alert')).toContainText(
     'temporarily_unavailable',
   );
   await expect(page.getByLabel('Private message', { exact: true })).toHaveValue('Explore the gap.');
-  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await page.getByRole('button', { name: 'Send message', exact: true }).click();
   await expect(page.getByLabel('Private message', { exact: true })).toHaveValue('');
   await expect(page.locator('.error-toast')).toHaveCount(0);
   expect(bodies[1].client_request_id).toBe(bodies[0].client_request_id);
@@ -2453,9 +2453,10 @@ test('streams committed agent events, reconnects from cursor and cancels the run
   await expect.poll(() => connections).toBeGreaterThan(1);
   expect(cursors[1]).toBe('1:2');
   await expect(page.getByText('A useful next step.', { exact: true })).toHaveCount(1);
-  await page.getByRole('button', { name: 'Cancel run' }).click();
+  await page.getByRole('button', { name: 'Stop agent' }).click();
   expect(cancelled).toBe(true);
-  await expect(page.getByRole('button', { name: 'Resume run' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Resume run' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Send message', exact: true })).toBeVisible();
 });
 
 test('revoked session access clears private messages and stops event reconnects', async ({
@@ -4130,9 +4131,10 @@ test('hosted run history keeps prior files and offers explicit resume after lost
   );
   await page.goto(`/projects/${projectId}/sessions/${sessionId}`);
   await expect(
-    page.getByText('Review its history before resuming', { exact: false }),
+    page.getByText('Review its history before sending another message', { exact: false }),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Resume run' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Resume run' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Send message', exact: true })).toBeDisabled();
   await page.getByRole('tab', { name: 'Agent history', exact: true }).click();
   await page.getByText('Files and run history', { exact: true }).click();
   await page.getByLabel('Files from completed run').selectOption('completed-run');

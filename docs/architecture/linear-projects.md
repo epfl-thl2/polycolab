@@ -17,8 +17,9 @@ uses Git’s compact toolbar without Git diff controls, and retains its state wh
 switching sidebar views or mobile drawers.
 
 Chats and Files in the navigation rail select the left sidebar without replacing
-the current conversation. Chats contains New chat, the user's conversations and
-drafts, and Shared with you when shared conversations exist, with pagination.
+the current conversation. Chats has a New chat action with an icon above a scrolling Recents list.
+Recents combines drafts and accessible conversations, including shared conversations,
+with pagination.
 Files contains the file tree and creation/upload controls. The project name opens
 an information modal. Overview and research Activity are absent from the rail.
 The right sidebar provides File, History, Agent changes, and contextual

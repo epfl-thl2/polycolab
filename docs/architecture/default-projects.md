@@ -30,7 +30,8 @@ writes. Backup the current project volume alongside the database.
 
 Default uses the shared project shell, logo, navigation, chat center, and resizable
 side panels. Chats and Files in the navigation rail select the left panel: either
-conversations and drafts, or the file tree with creation and upload controls.
+a New chat action with an icon above a scrolling Recents list, or the file tree
+with creation and upload controls. Recents includes drafts and accessible shared conversations.
 The project name opens an information modal. Overview and research Activity are
 not rail destinations in this mode. The right panel has a white background and
 shows files; the chat agent-history panel is hidden. Existing research links can

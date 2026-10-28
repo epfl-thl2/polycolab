@@ -102,7 +102,6 @@
           JSON.stringify(batch.changes);
     });
   });
-  let sessionChatInput = $state<HTMLTextAreaElement | null>(null);
   const promptStarters = [
     'Summarize this project',
     'Find related research objects',
@@ -311,25 +310,6 @@
       return destination === 'PUBLIC' ? 'Write a public task to send.' : 'Write a message to send.';
     return '';
   });
-  function fitChatInput(input: HTMLTextAreaElement) {
-    input.style.height = '';
-    if (input.scrollHeight > input.clientHeight)
-      input.style.height = `${Math.min(input.scrollHeight, 240)}px`;
-  }
-  $effect(() => {
-    void chatDraft.message;
-    void tick().then(() => {
-      if (sessionChatInput) fitChatInput(sessionChatInput);
-    });
-  });
-  function composerKeydown(event: KeyboardEvent) {
-    if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
-    event.preventDefault();
-    if (event.repeat) return;
-    const form = (event.currentTarget as HTMLTextAreaElement).form;
-    const submit = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
-    if (submit && !submit.disabled) form?.requestSubmit(submit);
-  }
   async function create(event: SubmitEvent) {
     event.preventDefault();
     if (
@@ -519,18 +499,12 @@
       busy = false;
     }
   }
-  async function control(action: 'cancel' | 'resume') {
-    if (!run || (action === 'resume' && !executionEnabled)) return;
+  async function stopAgent() {
+    if (!run || busy || run.status === 'CANCELLING') return;
     busy = true;
     error = '';
     try {
-      run =
-        action === 'cancel'
-          ? await agents.cancelRun(run.id)
-          : await agents.resumeRun(run.id, {
-              client_request_id: crypto.randomUUID(),
-              gateway_profile_id: profileId,
-            });
+      run = await agents.cancelRun(run.id);
       void invalidateSession(query, projectId, sessionId);
       void query.invalidateQueries({ queryKey: ['session-runs', sessionId] });
     } catch (reason) {
@@ -872,7 +846,7 @@
                 : 'You'
               : $session.data?.agent_display_name}
           </p>
-          <Markdown content={message.content_md} />
+          <div class="message-body"><Markdown content={message.content_md} /></div>
         </article>{/each}
     </div>
     {#if $messages.hasNextPage}<Button
@@ -883,7 +857,7 @@
       >{/if}
     {#if streaming}<article class="message">
         <p class="message-author">Agent · responding</p>
-        <p style="white-space:pre-wrap">{streaming}</p>
+        <p class="message-stream">{streaming}</p>
       </article>{/if}
     {#if $session.data?.can_control !== false}<details
         class="project-chat-files"
@@ -935,7 +909,7 @@
     {#if run?.failure_code?.endsWith('resume_required')}
       <p role="status">
         This run stopped after work may have reached the provider or changed research. Review its
-        history before resuming; a new run may repeat work.
+        history before sending another message; a new run may repeat work.
       </p>
     {/if}
     {#if $capabilities.data && !$capabilities.data.execution_available}
@@ -944,227 +918,233 @@
         accessible.
       </p>
     {/if}
-    {#if $session.data?.can_control !== false}<form class="project-chat-composer" onsubmit={send}>
-        <div class="project-chat-side-controls" use:chatPanelPortal={isVisible}>
-          <Field.Label
-            >AI provider<NativeSelect required bind:value={profileId}
-              ><option value="">Choose an AI provider</option
-              >{#each $profiles.data?.pages.flatMap((p) => p.items) ?? [] as profile (profile.id)}<option
-                  value={profile.id}>{profile.display_name} · {profile.model_id}</option
-                >{/each}</NativeSelect
-            ></Field.Label
-          >{#if $profiles.hasNextPage}<Button
-              type="button"
-              onclick={() => $profiles.fetchNextPage()}>Load more providers</Button
-            >{/if}<a href="/settings/model-providers">Manage AI providers</a>
-          <details class="project-chat-settings">
-            <summary>Run settings</summary>
-            <details>
-              <summary>Context · {selected.length} pinned versions</summary>
-              <p class="muted">Only these exact versions are selected for this turn.</p>
-              {#each $objects.data?.pages.flatMap((p) => p.items) ?? [] as object (object.id)}<Field.Label
-                  class="row mb-3"
-                  ><Checkbox
-                    checked={selected.includes(object.current_object_version_id)}
-                    onCheckedChange={(checked) => {
-                      selected = checked
-                        ? [...selected, object.current_object_version_id]
-                        : selected.filter((item) => item !== object.current_object_version_id);
-                    }}
-                    value={object.current_object_version_id}
-                  />{object.current_object_version.content.title} · r{object.current_object_version
-                    .number}</Field.Label
-                >{/each}{#if $objects.hasNextPage}<Button
-                  type="button"
-                  onclick={() => $objects.fetchNextPage()}>Load more context</Button
-                >{/if}
-            </details>
-            {#if destination !== 'PUBLIC'}<details>
-                <summary>Artifact context · {ids(artifactIds).length} exact IDs</summary>
-                <p>
-                  Enter at most 32 exact committed artifact IDs. The service rechecks project access
-                  and exposes bounded metadata only; neighboring artifacts and object bytes are not
-                  implied.
-                </p>
-                <Field.Label
-                  >Exact committed artifact IDs (comma or whitespace separated)<Textarea
-                    bind:value={artifactIds}
-                  ></Textarea></Field.Label
-                >
-              </details>{:else}<p class="muted">
-                Private artifact selections are retained locally and are not sent with a public
-                turn.
-              </p>{/if}
-            <details>
-              <summary>Public research inputs</summary>
-              <p>Choose exact public versions. Project pins are never automatically upgraded.</p>
-              {#each $pins.data?.pages.flatMap((page) => page.items) ?? [] as pin (pin.id)}
-                {#if pin.available}<Field.Label
-                    ><Checkbox
-                      checked={publicSelected.includes(pin.object_version_id)}
-                      onCheckedChange={(checked) => {
-                        publicSelected = checked
-                          ? [...publicSelected, pin.object_version_id]
-                          : publicSelected.filter((item) => item !== pin.object_version_id);
-                      }}
-                      value={pin.object_version_id}
-                    />{pin.title} · {pin.object_version_id}</Field.Label
-                  >
-                {:else}<p>Unavailable public source (not selectable)</p>{/if}
-              {/each}
-              {#if $pins.isError}<Alert.Root variant="destructive" role="alert"
-                  >{explain($pins.error)}</Alert.Root
-                >
-                <Button type="button" onclick={() => $pins.refetch()}>Retry pins</Button>{/if}
-              {#if $pins.hasNextPage}<Button type="button" onclick={() => $pins.fetchNextPage()}
-                  >Load more public pins</Button
-                >{/if}
+    {#if $session.data?.can_control !== false}<div class="project-chat-reply">
+        <ChatComposer
+          bind:value={
+            () => (destination === 'PUBLIC' ? chatDraft.publicTask : chatDraft.message),
+            (value) => {
+              if (destination === 'PUBLIC') chatDraft.publicTask = value;
+              else chatDraft.message = value;
+            }
+          }
+          label={destination === 'PUBLIC'
+            ? 'Separate public task'
+            : $session.data?.is_shared
+              ? 'Message shared with project'
+              : 'Private message'}
+          placeholder={destination === 'PUBLIC'
+            ? 'Describe the public contribution task…'
+            : 'Ask a question or describe what you want to do…'}
+          maxlength={destination === 'PUBLIC' ? 20000 : 100000}
+          onsubmit={send}
+          onstop={active ? stopAgent : undefined}
+          stopping={run?.status === 'CANCELLING'}
+          stopDisabled={busy}
+          disabled={Boolean(sessionSendReason)}
+          sendReason={run?.status === 'CANCELLING'
+            ? 'Stopping agent…'
+            : active
+              ? ''
+              : sessionSendReason === 'Write a message to send.' ||
+                  sessionSendReason === 'Write a public task to send.'
+                ? ''
+                : sessionSendReason}
+          submitLabel={destination === 'PUBLIC'
+            ? 'Authorize public contribution run'
+            : 'Send message'}
+        >
+          {#snippet preset()}
+            <span class="project-chat-reply-agent"
+              ><Sparkles size={16} aria-hidden="true" />{$session.data?.agent_display_name}</span
+            >
+          {/snippet}
+          {#snippet contextControls()}
+            <div class="project-chat-side-controls" use:chatPanelPortal={isVisible}>
               <Field.Label
-                >Additional public version IDs (comma or whitespace separated)<Textarea
-                  bind:value={extraPublic}
-                ></Textarea></Field.Label
-              >
-            </details>
-            {#if $session.data?.agent_version === 2}
-              <fieldset disabled={busy || active || !executionEnabled}>
-                <legend>Authority for this turn</legend>
-                <Field.Label
-                  >Contribution destination<NativeSelect bind:value={destination}>
-                    <option value="REVIEW">Private conversation and reviewed proposals only</option>
-                    <option value="PROJECT">Direct contributions to this private project</option>
-                    <option
-                      value="PUBLIC"
-                      disabled={useProjectFiles || $sessionRepository.data?.enabled}
-                      >Direct contributions to explicit public targets</option
-                    >
-                  </NativeSelect></Field.Label
-                >
-                {#if destination !== 'REVIEW'}
-                  <p>
-                    Requested rights are intersected with current permissions on every tool call.
-                    Catalogue admission and official edits remain human-only.
-                  </p>
-                  {#each ['CREATE_RECORD', 'REVISE_RECORD', 'CREATE_RELATION'] as const as operation (operation)}
-                    <Field.Label
+                >AI provider<NativeSelect required bind:value={profileId}
+                  ><option value="">Choose an AI provider</option
+                  >{#each $profiles.data?.pages.flatMap((p) => p.items) ?? [] as profile (profile.id)}<option
+                      value={profile.id}>{profile.display_name} · {profile.model_id}</option
+                    >{/each}</NativeSelect
+                ></Field.Label
+              >{#if $profiles.hasNextPage}<Button
+                  type="button"
+                  onclick={() => $profiles.fetchNextPage()}>Load more providers</Button
+                >{/if}<a href="/settings/model-providers">Manage AI providers</a>
+              <details class="project-chat-settings">
+                <summary>Run settings</summary>
+                <details>
+                  <summary>Context · {selected.length} pinned versions</summary>
+                  <p class="muted">Only these exact versions are selected for this turn.</p>
+                  {#each $objects.data?.pages.flatMap((p) => p.items) ?? [] as object (object.id)}<Field.Label
+                      class="row mb-3"
                       ><Checkbox
-                        checked={operations.includes(operation)}
+                        checked={selected.includes(object.current_object_version_id)}
                         onCheckedChange={(checked) => {
-                          operations = checked
-                            ? [...operations, operation]
-                            : operations.filter((item) => item !== operation);
+                          selected = checked
+                            ? [...selected, object.current_object_version_id]
+                            : selected.filter((item) => item !== object.current_object_version_id);
                         }}
-                        value={operation}
-                      />{operation}</Field.Label
-                    >
-                  {/each}
-                  {#if operations.includes('REVISE_RECORD')}
+                        value={object.current_object_version_id}
+                      />{object.current_object_version.content.title} · r{object
+                        .current_object_version.number}</Field.Label
+                    >{/each}{#if $objects.hasNextPage}<Button
+                      type="button"
+                      onclick={() => $objects.fetchNextPage()}>Load more context</Button
+                    >{/if}
+                </details>
+                {#if destination !== 'PUBLIC'}<details>
+                    <summary>Artifact context · {ids(artifactIds).length} exact IDs</summary>
+                    <p>
+                      Enter at most 32 exact committed artifact IDs. The service rechecks project
+                      access and exposes bounded metadata only; neighboring artifacts and object
+                      bytes are not implied.
+                    </p>
                     <Field.Label
-                      >Editable research object IDs<Textarea bind:value={editable}
+                      >Exact committed artifact IDs (comma or whitespace separated)<Textarea
+                        bind:value={artifactIds}
                       ></Textarea></Field.Label
                     >
-                    <p>
-                      Pin each record's exact input version. Only records you can delegate editing
-                      may be listed; use a suggestion for other records.
-                    </p>
-                  {/if}
-                  <Field.Label
-                    >Maximum mutations<Input
-                      type="number"
-                      min="1"
-                      max="50"
-                      required
-                      bind:value={maxMutations}
-                    /></Field.Label
-                  >
-                  <Field.Label
-                    >Maximum content bytes per mutation<Input
-                      type="number"
-                      min="1"
-                      max="500000"
-                      required
-                      bind:value={maxContentBytes}
-                    /></Field.Label
-                  >
-                {/if}
-                {#if destination === 'PUBLIC'}
-                  <p class="notice">
-                    This run uses only the separate public task and public research inputs. Your
-                    private conversation and private version selections are excluded. Do not put
-                    private information in the public task.
+                  </details>{:else}<p class="muted">
+                    Private artifact selections are retained locally and are not sent with a public
+                    turn.
+                  </p>{/if}
+                <details>
+                  <summary>Public research inputs</summary>
+                  <p>
+                    Choose exact public versions. Project pins are never automatically upgraded.
                   </p>
                   {#each $pins.data?.pages.flatMap((page) => page.items) ?? [] as pin (pin.id)}
                     {#if pin.available}<Field.Label
                         ><Checkbox
-                          checked={targets.includes(pin.object_version_id)}
+                          checked={publicSelected.includes(pin.object_version_id)}
                           onCheckedChange={(checked) => {
-                            targets = checked
-                              ? [...targets, pin.object_version_id]
-                              : targets.filter((item) => item !== pin.object_version_id);
+                            publicSelected = checked
+                              ? [...publicSelected, pin.object_version_id]
+                              : publicSelected.filter((item) => item !== pin.object_version_id);
                           }}
                           value={pin.object_version_id}
-                        />Public contribution target: {pin.title}</Field.Label
-                      >{/if}
+                        />{pin.title} · {pin.object_version_id}</Field.Label
+                      >
+                    {:else}<p>Unavailable public source (not selectable)</p>{/if}
                   {/each}
+                  {#if $pins.isError}<Alert.Root variant="destructive" role="alert"
+                      >{explain($pins.error)}</Alert.Root
+                    >
+                    <Button type="button" onclick={() => $pins.refetch()}>Retry pins</Button>{/if}
+                  {#if $pins.hasNextPage}<Button type="button" onclick={() => $pins.fetchNextPage()}
+                      >Load more public pins</Button
+                    >{/if}
                   <Field.Label
-                    >Additional exact public target version IDs<Textarea bind:value={extraTargets}
+                    >Additional public version IDs (comma or whitespace separated)<Textarea
+                      bind:value={extraPublic}
                     ></Textarea></Field.Label
                   >
-                  <Field.Label
-                    >Separate public task<Textarea
-                      required
-                      maxlength={20000}
-                      bind:value={chatDraft.publicTask}
-                    ></Textarea></Field.Label
-                  >
-                  <p>
-                    Public targets are also explicitly pinned as inputs. Public contributions are
-                    visible immediately; they are not verified results.
-                  </p>
+                </details>
+                {#if $session.data?.agent_version === 2}
+                  <fieldset disabled={busy || active || !executionEnabled}>
+                    <legend>Authority for this turn</legend>
+                    <Field.Label
+                      >Contribution destination<NativeSelect bind:value={destination}>
+                        <option value="REVIEW"
+                          >Private conversation and reviewed proposals only</option
+                        >
+                        <option value="PROJECT">Direct contributions to this private project</option
+                        >
+                        <option
+                          value="PUBLIC"
+                          disabled={useProjectFiles || $sessionRepository.data?.enabled}
+                          >Direct contributions to explicit public targets</option
+                        >
+                      </NativeSelect></Field.Label
+                    >
+                    {#if destination !== 'REVIEW'}
+                      <p>
+                        Requested rights are intersected with current permissions on every tool
+                        call. Catalogue admission and official edits remain human-only.
+                      </p>
+                      {#each ['CREATE_RECORD', 'REVISE_RECORD', 'CREATE_RELATION'] as const as operation (operation)}
+                        <Field.Label
+                          ><Checkbox
+                            checked={operations.includes(operation)}
+                            onCheckedChange={(checked) => {
+                              operations = checked
+                                ? [...operations, operation]
+                                : operations.filter((item) => item !== operation);
+                            }}
+                            value={operation}
+                          />{operation}</Field.Label
+                        >
+                      {/each}
+                      {#if operations.includes('REVISE_RECORD')}
+                        <Field.Label
+                          >Editable research object IDs<Textarea bind:value={editable}
+                          ></Textarea></Field.Label
+                        >
+                        <p>
+                          Pin each record's exact input version. Only records you can delegate
+                          editing may be listed; use a suggestion for other records.
+                        </p>
+                      {/if}
+                      <Field.Label
+                        >Maximum mutations<Input
+                          type="number"
+                          min="1"
+                          max="50"
+                          required
+                          bind:value={maxMutations}
+                        /></Field.Label
+                      >
+                      <Field.Label
+                        >Maximum content bytes per mutation<Input
+                          type="number"
+                          min="1"
+                          max="500000"
+                          required
+                          bind:value={maxContentBytes}
+                        /></Field.Label
+                      >
+                    {/if}
+                    {#if destination === 'PUBLIC'}
+                      <p class="notice">
+                        This run uses only the separate public task and public research inputs. Your
+                        private conversation and private version selections are excluded. Do not put
+                        private information in the public task.
+                      </p>
+                      {#each $pins.data?.pages.flatMap((page) => page.items) ?? [] as pin (pin.id)}
+                        {#if pin.available}<Field.Label
+                            ><Checkbox
+                              checked={targets.includes(pin.object_version_id)}
+                              onCheckedChange={(checked) => {
+                                targets = checked
+                                  ? [...targets, pin.object_version_id]
+                                  : targets.filter((item) => item !== pin.object_version_id);
+                              }}
+                              value={pin.object_version_id}
+                            />Public contribution target: {pin.title}</Field.Label
+                          >{/if}
+                      {/each}
+                      <Field.Label
+                        >Additional exact public target version IDs<Textarea
+                          bind:value={extraTargets}
+                        ></Textarea></Field.Label
+                      >
+                      <p>
+                        Public targets are also explicitly pinned as inputs. Public contributions
+                        are visible immediately; they are not verified results.
+                      </p>
+                    {/if}
+                  </fieldset>
                 {/if}
-              </fieldset>
-            {/if}
-          </details>
-        </div>
-        {#if destination !== 'PUBLIC'}<Field.Label class="project-chat-message"
-            >{$session.data?.is_shared ? 'Message shared with project' : 'Private message'}<Textarea
-              required
-              bind:value={chatDraft.message}
-              bind:ref={sessionChatInput}
-              onkeydown={composerKeydown}
-            ></Textarea></Field.Label
-          >
-        {:else}<p>
-            Your private message draft is retained locally and is not sent with this turn.
-          </p>{/if}
-        <div class="row">
-          {#if sessionSendReason}<span class="project-chat-send-reason" role="status"
-              >{sessionSendReason}</span
-            >{/if}
-          <Button type="submit" disabled={Boolean(sessionSendReason)}
-            >{busy
-              ? 'Working…'
-              : destination === 'PUBLIC'
-                ? 'Authorize public contribution run'
-                : 'Send'}</Button
-          >{#if active}<Button
-              variant="outline"
-              class=""
-              type="button"
-              disabled={busy}
-              onclick={() => control('cancel')}>Cancel run</Button
-            >{:else if run && ['CANCELLED', 'FAILED', 'TIMED_OUT'].includes(run.status)}<Button
-              variant="outline"
-              class=""
-              type="button"
-              disabled={busy ||
-                Boolean($task.data?.archived_at) ||
-                !profileId ||
-                !executionEnabled ||
-                !$capabilities.data?.execution_available}
-              onclick={() => control('resume')}>Resume run</Button
-            >{/if}
-        </div>
-      </form>{:else}<p role="status">
+              </details>
+            </div>
+            {#if destination === 'PUBLIC'}<p class="project-chat-public-notice">
+                This sends a public task. Your private message draft stays private and is not
+                included.
+              </p>{/if}
+          {/snippet}
+        </ChatComposer>
+      </div>{:else}<p role="status">
         Shared conversation · only its creator can send messages or control runs.
       </p>{/if}
   {/if}

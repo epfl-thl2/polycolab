@@ -152,7 +152,7 @@ test('linear coediting persists, reconnects, and restores across two real member
     await page.getByRole('button', { name: /^(Show|Hide) left panel$/ }).click();
     const chatDrawer = page.getByRole('dialog', { name: 'Conversations', exact: true });
     await expect(
-      chatDrawer.getByRole('navigation', { name: 'Your conversations', exact: true }),
+      chatDrawer.getByRole('navigation', { name: 'Recent conversations', exact: true }),
     ).toBeVisible();
     await chatDrawer.getByRole('link', { name: 'New chat Draft', exact: true }).last().click();
     await expect(chatDrawer).toBeHidden();

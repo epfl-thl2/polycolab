@@ -68,7 +68,7 @@ test('Default projects save current server files without version history', async
   await composer.fill('First draft');
   await page.getByRole('button', { name: 'New chat', exact: true }).click();
   await composer.fill('Second draft');
-  const conversations = page.getByRole('navigation', { name: 'Your conversations' });
+  const conversations = page.getByRole('navigation', { name: 'Recent conversations' });
   await conversations.getByRole('link').first().click();
   await expect(composer).toHaveValue('First draft');
   await page.screenshot({ path: test.info().outputPath('default-desktop.png') });

@@ -5,7 +5,7 @@
   import type { ProjectTab } from '../../../lib/project-tabs';
   import { projectContext } from '../../../svelte-lib/context';
   import { Button } from '../../../lib/components/ui/button';
-  import { MessageSquarePlus, PanelLeftClose } from '@lucide/svelte';
+  import { SquarePen, PanelLeftClose } from '@lucide/svelte';
   import { untrack } from 'svelte';
   import { sessionTitles } from '../../../lib/session-queries';
   import { projectDialogs } from '../project-dialogs';
@@ -58,6 +58,7 @@
   );
   const dialogs = projectDialogs();
   let leftMode = $state<'chats' | 'files'>('chats');
+  let rightClosed = $state(true);
   function selectPanel(panel: 'chats' | 'files') {
     leftMode = panel;
     shell?.showPanel('left');
@@ -82,6 +83,7 @@
 
 <ProjectShell
   bind:this={shell}
+  bind:rightClosed
   projectName={project.name}
   leftTitle={leftMode === 'files' ? 'Files' : 'Conversations'}
   leftLabel={leftMode === 'files' ? 'Project files' : 'Conversations'}
@@ -131,50 +133,40 @@
 </ProjectShell>
 {#snippet conversations()}
   {#if canChat}<div class="new-chat">
-      <Button variant="outline" onclick={newChat}><MessageSquarePlus size={16} />New chat</Button>
+      <Button variant="ghost" onclick={newChat}
+        ><SquarePen size={16} aria-hidden="true" />New chat</Button
+      >
     </div>{/if}
-  {#if chatsError}<p role="alert">{chatsError}</p>
-    <Button variant="ghost" onclick={refreshChats}>Retry conversations</Button>{/if}
-  {#if !chatsLoaded && !chatsError}<p class="muted">Loading conversations…</p>{/if}
-  <nav aria-label="Your conversations">
-    <h3>Your conversations</h3>
-    {#each draftChats as draft (draft.id)}<a
-        href={draft.href}
-        aria-current={activeId === draft.id ? 'page' : undefined}
-        onclick={(event) => openChat(event, draft.href)}
-        ><span>New chat</span><small>Draft</small></a
-      >{/each}
-    {#each sessions.filter((item) => item.can_control) as session (session.id)}
-      {@const href = `/projects/${project.id}/sessions/${session.id}`}
-      <a
-        {href}
-        aria-current={entity === session.id && section === 'sessions' ? 'page' : undefined}
-        onclick={(event) => openChat(event, href)}
-        ><span>{$titles[session.id] || session.title || session.agent_display_name}</span
-        >{#if session.is_shared}<small>Shared</small>{/if}</a
-      >
-    {/each}
-    {#if chatsLoaded && !draftChats.length && !sessions.some((item) => item.can_control)}<p
-        class="muted"
-      >
-        Your conversations will appear here.
-      </p>{/if}
-  </nav>
-  {#if sessions.some((item) => !item.can_control)}<nav aria-label="Shared conversations">
-      <h3>Shared with you</h3>
-      {#each sessions.filter((item) => !item.can_control) as session (session.id)}
+  <div class="recents">
+    <h3>Recents</h3>
+    {#if chatsError}<p role="alert">{chatsError}</p>
+      <Button variant="ghost" onclick={refreshChats}>Retry conversations</Button>{/if}
+    {#if !chatsLoaded && !chatsError}<p class="muted">Loading conversations…</p>{/if}
+    <nav aria-label="Recent conversations">
+      {#each draftChats as draft (draft.id)}<a
+          href={draft.href}
+          aria-current={activeId === draft.id ? 'page' : undefined}
+          onclick={(event) => openChat(event, draft.href)}
+          ><span>New chat</span><small>Draft</small></a
+        >{/each}
+      {#each sessions as session (session.id)}
         {@const href = `/projects/${project.id}/sessions/${session.id}`}
         <a
           {href}
           aria-current={entity === session.id && section === 'sessions' ? 'page' : undefined}
           onclick={(event) => openChat(event, href)}
-          >{$titles[session.id] || session.title || session.agent_display_name}</a
+          ><span>{$titles[session.id] || session.title || session.agent_display_name}</span
+          >{#if session.is_shared}<small>Shared</small>{/if}</a
         >
       {/each}
-    </nav>{/if}
-  {#if moreChats}<Button variant="ghost" disabled={chatsLoading} onclick={loadMore}
-      >Load more conversations</Button
-    >{/if}
+      {#if chatsLoaded && !draftChats.length && !sessions.length}<p class="muted">
+          Your recent conversations will appear here.
+        </p>{/if}
+    </nav>
+    {#if moreChats}<Button variant="ghost" disabled={chatsLoading} onclick={loadMore}
+        >Load more conversations</Button
+      >{/if}
+  </div>
 {/snippet}
 
 <style>
@@ -195,12 +187,15 @@
   }
 
   .conversations a span {
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .new-chat {
-    padding: 16px 0 8px;
+    flex-shrink: 0;
+    padding: 8px 0;
   }
   .new-chat :global(button) {
     width: 100%;
@@ -224,24 +219,42 @@
     display: none;
   }
   .conversations {
+    display: flex;
+    flex-direction: column;
     flex: 1;
     min-height: 0;
     min-width: 0;
-    overflow: auto;
+    overflow: hidden;
     background: var(--sidebar);
     font-size: 12px;
+  }
+  .recents {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
   }
   .conversations a {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 8px;
+    min-height: 28px;
+    padding: 4px 8px;
+    line-height: 20px;
     border-radius: 4px;
+    text-decoration: none;
   }
   .conversations a[aria-current='page'],
   .conversations a:hover {
-    background: var(--sidebar-accent);
+    background: var(--accent);
+    text-decoration: none;
+  }
+  .conversations a:focus-visible {
+    outline: 2px solid var(--muted-foreground);
+    outline-offset: -2px;
+  }
+  .conversations a small {
+    flex-shrink: 0;
   }
   .chat-content {
     height: 100%;
@@ -251,8 +264,10 @@
     overflow: auto;
   }
   h3 {
-    margin-top: 1rem;
-    font-size: 0.85rem;
+    margin: 8px 0;
+    padding: 0 8px;
+    font-size: 12px;
+    color: var(--muted-foreground);
   }
   .muted,
   small {
