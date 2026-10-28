@@ -1,6 +1,6 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import * as Field from '../lib/components/ui/field';
-  import * as Alert from '../lib/components/ui/alert';
   import { Textarea } from '../lib/components/ui/textarea';
   import { Button } from '../lib/components/ui/button';
   import { untrack } from 'svelte';
@@ -125,8 +125,11 @@
       <p class="muted">
         Source order is preserved. The server validates project access and stale base revisions.
       </p>
-      {#if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>{/if}
-      {#if status}<p role="status">{status}</p>{/if}
+      <FeedbackToast
+        pending={busy}
+        message={error || status}
+        variant={error ? 'error' : 'success'}
+      />
       <Button type="submit" disabled={busy}>Save authored summary</Button>
     </form>
   {/if}

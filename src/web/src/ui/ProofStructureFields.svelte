@@ -1,5 +1,5 @@
 <script lang="ts">
-  import * as Alert from '../lib/components/ui/alert';
+  import FeedbackToast from './FeedbackToast.svelte';
   import * as Field from '../lib/components/ui/field';
   import { Input } from '../lib/components/ui/input';
   import { Button } from '../lib/components/ui/button';
@@ -15,6 +15,7 @@
   let error = $state('');
 
   function addPremise() {
+    error = '';
     const revisionId = premiseDraft.trim();
     if (!revisionId) return;
     if (revisionId === conclusionRevisionId.trim()) {
@@ -42,7 +43,7 @@
     Record one exact conclusion and the ordered, jointly required premise set for this proof sketch.
     Exploratory relationships belong outside this structure.
   </p>
-  {#if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>{/if}
+  <FeedbackToast message={error} variant="error" onDismiss={() => (error = '')} />
   <Field.Label>
     Exact conclusion version ID
     <Input required bind:value={conclusionRevisionId} />

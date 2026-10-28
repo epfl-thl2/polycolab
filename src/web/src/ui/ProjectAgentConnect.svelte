@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import { onMount } from 'svelte';
   import { Copy, KeyRound, BookOpen, ArrowUpRight } from '@lucide/svelte';
   import { Button } from '../lib/components/ui/button';
@@ -11,6 +12,7 @@
   }: { projectId: string; projectName: string; signedIn: boolean; canWrite: boolean } = $props();
   let origin = $state('');
   let notice = $state('');
+  let error = $state('');
   let showKeyDialog = $state(false);
   onMount(() => {
     origin = window.location.origin;
@@ -29,14 +31,18 @@
     ].join('\n'),
   );
   async function copy() {
+    error = '';
+    notice = '';
     try {
       await navigator.clipboard.writeText(instructions);
       notice = 'Instructions copied.';
     } catch {
-      notice = 'Could not copy. Select and copy the instructions below.';
+      error = 'Could not copy. Select and copy the instructions below.';
     }
   }
 </script>
+
+<FeedbackToast message={error || notice} variant={error ? 'error' : 'success'} />
 
 <header>
   <h1>Agent connect</h1>
@@ -91,7 +97,6 @@
         ><Copy size={16} aria-hidden="true" />Copy instructions</Button
       ><a href="/SKILL.md" data-sveltekit-reload>SKILL.md</a>
     </div>
-    {#if notice}<p role="status">{notice}</p>{/if}
   </li>
   <li>
     <h2>Choose a task</h2>

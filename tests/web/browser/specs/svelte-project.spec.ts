@@ -195,6 +195,19 @@ async function mock(
         },
       });
     requests.push(`${request.method()} ${path}`);
+    if (request.method() === 'GET' && path === `/api/v1/projects/${projectId}/repository`)
+      return route.fulfill({
+        json: {
+          enabled: false,
+          branch: url.searchParams.get('branch') ?? 'main',
+          writable: false,
+          commit: null,
+          files: [],
+          branches: {},
+        },
+      });
+    if (request.method() === 'GET' && path === '/api/v1/project-references')
+      return route.fulfill({ json: { items: [], next_cursor: null } });
     if (path === '/api/v1/agent-capabilities')
       return route.fulfill({
         json: {
@@ -2295,11 +2308,11 @@ test('new chat keeps its first message and session when the first send fails', a
   await expect(reason).toHaveCount(0);
   await expect(send).toBeEnabled();
   await send.click();
-  await expect(page.locator('.error-toast').getByRole('alert')).toContainText(
+  await expect(page.locator('[data-feedback-toast]').getByRole('alert')).toContainText(
     'temporarily_unavailable',
   );
-  await page.getByRole('button', { name: 'Dismiss error' }).click();
-  await expect(page.locator('.error-toast')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Dismiss notification' }).click();
+  await expect(page.locator('[data-feedback-toast]')).toHaveCount(0);
   await expect(page.getByLabel('Message the agent')).toHaveValue(
     'Check the smallest counterexample.',
   );
@@ -2355,13 +2368,13 @@ test('failed agent message remains editable and successful retry uses the same r
   await page.getByLabel('Private message', { exact: true }).fill('Explore the gap.');
   await expect(page.locator('.project-chat-composer .project-chat-send-reason')).toHaveCount(0);
   await page.getByRole('button', { name: 'Send', exact: true }).click();
-  await expect(page.locator('.error-toast').getByRole('alert')).toContainText(
+  await expect(page.locator('[data-feedback-toast]').getByRole('alert')).toContainText(
     'temporarily_unavailable',
   );
   await expect(page.getByLabel('Private message', { exact: true })).toHaveValue('Explore the gap.');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await expect(page.getByLabel('Private message', { exact: true })).toHaveValue('');
-  await expect(page.locator('.error-toast')).toHaveCount(0);
+  await expect(page.locator('[data-feedback-toast]')).toHaveCount(0);
   expect(bodies[1].client_request_id).toBe(bodies[0].client_request_id);
   expect(bodies[1].context_object_version_ids).toEqual([revisionId]);
   expect(bodies[1].context_artifact_ids).toEqual(['artifact-exact-1']);
@@ -3208,6 +3221,7 @@ test('owner settings are reachable and save details without changing visibility'
   await expect(settings.locator('.settings-section')).toHaveCount(3);
   await page.screenshot({ path: '/tmp/polycolab-project-settings.png', fullPage: true });
   await page.getByLabel('Name', { exact: true }).fill('Revised name');
+  const beforeSave = await settings.boundingBox();
   const request = page.waitForRequest((r) => r.method() === 'PATCH');
   await page.getByRole('button', { name: 'Save settings' }).click();
   expect((await request).postDataJSON()).toEqual({
@@ -3215,6 +3229,76 @@ test('owner settings are reachable and save details without changing visibility'
     description: project.description,
   });
   await expect(page.getByRole('status')).toContainText('Settings saved');
+  await expect(page.locator('[data-toast-stack]')).toHaveCount(1);
+  expect((await settings.boundingBox())?.y).toBe(beforeSave?.y);
+  await page.getByRole('button', { name: 'Dismiss notification' }).click();
+  await expect(page.locator('[data-feedback-toast]')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Save settings' }).click();
+  await expect(page.locator('[data-feedback-toast]')).toContainText('Settings saved.');
+  await page
+    .getByRole('complementary', { name: 'Project navigation', exact: true })
+    .getByRole('link', { name: 'Agent connect', exact: true })
+    .click();
+  await expect(page.getByRole('heading', { name: 'Agent connect', exact: true })).toBeVisible();
+  await expect(page.locator('[data-feedback-toast]')).toContainText('Settings saved.');
+});
+
+test('shared success toasts pause for hover and keyboard focus before expiring', async ({
+  page,
+}) => {
+  await mock(page);
+  await page.clock.install();
+  await page.goto(`/projects/${projectId}/settings`);
+  await page.getByRole('button', { name: 'Save settings' }).click();
+  const toast = page.locator('[data-feedback-toast]').filter({ hasText: 'Settings saved.' });
+  await expect(toast).toBeVisible();
+  await toast.hover();
+  await page.clock.runFor(6000);
+  await expect(toast).toBeVisible();
+  const dismiss = toast.getByRole('button', { name: 'Dismiss notification' });
+  await dismiss.focus();
+  await page.mouse.move(0, 0);
+  await page.clock.runFor(6000);
+  await expect(toast).toBeVisible();
+  await page.getByLabel('Name', { exact: true }).focus();
+  await page.clock.runFor(5100);
+  await expect(toast).toHaveCount(0);
+});
+
+test('failed member refresh keeps cached content and reports a retryable toast', async ({
+  page,
+}) => {
+  await mock(page);
+  let fail = false;
+  await page.route(new RegExp(`/api/v1/projects/${projectId}/members(?:\\?.*)?$`), (route) =>
+    fail
+      ? route.fulfill({ status: 503, json: { error: { code: 'unavailable' } } })
+      : route.fulfill({
+          json: [
+            {
+              user_id: '11111111-1111-4111-8111-111111111111',
+              username: 'ada',
+              display_name: 'Ada Lovelace',
+              role: 'OWNER',
+              created_at: revision.created_at,
+            },
+          ],
+        }),
+  );
+  await page.goto(`/projects/${projectId}/settings`);
+  const member = page.getByRole('listitem').filter({ hasText: 'Ada Lovelace' });
+  await expect(member).toBeVisible();
+  const before = await member.boundingBox();
+  fail = true;
+  await page.getByRole('button', { name: 'Refresh members' }).click();
+  const toast = page.locator('[data-feedback-toast]').filter({ has: page.getByRole('alert') });
+  await expect(toast).toBeVisible();
+  await expect(member).toBeVisible();
+  expect((await member.boundingBox())?.y).toBe(before?.y);
+  fail = false;
+  await toast.getByRole('button', { name: 'Retry', exact: true }).click();
+  await expect(toast).toHaveCount(0);
+  await expect(member).toBeVisible();
 });
 
 test('project owners add registered collaborators by exact username', async ({ page }) => {
@@ -4654,6 +4738,16 @@ test('project Agent connect provides scoped instructions and a collapsed navigat
   await keyDialog.getByLabel('Key name').fill('Lean helper');
   await keyDialog.getByRole('button', { name: 'Create API key' }).click();
   await expect(page.getByLabel('API key', { exact: true })).toHaveValue('shown-once-secret');
+  const issuedDialog = page.getByRole('dialog', { name: 'Your API key' });
+  const stack = issuedDialog.locator('[data-toast-stack]');
+  await expect(stack).toHaveCount(1);
+  await expect(stack.getByRole('status')).toHaveText('API key created.');
+  const dismiss = stack.getByRole('button', { name: 'Dismiss notification' });
+  await dismiss.focus();
+  await expect(dismiss).toBeFocused();
+  await dismiss.press('Enter');
+  await expect(stack).toHaveCount(0);
+  await expect(issuedDialog).toBeVisible();
   await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page).toHaveURL(`/projects/${projectId}/agent-connect`);
@@ -5153,19 +5247,62 @@ test('project Files saves through the member API and retains stale drafts', asyn
       return head;
     },
   );
+  let releaseRefresh!: () => void;
+  const refreshGate = new Promise<void>((resolve) => (releaseRefresh = resolve));
+  await page.route(`**/api/v1/projects/${projectId}/worktrees**`, async (route) => {
+    if (
+      route.request().method() === 'GET' &&
+      head === 'b'.repeat(40) &&
+      !new URL(route.request().url()).pathname.endsWith('/file')
+    )
+      await refreshGate;
+    await route.fallback();
+  });
   await page.goto(`/projects/${projectId}/files`);
   await page.getByRole('button', { name: 'notes.md', exact: true }).click();
   await expect(await plainFileEditor(page)).toHaveValue('Initial note');
   await (await plainFileEditor(page)).fill('Updated note');
+  const refreshing = page.waitForRequest(
+    (request) =>
+      request.method() === 'GET' &&
+      request.url().includes(`/projects/${projectId}/worktrees`) &&
+      head === 'b'.repeat(40),
+  );
   await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(page.getByText('Saved.', { exact: true })).toBeVisible();
+  const toast = page.locator('[data-feedback-toast]');
+  await expect(toast.getByRole('status')).toHaveText('Saved.');
+  await refreshing;
+  try {
+    await expect(
+      page.getByText('Shared files changed since you opened this draft.', { exact: true }),
+    ).toHaveCount(0);
+  } finally {
+    releaseRefresh();
+  }
+  await expect(page.locator('[data-toast-stack]')).toHaveCSS('position', 'fixed');
+  await expect(page.locator('[data-toast-stack]')).toHaveAttribute('popover', 'manual');
+  await expect(toast).toBeVisible();
+  const viewport = page.viewportSize()!;
+  const toastBox = (await toast.boundingBox())!;
+  expect(toastBox.y + toastBox.height).toBeLessThanOrEqual(viewport.height);
+  expect(toastBox.y).toBeGreaterThan(viewport.height / 2);
+  await toast.getByRole('button', { name: 'Dismiss notification' }).click();
+  await expect(toast).toHaveCount(0);
   expect(saved).toBe('Updated note');
   stale = true;
   await (await plainFileEditor(page)).fill('Draft to retain');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(page.getByRole('main').getByRole('alert')).toContainText(
+  await expect(toast.getByRole('alert')).toContainText(
     'Compare the latest version before saving again',
   );
+  await expect(await plainFileEditor(page)).toHaveValue('Draft to retain');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(toast).toBeVisible();
+  const mobileBox = (await toast.boundingBox())!;
+  expect(mobileBox.x).toBeGreaterThanOrEqual(0);
+  expect(mobileBox.x + mobileBox.width).toBeLessThanOrEqual(390);
+  await toast.getByRole('button', { name: 'Dismiss notification' }).click();
+  await expect(toast).toHaveCount(0);
   await expect(await plainFileEditor(page)).toHaveValue('Draft to retain');
 });
 

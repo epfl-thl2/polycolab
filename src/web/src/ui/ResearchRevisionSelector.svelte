@@ -1,6 +1,6 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import * as Field from '../lib/components/ui/field';
-  import * as Alert from '../lib/components/ui/alert';
   import { Button } from '../lib/components/ui/button';
   import { Input } from '../lib/components/ui/input';
   export type RevisionChoice = {
@@ -91,7 +91,7 @@
         onclick={() => void runSearch()}>{busy ? 'Searching…' : 'Search'}</Button
       >
     </div>
-    {#if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>{/if}
+    {#if error}<FeedbackToast message={error} variant="error" />{/if}
     {#if searched && !busy}
       <ul class="selector-results" aria-label={`${label} search results`}>
         {#each results as choice (choice.revisionId)}

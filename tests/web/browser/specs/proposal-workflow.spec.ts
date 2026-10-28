@@ -227,7 +227,12 @@ test('stale atomic batch preserves every selected draft and applies no partial s
   await page.getByLabel('Select change 2').check();
   await page.getByRole('button', { name: 'Apply 2 selected decisions' }).click();
 
-  await expect(page.getByRole('main').getByRole('alert')).toContainText('draft is retained');
+  await expect(
+    page
+      .locator('[data-feedback-toast]')
+      .getByRole('alert')
+      .filter({ hasText: 'draft is retained' }),
+  ).toBeVisible();
   await expect(page.getByText('PENDING')).toHaveCount(2);
   await expect(page.getByLabel('Select change 1')).toBeChecked();
   await expect(page.getByLabel('Select change 2')).toBeChecked();

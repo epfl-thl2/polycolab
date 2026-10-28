@@ -1,9 +1,9 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import { NativeSelect } from '../lib/components/ui/native-select';
   import ObjectProgress from './ObjectProgress.svelte';
   import ObjectReviews from './ObjectReviews.svelte';
   import LoadingState from './LoadingState.svelte';
-  import * as Alert from '../lib/components/ui/alert';
   import ObjectKindBadge from './ObjectKindBadge.svelte';
   import * as Field from '../lib/components/ui/field';
   import { Button } from '../lib/components/ui/button';
@@ -182,16 +182,23 @@
   const revision = $derived(selectedId ? $exactVersion.data : $object.data?.current_object_version);
 </script>
 
+<FeedbackToast
+  message={$object.isError ? explain($object.error) : ''}
+  variant="error"
+  action={{ label: 'Retry', run: () => $object.refetch() }}
+/>
+<FeedbackToast
+  message={$exactVersion.isError ? explain($exactVersion.error) : ''}
+  variant="error"
+  action={{ label: 'Retry', run: () => $exactVersion.refetch() }}
+/>
+
 <svelte:window onbeforeunload={beforeUnload} />
 {#if $object.isPending || (selectedId && $exactVersion.isPending)}<LoadingState>
     Opening document…
-  </LoadingState>{:else if $object.isError || !$object.data}<Alert.Root
-    variant="destructive"
-    role="alert">{explain($object.error)}</Alert.Root
-  >
+  </LoadingState>{:else if !$object.data}
   <Button type="submit" onclick={() => $object.refetch()}>Retry</Button>
-{:else if selectedId && $exactVersion.isError}
-  <Alert.Root variant="destructive" role="alert">{explain($exactVersion.error)}</Alert.Root>
+{:else if selectedId && $exactVersion.isError && !$exactVersion.data}
   <Button type="button" onclick={() => $exactVersion.refetch()}>Retry exact version</Button>
 {:else}
   <article class="document">
@@ -216,12 +223,12 @@
         </p>
       </div>
     </div>
-    {#if selectedId}<p class="notice">
+    {#if selectedId}<div class="version-controls">
         Viewing exact version {revision?.number}.
         <Button type="submit" variant="outline" class="" onclick={() => showVersion()}
           >Return to current version</Button
         >
-      </p>{/if}
+      </div>{/if}
     <div class="tabs project-information-tabs" aria-label="Document views">
       {#each [['read', 'Body'], ['edit', 'Edit'], ['history', 'History'], ['discussion', 'Discussion'], ['progress', 'Progress'], ['reviews', 'Reviews'], ['relations', 'Relationships']] as [id, label] (id)}{#if id !== 'edit' || canWrite}<Button
             type="button"
@@ -231,7 +238,7 @@
             onclick={() => (tab = id)}>{label}{id === 'edit' && dirty ? ' •' : ''}</Button
           >{/if}{/each}
     </div>
-    {#if notice}<p role="status" class="notice">{notice}</p>{/if}
+    <FeedbackToast pending={busy} message={error || notice} variant={error ? 'error' : 'success'} />
     {#if revision && tab === 'progress'}<ObjectProgress
         version={revision}
         {projectId}
@@ -273,8 +280,8 @@
             ? 'Unsaved changes'
             : 'All changes saved'}
         </p>
-        {#if error}<div role="alert" class="notice">
-            {error}<Button variant="outline" type="button" class="" onclick={compare}
+        {#if error}<div class="comparison-controls">
+            <Button variant="outline" type="button" class="" onclick={compare}
               >Compare latest version</Button
             >
           </div>{/if}{#if latest}<section class="card">

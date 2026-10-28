@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import * as Tooltip from '../lib/components/ui/tooltip';
   import * as DropdownMenu from '../lib/components/ui/dropdown-menu';
   import AccountMenu from './AccountMenu.svelte';
@@ -152,7 +153,7 @@
             {/if}
           </DropdownMenu.Content>
         </DropdownMenu.Root>
-        {#if accountError}<p role="alert">{accountError}</p>{/if}
+        {#if accountError}<FeedbackToast message={accountError} variant="error" />{/if}
       </nav>
     </aside>
   </div>

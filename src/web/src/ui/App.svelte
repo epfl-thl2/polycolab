@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { notificationService } from '../svelte-lib/notifications.svelte';
+  const notifications = notificationService();
   import { Capabilities } from '../svelte-lib/capabilities.svelte';
   import { createHistoryApi } from '../lib/history-api';
   import LoadingState from './LoadingState.svelte';
@@ -42,6 +44,7 @@
   const sourceDrafts = new SvelteMap<string, SourceRevisionDraft>();
   let accountEpoch = $state(0);
   const auth = new Auth(() => {
+    notifications?.clear();
     query.clear();
     drafts.clear();
     sourceDrafts.clear();

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Button } from '../lib/components/ui/button';
+  import FeedbackToast from './FeedbackToast.svelte';
   import { onMount } from 'svelte';
   import type { components } from '$lib/api-client';
   import type { CatalogueEntry } from '../lib/catalogue-api';
@@ -28,20 +28,23 @@
     `/projects/${reference.project_id}/records?import=${reference.object_version_id}&kind=${kind}`;
 </script>
 
-{#if error}<p class="muted">
-    Library metadata unavailable. <Button variant="outline" onclick={load}>Retry</Button>
-  </p>{/if}
+<FeedbackToast
+  message={error ? 'Library metadata unavailable.' : ''}
+  variant="error"
+  action={{ label: 'Retry', run: load }}
+/>
 {#if entry}<LibraryBasis {entry} /><Markdown content={entry.object_version.content.content_md} />
   <details>
     <summary>Assumptions</summary><Markdown content={entry.object_version.content.assumptions_md} />
   </details>{/if}
-{#if reference.latest_object_version_id && reference.latest_object_version_id !== reference.object_version_id}<p
-    class="notice"
-  >
-    A newer Library version is available. Your existing research still uses the imported version. <a
-      href={`/library/${reference.object_id}`}>Inspect latest</a
-    >
-  </p>{/if}
+<FeedbackToast
+  message={reference.latest_object_version_id &&
+  reference.latest_object_version_id !== reference.object_version_id
+    ? 'A newer Library version is available. Your research still uses the imported version.'
+    : ''}
+  variant="info"
+  action={{ label: 'Inspect latest', href: `/library/${reference.object_id}` }}
+/>
 {#if canWrite}<div class="row">
     <a href={href('ATTEMPT')}>Start attempt</a><a href={href('PROOF')}>Write proof sketch</a><a
       href={href('STATEMENT')}>Develop related claim</a

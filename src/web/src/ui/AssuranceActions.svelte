@@ -1,5 +1,5 @@
 <script lang="ts">
-  import * as Alert from '../lib/components/ui/alert';
+  import FeedbackToast from './FeedbackToast.svelte';
   import * as Field from '../lib/components/ui/field';
   import { NativeSelect } from '../lib/components/ui/native-select';
   import { Textarea } from '../lib/components/ui/textarea';
@@ -106,8 +106,7 @@
     Endorsement and formal/informal correspondence are separate judgments. Neither changes catalogue
     admission or establishes truth.
   </p>
-  {#if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>{/if}
-  {#if status}<p role="status">{status}</p>{/if}
+  <FeedbackToast pending={busy} message={error || status} variant={error ? 'error' : 'success'} />
 
   <form
     onsubmit={(event) => {

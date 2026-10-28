@@ -1,8 +1,7 @@
 <script lang="ts">
   import { Checkbox } from '../lib/components/ui/checkbox';
   import LoadingState from './LoadingState.svelte';
-  import ErrorToast from './ErrorToast.svelte';
-  import * as Alert from '../lib/components/ui/alert';
+  import FeedbackToast from './FeedbackToast.svelte';
   import * as Field from '../lib/components/ui/field';
   import * as DropdownMenu from '../lib/components/ui/dropdown-menu';
   import { NativeSelect } from '../lib/components/ui/native-select';
@@ -514,6 +513,37 @@
   }
 </script>
 
+<FeedbackToast
+  message={$available.isError ? explain($available.error) : ''}
+  variant="error"
+  action={{ label: 'Retry', run: () => $available.refetch() }}
+/>
+<FeedbackToast
+  message={$profiles.isError ? explain($profiles.error) : ''}
+  variant="error"
+  action={{ label: 'Retry', run: () => $profiles.refetch() }}
+/>
+<FeedbackToast
+  message={$sessions.isError ? explain($sessions.error) : ''}
+  variant="error"
+  action={{ label: 'Retry', run: () => $sessions.refetch() }}
+/>
+<FeedbackToast
+  message={$messages.isError ? explain($messages.error) : ''}
+  variant="error"
+  action={{ label: 'Retry', run: () => $messages.refetch() }}
+/>
+<FeedbackToast
+  message={$exports.isError ? explain($exports.error) : ''}
+  variant="error"
+  action={{ label: 'Retry', run: () => $exports.refetch() }}
+/>
+<FeedbackToast
+  message={$pins.isError ? explain($pins.error) : ''}
+  variant="error"
+  action={{ label: 'Retry', run: () => $pins.refetch() }}
+/>
+
 {#if sessionId && !currentTaskId && $repositoryState.data?.enabled && hostedAvailable}
   <div class="session-repository-controls">
     {#if $sessionRepository.data?.enabled}
@@ -539,10 +569,10 @@
   class:project-chat-detail={Boolean(sessionId)}
   class:project-chat-new={!sessionId && !allSessions}
 >
-  {#if !executionEnabled}<p class="notice">
-      Hosted execution is disabled. Saved sessions remain available.
-    </p>{/if}
-  <ErrorToast message={error} placement="top" />
+  <span class="project-execution-state" aria-label="Execution status"
+    >{executionEnabled ? 'Execution available' : 'Execution disabled'}</span
+  >
+  <FeedbackToast pending={busy} message={error} variant="error" />
   {#if !sessionId}
     {#if allSessions}<header class="project-chat-intro">
         <h1>All sessions</h1>
@@ -714,12 +744,6 @@
           </DropdownMenu.Root>
         {/snippet}
       </ChatComposer>
-      {#if $available.isError}<Alert.Root variant="destructive" role="alert"
-          >{explain($available.error)}</Alert.Root
-        >{/if}
-      {#if $profiles.isError}<Alert.Root variant="destructive" role="alert"
-          >{explain($profiles.error)}</Alert.Root
-        >{/if}
     {/if}
     {#if allSessions}<section
         class="project-chat-history"
@@ -738,9 +762,7 @@
             </li>{/each}
         </ul>
         {#if $sessions.isPending}<LoadingState>Loading sessions…</LoadingState
-          >{:else if $sessions.isError}<Alert.Root variant="destructive" role="alert">
-            {explain($sessions.error)}
-          </Alert.Root>
+          >{:else if $sessions.isError && !$sessions.data}
           <Button type="submit" onclick={() => $sessions.refetch()}>Retry</Button
           >{:else if !$sessions.data?.pages[0].items.length}<p class="empty">
             No sessions yet. Choose an agent to begin.
@@ -751,12 +773,10 @@
       </section>{/if}
   {:else if $session.isPending}<LoadingState>
       Opening session…
-    </LoadingState>{:else if $session.isError || $session.data?.project_id !== projectId}<Alert.Root
-      variant="destructive"
-      role="alert"
-    >
-      Session unavailable. Return to the session list.
-    </Alert.Root>{:else}
+    </LoadingState>{:else if ($session.isError && !$session.data) || $session.data?.project_id !== projectId}<FeedbackToast
+      message="Session unavailable. Return to the session list."
+      variant="error"
+    />{:else}
     <header class="project-chat-thread-header">
       <a href={`/projects/${projectId}/sessions`}>← All sessions</a>
       <h1>{$session.data?.title || $session.data?.agent_display_name}</h1>
@@ -809,10 +829,12 @@
             }}>Share full conversation and future messages</Button
           ><Button variant="outline" onclick={() => (sharing = false)}>Cancel</Button>
         </section>{/if}
-      {#if linear && $session.data?.worktree_id}<p role="status">
-          This conversation began in Git mode. New turns use the current linear project; earlier
-          snapshots remain in the Git archive.
-        </p>{/if}
+      <FeedbackToast
+        message={linear && $session.data?.worktree_id
+          ? 'This conversation began in Git mode. New turns use the linear project; earlier snapshots remain in the Git archive.'
+          : ''}
+        variant="info"
+      />
       {#if $session.data?.can_control === false}<p>Shared conversation · View only</p>{/if}
     </header>
     <div class="project-chat-panel-meta" use:chatPanelPortal={isVisible}>
@@ -826,9 +848,7 @@
         </details>
       {/if}
     </div>
-    {#if $messages.isError}<Alert.Root variant="destructive" role="alert"
-        >{explain($messages.error)}</Alert.Root
-      >
+    {#if $messages.isError}
       <Button type="submit" onclick={() => $messages.refetch()}>Retry messages</Button>{/if}
     <div class="transcript">
       {#each $messages.data?.pages.flatMap((p) => p.items) ?? [] as message (message.id)}<article
@@ -871,9 +891,10 @@
           </p>
         {/if}
         {#if run?.failure_code?.startsWith('repository_')}
-          <p role="alert">
-            The project could not be saved. Previously saved commits remain available.
-          </p>
+          <FeedbackToast
+            message="The project could not be saved. Previously saved commits remain available."
+            variant="error"
+          />
         {/if}
         <Field.Label
           >Files from completed run<NativeSelect bind:value={exportRunId}>
@@ -887,9 +908,7 @@
             {/each}
           </NativeSelect></Field.Label
         >
-        {#if $exports.isError}<Alert.Root variant="destructive"
-            >{explain($exports.error)}</Alert.Root
-          >{/if}
+
         {#if $exports.data?.length}
           <div aria-label="Session files">
             {#each $exports.data as file (file.artifact_id)}
@@ -902,16 +921,13 @@
       </details>
     {/if}
     {#if run?.failure_code?.endsWith('resume_required')}
-      <p role="status">
-        This run stopped after work may have reached the provider or changed research. Review its
-        history before resuming; a new run may repeat work.
-      </p>
+      <FeedbackToast
+        message="This run may have reached the provider or changed research. Review its history before resuming; a new run may repeat work."
+        variant="warning"
+      />
     {/if}
     {#if $capabilities.data && !$capabilities.data.execution_available}
-      <p role="status">
-        Agent execution is currently unavailable. Your conversation and saved files remain
-        accessible.
-      </p>
+      <span class="project-session-state">Execution unavailable</span>
     {/if}
     {#if $session.data?.can_control !== false}<form class="project-chat-composer" onsubmit={send}>
         <div class="project-chat-side-controls" use:chatPanelPortal={isVisible}>
@@ -981,9 +997,7 @@
                   >
                 {:else}<p>Unavailable public source (not selectable)</p>{/if}
               {/each}
-              {#if $pins.isError}<Alert.Root variant="destructive" role="alert"
-                  >{explain($pins.error)}</Alert.Root
-                >
+              {#if $pins.isError}
                 <Button type="button" onclick={() => $pins.refetch()}>Retry pins</Button>{/if}
               {#if $pins.hasNextPage}<Button type="button" onclick={() => $pins.fetchNextPage()}
                   >Load more public pins</Button
@@ -1056,11 +1070,10 @@
                   >
                 {/if}
                 {#if destination === 'PUBLIC'}
-                  <p class="notice">
-                    This run uses only the separate public task and public research inputs. Your
-                    private conversation and private version selections are excluded. Do not put
-                    private information in the public task.
-                  </p>
+                  <FeedbackToast
+                    message="This run uses only the separate public task and public inputs. Private conversations and selections are excluded. Keep private information out of the public task."
+                    variant="info"
+                  />
                   {#each $pins.data?.pages.flatMap((page) => page.items) ?? [] as pin (pin.id)}
                     {#if pin.available}<Field.Label
                         ><Checkbox
@@ -1133,8 +1146,10 @@
               onclick={() => control('resume')}>Resume run</Button
             >{/if}
         </div>
-      </form>{:else}<p role="status">
-        Shared conversation · only its creator can send messages or control runs.
-      </p>{/if}
+      </form>{:else}<span
+        class="project-session-state"
+        title="Only its creator can send messages or control runs."
+        >Shared conversation · View only</span
+      >{/if}
   {/if}
 </div>

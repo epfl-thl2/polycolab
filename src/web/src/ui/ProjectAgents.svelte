@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import { MessageSquarePlus, Square, RotateCcw } from '@lucide/svelte';
   import type { AgentSession } from '../lib/agent-sessions-api';
   import { projectContext, explain } from '../svelte-lib/context';
@@ -128,6 +129,8 @@
   }
 </script>
 
+<FeedbackToast message={actionError?.message || ''} variant={actionError ? 'error' : 'success'} />
+
 <aside class="project-agents" aria-label="Conversations">
   <div class="agent-actions">
     <h2>Conversations</h2>
@@ -135,13 +138,19 @@
         ><MessageSquarePlus size={16} /></button
       >{/if}
   </div>
-  {#if error}<div class="panel-error" role="alert">
-      {error}<button onclick={() => refresh(projectId, generation)}>Retry</button>
-    </div>{/if}
+  <FeedbackToast
+    message={error}
+    variant="error"
+    action={{ label: 'Retry', run: () => refresh(projectId, generation) }}
+  />
   <div class="session-list" aria-busy={loading}>
     {#if loading && !sessions.length}<p class="empty" role="status">Loading chats…</p>
     {:else if !visible.length}<p class="empty">
-        {canReadChats ? 'No conversations yet.' : 'Conversations are unavailable for your role.'}
+        {error
+          ? 'Conversations unavailable.'
+          : canReadChats
+            ? 'No conversations yet.'
+            : 'Conversations are unavailable for your role.'}
       </p>{/if}
     {#each visible as session (session.id)}
       <div class="session" class:selected={session.id === activeSessionId}>
@@ -173,9 +182,6 @@
             title="Open this chat to choose an AI provider and resume the run"
             onclick={() => onOpenSession(session.id)}><RotateCcw size={12} />Resume in chat</button
           >{/if}
-        {#if actionError?.sessionId === session.id}<p class="panel-error" role="alert">
-            {actionError.message}
-          </p>{/if}
       </div>
     {/each}
     {#if cursor}<button
@@ -315,16 +321,5 @@
     padding: 12px 5px;
     font-size: 12px;
     color: var(--muted-foreground);
-  }
-  .panel-error {
-    margin: 4px 0;
-    padding: 8px;
-    font-size: 12px;
-    color: var(--destructive);
-    overflow-wrap: anywhere;
-  }
-  .panel-error button {
-    margin-left: 6px;
-    text-decoration: underline;
   }
 </style>

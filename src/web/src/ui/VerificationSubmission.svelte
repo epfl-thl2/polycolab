@@ -1,7 +1,7 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import LoadingState from './LoadingState.svelte';
   import * as Field from '../lib/components/ui/field';
-  import * as Alert from '../lib/components/ui/alert';
   import { NativeSelect } from '../lib/components/ui/native-select';
   import { Button } from '../lib/components/ui/button';
   import { Input } from '../lib/components/ui/input';
@@ -175,9 +175,7 @@
     ></Field.Label
   >
   {#if pending}<LoadingState>Loading curated environments…</LoadingState>
-  {:else if error && environments.length === 0}<Alert.Root variant="destructive" role="alert"
-      >{error}</Alert.Root
-    >
+  {:else if error && environments.length === 0}<FeedbackToast message={error} variant="error" />
     <Button type="button" onclick={() => void load()}>Retry environment discovery</Button>
   {:else if environments.length === 0}<p>No curated environments are currently available.</p>
   {:else}<Field.Label
@@ -226,7 +224,7 @@
           void submit();
         }}
       >
-        {#if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>{/if}
+        <FeedbackToast message={error} variant="error" />
         <Field.Label
           >Exact work-target version ID<Input
             required

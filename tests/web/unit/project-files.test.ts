@@ -82,7 +82,11 @@ it('rejects exported file selection during a pending save and permits it after c
     'pending draft',
   );
   completeSave({ commit: 'b'.repeat(40) });
-  await screen.findByText('Saved.');
+  const feedback = await screen.findByText('Saved.');
+  expect(feedback.closest('[data-feedback-toast]')).toBeTruthy();
+  expect(feedback.closest('.project-files')).toBeNull();
+  await fireEvent.click(screen.getByRole('button', { name: 'Dismiss notification' }));
+  expect(screen.queryByText('Saved.')).toBeNull();
   await waitFor(() => expect(api.component.selectProjectFile(noteId)).toBe(true));
   await waitFor(() =>
     expect((screen.getByLabelText('File contents') as HTMLTextAreaElement).value).toBe('base'),
@@ -96,7 +100,10 @@ it('retains a stale draft and explicitly rebases it on the latest saved version'
   await fireEvent.input(editor, { target: { value: 'my draft' } });
   api.save.mockRejectedValueOnce({ status: 409, code: 'repository_stale_save' });
   await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-  await screen.findByRole('alert');
+  const failure = await screen.findByRole('alert');
+  expect(failure.closest('[data-feedback-toast]')).toBeTruthy();
+  await fireEvent.click(screen.getByRole('button', { name: 'Dismiss notification' }));
+  expect(screen.queryByRole('alert')).toBeNull();
   expect((editor as HTMLTextAreaElement).value).toBe('my draft');
   api.state.mockResolvedValue({
     enabled: true,
@@ -131,6 +138,26 @@ it('retains a stale draft and explicitly rebases it on the latest saved version'
     expected_commit: 'b'.repeat(40),
     changes: [{ path: 'note.md', content_base64: encodeFile('my draft') }],
   });
+});
+
+it('does not report its own save as newer shared changes while the file list refreshes', async () => {
+  const api = setup();
+  await fireEvent.click(await screen.findByRole('button', { name: 'note.md' }));
+  const initial = await api.state.mock.results[0]!.value;
+  const editor = screen.getByLabelText('File contents');
+  await fireEvent.input(editor, { target: { value: 'saved draft' } });
+  api.save.mockResolvedValue({ commit: 'b'.repeat(40) });
+  let completeRefresh!: (state: typeof initial) => void;
+  api.state.mockImplementationOnce(() => new Promise((resolve) => (completeRefresh = resolve)));
+  await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await screen.findByText('Saved.');
+  expect(screen.queryByText('Shared files changed since you opened this draft.')).toBeNull();
+
+  // A collaborator's later revision must still warn when the user has started another draft.
+  await fireEvent.input(editor, { target: { value: 'next draft' } });
+  completeRefresh({ ...initial, commit: 'c'.repeat(40) });
+  await screen.findByText('Shared files changed since you opened this draft.');
+  expect((editor as HTMLTextAreaElement).value).toBe('next draft');
 });
 
 it('keeps drafts in separate tabs and asks only when closing an unsaved tab', async () => {

@@ -1,6 +1,6 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import * as Field from '../lib/components/ui/field';
-  import * as Alert from '../lib/components/ui/alert';
   import { Textarea } from '../lib/components/ui/textarea';
   import { Button } from '../lib/components/ui/button';
   import { NativeSelect } from '../lib/components/ui/native-select';
@@ -25,8 +25,7 @@
   let progressDetail = $state('');
   let commentBusy = $state(false);
   let progressBusy = $state(false);
-  let commentError = $state('');
-  let progressError = $state('');
+  let error = $state('');
   let status = $state('');
   let commentReceipt: { body: string; key: string } | undefined;
   let progressReceipt: { body: string; key: string } | undefined;
@@ -41,7 +40,7 @@
   async function submitComment() {
     commentReceipt = retry(commentReceipt, commentBody);
     commentBusy = true;
-    commentError = '';
+    error = '';
     status = '';
     try {
       await comment(commentBody, commentReceipt.key);
@@ -50,7 +49,7 @@
       await onSaved();
       status = 'Comment added to the exact version.';
     } catch (cause) {
-      commentError = `${explain(cause)} Your comment draft is retained.`;
+      error = `${explain(cause)} Your comment draft is retained.`;
     } finally {
       commentBusy = false;
     }
@@ -60,7 +59,7 @@
     const body = JSON.stringify({ progressStatus, progressDetail });
     progressReceipt = retry(progressReceipt, body);
     progressBusy = true;
-    progressError = '';
+    error = '';
     status = '';
     try {
       await progress(progressStatus, progressDetail, progressReceipt.key);
@@ -69,7 +68,7 @@
       await onSaved();
       status = 'Progress reported for the exact version.';
     } catch (cause) {
-      progressError = `${explain(cause)} Your progress draft is retained.`;
+      error = `${explain(cause)} Your progress draft is retained.`;
     } finally {
       progressBusy = false;
     }
@@ -79,7 +78,11 @@
 <section class="panel" aria-labelledby={`research-actions-${targetRevisionId}`}>
   <h3 id={`research-actions-${targetRevisionId}`}>Contribute to this exact version</h3>
   <p class="muted">Comments and progress are independent append-only activity streams.</p>
-  {#if status}<p role="status">{status}</p>{/if}
+  <FeedbackToast
+    pending={commentBusy || progressBusy}
+    message={error || status}
+    variant={error ? 'error' : 'success'}
+  />
   <div class="forms">
     <form
       onsubmit={(event) => {
@@ -91,8 +94,6 @@
         >Comment<Textarea required maxlength={100000} bind:value={commentBody}
         ></Textarea></Field.Label
       >
-      {#if commentError}<Alert.Root variant="destructive" role="alert">{commentError}</Alert.Root
-        >{/if}
       <Button type="submit" disabled={commentBusy}>Add comment</Button>
     </form>
     <form
@@ -113,8 +114,6 @@
         >Progress detail<Textarea required maxlength={100000} bind:value={progressDetail}
         ></Textarea></Field.Label
       >
-      {#if progressError}<Alert.Root variant="destructive" role="alert">{progressError}</Alert.Root
-        >{/if}
       <Button type="submit" disabled={progressBusy}>Report progress</Button>
     </form>
   </div>

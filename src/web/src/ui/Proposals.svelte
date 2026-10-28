@@ -1,7 +1,7 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import { Checkbox } from '../lib/components/ui/checkbox';
   import LoadingState from './LoadingState.svelte';
-  import * as Alert from '../lib/components/ui/alert';
   import { Badge } from '../lib/components/ui/badge';
   import * as Field from '../lib/components/ui/field';
   import { Button } from '../lib/components/ui/button';
@@ -98,6 +98,12 @@
   }
 </script>
 
+<FeedbackToast
+  message={$inbox.isError ? explain($inbox.error) : ''}
+  variant="error"
+  action={{ label: 'Retry', run: () => $inbox.refetch() }}
+/>
+
 <h1>Proposal review</h1>
 <p class="muted">
   Review suggested changes individually or apply a selected set atomically. Acceptance records your
@@ -105,9 +111,7 @@
 </p>
 {#if !proposalId}{#if $inbox.isPending}<LoadingState>
       Loading proposals…
-    </LoadingState>{:else if $inbox.isError}<Alert.Root variant="destructive" role="alert"
-      >{explain($inbox.error)}</Alert.Root
-    >
+    </LoadingState>{:else if $inbox.isError && !$inbox.data}
     <Button type="submit" onclick={() => $inbox.refetch()}>Retry</Button>{:else}<ul class="list">
       {#each $inbox.data?.pages.flatMap((p) => p.items) ?? [] as proposal (proposal.id)}<li>
           <a href={`/projects/${projectId}/proposals/${proposal.id}`}>{proposal.summary}</a>
@@ -122,12 +126,10 @@
     >{/if}
 {:else if $detail.isPending}<LoadingState>
     Loading proposal…
-  </LoadingState>{:else if $detail.isError || $detail.data?.project_id !== projectId}<Alert.Root
-    variant="destructive"
-    role="alert"
-  >
-    Proposal unavailable. Return to the inbox.
-  </Alert.Root>{:else if $detail.data}
+  </LoadingState>{:else if ($detail.isError && !$detail.data) || $detail.data?.project_id !== projectId}<FeedbackToast
+    message="Proposal unavailable. Return to the inbox."
+    variant="error"
+  />{:else if $detail.data}
   <a href={`/projects/${projectId}/proposals`}>← Proposal inbox</a>
   <h2 class="mt-6">{$detail.data.summary}</h2>
   <p class="muted">Agent version {$detail.data.agent_version_id}</p>
@@ -142,12 +144,11 @@
           You can review the structured proposal changes, but the originating run and its exact
           context remain private to the contributor who requested them.
         </p>
-      </section>{:else}<div role="alert" class="notice">
-        Exact proposal context could not be loaded.
-        <Button variant="outline" class="" type="button" onclick={() => $context.refetch()}
-          >Retry proposal context</Button
-        >
-      </div>{/if}
+      </section>{:else}<FeedbackToast
+        message="Exact proposal context could not be loaded."
+        variant="error"
+        action={{ label: 'Retry proposal context', run: () => $context.refetch() }}
+      />{/if}
   {:else if $context.data}<section class="card" aria-label="Proposal source context">
       <h2>Exact object versions supplied to the agent</h2>
       <p class="muted">
@@ -229,13 +230,15 @@
           </p>{/if}
       </section>{/each}
     <Field.Label>Reason for selected rejections<Input bind:value={reason} /></Field.Label
-    >{#if error}<div role="alert" class="notice">
-        {error}<Button variant="outline" class="" type="button" onclick={() => $detail.refetch()}
+    >{#if error}<div class="proposal-controls">
+        <Button variant="outline" class="" type="button" onclick={() => $detail.refetch()}
           >Refresh proposal, keep drafts</Button
         >
-      </div>{/if}{#if notice}<p role="status">{notice}</p>{/if}<Button
-      type="submit"
-      disabled={busy || !selected.length}
+      </div>{/if}<FeedbackToast
+      pending={busy}
+      message={error || notice}
+      variant={error ? 'error' : 'success'}
+    /><Button type="submit" disabled={busy || !selected.length}
       >{busy ? 'Applying…' : `Apply ${selected.length} selected decisions`}</Button
     >
   </form>{/if}

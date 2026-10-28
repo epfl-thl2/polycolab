@@ -14,7 +14,6 @@
   import * as NativeSelect from '../lib/components/ui/native-select';
   import { Input } from '../lib/components/ui/input';
   import * as Field from '../lib/components/ui/field';
-  import * as Alert from '../lib/components/ui/alert';
   import { explain, projectContext } from '../svelte-lib/context';
   import type { ExternalCredential, IssuedExternalCredential } from '../lib/external-agent-api';
   let {
@@ -222,12 +221,13 @@
 </script>
 
 {#if embeddedCreate && !dialogOpen}
-  {#if loadError}<Alert.Root variant="destructive" role="alert"
-      >{loadError}<Button variant="outline" onclick={() => load()}>Retry</Button><Button
-        variant="outline"
-        onclick={onDone}>Cancel</Button
-      ></Alert.Root
-    >{:else}<p role="status">Loading API key setup…</p>{/if}
+  {#if loadError}<FeedbackToast
+      message={loadError}
+      variant="error"
+      action={{ label: 'Retry', run: load }}
+    /><Button variant="outline" onclick={onDone}>Cancel</Button>{:else}<p role="status">
+      Loading API key setup…
+    </p>{/if}
 {/if}
 <section
   class="settings-content api-keys"
@@ -240,9 +240,11 @@
       ><Plus aria-hidden="true" />New API key</Button
     >
   </div>
-  {#if loadError && !dialogOpen}<Alert.Root variant="destructive" role="alert"
-      >{loadError}<Button variant="outline" onclick={() => load()}>Retry</Button></Alert.Root
-    >{/if}
+  <FeedbackToast
+    message={!embeddedCreate && !dialogOpen ? loadError : ''}
+    variant="error"
+    action={{ label: 'Retry', run: load }}
+  />
   {#if !dialogOpen}<FeedbackToast
       message={error || notice}
       variant={error ? 'error' : 'success'}

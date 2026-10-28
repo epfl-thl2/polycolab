@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import { onMount } from 'svelte';
   import { Button } from '../lib/components/ui/button';
   import { projectContext, explain } from '../svelte-lib/context';
@@ -109,10 +110,11 @@
   }
 </script>
 
+<FeedbackToast pending={busy} message={error} variant={error ? 'error' : 'success'} />
+
 <details>
   <summary>AI file results ({batches.filter((b) => b.status === 'pending').length} pending)</summary
   >
-  {#if error}<p role="alert">{error}</p>{/if}
   {#each batches as batch (batch.id)}<div class="batch">
       <span>{batch.status.replace('_', ' ')}</span>
       <Button variant="ghost" disabled={busy} onclick={() => act(() => review(batch))}

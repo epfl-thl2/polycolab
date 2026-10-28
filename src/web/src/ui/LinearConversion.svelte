@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import { projectContext, explain } from '../svelte-lib/context';
   import { createLinearApi } from '../lib/linear-api';
   import type { Project } from '../lib/research-api';
@@ -82,6 +83,6 @@
             });
         }}>Convert project</Button
       >{/if}
-    {#if error}<p role="alert">{error}</p>{/if}
+    <FeedbackToast pending={busy} message={error} variant={error ? 'error' : 'success'} />
   </section>
 {/if}

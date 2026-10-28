@@ -1,5 +1,5 @@
 <script lang="ts">
-  import * as Alert from '../lib/components/ui/alert';
+  import FeedbackToast from './FeedbackToast.svelte';
   import * as Field from '../lib/components/ui/field';
   import { Button } from '../lib/components/ui/button';
   import { Input } from '../lib/components/ui/input';
@@ -81,7 +81,14 @@
       ? 'Project write access and editing permission are checked on every save.'
       : 'Editing requires authorship or moderation authority. Official catalogue formulations use the statement editor instead.'}
   </p>
-  {#if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>{/if}
+  <FeedbackToast
+    pending={busy}
+    message={error || (saved ? 'Saved.' : '')}
+    variant={error ? 'error' : 'success'}
+    action={!error && saved
+      ? { href: revisionLink(saved), label: 'Read saved version' }
+      : undefined}
+  />
   <Button type="submit" disabled={busy} onclick={() => history()}
     >Reload visible version history</Button
   >
@@ -102,10 +109,7 @@
     >{/if}
   {#if !draft && canWrite}<Button type="submit" onclick={start}>Edit from this exact version</Button
     >
-  {:else if saved}<p role="status">
-      Saved. <a href={revisionLink(saved)}>Read saved version</a>
-    </p>
-  {:else if draft && canWrite}<form
+  {:else if !saved && draft && canWrite}<form
       onsubmit={(event) => {
         event.preventDefault();
         void save();

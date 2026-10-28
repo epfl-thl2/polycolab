@@ -1,5 +1,13 @@
 <script lang="ts">
-  import type { Snippet } from 'svelte';
+  import { setContext, type Snippet } from 'svelte';
+  import { page } from '$app/state';
+  import ToastHost from '../ui/ToastHost.svelte';
+  import { Notifications, notificationsKey } from '../svelte-lib/notifications.svelte';
+  const notifications = new Notifications();
+  setContext(notificationsKey, notifications);
+  $effect(() =>
+    notifications.enterProject(page.url.pathname.match(/^\/projects\/([^/]+)/)?.[1] ?? null),
+  );
   import { QueryCache, QueryClient, QueryClientProvider } from '@tanstack/svelte-query';
   import '../styles/project.css';
   const client = new QueryClient({
@@ -18,4 +26,5 @@
   let { children }: { children: Snippet } = $props();
 </script>
 
-<QueryClientProvider {client}>{@render children()}</QueryClientProvider>
+<QueryClientProvider {client}>{@render children()}<ToastHost {notifications} /></QueryClientProvider
+>

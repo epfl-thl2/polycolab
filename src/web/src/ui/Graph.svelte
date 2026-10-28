@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import { relationshipChoices, type DisplayRelationshipKind } from '../lib/display-relationships';
 
   import { objectProgress } from '../lib/object-progress';
@@ -7,7 +8,6 @@
   import { Search, Maximize, LocateFixed, UserRound, Sparkles } from '@lucide/svelte';
   import ProjectMapViewport from './ProjectMapViewport.svelte';
   import LoadingState from './LoadingState.svelte';
-  import * as Alert from '../lib/components/ui/alert';
   import { Button } from '../lib/components/ui/button';
   import { SvelteSet } from 'svelte/reactivity';
   import { untrack } from 'svelte';
@@ -198,16 +198,22 @@
   }
 </script>
 
+<FeedbackToast
+  message={$graph.isError ? explain($graph.error) : ''}
+  variant="error"
+  action={{ label: 'Retry', run: () => $graph.refetch() }}
+/>
+
 <h1 class="sr-only">Map</h1>
 {#if $graph.isPending}<LoadingState>Loading project map…</LoadingState>
-{:else if $graph.isError}<Alert.Root variant="destructive" role="alert"
-    >{explain($graph.error)}</Alert.Root
-  ><Button onclick={() => $graph.refetch()}>Retry map</Button>
+{:else if $graph.isError && !$graph.data}<Button onclick={() => $graph.refetch()}>Retry map</Button>
 {:else if !$graph.data?.objects.length}<p>This project has no research objects yet.</p>
 {:else}
-  {#if $summaries.isError}<p class="muted" role="status">
-      Review signals unavailable. <button onclick={() => $summaries.refetch()}>Retry</button>
-    </p>{/if}
+  <FeedbackToast
+    message={$summaries.isError ? 'Review signals unavailable.' : ''}
+    variant="error"
+    action={{ label: 'Retry', run: () => $summaries.refetch() }}
+  />
   <div class="map-actions">
     <Button variant="outline" onclick={() => mapActions?.fitAll()}
       ><Maximize size={16} aria-hidden="true" />Fit all</Button

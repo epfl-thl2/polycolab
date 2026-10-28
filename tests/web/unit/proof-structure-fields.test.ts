@@ -18,6 +18,7 @@ it('builds an ordered exact premise set and rejects duplicates and self-dependen
   await fireEvent.input(premise, { target: { value: 'lemma-r1' } });
   await fireEvent.click(add);
   expect(screen.getByRole('alert').textContent).toContain('already included');
+  expect(screen.getByRole('alert').closest('[data-feedback-toast]')).toBeTruthy();
   expect(screen.getAllByText('lemma-r1')).toHaveLength(1);
 
   await fireEvent.input(premise, { target: { value: 'claim-r3' } });

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import { onMount, setContext, untrack } from 'svelte';
   import { page } from '$app/state';
   import { beforeNavigate, goto } from '$app/navigation';
@@ -39,7 +40,17 @@
   });
   const status = $derived.by(() => {
     void revision;
-    return live.error || (!live.connected ? 'Reconnecting…' : live.saving ? 'Saving…' : 'Saved');
+    return live.error
+      ? 'Save interrupted'
+      : !live.connected
+        ? 'Reconnecting…'
+        : live.saving
+          ? 'Saving…'
+          : 'Saved';
+  });
+  const liveError = $derived.by(() => {
+    void revision;
+    return live.error;
   });
   const peers = $derived.by(() => {
     void revision;
@@ -301,8 +312,13 @@
       onpin={pin}
       onnewchat={project.current_user_role !== 'READ_ONLY' ? newChat : undefined}
     />
-    <div class="save-workspace" role="status">{status}{activity ? ` · ${activity}` : ''}</div>
-    {#if error}<p role="alert">{error}</p>{/if}
+    <div class="save-workspace" role="status">{status}</div>
+    <FeedbackToast message={error || liveError} variant="error" />
+    <FeedbackToast
+      message={activity}
+      variant="info"
+      dedupeKey={`${project.id}:linear-activity:${workspace?.sequence}`}
+    />
     {#if recovery.length}<section aria-label="Recovered edits">
         <h3>Unsaved text recovery</h3>
         {#each recovery as [name, content] (name)}<Button onclick={() => download(name, content)}

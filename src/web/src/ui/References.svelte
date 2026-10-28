@@ -1,6 +1,6 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import LoadingState from './LoadingState.svelte';
-  import * as Alert from '../lib/components/ui/alert';
   import * as Field from '../lib/components/ui/field';
   import { Button } from '../lib/components/ui/button';
   import { Input } from '../lib/components/ui/input';
@@ -97,7 +97,7 @@
   Pins refer to exact public versions without copying research. They never follow newer versions
   automatically.
 </p>
-{#if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>{/if}
+<FeedbackToast message={error} variant={error ? 'error' : 'success'} />
 <Button type="submit" disabled={busy} onclick={() => load()}>Reload pins</Button>
 {#if busy}<LoadingState>Loading…</LoadingState>{/if}
 {#each items as reference (reference.id)}
@@ -149,14 +149,14 @@
           The target must be an accessible public version of this same research object. Earlier pins
           remain in history.
         </p>
-        {#if selected.latest_object_version_id && selected.latest_object_version_id !== selected.object_version_id}<p
-            class="notice"
-          >
-            A newer Library version is available. <a
-              href={`/library/${selected.object_id}/revisions/${selected.latest_object_version_id}`}
-              >Inspect the newer version</a
-            > before updating this pin.
-          </p>
+        {#if selected.latest_object_version_id && selected.latest_object_version_id !== selected.object_version_id}<FeedbackToast
+            message="A newer Library version is available. Inspect it before updating this pin."
+            variant="info"
+            action={{
+              label: 'Inspect the newer version',
+              href: `/library/${selected.object_id}/revisions/${selected.latest_object_version_id}`,
+            }}
+          />
           <Button
             type="button"
             variant="outline"

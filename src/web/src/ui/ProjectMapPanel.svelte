@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import ObjectProgress from './ObjectProgress.svelte';
   import ObjectReviews from './ObjectReviews.svelte';
   import ProjectObjectHeading from './ProjectObjectHeading.svelte';
@@ -70,6 +71,8 @@
   }
 </script>
 
+<FeedbackToast message={error} variant="error" action={{ label: 'Retry', run: onretry }} />
+
 {#if focused}
   <ProjectObjectHeading
     title={focused.current_object_version.content.title}
@@ -137,8 +140,6 @@
     {#each contextTabs as tab (tab.id)}
       <Tabs.Content value={tab.id} class="attached-objects">
         {#if pending}<p role="status">Loading attached objects…</p>
-        {:else if error}<p role="alert">{error}</p>
-          <Button variant="outline" onclick={onretry}>Retry</Button>
         {:else if tab.id === 'notes'}
           <ul class="note-list" aria-label="Attached notes">
             {#each notes as note (note.id)}
@@ -209,8 +210,6 @@
     >
     <Tabs.Content value="relationships" class="relationships">
       {#if pending}<p class="muted" role="status">Loading relationships…</p>
-      {:else if error}<p role="alert">{error}</p>
-        <Button variant="outline" onclick={onretry}>Retry relationships</Button>
       {:else}
         <ProjectRelationships {projectId} data={relationships} {objectId} />
       {/if}

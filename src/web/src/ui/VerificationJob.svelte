@@ -1,5 +1,5 @@
 <script lang="ts">
-  import * as Alert from '../lib/components/ui/alert';
+  import FeedbackToast from './FeedbackToast.svelte';
   import { Button } from '../lib/components/ui/button';
   import { explain } from '../svelte-lib/context';
   import type { VerificationJobView } from '../lib/verification-view';
@@ -103,18 +103,16 @@
         ? 'Queued. No completion estimate is available.'
         : `Canonical queue position ${job.queuePosition}.`}
     </p>{/if}
-  {#if connectionInterrupted}<Alert.Root variant="destructive" role="alert">
-      Event connection interrupted. Saved editing is unaffected.
-      {#if reconnect}<Button
-          type="submit"
-          variant="outline"
-          class=""
-          disabled={busy}
-          onclick={() => void control('reconnect')}>Reconnect and replay</Button
-        >{/if}
-    </Alert.Root>{/if}
-  {#if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>{/if}
-  {#if status}<p role="status">{status}</p>{/if}
+  <FeedbackToast
+    message={connectionInterrupted
+      ? 'Event connection interrupted. Saved editing is unaffected.'
+      : ''}
+    variant="warning"
+    action={reconnect
+      ? { label: 'Reconnect and replay', run: () => control('reconnect') }
+      : undefined}
+  />
+  <FeedbackToast message={error || status} variant={error ? 'error' : 'success'} />
 
   <h3>Finite limits</h3>
   <dl>

@@ -1,15 +1,16 @@
 <script lang="ts">
-  import { onMount, tick, type Snippet } from 'svelte';
+  import { onMount, setContext, tick, type Snippet } from 'svelte';
   import { projectLayoutKey, readProjectLayout } from '../lib/project-layout';
   import type { ObjectVersion } from '../lib/research-api';
   import type { Activity } from '../lib/history-api';
+  import { notificationProjectKey } from '../svelte-lib/notifications.svelte';
+  import FeedbackToast from './FeedbackToast.svelte';
   import ProjectWorkbench from './ProjectWorkbench.svelte';
   import ProjectFiles from './ProjectFiles.svelte';
   import ProjectOverview from './ProjectOverview.svelte';
   import ProjectSectionPanel from './ProjectSectionPanel.svelte';
   import ProjectObjectPanel from './ProjectObjectPanel.svelte';
   import LoadingState from './LoadingState.svelte';
-  import * as Alert from '../lib/components/ui/alert';
   import { Button, buttonVariants } from '../lib/components/ui/button';
   import { toStore } from 'svelte/store';
   import { createInfiniteQuery, createQuery } from '@tanstack/svelte-query';
@@ -50,6 +51,7 @@
   const mapFocus = $derived(mapData?.objects.find((object) => object.id === mapObjectId));
   import ProductHeader from './ProductHeader.svelte';
   let { projectId, path }: { projectId: string; path: string } = $props();
+  setContext(notificationProjectKey, () => projectId);
   const { api, agents, auth, capabilities } = projectContext();
   let leftClosed = $state(false);
   let rightClosed = $state(false);
@@ -215,6 +217,12 @@
   }
 </script>
 
+<FeedbackToast
+  message={$project.isError ? explain($project.error) : ''}
+  variant="error"
+  action={{ label: 'Retry', run: () => $project.refetch() }}
+/>
+
 <svelte:head><title>{$project.data?.name ?? 'Project'} · Polycolab</title></svelte:head>
 
 {#if member && $project.data}
@@ -250,9 +258,9 @@
   />
   {#if $project.isPending}<main id="main" class="page" tabindex="-1">
       <LoadingState>Opening research project…</LoadingState>
-    </main>{:else if $project.isError || !$project.data}<main id="main" class="page" tabindex="-1">
+    </main>{:else if !$project.data}<main id="main" class="page" tabindex="-1">
       <h1>Project unavailable</h1>
-      <Alert.Root variant="destructive" role="alert">{explain($project.error)}</Alert.Root>
+
       <Button type="submit" onclick={() => $project.refetch()}>Retry</Button>
       <a href={`/projects/${projectId}`}>View public project</a>
       <a href="/projects">Return to your projects</a>
@@ -689,20 +697,25 @@
 {/snippet}
 
 {#snippet accessNotice()}
-  {#if $project.data?.archived_at}<p class="notice">
-      This project is archived and cannot be changed.
-    </p>
-  {:else if !member}<p class="room-access-note">
-      Contributing requires project membership.
+  {#if $project.data?.archived_at}<span
+      class="project-access-state"
+      title="This project is archived and cannot be changed.">Archived</span
+    >
+  {:else if !member}<span
+      class="project-access-state"
+      title="Contributing requires project membership."
+    >
+      Membership required.
       {#if !auth.signedIn}<Button
           variant="link"
           class="h-auto p-0"
           href={accountHref('signin', path)}>Sign in to contribute</Button
         >{/if}
-    </p>
-  {:else if !canWrite && $project.data}<p class="room-access-note">
-      {restrictionMessage($project.data.current_user_role, false)}
-    </p>{/if}
+    </span>
+  {:else if !canWrite && $project.data}<span
+      class="project-access-state"
+      title={restrictionMessage($project.data.current_user_role, false)}>Read only</span
+    >{/if}
 {/snippet}
 
 <style>

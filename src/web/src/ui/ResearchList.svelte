@@ -1,9 +1,9 @@
 <script lang="ts">
+  import FeedbackToast from './FeedbackToast.svelte';
   import { ArrowUpRight, LocateFixed } from '@lucide/svelte';
   import LoadingState from './LoadingState.svelte';
   import * as Dialog from '../lib/components/ui/dialog';
   import * as Field from '../lib/components/ui/field';
-  import * as Alert from '../lib/components/ui/alert';
   import ObjectKindBadge from './ObjectKindBadge.svelte';
   import Markdown from './Markdown.svelte';
   import RelativeTime from './RelativeTime.svelte';
@@ -296,6 +296,12 @@
   }
 </script>
 
+<FeedbackToast
+  message={$attachmentChoices.isError ? explain($attachmentChoices.error) : ''}
+  variant="error"
+  action={{ label: 'Retry', run: () => $attachmentChoices.refetch() }}
+/>
+
 <Dialog.Root bind:open={showCreation}>
   {#if showControls}<div class="heading research-heading">
       <div>
@@ -379,9 +385,6 @@
                 >{/each}
             </NativeSelect></Field.Label
           >
-          {#if $attachmentChoices.isError}<p role="alert">
-              {explain($attachmentChoices.error)}
-            </p>{/if}
         {/if}
         {#if kindForAction(action) === 'FORMALIZATION'}<ResearchRevisionSelector
             label="Formalized version"
@@ -507,7 +510,7 @@
           >
         {/if}
 
-        {#if error}<Alert.Root variant="destructive" role="alert">{error}</Alert.Root>{/if}
+        <FeedbackToast message={error} variant={error ? 'error' : 'success'} />
         <div class="creation-footer">
           <Button
             variant="outline"
@@ -526,18 +529,25 @@
 
   {#if appliedSearch ? $searchResults.isPending : $objects.isPending}<LoadingState
       >Loading research…</LoadingState
-    >{:else if appliedSearch ? $searchResults.isError : $objects.isError}<Alert.Root
-      variant="destructive"
-      role="alert"
+    >{/if}
+  <FeedbackToast
+    message={(appliedSearch ? $searchResults.isError : $objects.isError)
+      ? explain(appliedSearch ? $searchResults.error : $objects.error)
+      : ''}
+    variant="error"
+    action={{
+      label: 'Retry',
+      run: () => (appliedSearch ? $searchResults.refetch() : $objects.refetch()),
+    }}
+  />
+  {#if appliedSearch ? $searchResults.isError && !$searchResults.data : $objects.isError && !$objects.data}
+    <section class="empty">
+      <h2>Research unavailable</h2>
+      <p>Retry loading the saved research.</p>
+    </section>
+  {:else if !rows.length && !(appliedSearch ? $searchResults.isPending : $objects.isPending)}<section
+      class="empty"
     >
-      {explain(appliedSearch ? $searchResults.error : $objects.error)}
-      <Button
-        type="button"
-        onclick={() => (appliedSearch ? $searchResults.refetch() : $objects.refetch())}
-        >Retry</Button
-      >
-    </Alert.Root>
-  {:else if !rows.length}<section class="empty">
       <h2>{appliedSearch ? 'No matching research' : 'No research objects yet'}</h2>
       <p class="muted">
         {appliedSearch
