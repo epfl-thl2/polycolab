@@ -1,0 +1,16 @@
+[Unit]
+Description=Polycolab private LaTeX compiler controller
+After=network-online.target docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/polycolab
+EnvironmentFile=/etc/polycolab-latex.env
+ExecStart=/opt/polycolab/src/backend/.venv/bin/python -m polycolab.document_builds.worker --worker-id latex-host-1 --state-dir /var/lib/polycolab-latex
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

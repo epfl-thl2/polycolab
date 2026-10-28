@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from polycolab.artifacts.gc import consume as collect_artifacts
 from polycolab.artifacts.storage import configured_storage
 from polycolab.catalogue.community_consumer import consume as consume_notifications
+from polycolab.document_builds.maintenance import consume as collect_document_builds
 from polycolab.execution.reconciler import consume as recover_execution
 
 
@@ -27,6 +28,13 @@ async def maintenance_lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         if app.state.settings.artifact_storage_configured:
             storage = configured_storage(app.state.settings)
+            threads.append(
+                Thread(
+                    target=collect_document_builds,
+                    args=(factory, storage, app.state.settings, stopped),
+                    name="document-builds",
+                )
+            )
             threads.append(
                 Thread(
                     target=partial(

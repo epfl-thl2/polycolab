@@ -50,8 +50,8 @@ it('shows the mobile drawer expanded and limits project management links', () =>
   const rail = screen.getByRole('complementary', { name: 'Project navigation' });
   expect(rail.classList.contains('open')).toBe(true);
   expect(screen.queryByRole('button', { name: 'Pin project navigation' })).toBeNull();
-  expect(screen.queryByRole('link', { name: 'Project settings' })).toBeNull();
-  expect(screen.getByRole('link', { name: 'Agent connect' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Project settings' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Agent connect' })).toBeTruthy();
   expect(screen.queryByRole('link', { name: 'Chat' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Map' })).toBeNull();
   expect(screen.queryByRole('link', { name: 'Research objects' })).toBeNull();

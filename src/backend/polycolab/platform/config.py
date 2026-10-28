@@ -179,6 +179,17 @@ class Settings(BaseSettings):
     # Private API address available only to the built-in worker deployment. It is
     # never returned through the application API or accepted from browser input.
     runtime_internal_api_url: str = "http://127.0.0.1:8000"
+    latex_image: str | None = Field(
+        default=None, pattern=r"^(?:[a-zA-Z0-9][a-zA-Z0-9./_:-]*@)?sha256:[a-f0-9]{64}$"
+    )
+    latex_worker_token: SecretStr | None = None
+    latex_capacity: int = Field(default=2, ge=1, le=16)
+    latex_project_queue: int = Field(default=10, ge=1, le=100)
+    latex_project_max_bytes: int = Field(default=268435456, ge=16777216, le=1073741824)
+    latex_execution_seconds: int = Field(default=120, ge=10, le=300)
+    latex_queue_seconds: int = Field(default=300, ge=30, le=3600)
+    latex_retention_days: int = Field(default=30, ge=1, le=365)
+
     runtime_worker_id: str = Field(default="builtin-worker", min_length=1, max_length=200)
     # Deployment-managed bearer credential used only on the private Runtime API.
     # A separate WorkerSettings model lets the worker run without DATABASE_URL.

@@ -1,11 +1,12 @@
 <script lang="ts">
   import FeedbackToast from '../../../ui/FeedbackToast.svelte';
   import { onMount, onDestroy, tick, untrack, type Snippet } from 'svelte';
-  import { SvelteMap } from 'svelte/reactivity';
+  import { SvelteMap, SvelteSet } from 'svelte/reactivity';
   import { ProjectEditorSessions } from '../../../lib/project-editor-session';
   import { createExplorerView, type ExplorerViewState } from '../../../lib/file-explorer';
   import { beforeNavigate } from '$app/navigation';
   import { projectContext, explain } from '../../../svelte-lib/context';
+  import { ApiError } from '../../../lib/research-api';
   import {
     bytesToBase64,
     decodeFile,
@@ -22,6 +23,7 @@
   import { Input } from '../../../lib/components/ui/input';
   import { Textarea } from '../../../lib/components/ui/textarea';
   import MonacoSourceEditor from '../../../ui/MonacoSourceEditor.svelte';
+  import DocumentBuildPanel from '../../../ui/DocumentBuildPanel.svelte';
   import ProjectEditorHeader from './ProjectEditorHeader.svelte';
   import ProjectFileChanges from './ProjectFileChanges.svelte';
   import FileExplorer from './FileExplorer.svelte';
@@ -103,6 +105,12 @@
     };
   }
   let historyOpen = $state(false);
+  let showLatex = $state(false);
+  const latexChoices = new SvelteMap<
+    string,
+    { mainFile: string; engine: import('../../../lib/document-builds-api').LatexEngine }
+  >();
+  let diagnosticLine = $state<{ path: string; line: number; nonce: number }>();
   let editorMode = $state<'source' | 'preview' | 'changes'>('source');
   let wordWrap = $state(true);
   let headContent = $state('');
@@ -410,6 +418,8 @@
         }
       }
     } catch (cause) {
+      // A snapshot or save may briefly hold the repository lock during polling.
+      if (cause instanceof ApiError && cause.code === 'repository_busy') return;
       error = acceptedSave
         ? `Files saved, but the view could not refresh. ${explain(cause)}`
         : explain(cause);
@@ -608,6 +618,74 @@
       return false;
     } finally {
       busy = false;
+    }
+  }
+  async function saveAllForCompile(): Promise<string | undefined> {
+    if (!api || !repoState?.commit || !repoState.writable || busy) return;
+    stash();
+    const expected = repoState.commit;
+    const changedTabs = tabs.filter(dirtyTab);
+    if (!changedTabs.length) return expected;
+    if (changedTabs.some((tab) => tab.base !== expected || !tab.path)) {
+      error =
+        'Compare stale drafts with the latest saved files before compiling. Your drafts are retained.';
+      return;
+    }
+    const changes: RepositorySave['changes'] = [];
+    const touched = new SvelteSet<string>();
+    for (const tab of changedTabs) {
+      for (const name of new Set([tab.path, tab.originalPath].filter(Boolean))) {
+        if (touched.has(name)) {
+          error = 'Resolve conflicting draft file names before compiling.';
+          return;
+        }
+        touched.add(name);
+      }
+      if (tab.originalPath && tab.originalPath !== tab.path)
+        changes.push({ path: tab.originalPath, content_base64: null });
+      changes.push({ path: tab.path, content_base64: encodeFile(tab.content) });
+    }
+    busy = true;
+    error = '';
+    try {
+      const body = { branch, expected_commit: expected, changes };
+      const saved = await api.save(projectId, body, key(body));
+      receipts.delete(JSON.stringify(body));
+      tabs = tabs.map((tab) => ({
+        ...tab,
+        original: tab.content,
+        originalPath: tab.path,
+        base: saved.commit,
+      }));
+      if (repoState) repoState = { ...repoState, commit: saved.commit };
+      base = saved.commit;
+      original = content;
+      originalPath = path;
+      renameOpen = false;
+      busy = false;
+      await refresh(true);
+      return saved.commit;
+    } catch (cause) {
+      error = `${explain(cause)} Your drafts are retained.`;
+    } finally {
+      busy = false;
+    }
+  }
+  async function openLatexDiagnostic(name: string, line: number) {
+    await openProjectFile(name);
+    diagnosticLine = { path: name, line, nonce: Date.now() };
+    await tick();
+    const textarea = document.querySelector<HTMLTextAreaElement>(
+      'textarea[aria-label="File contents"]',
+    );
+    if (textarea && path === name) {
+      const offset = content
+        .split('\n')
+        .slice(0, line - 1)
+        .reduce((total, value) => total + value.length + 1, 0);
+      textarea.focus();
+      textarea.setSelectionRange(offset, offset);
+      textarea.scrollTop = (line - 1) * 20;
     }
   }
   async function save() {
@@ -1221,167 +1299,202 @@
         <p>File storage is not configured for this deployment.</p>
       </div>
     {:else}
-      {#if view === 'file'}<div class="editor-column">
-          {#if editing}
-            <ProjectEditorHeader
-              bind:path
-              bind:mode={editorMode}
-              bind:renaming={renameOpen}
-              bind:wordWrap
-              bind:enhanced
-              {binary}
-              writable={repoState.writable}
-              {busy}
-              {dirty}
-              saved={Boolean(originalPath)}
-              onsave={save}
-              onrename={() => {
-                pinProjectFile(activeId);
-                renameOpen = true;
-              }}
-              ondownload={download}
-              ondelete={remove}
-              onerror={(message) => {
-                notice = '';
-                error = message;
-              }}
-              onnotice={(message) => {
-                error = '';
-                notice = message;
-              }}
-            />
-
-            <div
-              class="editor-surface"
-              id="file-editor"
-              role="tabpanel"
-              aria-labelledby={`file-tab-${activeId}`}
+      {#if view === 'file'}
+        {#if repoState.worktree_id && (path.endsWith('.tex') || repoState.files?.some( (file) => file.path.endsWith('.tex') ))}
+          <div class="latex-toggle">
+            <Button
+              size="sm"
+              variant="outline"
+              aria-expanded={showLatex}
+              onclick={() => (showLatex = !showLatex)}
+              >{showLatex ? 'Close PDF preview' : 'LaTeX / PDF preview'}</Button
             >
-              {#if binary}<div class="empty-editor">
-                  <FileText size={32} />
-                  <h2>Binary file</h2>
-                  <p>Download this file to inspect its contents.</p>
-                  <Button variant="outline" onclick={download}
-                    ><Download size={14} />Download file</Button
+          </div>
+        {/if}
+        <div class="file-build-layout" class:with-pdf={showLatex && Boolean(repoState.worktree_id)}>
+          <div class="editor-column">
+            {#if editing}
+              <ProjectEditorHeader
+                bind:path
+                bind:mode={editorMode}
+                bind:renaming={renameOpen}
+                bind:wordWrap
+                bind:enhanced
+                {binary}
+                writable={repoState.writable}
+                {busy}
+                {dirty}
+                saved={Boolean(originalPath)}
+                onsave={save}
+                onrename={() => {
+                  pinProjectFile(activeId);
+                  renameOpen = true;
+                }}
+                ondownload={download}
+                ondelete={remove}
+                onerror={(message) => {
+                  notice = '';
+                  error = message;
+                }}
+                onnotice={(message) => {
+                  error = '';
+                  notice = message;
+                }}
+              />
+
+              <div
+                class="editor-surface"
+                id="file-editor"
+                role="tabpanel"
+                aria-labelledby={`file-tab-${activeId}`}
+              >
+                {#if binary}<div class="empty-editor">
+                    <FileText size={32} />
+                    <h2>Binary file</h2>
+                    <p>Download this file to inspect its contents.</p>
+                    <Button variant="outline" onclick={download}
+                      ><Download size={14} />Download file</Button
+                    >
+                  </div>
+                {:else if editorMode === 'changes'}
+                  {#if changesLoading}<p class="changes-message" role="status">Loading changes…</p>
+                  {:else if changesError}<FeedbackToast
+                      message={changesError}
+                      variant="error"
+                      action={{
+                        label: 'Retry',
+                        run: () => {
+                          changesRetry++;
+                        },
+                      }}
+                    />
+                  {:else}{#key currentEditorKey}<ProjectFileChanges
+                        original={headContent}
+                        modified={content}
+                        {wordWrap}
+                        language={{
+                          LEAN: 'lean4',
+                          PYTHON: 'python',
+                          TEXT: 'plaintext',
+                          MARKDOWN: 'markdown',
+                          JSON: 'json',
+                        }[language]}
+                      />{/key}{/if}
+                {:else if editorMode === 'preview'}<div class="markdown-preview">
+                    <Markdown {content} />
+                  </div>
+                {:else if enhanced}{#key currentEditorKey}<MonacoSourceEditor
+                      bind:value={content}
+                      revealLine={diagnosticLine?.path === path ? diagnosticLine : undefined}
+                      {language}
+                      {wordWrap}
+                      sessions={editorSessions}
+                      sessionKey={currentEditorKey}
+                      active={active && view === 'file'}
+                      readOnly={!repoState.writable || busy}
+                      onEdit={() => pinProjectFile(activeId)}
+                      onError={() => {
+                        enhanced = false;
+                        notice =
+                          'The code editor could not load. Your file is available in the text editor.';
+                      }}
+                    />{/key}
+                {:else}{#key currentEditorKey}<div class="source-editor">
+                      <div class="line-gutter" class:wrapped={wordWrap} aria-hidden="true">
+                        {#each [...Array(Math.min(lineCount, 5000)).keys()] as index (index)}<div>
+                            {index + 1}
+                          </div>{/each}
+                      </div>
+                      <textarea
+                        use:retainPlainView={currentEditorKey}
+                        oninput={() => pinProjectFile(activeId)}
+                        aria-label="File contents"
+                        bind:value={content}
+                        readonly={!repoState?.writable || busy}
+                        spellcheck="false"
+                        wrap={wordWrap ? 'soft' : 'off'}
+                        onscroll={(event) => {
+                          const gutter = event.currentTarget.previousElementSibling;
+                          if (gutter) gutter.scrollTop = event.currentTarget.scrollTop;
+                        }}
+                        onkeydown={(event) => {
+                          if (
+                            event.key === 'Tab' &&
+                            !event.shiftKey &&
+                            repoState?.writable &&
+                            !busy
+                          ) {
+                            event.preventDefault();
+                            const target = event.currentTarget;
+                            const start = target.selectionStart;
+                            content =
+                              content.slice(0, start) + '  ' + content.slice(target.selectionEnd);
+                            requestAnimationFrame(() => {
+                              target.selectionStart = target.selectionEnd = start + 2;
+                            });
+                          }
+                        }}></textarea>
+                    </div>{/key}{/if}
+              </div>
+              {#if latest !== undefined}<section
+                  class="compare-panel"
+                  aria-label="Compare saved version"
+                >
+                  <h2>Latest saved version</h2>
+                  <pre>{latest}</pre>
+                  <Button
+                    size="sm"
+                    disabled={busy}
+                    onclick={() => {
+                      base = latestCommit;
+                      latest = undefined;
+                      if (!repoState?.files?.some((file) => file.path === originalPath))
+                        originalPath = '';
+                    }}>Keep my draft and use this version as its base</Button
+                  >
+                </section>{/if}
+            {:else}<div class="empty-editor">
+                <div class="empty-symbol"><FolderOpen size={34} strokeWidth={1.4} /></div>
+                <h2>Your research, in files</h2>
+                <p>Open a file from the explorer, or start with a note, proof, or computation.</p>
+                <div class="empty-actions">
+                  <Button disabled={!repoState?.writable || busy} onclick={create}
+                    ><Plus size={14} />Create a file</Button
+                  ><Button
+                    variant="outline"
+                    disabled={!repoState?.writable || busy}
+                    onclick={() => uploadInput?.click()}><Upload size={14} />Upload</Button
                   >
                 </div>
-              {:else if editorMode === 'changes'}
-                {#if changesLoading}<p class="changes-message" role="status">Loading changes…</p>
-                {:else if changesError}<FeedbackToast
-                    message={changesError}
-                    variant="error"
-                    action={{
-                      label: 'Retry',
-                      run: () => {
-                        changesRetry++;
-                      },
-                    }}
-                  />
-                {:else}{#key currentEditorKey}<ProjectFileChanges
-                      original={headContent}
-                      modified={content}
-                      {wordWrap}
-                      language={{
-                        LEAN: 'lean4',
-                        PYTHON: 'python',
-                        TEXT: 'plaintext',
-                        MARKDOWN: 'markdown',
-                        JSON: 'json',
-                      }[language]}
-                    />{/key}{/if}
-              {:else if editorMode === 'preview'}<div class="markdown-preview">
-                  <Markdown {content} />
+                <div class="shortcut-hint">
+                  <kbd>⌘ / Ctrl</kbd> + <kbd>S</kbd><span>Save your current file</span>
                 </div>
-              {:else if enhanced}{#key currentEditorKey}<MonacoSourceEditor
-                    bind:value={content}
-                    {language}
-                    {wordWrap}
-                    sessions={editorSessions}
-                    sessionKey={currentEditorKey}
-                    active={active && view === 'file'}
-                    readOnly={!repoState.writable || busy}
-                    onEdit={() => pinProjectFile(activeId)}
-                    onError={() => {
-                      enhanced = false;
-                      notice =
-                        'The code editor could not load. Your file is available in the text editor.';
-                    }}
-                  />{/key}
-              {:else}{#key currentEditorKey}<div class="source-editor">
-                    <div class="line-gutter" class:wrapped={wordWrap} aria-hidden="true">
-                      {#each [...Array(Math.min(lineCount, 5000)).keys()] as index (index)}<div>
-                          {index + 1}
-                        </div>{/each}
-                    </div>
-                    <textarea
-                      use:retainPlainView={currentEditorKey}
-                      oninput={() => pinProjectFile(activeId)}
-                      aria-label="File contents"
-                      bind:value={content}
-                      readonly={!repoState?.writable || busy}
-                      spellcheck="false"
-                      wrap={wordWrap ? 'soft' : 'off'}
-                      onscroll={(event) => {
-                        const gutter = event.currentTarget.previousElementSibling;
-                        if (gutter) gutter.scrollTop = event.currentTarget.scrollTop;
-                      }}
-                      onkeydown={(event) => {
-                        if (
-                          event.key === 'Tab' &&
-                          !event.shiftKey &&
-                          repoState?.writable &&
-                          !busy
-                        ) {
-                          event.preventDefault();
-                          const target = event.currentTarget;
-                          const start = target.selectionStart;
-                          content =
-                            content.slice(0, start) + '  ' + content.slice(target.selectionEnd);
-                          requestAnimationFrame(() => {
-                            target.selectionStart = target.selectionEnd = start + 2;
-                          });
-                        }
-                      }}></textarea>
-                  </div>{/key}{/if}
-            </div>
-            {#if latest !== undefined}<section
-                class="compare-panel"
-                aria-label="Compare saved version"
-              >
-                <h2>Latest saved version</h2>
-                <pre>{latest}</pre>
-                <Button
-                  size="sm"
-                  disabled={busy}
-                  onclick={() => {
-                    base = latestCommit;
-                    latest = undefined;
-                    if (!repoState?.files?.some((file) => file.path === originalPath))
-                      originalPath = '';
-                  }}>Keep my draft and use this version as its base</Button
-                >
-              </section>{/if}
-          {:else}<div class="empty-editor">
-              <div class="empty-symbol"><FolderOpen size={34} strokeWidth={1.4} /></div>
-              <h2>Your research, in files</h2>
-              <p>Open a file from the explorer, or start with a note, proof, or computation.</p>
-              <div class="empty-actions">
-                <Button disabled={!repoState?.writable || busy} onclick={create}
-                  ><Plus size={14} />Create a file</Button
-                ><Button
-                  variant="outline"
-                  disabled={!repoState?.writable || busy}
-                  onclick={() => uploadInput?.click()}><Upload size={14} />Upload</Button
-                >
-              </div>
-              <div class="shortcut-hint">
-                <kbd>⌘ / Ctrl</kbd> + <kbd>S</kbd><span>Save your current file</span>
-              </div>
-              <p class="privacy-note">
-                Working files are shared with project members.<br />Saving files does not publish
-                research.
-              </p>
-            </div>{/if}
+                <p class="privacy-note">
+                  Working files are shared with project members.<br />Saving files does not publish
+                  research.
+                </p>
+              </div>{/if}
+          </div>
+          {#if showLatex && repoState.worktree_id}
+            {#key repoState.worktree_id}<DocumentBuildPanel
+                {projectId}
+                worktreeId={repoState.worktree_id}
+                preferences={latexChoices.get(repoState.worktree_id)}
+                onPreferences={(value) => latexChoices.set(repoState!.worktree_id!, value)}
+                revision={repoState.commit ?? ''}
+                paths={[
+                  ...new Set([
+                    ...(repoState.files ?? []).map((file) => file.path),
+                    ...tabs.map((tab) => (tab.id === activeId ? path : tab.path)),
+                  ]),
+                ]}
+                activePath={path}
+                writable={Boolean(repoState.writable) && !busy}
+                dirty={Boolean(unsavedCount)}
+                saveAll={saveAllForCompile}
+                openDiagnostic={openLatexDiagnostic}
+              />{/key}
+          {/if}
         </div>
       {/if}
       {#if historyOpen && (view === 'history' || !onOpenView)}<section
@@ -1527,6 +1640,31 @@
 {/snippet}
 
 <style>
+  .latex-toggle {
+    padding: 0.4rem 0.7rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .file-build-layout {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+  }
+  .file-build-layout > .editor-column {
+    min-width: 0;
+    flex: 1;
+  }
+  .file-build-layout.with-pdf {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 1fr);
+  }
+  @media (max-width: 900px) {
+    .file-build-layout.with-pdf {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(180px, 1fr) minmax(240px, 1fr);
+    }
+  }
+
   .commit-diff {
     max-height: 320px;
     overflow: auto;

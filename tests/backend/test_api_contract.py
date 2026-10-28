@@ -74,6 +74,8 @@ def test_research_version_contract_has_no_legacy_revision_fields() -> None:
         "LibraryModerateWrite": {"expected_revision"},
         "LibraryRevisionWrite": {"expected_revision"},
         "ConversionRequest": {"revision"},
+        "BuildRead": {"revision"},
+        "BuildRequest": {"revision"},
         "RepositoryRunState": {"input_revision", "output_revision"},
         "RepositoryMerge": {"expected_target_revision", "expected_source_revision"},
         "RepositoryMergePreview": {"target_revision", "source_revision"},

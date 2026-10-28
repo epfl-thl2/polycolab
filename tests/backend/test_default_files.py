@@ -212,7 +212,7 @@ def test_concurrent_saves_preserve_one_winner(files: tuple[TestClient, str, Path
     ).json()
 
     def save(content: str) -> int:
-        return client.post(
+        response = client.post(
             root,
             headers=headers("owner"),
             json={
@@ -221,7 +221,8 @@ def test_concurrent_saves_preserve_one_winner(files: tuple[TestClient, str, Path
                 "content": content,
                 "expected_digest": created["digest"],
             },
-        ).status_code
+        )
+        return int(response.status_code)
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         assert sorted(pool.map(save, ["one", "two"])) == [200, 409]

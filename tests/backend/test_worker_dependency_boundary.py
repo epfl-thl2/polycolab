@@ -8,6 +8,7 @@ def test_production_worker_modules_do_not_import_persistence_or_legacy_harness()
     package_dir = Path(__file__).resolve().parents[2] / "src/backend" / "polycolab"
     modules = (
         "agents/worker.py",
+        "document_builds/worker.py",
         "agents/runtime/remote.py",
         "agents/runtime/gateways.py",
     )

@@ -323,6 +323,7 @@ The stack shows three notifications and can expand additional messages. Successe
 messages expire after five seconds; errors and warnings remain until dismissed or resolved.
 Expiry pauses while hovered, focused, or the tab is hidden. Polling failures are deduplicated.
 The stack uses the browser top layer and moves inside the active dialog or sheet's focus scope.
+It stays above the reply composer so notifications do not cover chat controls.
 Successful messages survive navigation; project errors clear when leaving their project and all
 messages clear on account changes. Retry actions perform reads; write failures retain drafts for
 review and explicit resubmission. Saving, reconnecting, access, and run status stay in compact

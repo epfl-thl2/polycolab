@@ -208,7 +208,13 @@ def test_timeout_receipt_survives_retry_on_real_schema(
 
 
 @pytest.mark.parametrize(
-    "previous_head", ["20260915_submission_numbers", "20260915_hosted_recovery"]
+    "previous_head",
+    [
+        "20260915_submission_numbers",
+        "20260915_hosted_recovery",
+        "20261014_chat",
+        "20261013_document_builds",
+    ],
 )
 def test_merge_upgrade_preserves_existing_branch_data(
     scheduler_pg_schema: tuple[Any, Any, str], previous_head: str
@@ -233,7 +239,7 @@ def test_merge_upgrade_preserves_existing_branch_data(
         assert retained is not None and retained.subject == "retained-account"
     from alembic.script import ScriptDirectory
 
-    assert ScriptDirectory.from_config(config).get_heads() == ["20261013_linear"]
+    assert ScriptDirectory.from_config(config).get_heads() == ["20261028_chat_latex"]
 
 
 def test_claim_requires_frozen_backend_version_and_image(hosted_client: TestClient) -> None:

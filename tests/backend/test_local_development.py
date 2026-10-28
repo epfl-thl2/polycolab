@@ -70,7 +70,7 @@ def test_local_upgrade_backs_up_and_rolls_back_failure(
     next_revision = migrations / "versions/next.py"
     next_revision.write_text("""from alembic import op
 revision = "local_next"
-down_revision = "local_20261014_chat"
+down_revision = "local_20261028_chat_latex"
 def upgrade():
     op.execute("CREATE TABLE migration_marker (value TEXT)")
     op.execute("INSERT INTO migration_marker VALUES ('upgraded')")
@@ -80,7 +80,7 @@ def upgrade():
     assert backup is not None and backup.is_file()
     with sqlite3.connect(backup) as db:
         assert db.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "local_20261014_chat",
+            "local_20261028_chat_latex",
         )
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT value FROM migration_marker").fetchone() == ("upgraded",)
@@ -358,7 +358,15 @@ def test_local_real_accounts_research_and_uploads_persist(tmp_path: Path) -> Non
     app.state.engine.dispose()
 
 
-@pytest.mark.parametrize("previous", ["local_20260916_key_reveal", "local_20260916_versions"])
+@pytest.mark.parametrize(
+    "previous",
+    [
+        "local_20260916_key_reveal",
+        "local_20260916_versions",
+        "local_20261014_chat",
+        "local_20261013_document_builds",
+    ],
+)
 def test_local_upgrade_from_either_merged_branch(tmp_path: Path, previous: str) -> None:
     from alembic import command
     from alembic.config import Config
@@ -379,12 +387,19 @@ def test_local_upgrade_from_either_merged_branch(tmp_path: Path, previous: str) 
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT value FROM user_marker").fetchone() == ("retained",)
         assert db.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "local_20261014_chat",
+            "local_20261028_chat_latex",
         )
         assert "encrypted_secret" in {
             row[1] for row in db.execute("PRAGMA table_info(external_agent_credentials)")
         }
         assert db.execute("SELECT count(*) FROM object_version_relationships").fetchone() == (0,)
+        for table in (
+            "chat_conversations",
+            "chat_turns",
+            "document_builds",
+            "document_build_queue",
+        ):
+            assert db.execute(f"SELECT count(*) FROM {table}").fetchone() == (0,)
 
 
 def test_provider_preview_upgrade_preserves_existing_encrypted_credentials(tmp_path: Path) -> None:

@@ -15,6 +15,7 @@
     readOnly = false,
     active = true,
     wordWrap = true,
+    revealLine,
     onEdit,
     onError,
     collaborative,
@@ -29,6 +30,7 @@
     readOnly?: boolean;
     active?: boolean;
     wordWrap?: boolean;
+    revealLine?: { line: number; nonce: number };
     onEdit?: () => void;
     onError?: () => void;
   } = $props();
@@ -79,6 +81,14 @@
       syncing = false;
     }
     if (view) editor.restoreViewState(view);
+  });
+
+  $effect(() => {
+    if (editor && revealLine) {
+      editor.setPosition({ lineNumber: revealLine.line, column: 1 });
+      editor.revealLineInCenter(revealLine.line);
+      editor.focus();
+    }
   });
 
   onMount(() => {

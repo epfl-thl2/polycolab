@@ -188,3 +188,20 @@ The runner stops its controller and removes only its own Compose project and
 volumes. It retains private synthetic diagnostics on failure. This gate does not
 establish live provider behavior, full resource-exhaustion coverage or production
 readiness.
+
+## LaTeX compilation
+
+Build the pinned compiler image using the [compiler guide](../../deploy/latex/README.md),
+then run:
+
+```sh
+POLYCOLAB_LATEX_IMAGE=sha256:<image-id> uv run --directory src/backend python ../../tests/system/run_latex.py
+```
+
+The runner creates disposable PostgreSQL/Garage services, starts FastAPI, Vite,
+and the private compiler controller, and exercises a real browser compilation.
+It verifies a rendered PDF, private access, save-before-compile without a Git
+commit, reload persistence, failure diagnostics, retained PDFs, and cancellation.
+The worker has no database/storage environment and the compiler has no service
+credential. All test services and data are removed afterward. Hosted isolation
+and recovery acceptance still require the target daemon.

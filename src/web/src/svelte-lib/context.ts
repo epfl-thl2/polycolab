@@ -28,6 +28,7 @@ export type Draft = {
 export type ProjectContext = {
   defaultFiles?: boolean;
   linear?: import('../lib/linear-session').LinearSession;
+  documentBuilds?: ReturnType<typeof import('../lib/document-builds-api').createDocumentBuildsApi>;
   tasks?: ReturnType<typeof import('../lib/project-tasks-api').createProjectTasksApi>;
   repository?: ReturnType<typeof import('../lib/repository-api').createRepositoryApi>;
   capabilities?: import('./capabilities.svelte').Capabilities;
@@ -57,6 +58,16 @@ export const explain = (error: unknown) => {
     return 'This file changed since you opened it. Your edits are retained. Copy them before reloading the current file.';
   if (code === 'file_exists' || code === 'file_path_conflict')
     return 'That path is already in use. Choose another file path.';
+  if (code === 'latex_worker_unavailable')
+    return 'The LaTeX compiler is unavailable. Your saved files are retained.';
+  if (code === 'latex_worktree_busy')
+    return 'A build is already active or stopping in this worktree. Wait for it to finish.';
+  if (code === 'latex_stale_revision')
+    return 'The saved files changed before compilation. Refresh and compile again.';
+  if (code === 'latex_storage_full') return 'This project has reached its build storage limit.';
+  if (code === 'latex_main_file_required') return 'Select a saved .tex file as the main document.';
+  if (code === 'latex_queue_full')
+    return 'This project has too many pending builds. Wait for a build to finish.';
   if (code === 'task_storage_disabled')
     return 'Working-copy storage is unavailable. Try again after it is enabled.';
   if (code === 'task_archived')

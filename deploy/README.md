@@ -324,3 +324,9 @@ On the Moderation page, choose Agent library entry, enter its ID, load the curre
 Published versions remain immutable; restore a verified backup instead of downgrading away library history.
 
 Projects choose Linear history or Git mode. See [Linear project operations](../docs/architecture/linear-projects.md#operation-and-verification) for the collaboration service, configuration, and coordinated backups.
+
+## LaTeX compiler
+
+Optional project/worktree compilation uses a separate Docker controller. See the
+[LaTeX deployment guide](latex/README.md) for image setup, private credentials,
+local startup and hosted acceptance.

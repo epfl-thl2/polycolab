@@ -21,6 +21,7 @@
     "docs:build": "pnpm run docs:prepare && uv run --project docs-site zensical build --clean --strict --config-file docs-site/mkdocs.yml && node docs-site/install-output.mjs",
     "web:build": "pnpm --filter @polycolab/web run build && pnpm run docs:build",
     "api:dev": "AUTH_MODE=local uv --directory src/backend run sh -c 'python -m polycolab.bootstrap_admin && exec uvicorn polycolab.main:app --reload --host 0.0.0.0 --port 8000'",
+    "api:latex-worker": "uv --directory src/backend run python -m polycolab.document_builds.worker",
     "api:worker": "uv --directory src/backend run python -m polycolab.builtin_worker",
     "api:check": "uv --directory src/backend run ruff format --check . ../../tests/backend && uv --directory src/backend run ruff check . ../../tests/backend && uv --directory src/backend run mypy polycolab ../../tests/backend && uv --directory src/backend run pytest",
     "api:migrate": "uv --directory src/backend run alembic upgrade head",

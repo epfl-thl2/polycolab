@@ -9,6 +9,7 @@
   let expanded = $state(false);
   let target = $state.raw<HTMLElement>();
   let element = $state<HTMLDivElement>();
+  let bottom = $state(24);
   let busy = $state<string[]>([]);
   const visible = $derived(expanded ? notifications.items : notifications.items.slice(0, 3));
   const popoverSupported =
@@ -17,12 +18,29 @@
     if (element && visible.length) element.showPopover?.();
   });
   onMount(() => {
+    const observed = new WeakSet<Element>();
+    const syncPosition = () => {
+      const composers = document.querySelectorAll<HTMLElement>('.project-chat-reply');
+      let inset = 24;
+      for (const composer of composers) {
+        if (!observed.has(composer)) {
+          observed.add(composer);
+          resize.observe(composer);
+        }
+        const rect = composer.getBoundingClientRect();
+        if (rect.width && rect.height && rect.top < window.innerHeight && rect.bottom > 0)
+          inset = Math.max(inset, window.innerHeight - rect.top + 12);
+      }
+      bottom = inset;
+    };
+    const resize = new ResizeObserver(syncPosition);
     const syncTarget = () => {
       const dialogs = document.querySelectorAll<HTMLElement>(
         '[data-slot="dialog-content"][data-state="open"], [data-slot="alert-dialog-content"][data-state="open"], [data-slot="sheet-content"][data-state="open"]',
       );
       const next = dialogs.item(dialogs.length - 1) || document.body;
       if (untrack(() => target) !== next) target = next;
+      syncPosition();
     };
     syncTarget();
     const observer = new MutationObserver(syncTarget);
@@ -30,13 +48,14 @@
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['data-state'],
+      attributeFilter: ['data-state', 'hidden'],
     });
     let last = performance.now();
     const visibilityChanged = () => {
       last = performance.now();
     };
     document.addEventListener('visibilitychange', visibilityChanged);
+    window.addEventListener('resize', syncPosition);
     const timer = setInterval(() => {
       const now = performance.now();
       if (!document.hidden)
@@ -48,8 +67,10 @@
     }, 250);
     return () => {
       observer.disconnect();
+      resize.disconnect();
       clearInterval(timer);
       document.removeEventListener('visibilitychange', visibilityChanged);
+      window.removeEventListener('resize', syncPosition);
     };
   });
   async function act(item: Notification) {
@@ -80,6 +101,8 @@
       bind:this={element}
       popover={popoverSupported ? 'manual' : undefined}
       class="toast-stack"
+      style:bottom={`${bottom}px`}
+      style:max-height={`calc(100dvh - ${bottom + 24}px)`}
       data-toast-stack
       role="region"
       aria-label="Notifications"

@@ -86,7 +86,7 @@ for (const signedIn of [false, true]) {
           const nav = page.getByRole('navigation', { name: 'Main navigation' });
           await expect(nav).toBeVisible();
           await expect(nav.getByRole('link', { name: 'Library' })).toBeVisible();
-          await expect(nav.getByRole('link', { name: 'Chat Planned' })).toBeVisible();
+          await expect(nav.getByRole('link', { name: 'Agents' })).toBeVisible();
           const sections = await page
             .locator(
               '.product-brand, .product-breadcrumb, .product-header-search, .product-navigation, .product-header-account',

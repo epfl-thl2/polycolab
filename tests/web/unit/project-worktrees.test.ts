@@ -57,7 +57,7 @@ it('groups conversations under Main and their saved worktree without search cont
   const { onOpenSession, onNewChat } = setup();
   await screen.findByRole('button', { name: 'Select Proof worktree' });
   expect(
-    within(screen.getByRole('region', { name: 'Main worktree' })).getByRole('button', {
+    await within(screen.getByRole('region', { name: 'Main worktree' })).findByRole('button', {
       name: /General Researcher/,
     }),
   ).toBeTruthy();

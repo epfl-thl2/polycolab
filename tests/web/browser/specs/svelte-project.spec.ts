@@ -1219,6 +1219,7 @@ test('creates a project as public and explains public-on-save behavior', async (
     name: 'Public test project',
     description: 'Research anyone can inspect.',
     visibility: 'PUBLIC',
+    workspace_mode: 'default',
   });
 });
 
@@ -1328,13 +1329,13 @@ test('public history pagination retains versions and retries the failed page', a
   });
   await page.goto(`/projects/${projectId}/objects/${objectId}`);
   await page.getByRole('button', { name: 'Load more history' }).click();
-  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: 'request_failed' })).toBeVisible();
   await expect(page.getByText(`Version 2: ${revision.title}`, { exact: true })).toBeVisible();
   fail = false;
   await page.getByRole('button', { name: 'Retry', exact: true }).click();
   await expect(page.getByText('Version 1: Earlier saved version', { exact: true })).toBeVisible();
   expect(cursors).toEqual([null, 'history-2', 'history-2']);
-  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(page.getByRole('alert').filter({ hasText: 'request_failed' })).toHaveCount(0);
 });
 
 test('creates, repeatedly reveals, and revokes account-wide agent API keys', async ({ page }) => {
@@ -1416,7 +1417,7 @@ test('creates, repeatedly reveals, and revokes account-wide agent API keys', asy
   await page.getByRole('button', { name: 'Actions for Lean helper' }).click();
   await page.getByRole('menuitem', { name: 'Revoke key' }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Confirm', exact: true }).click();
-  await expect(page.getByRole('status')).toContainText('API key revoked');
+  await expect(page.getByRole('status').filter({ hasText: 'API key revoked' })).toBeVisible();
 
   await page.reload();
   await expect(page.getByLabel('API key', { exact: true })).toHaveCount(0);
@@ -1717,9 +1718,9 @@ test('avatar menu connects the configured account surfaces', async ({ page }) =>
   await page.keyboard.press('Escape');
 
   const destinations = [
-    { item: 'Profile', path: '/profile', heading: 'Public contributions' },
+    { item: 'Profile', path: '/profile/ada', heading: 'Public contributions' },
     { item: 'Settings', path: '/settings', heading: 'Settings' },
-    { item: 'Moderation', path: '/moderation', heading: 'Public research moderation' },
+    { item: 'Moderation', path: '/moderation', heading: 'Public content moderation' },
   ];
 
   await trigger.click();
@@ -2047,10 +2048,11 @@ test('saves exact Python source versions from the production record route with o
 
   await page.goto(`/projects/${projectId}/records/${revisionId}`);
   await expect(page.getByRole('heading', { name: 'Source editor' })).toBeVisible();
-  const sourceEditor = page.locator('section[aria-labelledby^="source-editor-"]');
   await page.getByLabel('Source code').fill('print("new")');
   await page.getByRole('button', { name: 'Save new source version' }).click();
-  await expect(sourceEditor.getByRole('alert')).toContainText('draft is retained');
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'source draft is retained' }),
+  ).toContainText('draft is retained');
   await page.getByRole('button', { name: 'Save new source version' }).click();
   await expect(page.getByRole('link', { name: 'Open saved version' })).toHaveAttribute(
     'href',
@@ -2525,13 +2527,13 @@ test('moderation retains exact inputs and retry identity while authority recover
   });
 
   await page.goto('/moderation');
-  await page.getByLabel('Object or catalogue entry ID').fill(objectId);
+  await page.getByLabel('Object or entry ID').fill(objectId);
   await page.getByLabel('Exact current version ID').fill(revisionId);
   await page.getByLabel('Reason').fill('Contains private material pending a safe revision.');
   await page.getByRole('button', { name: 'Apply moderation' }).click();
 
   await expect(page.getByRole('alert')).toContainText('access changed');
-  await expect(page.getByLabel('Object or catalogue entry ID')).toHaveValue(objectId);
+  await expect(page.getByLabel('Object or entry ID')).toHaveValue(objectId);
   await expect(page.getByLabel('Exact current version ID')).toHaveValue(revisionId);
   await expect(page.getByLabel('Reason')).toHaveValue(
     'Contains private material pending a safe revision.',
@@ -2725,9 +2727,7 @@ test('discovers a curated environment and retains an exact verification submissi
     .fill('INPUT data.json ARTIFACT aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
   await page.getByLabel('Arguments (optional; one argv value per line)').fill('--mode\nproof');
   await page.getByRole('button', { name: 'Submit verification job' }).click();
-  await expect(
-    page.locator('section[aria-labelledby="verification-submit-title"] [role="alert"]'),
-  ).toContainText('requested limits are retained');
+  await expect(page.getByRole('alert')).toContainText('requested limits are retained');
   await page.getByRole('button', { name: 'Submit verification job' }).click();
   await expect(page).toHaveURL(`/projects/${projectId}/verification/${submittedJobId}`);
 
@@ -3187,7 +3187,7 @@ test('owner settings are reachable and save details without changing visibility'
 }) => {
   await mock(page);
   await page.goto(`/projects/${projectId}/settings`);
-  await expect(page.getByRole('heading', { name: 'Project settings', level: 1 })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Project settings', exact: true })).toBeVisible();
   const settings = page.locator('.settings-stack');
   await expect(settings.getByRole('heading', { level: 2 })).toHaveText([
     'Project details',
@@ -3212,8 +3212,12 @@ test('owner settings are reachable and save details without changing visibility'
   await page.getByRole('button', { name: 'Save settings' }).click();
   await expect(page.locator('[data-feedback-toast]')).toContainText('Settings saved.');
   await page
+    .getByRole('dialog', { name: 'Project settings', exact: true })
+    .getByRole('button', { name: 'Close', exact: true })
+    .click();
+  await page
     .getByRole('complementary', { name: 'Project navigation', exact: true })
-    .getByRole('link', { name: 'Agent connect', exact: true })
+    .getByRole('button', { name: 'Agent connect', exact: true })
     .click();
   await expect(page.getByRole('heading', { name: 'Agent connect', exact: true })).toBeVisible();
   await expect(page.locator('[data-feedback-toast]')).toContainText('Settings saved.');
@@ -3468,7 +3472,7 @@ test('provider keys remain write-only across create, validation, rotation, failu
   await page.getByRole('menuitem', { name: 'Replace API key' }).click();
   await page.getByLabel('Replacement key').fill('rotation-secret');
   await page.getByRole('button', { name: 'Save replacement' }).click();
-  await expect(page.getByRole('status')).toHaveText('API key replaced.');
+  await expect(page.getByRole('status').filter({ hasText: 'API key replaced.' })).toBeVisible();
   await expect(page.getByLabel('Replacement key')).toHaveCount(0);
   await expect(second.getByText('rot••••cret', { exact: true })).toBeVisible();
   await expect(second.getByText('cre••••cret', { exact: true })).toHaveCount(0);
@@ -3497,7 +3501,7 @@ test('provider keys remain write-only across create, validation, rotation, failu
   await second.getByRole('button', { name: 'Actions for Second model' }).click();
   await page.getByRole('menuitem', { name: 'Delete provider' }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Confirm', exact: true }).click();
-  await expect(page.getByRole('status')).toHaveText('AI provider deleted.');
+  await expect(page.getByRole('status').filter({ hasText: 'AI provider deleted.' })).toBeVisible();
   await expect(page.getByText('Second model', { exact: true })).toHaveCount(0);
   expect(writes).toEqual(
     expect.arrayContaining([
@@ -4223,9 +4227,7 @@ test('hosted run history keeps prior files and offers explicit resume after lost
   await page.getByText('Files and run history', { exact: true }).click();
   await page.getByLabel('Files from completed run').selectOption('completed-run');
   await expect(page.getByRole('button', { name: 'Download Saved result.txt' })).toBeVisible();
-  await expect(
-    page.getByText('Your conversation and saved files remain accessible.', { exact: false }),
-  ).toBeVisible();
+  await expect(page.getByText('Execution unavailable', { exact: true })).toBeVisible();
 });
 
 test('signed-in nonmembers use the same project shell without member tools', async ({ page }) => {
@@ -4691,9 +4693,9 @@ test('project Agent connect provides scoped instructions and a collapsed navigat
   await page.goto(`/projects/${projectId}`);
   const agentConnect = page
     .getByRole('complementary', { name: 'Project navigation', exact: true })
-    .getByRole('link', { name: 'Agent connect', exact: true });
+    .getByRole('button', { name: 'Agent connect', exact: true });
   await agentConnect.click();
-  await expect(page).toHaveURL(`/projects/${projectId}/agent-connect`);
+  await expect(page).toHaveURL(`/projects/${projectId}/sessions/new`);
   await expect(page.getByRole('heading', { name: 'Agent connect', exact: true })).toBeVisible();
   const instructions = page.getByRole('textbox', { name: 'Agent connection instructions' });
   await expect(instructions).toHaveValue(new RegExp(`Project ID: ${projectId}`));
@@ -4722,11 +4724,17 @@ test('project Agent connect provides scoped instructions and a collapsed navigat
   await expect(stack).toHaveCount(0);
   await expect(issuedDialog).toBeVisible();
   await page.getByRole('button', { name: 'Done', exact: true }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page).toHaveURL(`/projects/${projectId}/agent-connect`);
-  await expect(page.locator('#main')).toContainText('not limited to this project');
+  await expect(page.getByRole('dialog', { name: 'Your API key' })).toHaveCount(0);
+  await expect(page).toHaveURL(`/projects/${projectId}/sessions/new`);
+  await expect(page.getByRole('dialog', { name: 'Agent connect', exact: true })).toContainText(
+    'not limited to this project',
+  );
+  await page
+    .getByRole('dialog', { name: 'Agent connect', exact: true })
+    .getByRole('button', { name: 'Close', exact: true })
+    .click();
   const link = agentConnect;
-  await expect(link).toHaveAttribute('aria-current', 'page');
+  await expect(link).toHaveAttribute('aria-haspopup', 'dialog');
   await link.hover();
   await expect(page.getByRole('tooltip')).toHaveText('Agent connect');
   await expect(link.locator('svg')).toBeVisible();
@@ -5384,7 +5392,7 @@ test('Files workbench keeps tab drafts, explores folders, and reviews an agent c
   await expect(page.getByText('2 unsaved files', { exact: true })).toBeVisible();
   // File state belongs to the project, not to the Files route.
   const projectNav = page.getByRole('navigation', { name: 'Project sections', exact: true });
-  for (const section of ['Overview', 'Research objects', 'Activity']) {
+  for (const section of ['Overview', 'Activity']) {
     await projectNav.getByRole('link', { name: section, exact: true }).click();
     await expect(navigator).toHaveCount(0);
     await expect(page.getByRole('tab', { name: 'README.md' })).toHaveCount(0);
@@ -6419,4 +6427,124 @@ test('retired project Chat bookmarks open existing project conversations', async
   await expect(page.getByRole('heading', { name: 'All sessions', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Chat', exact: true })).toHaveCount(0);
   expect(chatRequests).toEqual([]);
+});
+
+test('LaTeX builds save all drafts, retain the PDF after failure, and cancel by worktree', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await mock(page);
+  let savedRevision = 'a'.repeat(40);
+  const files: Record<string, string> = {
+    'main.tex': '\\documentclass{article}\n\\begin{document}Hello\\end{document}',
+    'chapter.tex': 'First chapter',
+  };
+  await page.route(`**/api/v1/projects/${projectId}/repository**`, (route) =>
+    route.fulfill({
+      json: {
+        enabled: true,
+        writable: true,
+        branch: 'main',
+        commit: savedRevision,
+        branches: { main: 'a'.repeat(40) },
+        files: Object.entries(files).map(([path, value]) => ({
+          path,
+          size: value.length,
+          executable: false,
+        })),
+      },
+    }),
+  );
+  await mockNativeFiles(
+    page,
+    () => [nativeTree(mainWorktreeId, 'Main', 'main', savedRevision, files)],
+    (_id, path) => files[path],
+    (body) => {
+      expect(body.expected_revision).toBe(savedRevision);
+      expect(body.changes).toHaveLength(2);
+      for (const change of body.changes)
+        files[change.path] = Buffer.from(change.content_base64, 'base64').toString();
+      savedRevision = 'b'.repeat(40);
+      return savedRevision;
+    },
+  );
+  type Build = {
+    id: string;
+    project_id: string;
+    worktree_id: string;
+    revision: string;
+    main_file: string;
+    engine: string;
+    status: string;
+    created_at: string;
+    expires_at: string;
+    error: string | null;
+    pdf_available: boolean;
+    log_available: boolean;
+  };
+  const builds: Build[] = [];
+  let submissions = 0;
+  const url = `/api/v1/projects/${projectId}/worktrees/${mainWorktreeId}/latex-builds`;
+  await page.route(`**${url}**`, (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (path.endsWith('/outputs/pdf'))
+      return route.fulfill({ contentType: 'application/pdf', body: '%PDF-1.4\n%%EOF' });
+    if (path.endsWith('/outputs/log'))
+      return route.fulfill({
+        contentType: 'text/plain',
+        body: './main.tex:2: Undefined control sequence.',
+      });
+    if (path.endsWith('/cancel')) {
+      expect(path).toBe(`${url}/${builds[0].id}/cancel`);
+      builds[0] = { ...builds[0], status: 'cancelled' };
+      return route.fulfill({ json: builds[0] });
+    }
+    if (request.method() === 'POST') {
+      expect(request.postDataJSON()).toMatchObject({
+        revision: 'b'.repeat(40),
+        main_file: 'main.tex',
+        engine: 'pdflatex',
+      });
+      expect(request.headers()['idempotency-key']).toBeTruthy();
+      submissions++;
+      const build: Build = {
+        id: `${submissions}`,
+        project_id: projectId,
+        worktree_id: mainWorktreeId,
+        revision: savedRevision,
+        main_file: 'main.tex',
+        engine: 'pdflatex',
+        status: submissions === 1 ? 'succeeded' : submissions === 2 ? 'failed' : 'running',
+        created_at: new Date().toISOString(),
+        expires_at: '2099-01-01T00:00:00Z',
+        error: submissions === 2 ? 'latex_compile_failed' : null,
+        pdf_available: submissions === 1,
+        log_available: submissions === 2,
+      };
+      builds.unshift(build);
+      return route.fulfill({ status: 202, json: build });
+    }
+    return route.fulfill({ json: { available: true, builds } });
+  });
+  await page.goto(`/projects/${projectId}/files`);
+  await page.getByRole('button', { name: 'main.tex', exact: true }).click();
+  await expect(page.getByLabel('Copy path: main.tex', { exact: true })).toBeVisible();
+  await (await plainFileEditor(page)).fill('Updated main document');
+  await page.getByRole('button', { name: 'chapter.tex', exact: true }).click();
+  await expect(page.getByLabel('Copy path: chapter.tex', { exact: true })).toBeVisible();
+  await (await plainFileEditor(page)).fill('Updated chapter');
+  await page.getByRole('button', { name: 'LaTeX / PDF preview', exact: true }).click();
+  await page.getByLabel('Main LaTeX document').selectOption('main.tex');
+  await page.getByRole('button', { name: 'Save all & compile', exact: true }).click();
+  await expect(page.getByRole('link', { name: 'Download PDF' })).toBeVisible();
+  expect(files).toEqual({ 'main.tex': 'Updated main document', 'chapter.tex': 'Updated chapter' });
+  await page.getByRole('button', { name: 'Compile', exact: true }).click();
+  await expect(page.getByRole('button', { name: /main.tex:2/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Download PDF' })).toBeVisible();
+  await page.getByRole('button', { name: /main.tex:2/ }).click();
+  await expect(await plainFileEditor(page)).toHaveValue('Updated main document');
+  await page.getByRole('button', { name: 'Compile', exact: true }).click();
+  await page.getByRole('button', { name: 'Cancel build', exact: true }).click();
+  await expect(page.getByText('Build: cancelled', { exact: true })).toBeVisible();
 });
