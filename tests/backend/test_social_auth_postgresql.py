@@ -315,7 +315,9 @@ def test_postgresql_concurrent_unlink_preserves_one_login_method(
         )
     barrier = Barrier(2)
 
-    def unlink(binding: tuple[SocialProviderKind, str]) -> type[SocialAuthConflict] | None:
+    def unlink(
+        binding: tuple[SocialProviderKind, str],
+    ) -> type[SocialAuthConflict] | None:
         provider, token = binding
         barrier.wait(timeout=10)
         with Session(engine) as session:

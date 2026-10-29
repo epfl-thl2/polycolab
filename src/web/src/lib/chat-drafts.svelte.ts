@@ -3,12 +3,11 @@ import { SvelteMap } from 'svelte/reactivity';
 
 export class ChatDraft {
   message = $state('');
-  publicTask = $state('');
   startingSessionId = $state('');
   startRequest: { key: string; body: string } | undefined;
   request: { key: string; body: string } | undefined;
   get dirty() {
-    return Boolean(this.message || this.publicTask);
+    return Boolean(this.message);
   }
 }
 
@@ -37,7 +36,6 @@ export class ChatDrafts {
     const draft = this.entries.get(key);
     if (!draft) return;
     draft.message = '';
-    draft.publicTask = '';
     draft.startingSessionId = '';
     draft.startRequest = undefined;
     draft.request = undefined;

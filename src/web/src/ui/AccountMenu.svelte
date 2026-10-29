@@ -45,7 +45,6 @@
     >
   </DropdownMenu.GroupHeading>
   <DropdownMenu.Separator />
-  {@render menuLink('/profile', 'Profile', active === 'profile')}
   {@render menuLink('/projects', 'Your projects', active === 'projects')}
 </DropdownMenu.Group>
 <DropdownMenu.Separator />
@@ -66,7 +65,6 @@
 <DropdownMenu.Group>
   <DropdownMenu.GroupHeading>Resources</DropdownMenu.GroupHeading>
   {@render menuLink('/docs/getting-started/', 'Getting started')}
-  {@render menuLink('/moderation', 'Moderation', active === 'moderation')}
 </DropdownMenu.Group>
 <DropdownMenu.Separator />
 <DropdownMenu.Item class="product-menu-item min-h-9 gap-2 px-2 cursor-pointer" onSelect={onSignOut}>

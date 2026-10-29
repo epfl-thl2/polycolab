@@ -23,9 +23,9 @@ def test_new_public_routes_reach_handlers_and_retain_rate_limits(
         "polycolab.app.application.utc_now", lambda: datetime(2026, 9, 5, tzinfo=UTC)
     )
 
-    response = client.get("/api/v1/catalogue")
+    response = client.get("/api/v1/projects")
     assert response.status_code == 200
-    limited = client.get("/api/v1/library")
+    limited = client.get("/api/v1/projects")
     assert limited.status_code == 429
     assert int(limited.headers["Retry-After"]) > 0
 
@@ -58,7 +58,9 @@ def test_private_and_unknown_public_pages_have_the_same_non_disclosing_response(
     assert private.json()["error"]["code"] == unknown.json()["error"]["code"]
 
 
-def test_auth_config_exposes_only_browser_safe_public_metadata(client: TestClient) -> None:
+def test_auth_config_exposes_only_browser_safe_public_metadata(
+    client: TestClient,
+) -> None:
     cast(FastAPI, client.app).state.settings.auth_mode = AuthMode.LOCAL
     response = client.get("/auth/config")
     assert response.status_code == 200
@@ -92,7 +94,9 @@ def test_auth_config_exposes_only_browser_safe_public_metadata(client: TestClien
     oidc_app.state.engine.dispose()
 
 
-def test_vite_assets_and_spa_fallback_do_not_swallow_service_routes(tmp_path: Path) -> None:
+def test_vite_assets_and_spa_fallback_do_not_swallow_service_routes(
+    tmp_path: Path,
+) -> None:
     web_dist = tmp_path / "web-dist"
     assets = web_dist / "assets"
     assets.mkdir(parents=True)
@@ -184,7 +188,10 @@ def test_vite_assets_and_spa_fallback_do_not_swallow_service_routes(tmp_path: Pa
             ("/docs/connect", "/docs/setup/external-agent/"),
             ("/docs/agent-api", "/docs/developers/agent-runs/"),
             ("/docs/guides/workspaces", "/docs/guides/projects/"),
-            ("/docs/guides/workspaces/?from=bookmark", "/docs/guides/projects/?from=bookmark"),
+            (
+                "/docs/guides/workspaces/?from=bookmark",
+                "/docs/guides/projects/?from=bookmark",
+            ),
             ("/docs/setup/workspace/", "/docs/setup/project/"),
         ):
             redirect = vite_client.get(old, follow_redirects=False)

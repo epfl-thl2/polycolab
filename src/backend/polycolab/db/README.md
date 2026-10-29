@@ -14,7 +14,7 @@ Use these directories to find SQL persistence code:
 | `transaction.py`         | SQLAlchemy transaction implementation shared by participating stores.                                     |
 | `errors.py`              | Translates SQLAlchemy exceptions into application persistence errors.                                     |
 
-Files within models, stores, and converters are grouped by subject, such as `accounts.py` and `research.py`.
+Files within models, stores, and converters are grouped by subject, such as `accounts.py` and `projects.py`.
 Query-mapped classes stay beside related table models.
 Import `Base` from `polycolab.db.base` and timestamp values from `polycolab.entities.time` directly.
 

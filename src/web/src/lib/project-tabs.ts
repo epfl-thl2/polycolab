@@ -1,7 +1,7 @@
 import { canonicalUiLocation } from './ui-location';
 export type ProjectTab = {
   id: string;
-  kind: 'chat' | 'file' | 'object' | 'diff' | 'page';
+  kind: 'chat' | 'file' | 'diff' | 'page';
   label: string;
   href: string;
   dirty?: boolean;
@@ -11,17 +11,7 @@ export type ProjectTab = {
 export function isProjectLayoutPage(href: string): boolean {
   const segments = new URL(href, 'http://project.local').pathname.split('/');
   return (
-    !segments[4] &&
-    [
-      'overview',
-      'research',
-      'map',
-      'activity',
-      'settings',
-      'agent-connect',
-      'records',
-      'references',
-    ].includes(segments[3] || 'overview')
+    !segments[4] && ['overview', 'settings', 'agent-connect'].includes(segments[3] || 'overview')
   );
 }
 
@@ -39,33 +29,16 @@ export function projectRouteTab(projectId: string, href: string): ProjectTab | u
   const entity = segments[4];
   if (section === 'sessions' && !entity && url.searchParams.get('view') === 'empty') return;
   if (segments.length > 5) return;
-  if (entity && !['objects', 'sessions', 'records', 'proposals', 'verification'].includes(section))
-    return;
-  if (section === 'objects' && !entity) return;
+  if (entity && section !== 'sessions') return;
   const labels: Record<string, string> = {
     overview: 'Overview',
-    research: 'Research objects',
-    map: 'Map',
-    activity: 'Activity',
     files: 'Files',
     sessions: 'All sessions',
     settings: 'Settings',
     'agent-connect': 'Agent connect',
-    records: 'Research record',
-    references: 'References',
-    proposals: 'Proposal',
-    verification: 'Verification',
   };
-  const kind =
-    section === 'objects' ? 'object' : section === 'sessions' && entity ? 'chat' : 'page';
-  const label =
-    kind === 'object'
-      ? 'Research object'
-      : kind === 'chat'
-        ? entity === 'new'
-          ? 'New chat'
-          : 'Chat'
-        : labels[section];
+  const kind = section === 'sessions' && entity ? 'chat' : 'page';
+  const label = kind === 'chat' ? (entity === 'new' ? 'New chat' : 'Chat') : labels[section];
   if (!label) return;
   const draft = section === 'sessions' && entity === 'new' ? url.searchParams.get('draft') : null;
   return {

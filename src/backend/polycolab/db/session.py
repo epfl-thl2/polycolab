@@ -56,9 +56,7 @@ def make_engine(settings: Settings, *, pool_class: type[QueuePool] | None = None
 
 
 def make_session_factory(engine: Engine) -> sessionmaker[Session]:
-    from polycolab.research.history import install_history
 
-    install_history()
     return sessionmaker(bind=engine, expire_on_commit=False)
 
 

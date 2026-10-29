@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from polycolab.access.authorization import ProjectAction, project_policy
 from polycolab.db.base import Base
-from polycolab.db.models import SqlInvitation, SqlMembership, SqlProject, SqlResearchScope
+from polycolab.db.models import SqlInvitation, SqlMembership, SqlProject
 from polycolab.db.session import make_engine, make_session_factory
 from polycolab.db.transaction import make_transaction_factory
 from polycolab.entities.accounts import User
@@ -21,7 +21,11 @@ from polycolab.entities.enums import ProjectRole, ProjectVisibility
 from polycolab.entities.projects import Membership
 from polycolab.entities.time import utc_now
 from polycolab.platform.config import Settings
-from polycolab.projects.service import DomainConflict, change_membership_role, create_project
+from polycolab.projects.service import (
+    DomainConflict,
+    change_membership_role,
+    create_project,
+)
 from polycolab.transaction import PersistenceConflict, Transaction, TransactionFactory
 
 
@@ -52,7 +56,10 @@ def test_first_write_in_savepoint_obeys_outer_transaction(
         with factory() as transaction:
             with transaction.savepoint():
                 user = transaction.accounts.create_user(
-                    issuer="test", subject="savepoint-first", email=None, display_name=None
+                    issuer="test",
+                    subject="savepoint-first",
+                    email=None,
+                    display_name=None,
                 )
                 user_id = user.id
             if completion == "commit":
@@ -87,7 +94,9 @@ def test_uncommitted_work_rolls_back_across_stores(factory: TransactionFactory) 
         assert check.projects.membership(project.id, owner.id) is None
 
 
-def test_explicit_commit_materializes_multi_table_project(factory: TransactionFactory) -> None:
+def test_explicit_commit_materializes_multi_table_project(
+    factory: TransactionFactory,
+) -> None:
     owner = create_owner(factory)
     with factory() as transaction:
         project = create_project(
@@ -114,7 +123,9 @@ def test_explicit_commit_materializes_multi_table_project(factory: TransactionFa
         assert check.projects.project(project.id) == project
 
 
-def test_constraint_failure_rolls_back_whole_operation(factory: TransactionFactory) -> None:
+def test_constraint_failure_rolls_back_whole_operation(
+    factory: TransactionFactory,
+) -> None:
     owner = create_owner(factory)
     project_id = uuid4()
     with pytest.raises(PersistenceConflict), factory() as transaction:
@@ -128,7 +139,10 @@ def test_constraint_failure_rolls_back_whole_operation(factory: TransactionFacto
         )
         project_id = project.id
         transaction.projects.add_membership(
-            project_id=project_id, user_id=owner.id, role=ProjectRole.OWNER, invited_by=None
+            project_id=project_id,
+            user_id=owner.id,
+            role=ProjectRole.OWNER,
+            invited_by=None,
         )
         transaction.commit()
     with factory() as check:
@@ -137,7 +151,9 @@ def test_constraint_failure_rolls_back_whole_operation(factory: TransactionFacto
         assert check.accounts.user(owner.id) == owner
 
 
-def test_savepoint_failure_preserves_outer_operation(factory: TransactionFactory) -> None:
+def test_savepoint_failure_preserves_outer_operation(
+    factory: TransactionFactory,
+) -> None:
     owner = create_owner(factory)
     with factory() as transaction:
         project = create_project(
@@ -150,7 +166,10 @@ def test_savepoint_failure_preserves_outer_operation(factory: TransactionFactory
         )
         with pytest.raises(PersistenceConflict), transaction.savepoint():
             transaction.projects.add_membership(
-                project_id=project.id, user_id=owner.id, role=ProjectRole.OWNER, invited_by=None
+                project_id=project.id,
+                user_id=owner.id,
+                role=ProjectRole.OWNER,
+                invited_by=None,
             )
         assert transaction.projects.project(project.id) is not None
         transaction.commit()
@@ -205,7 +224,7 @@ def test_no_implicit_store_commit_and_invitation_projection() -> None:
             assert not hasattr(invitation, "token_digest")
             transaction.rollback()
         with Session(engine) as session:
-            for model in (SqlProject, SqlMembership, SqlResearchScope, SqlInvitation):
+            for model in (SqlProject, SqlMembership, SqlInvitation):
                 assert session.scalar(select(func.count()).select_from(model)) == 0
     finally:
         engine.dispose()

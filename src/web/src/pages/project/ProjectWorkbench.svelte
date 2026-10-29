@@ -7,16 +7,13 @@
   import { onMount, tick, untrack, type Snippet } from 'svelte';
   import { goto, beforeNavigate } from '$app/navigation';
   import { page } from '$app/state';
-  import { FolderOpen, GitBranch, Info, History } from '@lucide/svelte';
-  import { Button } from '../../lib/components/ui/button';
+  import { FolderOpen, GitBranch, History } from '@lucide/svelte';
   import ProjectShell from './components/ProjectShell.svelte';
   import ProjectToolsHeader from './components/ProjectToolsHeader.svelte';
   import { projectContext, explain } from '../../svelte-lib/context';
   import type { ProjectTask } from '../../lib/project-tasks-api';
-  import { canWriteResearch } from '../../lib/access';
-  import type { Project, ObjectVersion } from '../../lib/research-api';
-  import type { Activity } from '../../lib/history-api';
-  import type { ProjectMap } from '../../lib/project-map';
+  import { canWriteProject } from '../../lib/access';
+  import type { Project } from '../../lib/projects-api';
   import {
     projectRouteTab,
     isProjectLayoutPage,
@@ -30,10 +27,8 @@
   import ProjectTabStrip from './components/ProjectTabStrip.svelte';
   import ProjectFiles from './components/ProjectFiles.svelte';
   import ProjectPage from './ProjectPage.svelte';
-  import ProjectObjectPanel from './components/ProjectObjectPanel.svelte';
-  import ProjectSectionPanel from './components/ProjectSectionPanel.svelte';
   let { project, path }: { project: Project; path: string } = $props();
-  const { auth, drafts, capabilities, tasks: taskApi, agents, query } = projectContext();
+  const { auth, capabilities, tasks: taskApi, agents, query } = projectContext();
   const projectId = $derived(project.id);
   const chatDraftStore = chatDrafts() ?? new ChatDrafts();
   const titles = sessionTitles(
@@ -50,7 +45,7 @@
     };
   }
   const canWrite = $derived(
-    canWriteResearch(project.current_user_role, Boolean(project.archived_at)),
+    canWriteProject(project.current_user_role, Boolean(project.archived_at)),
   );
   const canChat = $derived(canWrite && Boolean(capabilities?.enabled('agent_execution')));
   let tabs = $state<ProjectTab[]>([]);
@@ -83,53 +78,19 @@
   const branchLabels = $derived(
     Object.fromEntries(Object.values(knownTasks).map((task) => [task.branch, task.title])),
   );
-  let selectedResearch = $state<{ version: ObjectVersion; searchResult: boolean }>();
-  let researchCreationOpen = $state(false);
-  let researchCountLabel = $state('');
-  let selectedActivity = $state<Activity>();
-  let mapData = $state<ProjectMap>();
-  let mapObjectId = $state('');
-  let mapPanelTab = $state('body');
-  let objectPanelTab = $state('body');
   const active = $derived(tabs.find((tab) => tab.id === activeId));
   let layoutHref = $state(untrack(() => (isProjectLayoutPage(path) ? path : '')));
   const projectView = $derived(!layoutHref);
   const activeUrl = $derived(new URL(layoutHref || active?.href || path, 'http://project.local'));
   const layoutLabels: Record<string, string> = {
     overview: 'Project',
-    research: 'Research objects',
-    map: 'Map',
-    activity: 'Activity',
     settings: 'Project settings',
     'agent-connect': 'Agent connect',
-    records: 'Research record',
-    references: 'References',
   };
   const section = $derived(activeUrl.pathname.split('/')[3] || 'overview');
-  const selectionPanels: Record<
-    string,
-    { hasSelection: boolean; label: string; guidance: string }
-  > = $derived({
-    research: { hasSelection: Boolean(selectedResearch), label: 'Object details', guidance: '' },
-    map: {
-      hasSelection: Boolean(mapObjectId),
-      label: 'Object details',
-      guidance: 'Select an object on the map to see its details.',
-    },
-    activity: {
-      hasSelection: Boolean(selectedActivity),
-      label: 'Activity details',
-      guidance: 'Select a change to see its details.',
-    },
-  });
-  const selectionPanel = $derived(selectionPanels[section]);
   const entity = $derived(activeUrl.pathname.split('/')[4]);
-  const showLayoutHeading = $derived(
-    !['overview', 'agent-connect', 'settings', 'research', 'map', 'activity'].includes(section),
-  );
-  const projectLayout = $derived(
-    ['overview', 'records', 'references', 'settings', 'agent-connect'].includes(section),
-  );
+  const showLayoutHeading = $derived(!['overview', 'agent-connect', 'settings'].includes(section));
+  const projectLayout = $derived(['overview', 'settings', 'agent-connect'].includes(section));
   const railSection = $derived(projectView ? 'sessions' : projectLayout ? 'overview' : section);
   const leftPanelTitle = $derived(projectView ? 'Worktrees' : layoutLabels[railSection]);
   const fileView = $derived(
@@ -562,10 +523,6 @@
       if (elsewhere) chatDraftStore.discard(key);
       else chatDraftStore.delete(key);
     }
-    if (tab.kind === 'object')
-      drafts.delete(
-        `${projectId}:${new URL(tab.href, 'http://project.local').pathname.split('/')[4]}`,
-      );
     const index = tabs.findIndex((item) => item.id === id);
     tabs = tabs.filter((item) => item.id !== id);
     if (activeId === id) {
@@ -581,14 +538,6 @@
       const tab = tabs.find((item) => item.id === id);
       return tab ? [tab] : [];
     });
-  }
-  function inspect() {
-    if (!projectView && !selectionPanel) {
-      shell?.showPanel('left');
-      return;
-    }
-    rightMode = 'details';
-    shell?.showPanel('tools');
   }
   function hasUnsavedDrafts() {
     return (
@@ -637,8 +586,8 @@
       bind:this={shell}
       projectName={project.name}
       leftTitle={leftPanelTitle}
-      rightLabel={selectionPanel?.label ?? 'Project tools'}
-      toolsAvailable={Boolean(projectView || selectionPanel?.hasSelection)}
+      rightLabel="Project tools"
+      toolsAvailable={projectView}
       showProjectName={showLayoutHeading}
       bind:leftClosed={agentsClosed}
       bind:rightClosed
@@ -700,14 +649,6 @@
             active={true}
             onState={() => {}}
             onCreated={() => {}}
-            onInspect={inspect}
-            bind:selectedResearch
-            bind:researchCreationOpen
-            bind:researchCountLabel
-            bind:selectedActivity
-            bind:mapData
-            bind:mapObjectId
-            bind:mapPanelTab
           />
         </div>{/if}
       {#if projectView && !active}<div class="workbench-empty">
@@ -721,12 +662,6 @@
             active={projectView && tab.id === activeId}
             onState={(state) => updateTab(tab.id, state)}
             onCreated={(id) => created(tab.id, id)}
-            onInspect={inspect}
-            bind:selectedResearch
-            bind:selectedActivity
-            bind:mapData
-            bind:mapObjectId
-            bind:mapPanelTab
           />
         </div>
       {/each}
@@ -767,29 +702,6 @@
         {/each}
       </nav>
     {/if}
-    {#if section === 'research'}
-      <div class="research-controls">
-        {#if researchCountLabel}<p>{researchCountLabel}</p>{/if}
-        {#if canWrite}<Button
-            variant="outline"
-            aria-haspopup="dialog"
-            onclick={async () => {
-              shell?.closeDrawer();
-              await tick();
-              researchCreationOpen = true;
-            }}>Create object</Button
-          >{/if}
-      </div>
-    {:else if selectionPanel}
-      <p class="selection-guidance">{selectionPanel.guidance}</p>
-    {:else if section !== 'overview'}
-      <ProjectSectionPanel
-        {project}
-        {section}
-        bind:selected={selectedActivity}
-        bind:selectedResearch
-      />
-    {/if}
   </div>
 {/snippet}
 {#snippet tools(placement: 'desktop' | 'mobile', navigator?: Snippet)}
@@ -797,71 +709,29 @@
     items={[
       ['explorer', 'Explorer', FolderOpen],
       ['source-control', 'Source control', GitBranch],
-      [
-        'details',
-        section === 'objects' ? 'Details' : 'Agent history',
-        section === 'objects' ? Info : History,
-      ],
+      ['details', 'Agent history', History],
     ]}
     value={rightMode}
     onselect={(value) => (rightMode = value as typeof rightMode)}
     {placement}
-    detailsOnly={Boolean(selectionPanel)}
     disabled={filesBusy}
     onclose={() => {
       shell?.closePanel('tools', placement);
     }}
   />
   <div class="tool-content">
-    {#if selectionPanel}<div class="selection-details">
-        <ProjectSectionPanel
-          {project}
-          {section}
-          bind:selected={selectedActivity}
-          bind:selectedResearch
-          {mapData}
-          bind:mapObjectId
-          bind:mapPanelTab
-        />
-      </div>
-    {:else if rightMode !== 'details'}{#if navigator}{@render navigator()}{:else}<p
-          class="tool-empty"
-        >
+    {#if rightMode !== 'details'}{#if navigator}{@render navigator()}{:else}<p class="tool-empty">
           {filesEnabled ? 'Loading files…' : 'File storage is unavailable for this project.'}
         </p>{/if}
     {:else if section === 'sessions'}<div data-chat-panel-host={placement}></div>
       {#if entity === 'new' || !entity}<p class="tool-empty">
           Start a conversation to see its agent run history.
         </p>{/if}
-    {:else if section === 'objects' && entity}{#key entity}<ProjectObjectPanel
-          {projectId}
-          objectId={entity}
-          publicRead={false}
-          bind:activeTab={objectPanelTab}
-        />{/key}
     {:else}<p class="tool-empty">Open a conversation to see its agent run history.</p>{/if}
   </div>
 {/snippet}
 
 <style>
-  .research-controls {
-    display: grid;
-    gap: 12px;
-  }
-  .research-controls p {
-    margin: 0;
-    color: var(--muted-foreground);
-    font-size: 12px;
-  }
-  .selection-guidance {
-    margin: 0;
-    color: var(--muted-foreground);
-    font-size: 12px;
-    line-height: 1.5;
-  }
-  .selection-details {
-    padding: 12px;
-  }
   .workbench-empty {
     display: grid;
     place-items: center;

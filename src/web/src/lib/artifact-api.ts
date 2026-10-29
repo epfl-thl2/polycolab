@@ -1,9 +1,11 @@
 import type { components } from '$lib/api-client';
-import { commonsClient, result, type CommonsClientOptions } from './commons-client';
-import type { ArtifactUploadDraft } from './artifact-view';
+import {
+  authenticatedClient,
+  result,
+  type AuthenticatedClientOptions,
+} from './authenticated-client';
 
 type ArtifactRead = components['schemas']['ArtifactRead'];
-type ArtifactAttachmentPage = components['schemas']['Collection_ArtifactAttachmentItem_'];
 
 export const MAX_ARTIFACT_UPLOAD_BYTES = 16 * 1024 * 1024;
 
@@ -30,91 +32,30 @@ export function saveArtifactDownload(blob: Blob, artifactId: string) {
   setTimeout(() => URL.revokeObjectURL(href), 0);
 }
 
-export function createArtifactApi(options: CommonsClientOptions = {}) {
-  const client = commonsClient(options);
-  const retries = new Map<string, { upload: string; attach: string }>();
-  const publicClient = commonsClient({ baseUrl: options.baseUrl });
+export function createArtifactApi(options: AuthenticatedClientOptions = {}) {
+  const client = authenticatedClient(options);
   return {
-    attachments: (
-      projectId: string,
-      query: { object_version_id?: string; limit?: number; cursor?: string } = {},
-    ): Promise<ArtifactAttachmentPage> =>
-      result(
-        client.GET('/api/v1/projects/{project_id}/artifacts', {
-          params: { path: { project_id: projectId }, query },
-        }),
-      ),
-    publicAttachments: (
-      projectId: string,
-      query: { object_version_id?: string; limit?: number; cursor?: string } = {},
-    ): Promise<ArtifactAttachmentPage> =>
-      result(
-        publicClient.GET('/api/v1/projects/{project_id}/artifacts', {
-          params: { path: { project_id: projectId }, query },
-        }),
-      ),
-    async uploadAndAttach(projectId: string, draft: ArtifactUploadDraft): Promise<ArtifactRead> {
-      const digest = await sha256(draft.file);
-      const fingerprint = JSON.stringify([
-        projectId,
-        digest,
-        draft.researchRevisionId,
-        draft.researchAttemptRevisionId,
-        draft.role,
-        draft.file.type,
-      ]);
-      const keys = retries.get(fingerprint) ?? {
-        upload: crypto.randomUUID(),
-        attach: crypto.randomUUID(),
-      };
-      retries.set(fingerprint, keys);
-      const uploaded = await result(
-        client.POST('/api/v1/artifacts', {
+    async upload(projectId: string, file: File): Promise<ArtifactRead> {
+      return result(
+        client.POST('/api/v1/projects/{project_id}/artifacts', {
           params: {
-            header: { 'Idempotency-Key': keys.upload },
+            path: { project_id: projectId },
             query: {
-              project_id: projectId,
-              sha256: digest,
-              byte_length: draft.file.size,
-              media_type: draft.file.type || 'application/octet-stream',
-              source_object_version_id: draft.researchRevisionId,
+              sha256: await sha256(file),
+              byte_length: file.size,
+              media_type: file.type || 'application/octet-stream',
             },
           },
           headers: { 'Content-Type': 'application/octet-stream' },
-          body: draft.file as unknown as string,
+          body: file as unknown as string,
           bodySerializer: (body) => body as unknown as BodyInit,
         }),
       );
-      await result(
-        client.POST('/api/v1/attachments', {
-          params: { header: { 'Idempotency-Key': keys.attach } },
-          body: {
-            artifact_id: uploaded.id,
-            object_version_id: draft.researchRevisionId,
-            attempt_object_version_id: draft.researchAttemptRevisionId,
-            role: draft.role,
-          },
-        }),
-      );
-      const committed = (await result(
-        client.GET('/api/v1/artifacts/{artifact_id}', {
-          params: { path: { artifact_id: uploaded.id } },
-        }),
-      )) as ArtifactRead;
-      retries.delete(fingerprint);
-      return committed;
     },
-    download: (_projectId: string, artifactId: string) =>
+    download: (projectId: string, artifactId: string) =>
       result(
-        client.GET('/api/v1/artifacts/{artifact_id}/content', {
-          params: { path: { artifact_id: artifactId } },
-          parseAs: 'blob',
-        }),
-      ),
-    publicDownload: (artifactId: string) =>
-      result(
-        publicClient.GET('/api/v1/artifacts/{artifact_id}/content', {
-          params: { path: { artifact_id: artifactId } },
+        client.GET('/api/v1/projects/{project_id}/artifacts/{artifact_id}/content', {
+          params: { path: { project_id: projectId, artifact_id: artifactId } },
           parseAs: 'blob',
         }),
       ),

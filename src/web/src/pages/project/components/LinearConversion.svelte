@@ -2,7 +2,7 @@
   import FeedbackToast from '../../../ui/FeedbackToast.svelte';
   import { projectContext, explain } from '../../../svelte-lib/context';
   import { createLinearApi } from '../../../lib/linear-api';
-  import type { Project } from '../../../lib/research-api';
+  import type { Project } from '../../../lib/projects-api';
   import { Button } from '../../../lib/components/ui/button';
   import { NativeSelect } from '../../../lib/components/ui/native-select';
   let { project }: { project: Project } = $props();

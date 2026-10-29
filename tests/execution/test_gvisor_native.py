@@ -18,7 +18,7 @@ import pytest
 from polycolab.execution.docker import DockerProcess, DockerRuntime
 from polycolab.execution.runtime import GuestChannel
 from polycolab.execution.service import ServiceConfig, exclusive_controller_state, make_runtime
-from polycolab.verification.contracts import ResourceLimits
+from polycolab.execution.contracts import ResourceLimits
 
 
 def configuration() -> ServiceConfig:

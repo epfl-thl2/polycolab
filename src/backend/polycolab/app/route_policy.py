@@ -4,9 +4,9 @@ from fastapi.dependencies.models import Dependant
 from fastapi.routing import RouteContext
 
 from polycolab.accounts.authentication import current_principal
-from polycolab.agents.routes.keys import required_key
-from polycolab.app.access import research_access
+from polycolab.app.access import resource_access
 from polycolab.app.dependencies import authenticated_actor, authenticated_user
+from polycolab.projects.file_access import file_access
 
 
 def policy(route: RouteContext) -> str:
@@ -22,8 +22,8 @@ def policy(route: RouteContext) -> str:
         for call in [authenticated_actor, authenticated_user, current_principal]
     ):
         return "human"
-    if required_key in dependencies:
-        return "agent"
-    if research_access in dependencies:
+    if file_access in dependencies:
+        return "shared_authenticated"
+    if resource_access in dependencies:
         return "shared"
     return "anonymous"

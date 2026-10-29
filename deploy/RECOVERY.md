@@ -71,7 +71,7 @@ It retains incomplete captures for inspection.
 Use `python -m polycolab.recovery_set --help` for isolated staging and verification.
 Staging never activates a restore.
 Preserve restored-cohort credential invalidation, artifact digest checks and key-service recovery before re-enabling ingress.
-The research and key restore harnesses exercise local recovery boundaries.
+The database migration tests and key restore harness exercise local recovery boundaries.
 Real recovery timing, external key services, and target-host drills remain deployment gates.
 
 ## Remaining recovery deployment gates
@@ -144,52 +144,11 @@ That mode does not compare canonical rows.
 Any restore, metadata-check or manifest comparison failure now retains the drill database for explicit inspection.
 Only successful verification permits exact-name cleanup (unless `KEEP_RESTORE_DB=1`).
 
-Manifest-backed drills now also run `recovery_dependencies research` after the canonical comparison and before cleanup.
-The default semantic-scan bound is 1000.
-Pass `--research-max-items N` (1–1,000,000) to change it.
-That option also enables the semantic check without a source manifest, but does not then prove source/restore equality.
-Both commands receive the exact isolated target through `DATABASE_URL`.
-No caller-supplied source URL is reused for verification.
-
-A semantic mismatch, partial scan, unavailable module or runtime failure preserves the drill database.
-Invalid bounds fail before any database operation, including in dry-run mode.
-
-With neither option, the existing metadata-only smoke check remains available and does not claim canonical or semantic recovery.
-These fake-tool script tests prove command ordering, bounds and cleanup gating—not a live restore or RPO/RTO.
-
 The comparison returns `MATCH`, or `MISMATCH` with schema/table names only.
 It uses a PostgreSQL repeatable-read, read-only transaction and caps manifest files at 2 MiB.
 A match proves exact database rows for the captured canonical tables.
 It does not prove Garage object bytes, external key availability, rebuilt projections, application behavior, or backup authenticity.
 Verify those separately before lifting the write pause or claiming a recovery drill.
-
-## Restored research semantic verification
-
-After the exact canonical manifest matches, interpret the restored research rows through the current application model.
-The read-only verifier checks these relationships:
-
-- Each stable object's latest revision pointer and base chain.
-- Exact relation endpoints and scope.
-- Human/agent contribution attribution.
-- Public-field digests and publication membership.
-- Human attribution of endorsement/correspondence history.
-
-Run the verifier:
-
-```sh
-uv run --directory src/backend python -m polycolab.recovery_dependencies research --isolated-restore --max-items 100000
-```
-
-The explicit limit covers the combined objects, revisions, relations, publication manifests/members, public releases and assurance rows.
-`LIMIT_REACHED` does not establish verification of any prefix.
-It is not success.
-Raise the bound only after sizing the isolated restore.
-Output contains only a status, checked count and fixed failing section names such as `revision_chains` or `public_releases`, never IDs, titles, bodies, actors or release fields.
-PostgreSQL transactions are read-only and the restored environment must remain quiescent.
-
-`VERIFIED` proves that those application-level relationships are coherent under the current schema and projection digest algorithm.
-It does not replay writes, prove database-trigger immutability under mutation, verify artifact bytes or keys, or establish that authorized browser/API reads succeed.
-The restore driver invokes this check after manifest comparison, or independently when `--research-max-items N` is supplied, as described above.
 
 ## Restored artifact and credential dependencies
 
@@ -212,7 +171,7 @@ It does not discover, clone or redirect storage/key endpoints.
 Configure those through the operator environment before opting in.
 No credential or endpoint is supplied as a new script argument.
 
-Selected checks run in order: metadata, optional canonical manifest, enabled research semantics, enabled artifact bytes, enabled credential decryption.
+Selected checks run in order: metadata, optional canonical manifest, enabled artifact bytes, enabled credential decryption.
 All must succeed before exact-name database cleanup.
 A failed or incomplete dependency scan retains the database, and `KEEP_RESTORE_DB=1` also retains successful drills.
 Private module stderr is suppressed.

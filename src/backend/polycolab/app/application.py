@@ -48,7 +48,6 @@ from polycolab.agents.external import (
     ExternalAgentLimit,
     ExternalAgentUploadInterrupted,
 )
-from polycolab.agents.proposals import ProposalStale
 from polycolab.app.maintenance import maintenance_lifespan
 from polycolab.app.reference import arrange_reference
 from polycolab.db.session import database_is_ready, make_engine, make_session_factory
@@ -66,7 +65,6 @@ from polycolab.model_gateway.credentials import CredentialError, wrapper_from_se
 from polycolab.model_gateway.service import GatewayLimits
 from polycolab.model_gateway.transport import ProviderTransport, TransportTimeouts
 from polycolab.operations.pool_telemetry import PoolMeter
-from polycolab.operations.scrape import CommunityScrape
 from polycolab.operations.telemetry import PoolRole
 from polycolab.platform.config import (
     ApiReferenceAccess,
@@ -79,8 +77,6 @@ from polycolab.platform.config import (
 from polycolab.platform.logging import configure_logging
 from polycolab.platform.observability import metrics, render_durable_prometheus
 from polycolab.projects.service import DomainConflict, InvitationInvalid, MembershipTargetInvalid
-from polycolab.research.contributions import ContributionConflict
-from polycolab.research.objects import ResearchNotFound, StaleRevision
 
 logger = structlog.get_logger(__name__)
 
@@ -131,81 +127,26 @@ ERROR_ENVELOPE_SCHEMA: dict[str, object] = {
 }
 
 
-API_INTRODUCTION = """Read public research and contribute through shared `/api/v1` resources.
-Browser sessions, human OIDC tokens and external-agent keys use the same core paths.
-See [Agent runs and contributions](/docs/developers/agent-runs/) and the
-[Polycolab skill](/SKILL.md).
+API_INTRODUCTION = """Collaborate in project workspaces through `/api/v1`.
 
-## Start here
+Authenticate with a browser session or a human bearer token. Account agent keys use
+`Authorization: Bearer pca_…` for project discovery and Default file operations.
+`GET /api/v1/me` reports identity, key expiry, and remaining request/mutation budgets.
 
-- **Discover research:** `GET /api/v1/projects?scope=public` lists public projects
-  without an account. Use `/api/v1/search` to find research.
-- **Connect an agent:** Create a named key in
-  [Settings → API keys](/settings/api-keys), copy its secret once, and send
-  `Authorization: Bearer <key>`. Call `GET /api/v1/me` for identity and budgets.
-- **Read member research:** Use `scope=member` for project listings and search.
-  Keys follow their owner's current and future memberships, including private
-  projects. Personal notes and conversations are excluded.
-- **Contribute:** `POST /api/v1/objects` selects a project or exact Library
-  statement object version as its destination. No external run is required. Agent keys
-  need explicit Library opt-in for public contributions.
+List projects with `GET /api/v1/projects?scope=member`, then use
+`GET /api/v1/projects/{project_id}/files` and the matching POST command endpoint
+for Default files. Reads return a digest; edits require it as `expected_digest`.
+Current membership, project state, and key budgets are checked on each request.
 
+Git worktrees and Linear workspaces have their own file, collaboration, and snapshot
+resources. Agent sessions run within a project and can receive project artifacts as
+context. Conversations and hosted outputs retain their session access controls.
 
-## Authentication and authority
+Create project artifacts under `/api/v1/projects/{project_id}/artifacts`. Verified
+uploads commit immediately. Artifact bytes require current project membership and
+are returned as downloads with private, no-store headers.
 
-Public reads accept anonymous requests. Human authentication uses a same-origin
-session cookie or an OIDC bearer token. Agent authentication uses an account-wide
-`pca_` bearer key. Explicit invalid Authorization never falls back to a cookie or
-anonymous access. Shared reads return the public or member projection allowed by
-current access.
-
-Key creation, listing and revocation under `/api/v1/account/agent-keys` are
-human-only and restricted to the key owner. Project administration, catalogue
-admission and private publication remain human-only. Agent keys cannot perform
-these operations even when their owner can.
-
-## Agent writes and retries
-
-Send a stable `Idempotency-Key` with object, object-version, comment, relation and
-attachment writes. Humans and agents receive `{contribution_id, outputs, replayed}`.
-Keep the same key and body when retrying a lost response; authorization is checked
-again and committed retries do not consume another mutation. Agent identity
-persists across key rotation. Each key retains separate finite budgets.
-
-Read exact sources with `/api/v1/versions/{object_version_id}` and inspect contributions
-with `/api/v1/contributions/{contribution_id}`. Activity and contributor profiles
-show recorded history subject to current visibility. Public profile counts exclude
-private projects. External run creation and closure are retired; historical
-run records remain readable. Hosted execution is a separate optional service.
-
-Append immutable snapshots through `POST /api/v1/objects/{object_id}/versions`
-with `expected_current_object_version_id` and a complete `snapshot`, including
-structural relationships. Pins never advance automatically. Read full accessible
-history through `GET /api/v1/objects/{object_id}/versions`.
-
-## Pagination and limits
-
-Core collections return `{items, next_cursor}`. Pass `next_cursor` as `cursor`
-with the same identity, scope and filters. Default `limit` is 25, maximum 100.
-Object-version history is newest first. Deferred array-list APIs document their own
-`X-Next-Cursor` response header.
-
-Expired or revoked keys return 401. Finite request/mutation budget exhaustion
-returns 429 without a refill delay; inspect remaining budgets with `/api/v1/me`,
-which does not consume the key's request budget but remains rate protected.
-Core JSON bodies are limited to 1 MiB; artifacts have a separate limit of at most
-16 MiB. Errors include a code, request ID and safe validation details.
-
-## Availability and migration
-
-The old agent-prefixed and duplicated public-project core routes are removed.
-Use `/projects` and shared research resources. Deferred catalogue, publication,
-assessment and hosted-agent contracts retain their separate paths and permissions.
-Availability of optional APIs depends on deployment settings.
-
-The account-key migration revokes old project keys and closes their open runs
-while preserving history. Create new keys in Settings after upgrading the migration,
-API, WebUI and clients together. Old secrets do not gain broader authority.
+The separate agent library provides reusable prompts, skills, and plugin listings.
 """
 
 
@@ -436,7 +377,6 @@ def create_app(
     app.state.pool_meter = pool_meter
     app.state.session_factory = make_session_factory(engine)
     app.state.transaction_factory = make_transaction_factory(app.state.session_factory)
-    app.state.community_scrape = CommunityScrape(app.state.session_factory)
     app.state.identity_verifier = identity_verifier or verifier_from_settings(
         settings, app.state.session_factory
     )
@@ -667,10 +607,6 @@ def create_app(
     async def project_not_found_handler(request: Request, _: ProjectNotFound) -> JSONResponse:
         return error_response(404, "not_found", request)
 
-    @app.exception_handler(ResearchNotFound)
-    async def research_not_found_handler(request: Request, _: ResearchNotFound) -> JSONResponse:
-        return error_response(404, "not_found", request)
-
     @app.exception_handler(AuthorizationDenied)
     async def authorization_denied_handler(
         request: Request, _: AuthorizationDenied
@@ -706,16 +642,6 @@ def create_app(
     ) -> JSONResponse:
         return error_response(400, "artifact_upload_interrupted", request)
 
-    @app.exception_handler(ContributionConflict)
-    async def contribution_conflict_handler(
-        request: Request, _: ContributionConflict
-    ) -> JSONResponse:
-        return error_response(409, "idempotency_conflict", request)
-
-    @app.exception_handler(StaleRevision)
-    async def stale_revision_handler(request: Request, _: StaleRevision) -> JSONResponse:
-        return error_response(409, "stale_revision", request)
-
     @app.exception_handler(ExecutionLimitExceeded)
     async def execution_limit_handler(
         request: Request, exception: ExecutionLimitExceeded
@@ -728,27 +654,6 @@ def create_app(
     @app.exception_handler(DomainConflict)
     async def conflict_handler(request: Request, _: DomainConflict) -> JSONResponse:
         return error_response(409, "conflict", request)
-
-    @app.exception_handler(ProposalStale)
-    async def proposal_stale_handler(request: Request, exception: ProposalStale) -> JSONResponse:
-        response = error_response(409, "stale_proposal", request)
-        response.body = json.dumps(
-            {
-                "error": {
-                    "code": "stale_proposal",
-                    "request_id": request.state.request_id,
-                    "change_id": str(exception.change_id),
-                    "current_object_version_id": (
-                        str(exception.current_revision_id)
-                        if exception.current_revision_id is not None
-                        else None
-                    ),
-                }
-            },
-            separators=(",", ":"),
-        ).encode()
-        response.headers["content-length"] = str(len(response.body))
-        return response
 
     @app.exception_handler(InvitationInvalid)
     async def invitation_invalid_handler(request: Request, _: InvitationInvalid) -> JSONResponse:
@@ -853,7 +758,6 @@ def create_app(
         return PlainTextResponse(
             metrics.render_prometheus()
             + durable
-            + request.app.state.community_scrape.render()
             + request.app.state.pool_meter.render(request.app.state.engine),
             media_type="text/plain; version=0.0.4; charset=utf-8",
             headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
@@ -1096,9 +1000,9 @@ def create_app(
                     if route_policy == "agent"
                     else [{"BearerAuth": []}, {"SessionCookie": []}]
                 )
-                if route_policy == "shared":
+                if route_policy in {"shared", "shared_authenticated"}:
                     operation["security"].append({"ExternalAgentBearer": []})
-                    if method == "get" and path != "/api/v1/me":
+                    if route_policy == "shared" and method == "get" and path != "/api/v1/me":
                         operation["security"].append({})
                 responses["401"] = _error_response_reference("Authentication required")
                 responses["403"] = _error_response_reference("Forbidden")

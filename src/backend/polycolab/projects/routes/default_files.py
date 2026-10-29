@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Request
 from sqlalchemy.orm import Session
 
-from polycolab.app.dependencies import CurrentUser, DbSession
+from polycolab.app.dependencies import DbSession
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.repositories import RepositoryError
 from polycolab.platform.config import Settings
@@ -15,6 +15,7 @@ from polycolab.projects.default_files import (
     DefaultFiles,
     DefaultFilesRead,
 )
+from polycolab.projects.file_access import CurrentFileAccess
 
 router = APIRouter(prefix="/api/v1/projects/{project_id}/files", tags=["default files"])
 
@@ -33,9 +34,10 @@ def service(settings: Settings, db: Session, project_id: UUID, user_id: UUID) ->
 
 @router.get("", operation_id="getDefaultFiles")
 def list_files(
-    project_id: UUID, request: Request, db: DbSession, user: CurrentUser
+    project_id: UUID, request: Request, db: DbSession, access: CurrentFileAccess
 ) -> DefaultFilesRead:
-    instance = service(request.app.state.settings, db, project_id, user.id)
+    instance = service(request.app.state.settings, db, project_id, access.user_id)
+    access.bind(db, instance, write=False)
     with instance.locked(False):
         return instance.listing()
 
@@ -46,6 +48,8 @@ def command(
     payload: DefaultFileCommand,
     request: Request,
     db: DbSession,
-    user: CurrentUser,
+    access: CurrentFileAccess,
 ) -> DefaultFileRead | DefaultFilesRead:
-    return service(request.app.state.settings, db, project_id, user.id).execute(payload)
+    instance = service(request.app.state.settings, db, project_id, access.user_id)
+    access.bind(db, instance, write=payload.action not in {"list", "read"})
+    return instance.execute(payload)

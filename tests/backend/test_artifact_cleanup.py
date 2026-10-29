@@ -42,7 +42,12 @@ def test_cleanup_closes_claim_before_storage_and_records_deletion_separately() -
     storage.delete.side_effect = lambda key: events.append("bytes deleted")
     record.commit.side_effect = lambda: events.append("deletion recorded")
     result = sweep_page(factory, storage, grace_seconds=0, limit=1)
-    assert events == ["claim committed", "claim closed", "bytes deleted", "deletion recorded"]
+    assert events == [
+        "claim committed",
+        "claim closed",
+        "bytes deleted",
+        "deletion recorded",
+    ]
     assert result.next_cursor == row.id
     assert result.deleted_count == 1
     assert result.failure_count == 0

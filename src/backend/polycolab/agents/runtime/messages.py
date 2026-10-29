@@ -3,7 +3,6 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from polycolab.agents.grants import requested
 from polycolab.agents.sessions import SessionNotFound
 from polycolab.db.models import (
     SqlAgentMessage,
@@ -22,10 +21,6 @@ def model_messages(session: Session, run: SqlAgentRun) -> list[dict[str, object]
     result: list[dict[str, object]] = [{"role": "system", "content": agent.instructions_text}]
     if parent.system_prompt:
         result.append({"role": "system", "content": parent.system_prompt})
-    authority = requested(session, run.id)
-    if authority is not None and authority.destination == "PUBLIC":
-        result.append({"role": "user", "content": authority.public_task_md})
-        return result
     for message in session.scalars(
         select(SqlAgentMessage)
         .where(

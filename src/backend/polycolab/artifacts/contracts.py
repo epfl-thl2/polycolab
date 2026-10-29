@@ -1,4 +1,4 @@
-"""Artifact boundary primitives, pending research-owned public API registration."""
+"""Project artifact upload and read contracts."""
 
 from datetime import datetime
 from uuid import UUID
@@ -6,7 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from polycolab.artifacts.storage import MAX_ARTIFACT_BYTES, ArtifactIntegrity
-from polycolab.entities.enums import ArtifactResearchRole, ArtifactState
+from polycolab.entities.enums import ArtifactState
 
 
 class ArtifactUploadDeclaration(BaseModel):
@@ -40,93 +40,6 @@ class ArtifactRead(BaseModel):
     expires_at: datetime
 
 
-class ArtifactAttachmentWrite(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    object_version_id: UUID
-    attempt_object_version_id: UUID | None = None
-    role: ArtifactResearchRole
-
-
-class ArtifactAttachmentRead(BaseModel):
-    id: UUID
-
-
-class ArtifactAttachmentItem(BaseModel):
-    attachment_id: UUID
-    artifact: ArtifactRead
-    source_object_version_id: UUID | None
-    object_version_id: UUID
-    attempt_object_version_id: UUID | None
-    role: ArtifactResearchRole
-    created_at: datetime
-
-
-class ArtifactAttachmentPage(BaseModel):
-    items: list[ArtifactAttachmentItem]
-    next_cursor: str | None
-
-
-class PublishedArtifactLinkRead(BaseModel):
-    revision_id: UUID
-    attempt_revision_id: UUID | None
-    role: ArtifactResearchRole
-
-
-class PublishedArtifactRead(BaseModel):
-    """Frozen publication encoding; do not rename fields in stored manifests."""
-
-    id: UUID
-    sha256: str
-    byte_length: int
-    media_type: str
-    source_revision_id: UUID | None
-    links: list[PublishedArtifactLinkRead]
-    author_display_name: str | None
-    actor_kind: str
-    agent_display_name: str | None
-    created_at: datetime
-    content_path: str
-
-
-class PublishedArtifactVersionLinkRead(BaseModel):
-    object_version_id: UUID
-    attempt_object_version_id: UUID | None
-    role: ArtifactResearchRole
-
-
-class PublishedArtifactVersionRead(BaseModel):
-    """Live projection of an authorized frozen artifact release."""
-
-    id: UUID
-    sha256: str
-    byte_length: int
-    media_type: str
-    source_object_version_id: UUID | None
-    links: list[PublishedArtifactVersionLinkRead]
-    author_display_name: str | None
-    actor_kind: str
-    agent_display_name: str | None
-    created_at: datetime
-    content_path: str
-
-    @classmethod
-    def from_release(cls, release: PublishedArtifactRead) -> PublishedArtifactVersionRead:
-        value = release.model_dump(exclude={"source_revision_id", "links"})
-        return cls(
-            **value,
-            source_object_version_id=release.source_revision_id,
-            links=[
-                PublishedArtifactVersionLinkRead(
-                    object_version_id=link.revision_id,
-                    attempt_object_version_id=link.attempt_revision_id,
-                    role=link.role,
-                )
-                for link in release.links
-            ],
-        )
-
-
 def private_download_headers() -> dict[str, str]:
     """Untrusted content is a generic download; no raw names or storage URLs.
 
@@ -137,18 +50,6 @@ def private_download_headers() -> dict[str, str]:
         "Content-Type": "application/octet-stream",
         "Content-Disposition": 'attachment; filename="artifact.bin"',
         "Cache-Control": "private, no-store",
-        "X-Content-Type-Options": "nosniff",
-        "Content-Security-Policy": "default-src 'none'; sandbox",
-        "Referrer-Policy": "no-referrer",
-    }
-
-
-def public_download_headers() -> dict[str, str]:
-    """Released bytes stay downloads and are not cached across moderation changes."""
-    return {
-        "Content-Type": "application/octet-stream",
-        "Content-Disposition": 'attachment; filename="artifact.bin"',
-        "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
         "Content-Security-Policy": "default-src 'none'; sandbox",
         "Referrer-Policy": "no-referrer",

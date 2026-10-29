@@ -109,7 +109,12 @@ def test_compose_paths_and_production_isolation(tmp_path: Path) -> None:
         ],
         production_env,
     )
-    assert set(production["services"]) == {"postgres", "core", "object-storage", "collaboration"}
+    assert set(production["services"]) == {
+        "postgres",
+        "core",
+        "object-storage",
+        "collaboration",
+    }
     for name in ("core",):
         service = production["services"][name]
         expected = {"APP_ENV": "production", "REGISTRATION_MODE": "closed"}

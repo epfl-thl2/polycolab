@@ -1,32 +1,18 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import type { Project, ObjectVersion } from '../../../lib/research-api';
+  import type { Project } from '../../../lib/projects-api';
   import type { ProjectTab } from '../../../lib/project-tabs';
-  import type { Activity } from '../../../lib/history-api';
-  import type { ProjectMap } from '../../../lib/project-map';
   import ProjectPage from '../ProjectPage.svelte';
   let {
     project,
     tabs = $bindable(),
     activeId,
-    selectedResearch = $bindable(),
-    selectedActivity = $bindable(),
-    mapData = $bindable(),
-    mapObjectId = $bindable(''),
-    mapPanelTab = $bindable('body'),
     onCreated,
-    onInspect,
   }: {
     project: Project;
     tabs: ProjectTab[];
     activeId: string;
-    selectedResearch?: { version: ObjectVersion; searchResult: boolean };
-    selectedActivity?: Activity;
-    mapData?: ProjectMap;
-    mapObjectId?: string;
-    mapPanelTab?: string;
     onCreated: (id: string) => void;
-    onInspect: () => void;
   } = $props();
 </script>
 
@@ -55,12 +41,6 @@
         tabs = tabs.filter((t) => t.id !== tab.id);
         onCreated(id);
       }}
-      bind:selectedResearch
-      bind:selectedActivity
-      bind:mapData
-      bind:mapObjectId
-      bind:mapPanelTab
-      {onInspect}
     />
   </div>{/each}
 

@@ -37,7 +37,7 @@ Do not substitute an internal container hostname in issuer claims.
 Switching modes does not link or migrate built-in account identities to OIDC subjects.
 Agree an account migration plan first.
 OIDC users choose a unique Polycolab username on first sign-in; `preferred_username` is not used as a unique account key.
-Polycolab retains `(issuer, subject)` and its internal user ID for permissions and research history, while public profile URLs and attribution use the chosen username.
+Polycolab retains `(issuer, subject)` and its internal user ID for permissions and attribution, while the UI displays the chosen username.
 Apply the username migration before deploying the corresponding API and browser.
 
 ## Provisioning and acceptance

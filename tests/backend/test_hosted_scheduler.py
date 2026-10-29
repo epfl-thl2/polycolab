@@ -12,10 +12,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select, text
 from test_codex_runtime import spec
 from test_runtime_api import _queue_run
-from test_scheduling_foundation import scheduler_pg_schema as scheduler_pg_schema
 
 from polycolab.agents.runtime.spec import RuntimeSpec
-from polycolab.agents.sessions import append_user_message_and_queue_run, create_agent_session
+from polycolab.agents.sessions import (
+    append_user_message_and_queue_run,
+    create_agent_session,
+)
 from polycolab.app.application import create_app
 from polycolab.db.models import SqlAgentRun, SqlExecutionSlotLease, SqlUser
 from polycolab.entities.enums import AgentRunStatus, PlatformAgentKind
@@ -29,7 +31,7 @@ def hosted_client(request: pytest.FixtureRequest, client: TestClient) -> Iterato
     if request.param == "sqlite":
         yield client
         return
-    _, config, url = request.getfixturevalue("scheduler_pg_schema")
+    _, config, url = request.getfixturevalue("pg_schema")
     command.upgrade(config, "head")
     app = create_app(
         Settings(database_url=url, web_dist_dir="/missing-hosted-web"),
@@ -41,7 +43,10 @@ def hosted_client(request: pytest.FixtureRequest, client: TestClient) -> Iterato
 
 
 def new_hosted(
-    client: TestClient, ancestor: UUID | None = None, *, runtime_spec: RuntimeSpec | None = None
+    client: TestClient,
+    ancestor: UUID | None = None,
+    *,
+    runtime_spec: RuntimeSpec | None = None,
 ) -> UUID:
     app = cast(Any, client.app)
     if ancestor is None:
@@ -86,7 +91,9 @@ def claim(client: TestClient, worker: str, capacity: int = 4, tenant: int = 2) -
         return result.id if result else None
 
 
-def test_hosted_capacity_tenant_limits_and_positive_termination(hosted_client: TestClient) -> None:
+def test_hosted_capacity_tenant_limits_and_positive_termination(
+    hosted_client: TestClient,
+) -> None:
     first = new_hosted(hosted_client)
     new_hosted(hosted_client, first)
     new_hosted(hosted_client, first)
@@ -107,12 +114,17 @@ def test_hosted_capacity_tenant_limits_and_positive_termination(hosted_client: T
         db.commit()
         assert claim(hosted_client, "expired") is None
         allocator.confirm_termination(
-            db, run_id=slot.agent_run_id, generation=slot.generation, owner=slot.owner_id
+            db,
+            run_id=slot.agent_run_id,
+            generation=slot.generation,
+            owner=slot.owner_id,
         )
     assert claim(hosted_client, "replacement") is not None
 
 
-def test_hosted_concurrent_claims_never_exceed_global_capacity(hosted_client: TestClient) -> None:
+def test_hosted_concurrent_claims_never_exceed_global_capacity(
+    hosted_client: TestClient,
+) -> None:
     app = cast(Any, hosted_client.app)
     if app.state.engine.dialect.name != "postgresql":
         pytest.skip("real PostgreSQL contention evidence only")
@@ -217,11 +229,11 @@ def test_timeout_receipt_survives_retry_on_real_schema(
     ],
 )
 def test_merge_upgrade_preserves_existing_branch_data(
-    scheduler_pg_schema: tuple[Any, Any, str], previous_head: str
+    pg_schema: tuple[Any, Any, str], previous_head: str
 ) -> None:
     from sqlalchemy.orm import Session
 
-    engine, config, _ = scheduler_pg_schema
+    engine, config, _ = pg_schema
     command.upgrade(config, previous_head)
     user_id = uuid4()
     # Seed the historical schema without using today's mapped user columns.
@@ -239,10 +251,12 @@ def test_merge_upgrade_preserves_existing_branch_data(
         assert retained is not None and retained.subject == "retained-account"
     from alembic.script import ScriptDirectory
 
-    assert ScriptDirectory.from_config(config).get_heads() == ["20261028_chat_latex"]
+    assert ScriptDirectory.from_config(config).get_heads() == ["20261029_workspace_only"]
 
 
-def test_claim_requires_frozen_backend_version_and_image(hosted_client: TestClient) -> None:
+def test_claim_requires_frozen_backend_version_and_image(
+    hosted_client: TestClient,
+) -> None:
     from polycolab.execution.hosts import advertise
 
     run_id = new_hosted(

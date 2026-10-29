@@ -2,123 +2,110 @@ import { plainFileEditor } from '../helpers/project-editor';
 import { expect, test } from '@playwright/test';
 import { createHash } from 'node:crypto';
 
-test('local service supports accounts, research, Library copies, activity and uploads', async ({
+test('Default project files, delegated keys, artifacts, and retired routes use the real service', async ({
   page,
   request,
   baseURL,
 }) => {
   test.skip(!baseURL, 'Run through the local-mode smoke runner.');
   const username = `local${Date.now()}`;
-  const password = 'local-browser-test-password';
   await page.goto('/signup');
   await page.getByLabel('Username', { exact: true }).fill(username);
-  await page.getByLabel('Password', { exact: true }).fill(password);
-  await page.getByLabel('Confirm password', { exact: true }).fill(password);
+  await page.getByLabel('Password', { exact: true }).fill('local-browser-test-password');
+  await page.getByLabel('Confirm password', { exact: true }).fill('local-browser-test-password');
   await page.getByRole('main').getByRole('button', { name: 'Create account', exact: true }).click();
   await expect(page).toHaveURL(/\/projects$/);
-  const headers = { Origin: baseURL!, 'Idempotency-Key': `project-${username}` };
-  const projectResponse = await page.request.post('/api/v1/projects', {
-    headers,
-    data: { name: 'Local browser research', visibility: 'PUBLIC' },
-  });
-  expect(projectResponse.status()).toBe(201);
-  const project = await projectResponse.json();
-  const snapshot = {
-    kind: 'STATEMENT',
-    content: {
-      title: 'Persistent browser claim',
-      content_md: 'A **local** statement with $x^2$.',
-      assumptions_md: 'None stated',
-      reported_outcome: null,
-      explanation_md: null,
-    },
-    structural_relationships: [],
-    change_summary: 'Browser smoke test',
-  };
-  const record = await page.request.post('/api/v1/objects', {
+  const headers = { Origin: baseURL! };
+  const response = await page.request.post('/api/v1/projects', {
     headers,
     data: {
-      destination: { kind: 'project', project_id: project.id },
-      snapshot,
+      name: 'Shared filesystem',
+      visibility: 'PUBLIC',
+      workspace_mode: 'default',
     },
   });
-  expect(record.status(), await record.text()).toBe(201);
-  const receipt = await record.json();
-  const outputs = receipt.outputs as { entity_type: string; entity_id: string }[];
-  const object = {
-    id: outputs.find((output) => output.entity_type === 'RESEARCH_OBJECT')!.entity_id,
-    object_version_id: outputs.find((output) => output.entity_type === 'OBJECT_VERSION')!.entity_id,
-  };
-  await page.goto(`/projects/${project.id}/objects/${object.id}`);
-  await expect(
-    page.getByRole('heading', { name: 'Persistent browser claim', exact: true }).first(),
-  ).toBeVisible();
-  await expect(page.locator('.katex').first()).toBeVisible();
-  const edit = await page.request.post(`/api/v1/objects/${object.id}/versions`, {
-    headers,
-    data: {
-      expected_current_object_version_id: object.object_version_id,
-      snapshot: {
-        ...snapshot,
-        content: {
-          ...snapshot.content,
-          title: 'Edited browser claim',
-          content_md: 'An edited local statement.',
-        },
-      },
-    },
-  });
-  expect(edit.status(), await edit.text()).toBe(201);
-  const current = await (await page.request.get(`/api/v1/objects/${object.id}`)).json();
-  const bytes = Buffer.from('Local browser evidence');
-  const upload = await page.request.post(
-    `/api/v1/artifacts?project_id=${project.id}&sha256=${createHash('sha256').update(bytes).digest('hex')}&byte_length=${bytes.length}`,
-    { headers, data: bytes },
-  );
-  expect(upload.status()).toBe(201);
-  const artifact = await upload.json();
-  const attach = await page.request.post('/api/v1/attachments', {
-    headers,
-    data: {
-      artifact_id: artifact.id,
-      object_version_id: current.current_object_version_id,
-      role: 'EVIDENCE',
-    },
-  });
-  expect(attach.status()).toBe(200);
-  const download = await page.request.get(`/api/v1/artifacts/${artifact.id}/content`);
-  expect(await download.body()).toEqual(bytes);
-  const admission = await page.request.post('/api/v1/catalogue', {
-    headers,
-    data: {
-      kind: 'STATEMENT',
-      title: 'Library browser claim',
-      content_md: 'A sourced statement.',
-      assumptions_md: 'Positive integers.',
-      reported_status: 'Open',
-      review_rationale: 'Local browser review.',
-      reason: 'Exercise local Library',
-    },
-  });
-  expect(admission.status()).toBe(201);
-  const entry = await admission.json();
-  const copy = await page.request.post('/api/v1/project-copies', {
-    headers,
-    data: { project_id: project.id, source_object_version_id: entry.object_version_id },
-  });
-  expect(copy.status()).toBe(201);
-  expect((await copy.json()).object_id).not.toBe(entry.entry_id);
-  await page.goto('/activity');
-  await expect(page.getByText('Edited browser claim', { exact: true }).first()).toBeVisible();
+  expect(response.status()).toBe(201);
+  const project = await response.json();
+  await page.goto(`/projects/${project.id}`);
+  await page.getByRole('button', { name: 'Files', exact: true }).click();
+  await page.getByRole('button', { name: 'New file', exact: true }).click();
+  await page.getByLabel('File path', { exact: true }).fill('notes.txt');
+  await page.getByRole('button', { name: 'Create file', exact: true }).click();
+  await plainFileEditor(page);
+  const editor = page.getByRole('textbox', { name: 'File contents', exact: true });
+  await editor.fill('Saved by the human');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  const root = `/api/v1/projects/${project.id}/files`;
+  await expect
+    .poll(
+      async () =>
+        (
+          await (
+            await page.request.post(root, { headers, data: { action: 'read', path: 'notes.txt' } })
+          ).json()
+        ).content,
+    )
+    .toBe('Saved by the human');
   await page.reload();
-  await expect(page.getByText('Edited browser claim', { exact: true }).first()).toBeVisible();
-  // A separate cookie jar cannot read an unattached staging artifact.
-  const staging = await page.request.post(
-    `/api/v1/artifacts?project_id=${project.id}&sha256=${createHash('sha256').update(bytes).digest('hex')}&byte_length=${bytes.length}`,
-    { headers: { ...headers, 'Idempotency-Key': `staging-${username}` }, data: bytes },
-  );
-  const staged = await staging.json();
-  expect((await request.get(`/api/v1/artifacts/${staged.id}/content`)).status()).toBe(404);
+  await page.getByRole('button', { name: 'Files', exact: true }).click();
+  await page.getByRole('button', { name: 'notes.txt', exact: true }).click();
+  await plainFileEditor(page);
+  await expect(editor).toHaveValue('Saved by the human');
+  const identity = await (
+    await page.request.post('/api/v1/account/agents', {
+      headers,
+      data: { name: 'Workspace helper' },
+    })
+  ).json();
+  const key = await (
+    await page.request.post('/api/v1/account/agent-keys', {
+      headers,
+      data: { name: 'File access', agent_id: identity.id },
+    })
+  ).json();
+  const agentHeaders = { Authorization: `Bearer ${key.secret}` };
+  const read = await request.post(root, {
+    headers: agentHeaders,
+    data: { action: 'read', path: 'notes.txt' },
+  });
+  expect(read.status()).toBe(200);
+  const updated = await request.post(root, {
+    headers: agentHeaders,
+    data: {
+      action: 'write',
+      path: 'notes.txt',
+      content: 'Updated by the agent',
+      expected_digest: (await read.json()).digest,
+    },
+  });
+  expect(updated.status()).toBe(200);
+  await page.reload();
+  await page.getByRole('button', { name: 'Files', exact: true }).click();
+  await page.getByRole('button', { name: 'notes.txt', exact: true }).click();
+  await plainFileEditor(page);
+  await expect(editor).toHaveValue('Updated by the agent');
+  expect((await request.get(root)).status()).toBe(401);
+  const bytes = Buffer.from('private project artifact');
+  const artifactResponse = await page.request.post(`/api/v1/projects/${project.id}/artifacts`, {
+    headers: { ...headers, 'Content-Type': 'application/octet-stream' },
+    params: { sha256: createHash('sha256').update(bytes).digest('hex'), byte_length: bytes.length },
+    data: bytes,
+  });
+  expect(artifactResponse.status()).toBe(201);
+  const artifact = await artifactResponse.json();
+  expect(artifact.state).toBe('COMMITTED');
+  const download = `/api/v1/projects/${project.id}/artifacts/${artifact.id}/content`;
+  expect(await (await page.request.get(download)).body()).toEqual(bytes);
+  expect((await request.get(download)).status()).toBe(401);
+  for (const path of [
+    '/api/v1/objects',
+    '/api/v1/catalogue',
+    '/api/v1/research/records',
+    '/api/v1/verification/jobs',
+  ])
+    expect((await request.get(path)).status()).toBe(404);
+  await page.request.delete(`/api/v1/account/agent-keys/${key.id}`, { headers });
+  expect((await request.get(root, { headers: agentHeaders })).status()).toBe(401);
 });
 
 test('native worktrees save without committing, retain drafts, and commit explicitly', async ({
@@ -143,7 +130,15 @@ test('native worktrees save without committing, retain drafts, and commit explic
   await page.getByRole('button', { name: 'New worktree', exact: true }).click();
   await page.getByLabel('Worktree name', { exact: true }).fill('Experiment');
   await expect(page.getByLabel('Branch name', { exact: true })).toHaveValue('experiment');
+  const worktreeCreated = page.waitForResponse(
+    (response) => response.url().endsWith('/worktrees') && response.request().method() === 'POST',
+  );
   await page.getByRole('button', { name: 'Create worktree', exact: true }).click();
+  expect((await worktreeCreated).status()).toBe(201);
+  await expect(page.getByRole('button', { name: 'Select Experiment worktree' })).toHaveAttribute(
+    'aria-current',
+    'true',
+  );
   await expect(page.getByRole('button', { name: 'Select Experiment worktree' })).toBeVisible();
   await page.getByRole('button', { name: 'New file', exact: true }).click();
   await page.getByLabel('File path', { exact: true }).fill('notes.md');
@@ -176,7 +171,7 @@ test('native worktrees save without committing, retain drafts, and commit explic
   const committed = await (await page.request.get(`${root}/${tree.id}`)).json();
   expect(committed.head_commit).not.toBe(tree.head_commit);
   expect(committed.changed_files).toEqual([]);
-  await page.screenshot({ path: '/private/tmp/native-worktrees-desktop.png', fullPage: true });
+  await page.screenshot({ path: '/tmp/native-worktrees-desktop.png', fullPage: true });
   await expect(await plainFileEditor(page)).toHaveValue('Unsaved draft to retain');
   page.once('dialog', (dialog) => dialog.accept());
   await page.reload();
@@ -187,7 +182,7 @@ test('native worktrees save without committing, retain drafts, and commit explic
   await page.getByRole('button', { name: 'Hide left panel', exact: true }).click();
   const drawer = page.getByRole('dialog', { name: 'Worktrees', exact: true });
   await expect(drawer.getByRole('button', { name: 'Select Experiment worktree' })).toBeVisible();
-  await page.screenshot({ path: '/private/tmp/native-worktrees-mobile.png', fullPage: true });
+  await page.screenshot({ path: '/tmp/native-worktrees-mobile.png', fullPage: true });
   await drawer.getByRole('button', { name: 'Close drawer' }).click();
   await expect(await plainFileEditor(page)).toHaveValue('Saved, uncommitted notes');
 });

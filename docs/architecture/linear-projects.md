@@ -3,8 +3,7 @@
 Projects select `default`, `git`, or `linear` at creation. The browser offers Default
 initially; omitted API fields retain the Git default. Linear remains available for
 live collaboration and retained history.
-Existing projects keep their mode. Library copies into a new project also accept a
-mode. Project research versions and publication authority are unchanged.
+Existing projects keep their mode.
 
 ## Browser workbench
 
@@ -21,9 +20,8 @@ the current conversation. Chats has a New chat action with an icon above a scrol
 Recents combines drafts and accessible conversations, including shared conversations,
 with pagination.
 Files contains the file tree and creation/upload controls. The project name opens
-an information modal. Overview and research Activity are absent from the rail.
-The right sidebar provides File, History, Agent changes, and contextual
-details or agent history. Agent changes holds conflict review and revert controls. Checkpoints,
+an information modal. Overview is absent from the rail.
+The right sidebar provides File, History, Agent changes, and agent history. Agent changes holds conflict review and revert controls. Checkpoints,
 restore, and any converted Git archive live in History.
 
 Both workbenches provide resizable, collapsible side panels and mobile drawers.
@@ -114,8 +112,7 @@ retry is automatic. The creator can retry the merge, review original/current/
 proposed contents and apply a manual resolution, or open a reconciliation draft
 in the originating chat. Sending that draft explicitly starts a new turn on the
 latest snapshot. Revert computes the inverse of an applied batch against current
-files and preserves conflicts for review. A public research run cannot use private
-linear files.
+files and preserves conflicts for review.
 
 ## Conversations and conversion
 

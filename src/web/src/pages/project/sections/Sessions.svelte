@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { Checkbox } from '../../../lib/components/ui/checkbox';
   import LoadingState from '../../../ui/LoadingState.svelte';
   import FeedbackToast from '../../../ui/FeedbackToast.svelte';
   import * as Field from '../../../lib/components/ui/field';
@@ -7,7 +6,6 @@
   import { NativeSelect } from '../../../lib/components/ui/native-select';
   import { Button } from '../../../lib/components/ui/button';
   import { Textarea } from '../../../lib/components/ui/textarea';
-  import { Input } from '../../../lib/components/ui/input';
   import { toStore } from 'svelte/store';
   import { createInfiniteQuery, createQuery } from '@tanstack/svelte-query';
   import { goto } from '$app/navigation';
@@ -15,7 +13,6 @@
   import { projectContext, explain } from '../../../svelte-lib/context';
   import { advancesCursor, statusFromEvent } from '../../../svelte-lib/session-events';
   import type { AgentRun } from '../../../lib/agent-sessions-api';
-  import { prepareTurn, type TurnDraft } from '../../../lib/run-authority';
   import Markdown from '../../../ui/Markdown.svelte';
   import ChatComposer from '../../../ui/ChatComposer.svelte';
   import { ChevronDown, RotateCcw, SlidersHorizontal, Sparkles } from '@lucide/svelte';
@@ -47,7 +44,7 @@
     onCreated?: (id: string) => void;
   } = $props();
   const allSessions = $derived(view ? view === 'list' : page.url.pathname.endsWith('/sessions'));
-  const { api, agents, query, records, capabilities: applicationCapabilities } = projectContext();
+  const { api, agents, query, capabilities: applicationCapabilities } = projectContext();
   const executionEnabled = $derived(applicationCapabilities?.enabled('agent_execution') ?? false);
   const repository = projectContext().repository;
   const linear = projectContext().linear;
@@ -72,7 +69,6 @@
   let configurationMode = $state<'preset' | 'custom'>('preset');
   let customSystemPrompt = $state('');
   let customizationOpen = $state(false);
-  let contextScope = $state('project');
   let responseStyle = $state('balanced');
   let sharing = $state(false);
   const draftStore = chatDrafts() ?? new ChatDrafts();
@@ -103,22 +99,12 @@
   });
   const promptStarters = [
     'Summarize this project',
-    'Find related research objects',
-    'Help me test a conjecture',
-    'Review a proof idea',
+    'Explore the project files',
+    'Help me test a change',
+    'Review my work',
     'Suggest next steps',
   ];
-  let selected = $state<string[]>([]);
-  let destination = $state<TurnDraft['destination']>('REVIEW');
-  let publicSelected = $state<string[]>([]);
   let artifactIds = $state('');
-  let targets = $state<string[]>([]);
-  let extraPublic = $state('');
-  let extraTargets = $state('');
-  let editable = $state('');
-  let operations = $state<TurnDraft['operations']>(['CREATE_RECORD']);
-  let maxMutations = $state(10);
-  let maxContentBytes = $state(100000);
   const ids = (text: string) => [...new Set(text.split(/[\s,]+/).filter(Boolean))];
   let busy = $state(false);
   let error = $state('');
@@ -208,15 +194,6 @@
       getNextPageParam: (p: { nextCursor?: string }) => p.nextCursor,
     })),
   );
-  const objects = createInfiniteQuery(
-    toStore(() => ({
-      queryKey: ['objects', projectId],
-      initialPageParam: undefined as string | undefined,
-      queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
-        api.listObjects(projectId, false, pageParam),
-      getNextPageParam: (p: { nextCursor?: string }) => p.nextCursor,
-    })),
-  );
   const messages = createInfiniteQuery(
     toStore(() => ({
       queryKey: ['messages', sessionId],
@@ -236,7 +213,7 @@
   );
   const selectedAgent = $derived(availableAgents.find((agent) => agent.id === agentId));
   const hasCustomSettings = $derived(
-    configurationMode === 'custom' || contextScope !== 'project' || responseStyle !== 'balanced',
+    configurationMode === 'custom' || responseStyle !== 'balanced',
   );
   $effect(() => {
     if (!agentId && availableAgents[0]) agentId = availableAgents[0].id;
@@ -246,7 +223,7 @@
       profileId = availableProfiles[0].id;
   });
   function agentDescription(kind: string) {
-    if (kind === 'RESEARCHER') return 'Explore research questions and develop approaches.';
+    if (kind === 'RESEARCHER') return 'Explore project files and develop approaches.';
     if (kind === 'CRITIC') return 'Review arguments, evidence, and possible gaps.';
     return 'Use this platform agent for the conversation.';
   }
@@ -258,19 +235,9 @@
     profileId = availableProfiles[0]?.id ?? '';
     configurationMode = 'preset';
     customSystemPrompt = '';
-    contextScope = 'project';
     responseStyle = 'balanced';
     customizationOpen = false;
   }
-  const pins = createInfiniteQuery(
-    toStore(() => ({
-      queryKey: ['references', projectId],
-      initialPageParam: undefined as string | undefined,
-      queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
-        records.references(projectId, pageParam),
-      getNextPageParam: (page: { next_cursor: string | null }) => page.next_cursor ?? undefined,
-    })),
-  );
   const active = $derived(
     run && ['QUEUED', 'CLAIMED', 'RUNNING', 'CANCELLING'].includes(run.status),
   );
@@ -300,13 +267,7 @@
     if (!$capabilities.data?.execution_available) return 'Agent execution is unavailable.';
     if (active) return 'Wait for the current run to finish.';
     if (!profileId) return 'Choose an AI provider in Chat settings.';
-    if (
-      destination === 'PUBLIC' &&
-      (linear || defaultFiles || useProjectFiles || $sessionRepository.data?.enabled)
-    )
-      return 'Project files are private. Choose a private contribution destination for this session.';
-    if (!(destination === 'PUBLIC' ? chatDraft.publicTask.trim() : chatDraft.message.trim()))
-      return destination === 'PUBLIC' ? 'Write a public task to send.' : 'Write a message to send.';
+    if (!chatDraft.message.trim()) return 'Write a message to send.';
     return '';
   });
   async function create(event: SubmitEvent) {
@@ -344,19 +305,7 @@
       if (!worktreeId && useProjectFiles && repository)
         await repository.enableSession(projectId, chatDraft.startingSessionId);
       const body = {
-        ...prepareTurn({
-          destination: 'REVIEW',
-          privateMessage: submittedMessage,
-          publicTask: '',
-          privateRevisions: [],
-          privateArtifacts: [],
-          publicRevisions: [],
-          publicTargets: [],
-          operations: ['CREATE_RECORD'],
-          editableObjects: [],
-          maxMutations: 10,
-          maxContentBytes: 100000,
-        }),
+        content_md: submittedMessage.trim(),
         gateway_profile_id: profileId,
       };
       const serialized = JSON.stringify(body);
@@ -418,10 +367,6 @@
           }
           if (kind === 'RUN_COMPLETED') {
             await query.invalidateQueries({ queryKey: ['messages', id] });
-            await query.invalidateQueries({ queryKey: ['proposals', projectId] });
-            await query.invalidateQueries({ queryKey: ['objects', projectId] });
-            await query.invalidateQueries({ queryKey: ['records', projectId] });
-            await query.invalidateQueries({ queryKey: ['object', projectId] });
             streaming = '';
           }
         }
@@ -453,8 +398,6 @@
     busy = true;
     error = '';
     const submittedMessage = chatDraft.message;
-    const submittedPublicTask = chatDraft.publicTask;
-    const submittedDestination = destination;
     try {
       await linear?.flush();
       if (useProjectFiles && repository) {
@@ -462,19 +405,8 @@
         await query.invalidateQueries({ queryKey: ['session-repository', projectId, sessionId] });
       }
       const body = {
-        ...prepareTurn({
-          destination: $session.data?.agent_version === 2 ? submittedDestination : 'REVIEW',
-          privateMessage: submittedMessage,
-          publicTask: submittedPublicTask,
-          privateRevisions: selected,
-          privateArtifacts: ids(artifactIds),
-          publicRevisions: [...publicSelected, ...ids(extraPublic)],
-          publicTargets: [...targets, ...ids(extraTargets)],
-          operations,
-          editableObjects: ids(editable),
-          maxMutations,
-          maxContentBytes,
-        }),
+        content_md: submittedMessage.trim(),
+        context_artifact_ids: ids(artifactIds),
         gateway_profile_id: profileId,
       };
       const serialized = JSON.stringify(body);
@@ -487,9 +419,7 @@
       run = result.run;
       void invalidateSession(query, projectId, sessionId);
       await query.invalidateQueries({ queryKey: ['session-runs', sessionId] });
-      if (submittedDestination === 'PUBLIC') {
-        if (chatDraft.publicTask === submittedPublicTask) chatDraft.publicTask = '';
-      } else if (chatDraft.message === submittedMessage) chatDraft.message = '';
+      if (chatDraft.message === submittedMessage) chatDraft.message = '';
       chatDraft.request = undefined;
       await query.invalidateQueries({ queryKey: ['messages', sessionId] });
     } catch (reason) {
@@ -541,11 +471,6 @@
   message={$exports.isError ? explain($exports.error) : ''}
   variant="error"
   action={{ label: 'Retry', run: () => $exports.refetch() }}
-/>
-<FeedbackToast
-  message={$pins.isError ? explain($pins.error) : ''}
-  variant="error"
-  action={{ label: 'Retry', run: () => $pins.refetch() }}
 />
 
 {#if sessionId && !currentTaskId && $repositoryState.data?.enabled && hostedAvailable}
@@ -618,17 +543,6 @@
                   </p>
                 </header>
                 <div class="project-chat-customization-fields">
-                  <Field.Label
-                    >Context scope<NativeSelect
-                      aria-label="Context scope"
-                      bind:value={contextScope}
-                      disabled={Boolean(chatDraft.startingSessionId)}
-                    >
-                      <option value="project">Entire project</option>
-                      <option value="selected">Selected research</option>
-                      <option value="custom">Custom scope</option>
-                    </NativeSelect></Field.Label
-                  >
                   <Field.Label
                     >Response style<NativeSelect
                       aria-label="Response style"
@@ -927,7 +841,7 @@
     {/if}
     {#if run?.failure_code?.endsWith('resume_required')}
       <FeedbackToast
-        message="This run may have reached the provider or changed research. Review its history before sending another message; a new run may repeat work."
+        message="This run may have reached the provider or changed project files. Review its history before sending another message; a new run may repeat work."
         variant="warning"
       />
     {/if}
@@ -936,22 +850,10 @@
     {/if}
     {#if $session.data?.can_control !== false}<div class="project-chat-reply">
         <ChatComposer
-          bind:value={
-            () => (destination === 'PUBLIC' ? chatDraft.publicTask : chatDraft.message),
-            (value) => {
-              if (destination === 'PUBLIC') chatDraft.publicTask = value;
-              else chatDraft.message = value;
-            }
-          }
-          label={destination === 'PUBLIC'
-            ? 'Separate public task'
-            : $session.data?.is_shared
-              ? 'Message shared with project'
-              : 'Private message'}
-          placeholder={destination === 'PUBLIC'
-            ? 'Describe the public contribution task…'
-            : 'Ask a question or describe what you want to do…'}
-          maxlength={destination === 'PUBLIC' ? 20000 : 100000}
+          bind:value={chatDraft.message}
+          label={$session.data?.is_shared ? 'Message shared with project' : 'Private message'}
+          placeholder="Ask a question or describe what you want to do…"
+          maxlength={100000}
           onsubmit={send}
           onstop={active ? stopAgent : undefined}
           stopping={run?.status === 'CANCELLING'}
@@ -961,13 +863,10 @@
             ? 'Stopping agent…'
             : active
               ? ''
-              : sessionSendReason === 'Write a message to send.' ||
-                  sessionSendReason === 'Write a public task to send.'
+              : sessionSendReason === 'Write a message to send.'
                 ? ''
                 : sessionSendReason}
-          submitLabel={destination === 'PUBLIC'
-            ? 'Authorize public contribution run'
-            : 'Send message'}
+          submitLabel="Send message"
         >
           {#snippet preset()}
             <span class="project-chat-reply-agent"
@@ -988,175 +887,15 @@
                   onclick={() => $profiles.fetchNextPage()}>Load more providers</Button
                 >{/if}<a href="/settings/model-providers">Manage AI providers</a>
               <details class="project-chat-settings">
-                <summary>Run settings</summary>
-                <details>
-                  <summary>Context · {selected.length} pinned versions</summary>
-                  <p class="muted">Only these exact versions are selected for this turn.</p>
-                  {#each $objects.data?.pages.flatMap((p) => p.items) ?? [] as object (object.id)}<Field.Label
-                      class="row mb-3"
-                      ><Checkbox
-                        checked={selected.includes(object.current_object_version_id)}
-                        onCheckedChange={(checked) => {
-                          selected = checked
-                            ? [...selected, object.current_object_version_id]
-                            : selected.filter((item) => item !== object.current_object_version_id);
-                        }}
-                        value={object.current_object_version_id}
-                      />{object.current_object_version.content.title} · r{object
-                        .current_object_version.number}</Field.Label
-                    >{/each}{#if $objects.hasNextPage}<Button
-                      type="button"
-                      onclick={() => $objects.fetchNextPage()}>Load more context</Button
-                    >{/if}
-                </details>
-                {#if destination !== 'PUBLIC'}<details>
-                    <summary>Artifact context · {ids(artifactIds).length} exact IDs</summary>
-                    <p>
-                      Enter at most 32 exact committed artifact IDs. The service rechecks project
-                      access and exposes bounded metadata only; neighboring artifacts and object
-                      bytes are not implied.
-                    </p>
-                    <Field.Label
-                      >Exact committed artifact IDs (comma or whitespace separated)<Textarea
-                        bind:value={artifactIds}
-                      ></Textarea></Field.Label
-                    >
-                  </details>{:else}<p class="muted">
-                    Private artifact selections are retained locally and are not sent with a public
-                    turn.
-                  </p>{/if}
-                <details>
-                  <summary>Public research inputs</summary>
-                  <p>
-                    Choose exact public versions. Project pins are never automatically upgraded.
-                  </p>
-                  {#each $pins.data?.pages.flatMap((page) => page.items) ?? [] as pin (pin.id)}
-                    {#if pin.available}<Field.Label
-                        ><Checkbox
-                          checked={publicSelected.includes(pin.object_version_id)}
-                          onCheckedChange={(checked) => {
-                            publicSelected = checked
-                              ? [...publicSelected, pin.object_version_id]
-                              : publicSelected.filter((item) => item !== pin.object_version_id);
-                          }}
-                          value={pin.object_version_id}
-                        />{pin.title} · {pin.object_version_id}</Field.Label
-                      >
-                    {:else}<p>Unavailable public source (not selectable)</p>{/if}
-                  {/each}
-                  {#if $pins.isError}<Button type="button" onclick={() => $pins.refetch()}
-                      >Retry pins</Button
-                    >{/if}
-                  {#if $pins.hasNextPage}<Button type="button" onclick={() => $pins.fetchNextPage()}
-                      >Load more public pins</Button
-                    >{/if}
-                  <Field.Label
-                    >Additional public version IDs (comma or whitespace separated)<Textarea
-                      bind:value={extraPublic}
-                    ></Textarea></Field.Label
-                  >
-                </details>
-                {#if $session.data?.agent_version === 2}
-                  <fieldset disabled={busy || active || !executionEnabled}>
-                    <legend>Authority for this turn</legend>
-                    <Field.Label
-                      >Contribution destination<NativeSelect bind:value={destination}>
-                        <option value="REVIEW"
-                          >Private conversation and reviewed proposals only</option
-                        >
-                        <option value="PROJECT">Direct contributions to this private project</option
-                        >
-                        <option
-                          value="PUBLIC"
-                          disabled={useProjectFiles || $sessionRepository.data?.enabled}
-                          >Direct contributions to explicit public targets</option
-                        >
-                      </NativeSelect></Field.Label
-                    >
-                    {#if destination !== 'REVIEW'}
-                      <p>
-                        Requested rights are intersected with current permissions on every tool
-                        call. Catalogue admission and official edits remain human-only.
-                      </p>
-                      {#each ['CREATE_RECORD', 'REVISE_RECORD', 'CREATE_RELATION'] as const as operation (operation)}
-                        <Field.Label
-                          ><Checkbox
-                            checked={operations.includes(operation)}
-                            onCheckedChange={(checked) => {
-                              operations = checked
-                                ? [...operations, operation]
-                                : operations.filter((item) => item !== operation);
-                            }}
-                            value={operation}
-                          />{operation}</Field.Label
-                        >
-                      {/each}
-                      {#if operations.includes('REVISE_RECORD')}
-                        <Field.Label
-                          >Editable research object IDs<Textarea bind:value={editable}
-                          ></Textarea></Field.Label
-                        >
-                        <p>
-                          Pin each record's exact input version. Only records you can delegate
-                          editing may be listed; use a suggestion for other records.
-                        </p>
-                      {/if}
-                      <Field.Label
-                        >Maximum mutations<Input
-                          type="number"
-                          min="1"
-                          max="50"
-                          required
-                          bind:value={maxMutations}
-                        /></Field.Label
-                      >
-                      <Field.Label
-                        >Maximum content bytes per mutation<Input
-                          type="number"
-                          min="1"
-                          max="500000"
-                          required
-                          bind:value={maxContentBytes}
-                        /></Field.Label
-                      >
-                    {/if}
-                    {#if destination === 'PUBLIC'}
-                      <p class="notice">
-                        This run uses only the separate public task and public research inputs. Your
-                        private conversation and private version selections are excluded. Do not put
-                        private information in the public task.
-                      </p>
-                      {#each $pins.data?.pages.flatMap((page) => page.items) ?? [] as pin (pin.id)}
-                        {#if pin.available}<Field.Label
-                            ><Checkbox
-                              checked={targets.includes(pin.object_version_id)}
-                              onCheckedChange={(checked) => {
-                                targets = checked
-                                  ? [...targets, pin.object_version_id]
-                                  : targets.filter((item) => item !== pin.object_version_id);
-                              }}
-                              value={pin.object_version_id}
-                            />Public contribution target: {pin.title}</Field.Label
-                          >{/if}
-                      {/each}
-                      <Field.Label
-                        >Additional exact public target version IDs<Textarea
-                          bind:value={extraTargets}
-                        ></Textarea></Field.Label
-                      >
-                      <p>
-                        Public targets are also explicitly pinned as inputs. Public contributions
-                        are visible immediately; they are not verified results.
-                      </p>
-                    {/if}
-                  </fieldset>
-                {/if}
+                <summary>Artifact context · {ids(artifactIds).length} files</summary>
+                <p>Enter up to 32 artifact IDs from this project to include their metadata.</p>
+                <Field.Label
+                  >Artifact IDs (comma or whitespace separated)<Textarea
+                    bind:value={artifactIds}
+                  /></Field.Label
+                >
               </details>
             </div>
-            {#if destination === 'PUBLIC'}<p class="project-chat-public-notice">
-                This sends a public task. Your private message draft stays private and is not
-                included.
-              </p>{/if}
           {/snippet}
         </ChatComposer>
       </div>{:else}<p role="status">

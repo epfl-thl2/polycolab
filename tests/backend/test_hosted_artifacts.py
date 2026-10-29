@@ -5,13 +5,13 @@ from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
+from artifact_support import MemoryS3
 from fastapi.testclient import TestClient
-from test_artifacts import MemoryS3
 from test_codex_runtime import spec
 from test_runtime_api import _queue_run
 
 from polycolab.artifacts.storage import GarageStorage
-from polycolab.db.models import ResearchScopeKind, SqlAgentRun, SqlResearchScope, SqlUser
+from polycolab.db.models import SqlAgentRun, SqlUser
 from polycolab.entities.time import utc_now
 from polycolab.execution.allocator import admit
 
@@ -22,9 +22,6 @@ def hosted_claim(client: TestClient) -> tuple[Any, UUID, dict[str, Any]]:
     with app.state.session_factory() as session:
         run = session.get(SqlAgentRun, run_id)
         session.get(SqlUser, run.requested_by_user_id).subject = "owner"
-        session.add(
-            SqlResearchScope(scope_kind=ResearchScopeKind.PROJECT, project_id=run.project_id)
-        )
         run.runtime_spec = spec().model_dump(mode="json")
         run.deadline_at = utc_now() + timedelta(minutes=5)
         admit(session, run)
@@ -98,7 +95,6 @@ def test_readiness_expires_without_hiding_history(client: TestClient) -> None:
         "sessions": True,
         "execution_available": False,
         "hosted_agents": False,
-        "verification": False,
     }
     ready = client.post(
         "/internal/v1/runtime/executors/readiness",

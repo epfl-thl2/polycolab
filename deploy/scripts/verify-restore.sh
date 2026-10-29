@@ -7,7 +7,7 @@ set -Eeuo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: verify-restore.sh --dump FILE --database-url URL [--manifest FILE] [--research-max-items N]
+Usage: verify-restore.sh --dump FILE --database-url URL [--manifest FILE]
        [--artifacts-max-items N] [--credentials-max-items N] [--isolated-dependencies] [--dry-run]
 
 DATABASE_URL may also be used instead of --database-url. The source and target
@@ -17,9 +17,7 @@ query/fragment overrides or multiple database path segments are rejected.
 --dry-run validates the URL's loopback host parsing without connecting to
 PostgreSQL or requiring a dump file.
 --manifest compares canonical state using RECOVERY_MANIFEST_HMAC_KEY before
-cleanup, then checks restored research semantics with a default 1000-row bound.
---research-max-items enables the semantic check independently, or overrides its
-bound (1-1000000). An incomplete scan fails verification and retains the database.
+cleanup.
 --artifacts-max-items and --credentials-max-items opt into restored artifact-byte
 and credential-decryption checks with independent bounds (1-1000000). They require
 --isolated-dependencies, confirming that the configured storage/key services are
@@ -34,8 +32,6 @@ dump=""
 base_url="${DATABASE_URL:-}"
 dry_run=false
 manifest=""
-check_research=false
-research_max_items=1000
 artifacts_max_items=""
 credentials_max_items=""
 isolated_dependencies=false
@@ -43,8 +39,7 @@ while (($#)); do
   case "$1" in
     --dump) dump="${2:?--dump requires a file}"; shift 2 ;;
     --database-url) base_url="${2:?--database-url requires a URL}"; shift 2 ;;
-    --manifest) manifest="${2:?--manifest requires a file}"; check_research=true; shift 2 ;;
-    --research-max-items) research_max_items="${2:?--research-max-items requires a bound}"; check_research=true; shift 2 ;;
+    --manifest) manifest="${2:?--manifest requires a file}"; shift 2 ;;
     --artifacts-max-items) artifacts_max_items="${2:?--artifacts-max-items requires a bound}"; shift 2 ;;
     --credentials-max-items) credentials_max_items="${2:?--credentials-max-items requires a bound}"; shift 2 ;;
     --isolated-dependencies) isolated_dependencies=true; shift ;;
@@ -54,10 +49,6 @@ while (($#)); do
   esac
 done
 [[ -n "$dump" && -n "$base_url" ]] || { usage >&2; exit 2; }
-if [[ ! "$research_max_items" =~ ^[1-9][0-9]{0,6}$ ]] || ((research_max_items > 1000000)); then
-  echo "Research verification bound must be 1-1000000" >&2
-  exit 2
-fi
 for bound in "$artifacts_max_items" "$credentials_max_items"; do
   if [[ -n "$bound" ]]; then
     if [[ ! "$bound" =~ ^[1-9][0-9]{0,6}$ ]] || ((bound > 1000000)); then
@@ -142,9 +133,7 @@ if [[ -n "$manifest" ]]; then
   command -v uv >/dev/null || { echo "uv is required for manifest comparison" >&2; exit 127; }
   [[ -n "${RECOVERY_MANIFEST_HMAC_KEY:-}" ]] || { echo "Manifest comparison key required" >&2; exit 2; }
 fi
-if [[ "$check_research" == true ]]; then
-  command -v uv >/dev/null || { echo "uv is required for research verification" >&2; exit 127; }
-fi
+
 if [[ "$isolated_dependencies" == true ]]; then
   command -v uv >/dev/null || { echo "uv is required for dependency verification" >&2; exit 127; }
 fi
@@ -182,15 +171,7 @@ if [[ -n "$manifest" ]]; then
       exit 1
     }
 fi
-if [[ "$check_research" == true ]]; then
-  repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
-  DATABASE_URL="$target_url" uv run --frozen --directory "$repo_root/src/backend" \
-    python -m polycolab.recovery_dependencies research --isolated-restore \
-    --max-items "$research_max_items" 2>/dev/null || {
-      echo "Research integrity verification failed or incomplete; drill database retained" >&2
-      exit 1
-    }
-fi
+
 for dependency in artifacts credentials; do
   case "$dependency" in
     artifacts) bound="$artifacts_max_items" ;;

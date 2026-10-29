@@ -1,3 +1,4 @@
+import { plainFileEditor } from '../helpers/project-editor';
 import { expect, test, type Page } from '@playwright/test';
 
 async function signup(page: Page, username: string) {
@@ -38,41 +39,12 @@ test('linear coediting persists, reconnects, and restores across two real member
     ).toBe(201);
     const path = `/projects/${project.id}/files`;
     await page.goto(path);
-    await expect(page.getByRole('status').filter({ hasText: /^Saved/ })).toBeVisible({
-      timeout: 45_000,
-    });
-    const rail = page.getByRole('complementary', { name: 'Project navigation', exact: true });
-    await expect(rail.getByRole('link', { name: 'Map', exact: true })).toHaveCount(0);
-    await expect(rail.getByRole('link', { name: 'Research objects', exact: true })).toHaveCount(0);
-    const tools = page.getByRole('complementary', { name: 'Project tools', exact: true });
-    await expect(tools.getByRole('tab', { name: 'Explorer', exact: true })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
-    const resize = page.getByRole('separator', { name: 'Resize tools', exact: true });
-    await resize.focus();
-    await page.keyboard.press('ArrowLeft');
-    await expect(resize).toHaveAttribute('aria-valuenow', '288');
-    await tools.getByRole('button', { name: 'Collapse tools', exact: true }).click();
-    await expect(tools).toBeHidden();
-    await page.getByRole('button', { name: /^(Show|Hide) tools$/ }).click();
-    await expect(tools).toBeVisible();
-    const leftResize = page.getByRole('separator', { name: 'Resize left panel', exact: true });
-    await leftResize.press('ArrowRight');
-    await expect(leftResize).toHaveAttribute('aria-valuenow', '268');
-    await page
-      .getByRole('complementary', { name: 'Conversations', exact: true })
-      .getByRole('button', { name: 'Hide left panel', exact: true })
-      .click();
-    await expect(leftResize).toHaveCount(0);
-    await page.getByRole('button', { name: 'Show left panel', exact: true }).click();
-    await expect(leftResize).toHaveAttribute('aria-valuenow', '268');
-
+    await page.getByRole('button', { name: 'Files', exact: true }).click();
     await page.getByRole('button', { name: 'New file', exact: true }).click();
     await page.getByRole('textbox', { name: 'File path', exact: true }).fill('notes.txt');
     await page.getByRole('button', { name: 'Create file', exact: true }).click();
     await page.getByRole('button', { name: 'notes.txt', exact: true }).dblclick();
-    await page.getByRole('button', { name: 'Text editor', exact: true }).click();
+    await plainFileEditor(page);
     const editor = page.getByRole('textbox', { name: 'File contents', exact: true });
     await editor.fill('Shared text\n');
     await expect(page.getByRole('status').filter({ hasText: /^Saved/ })).toBeVisible();
@@ -82,7 +54,7 @@ test('linear coediting persists, reconnects, and restores across two real member
       contentType: 'image/png',
     });
     await peer.goto(path + '?file=notes.txt');
-    await peer.getByRole('button', { name: 'Text editor', exact: true }).click();
+    await plainFileEditor(peer);
     const peerEditor = peer.getByRole('textbox', { name: 'File contents', exact: true });
     await expect(peerEditor).toHaveValue('Shared text\n');
     await peerEditor.fill('Shared text\nPeer edit\n');
@@ -108,15 +80,15 @@ test('linear coediting persists, reconnects, and restores across two real member
     await peerContext.setOffline(false);
     await expect(peerEditor).toBeEnabled();
     await peerEditor.fill('Later edit\n');
+    await page.getByRole('tab', { name: 'File', exact: true }).click();
     await expect(editor).toHaveValue('Later edit\n');
+    await page.getByRole('tab', { name: 'History', exact: true }).click();
     await page.getByRole('button', { name: /^Together/ }).click();
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: 'Restore project', exact: true }).click();
-    await expect(
-      peer.getByRole('status').filter({ hasText: /project was restored/ }),
-    ).toBeVisible();
+    await expect(peer.getByRole('alert').filter({ hasText: /project was restored/ })).toBeVisible();
     await page.goto(path + '?file=notes.txt');
-    await page.getByRole('button', { name: 'Text editor', exact: true }).click();
+    await plainFileEditor(page);
     await expect(page.getByRole('textbox', { name: 'File contents', exact: true })).toHaveValue(
       'Shared text\nPeer edit\n',
     );
@@ -140,14 +112,18 @@ test('linear coediting persists, reconnects, and restores across two real member
     await conversations.getByRole('link', { name: 'New chat Draft', exact: true }).first().click();
     await expect(page).toHaveURL(firstDraft);
     await expect(chat).toHaveValue('Keep my conversation draft');
-    await page.getByRole('button', { name: 'notes.txt', exact: true }).dblclick();
-    await expect(page.getByRole('button', { name: 'Back to chat', exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Back to chat', exact: true }).click();
+    await page.getByRole('button', { name: 'Files', exact: true }).click();
+    await page.getByRole('button', { name: 'notes.txt', exact: true }).click();
+    await expect(page.getByRole('tab', { name: 'File', exact: true })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await page.getByRole('button', { name: 'Chats', exact: true }).click();
     await expect(chat).toHaveValue('Keep my conversation draft');
     await page.screenshot({ path: test.info().outputPath('linear-chat-desktop.png') });
-    await tools.getByRole('tab', { name: 'Agent changes', exact: true }).click();
-    await tools.getByText('Agent file changes (0 to review)', { exact: true }).click();
-    await expect(tools.getByText('No agent file changes yet.', { exact: true })).toBeVisible();
+    await page.getByRole('tab', { name: 'Agent changes', exact: true }).click();
+    await page.getByText('Agent file changes (0 to review)', { exact: true }).click();
+    await expect(page.getByText('No agent file changes yet.', { exact: true })).toBeVisible();
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole('button', { name: /^(Show|Hide) left panel$/ }).click();
     const chatDrawer = page.getByRole('dialog', { name: 'Conversations', exact: true });

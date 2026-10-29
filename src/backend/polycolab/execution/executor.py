@@ -8,9 +8,9 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from polycolab.execution.contracts import ResourceLimits
 from polycolab.execution.linux import isolated_executor
 from polycolab.execution.microsandbox import ImagePolicy, MicrosandboxRuntime, SdkProcess
-from polycolab.verification.contracts import ResourceLimits
 
 
 async def execute(config_path: Path) -> None:

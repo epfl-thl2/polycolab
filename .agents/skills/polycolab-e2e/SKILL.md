@@ -14,13 +14,12 @@ Read [AGENTS.md](../../../AGENTS.md) for repository guidance.
 Identify the user action, expected observable result, and whether the change requires real API, storage, or worker behavior.
 Inspect the nearest spec and its configuration before choosing a runner.
 
-| Need                                                                | Harness                                                        |
-| ------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Browser interactions with controlled API responses                  | Mocked specs in `tests/web/browser/specs/`                     |
-| Browser behavior against compiled assets                            | Production-preview suite, still using mocked APIs              |
-| Account, research, and upload flows in local mode                   | Disposable SQLite/filesystem smoke runner                      |
-| Public research and external-agent authority with production assets | PostgreSQL/Garage research browser gate                        |
-| Hosted-worker journeys and process recovery                         | PostgreSQL hosted-worker harness with a deterministic provider |
+| Need                                                     | Harness                                                        |
+| -------------------------------------------------------- | -------------------------------------------------------------- |
+| Browser interactions with controlled API responses       | Mocked specs in `tests/web/browser/specs/`                     |
+| Browser behavior against compiled assets                 | Production-preview suite, still using mocked APIs              |
+| Account, workspace files, and upload flows in local mode | Disposable SQLite/filesystem smoke runner                      |
+| Hosted-worker journeys and process recovery              | PostgreSQL hosted-worker harness with a deterministic provider |
 
 Read [runner instructions](references/runners.md) for the selected mode only.
 Use the [system test guide](../../../tests/system/README.md) for real-service setup and specialized acceptance gates.
@@ -42,7 +41,7 @@ Mocked responses cannot establish authorization, persistence, worker execution, 
 Start with the changed spec or named journey; broaden coverage when the change affects shared navigation, authentication, configuration, or components.
 Inspect the first failing assertion, browser errors, network responses, and runner startup output before changing a test or application code.
 Separate a missing prerequisite or occupied port from a behavioral regression.
-Use retained traces for synthetic fixtures when available; never enable persistent traces or publish DOM snapshots for the research gate that reveals a one-time credential.
+Use retained traces for synthetic fixtures when available; never enable persistent traces or publish DOM snapshots for journeys that reveal a one-time credential.
 
 Use disposable harness state for real-service tests.
 The hosted-worker harness uses fixed service ports and a fixed Compose project; do not run it concurrently or stop unrelated services to free its ports.

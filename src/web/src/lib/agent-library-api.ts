@@ -1,6 +1,6 @@
 import type { components } from '$lib/api-client';
 import { createWebApiClient } from './runtime';
-import { ApiError } from './research-api';
+import { ApiError } from './projects-api';
 import type { createExternalAgentApi } from './external-agent-api';
 
 export type LibraryKind = components['schemas']['LibraryCreate']['kind'];

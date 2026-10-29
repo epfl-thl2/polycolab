@@ -1,12 +1,10 @@
 """Fenced hosted export reservations and storage acknowledgements."""
 
-from dataclasses import replace
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from polycolab.access.actors import ActorOperation
 from polycolab.access.authorization import ProjectAction
 from polycolab.agents.access import _run_scope
 from polycolab.agents.recovery import lock_run
@@ -14,7 +12,6 @@ from polycolab.agents.runtime.artifacts import UploadRequest
 from polycolab.agents.runtime.errors import RuntimeApiConflict
 from polycolab.agents.runtime.spec import RuntimeSpec
 from polycolab.agents.sessions import _require_live_lease
-from polycolab.agents.tools import _actor_for_validated_tool
 from polycolab.artifacts import service as artifacts
 from polycolab.artifacts.contracts import ArtifactUploadDeclaration
 from polycolab.db.converters.artifacts import artifact as artifact_snapshot
@@ -22,7 +19,6 @@ from polycolab.db.models import (
     SqlAgentRun,
     SqlArtifact,
     SqlHostedRunArtifact,
-    SqlResearchScope,
     SqlRunToolCapability,
 )
 from polycolab.entities.enums import AgentRunStatus, ArtifactState
@@ -41,9 +37,6 @@ def reserve_export(
     if run.status != AgentRunStatus.RUNNING:
         raise RuntimeApiConflict("cancel_requested")
     spec = RuntimeSpec.model_validate(run.runtime_spec)
-    scope = session.scalar(
-        select(SqlResearchScope).where(SqlResearchScope.project_id == run.project_id)
-    )
     capability = session.scalar(
         select(SqlRunToolCapability).where(
             SqlRunToolCapability.run_id == run_id,
@@ -52,7 +45,7 @@ def reserve_export(
             SqlRunToolCapability.expires_at > utc_now(),
         )
     )
-    if scope is None or capability is None:
+    if capability is None:
         raise RuntimeApiConflict("authorization_revoked")
     # Project authorization and the run row serialize count/byte reservations.
     _run_scope(
@@ -88,11 +81,6 @@ def reserve_export(
         or sum(row.byte_length for _, row in rows) + payload.byte_length > spec.limits.output_bytes
     ):
         raise RuntimeApiConflict("artifact_output_limit")
-    actor = replace(
-        _actor_for_validated_tool(capability, run=run, tool_name="export_artifact"),
-        ownership_scope_id=scope.id,
-        operation_scope=frozenset({ActorOperation.PROJECT_WRITE}),
-    )
     row = artifacts.reserve(
         session,
         project_id=run.project_id,
@@ -103,7 +91,6 @@ def reserve_export(
             media_type=payload.media_type,
         ),
         settings=settings,
-        actor=actor,
         commit=False,
     )
     session.add(

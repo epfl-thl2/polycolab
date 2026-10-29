@@ -42,7 +42,10 @@ def test_bootstrap_requires_password_only_for_empty_local_database() -> None:
     Base.metadata.create_all(engine)
     factory = make_session_factory(engine)
     try:
-        with factory() as session, pytest.raises(ValueError, match="BOOTSTRAP_ADMIN_PASSWORD"):
+        with (
+            factory() as session,
+            pytest.raises(ValueError, match="BOOTSTRAP_ADMIN_PASSWORD"),
+        ):
             bootstrap_admin(SqlAlchemyTransaction(session), None)
         with factory() as session:
             bootstrap_admin(SqlAlchemyTransaction(session), "correct horse battery staple")

@@ -1,5 +1,9 @@
 import type { components } from '$lib/api-client';
-import { commonsClient, result, type CommonsClientOptions } from './commons-client';
+import {
+  authenticatedClient,
+  result,
+  type AuthenticatedClientOptions,
+} from './authenticated-client';
 
 export type RepositoryState = components['schemas']['RepositoryState'] & {
   head_commit?: string;
@@ -26,8 +30,8 @@ export function decodeFile(value: string): string {
     Uint8Array.from(atob(value), (c) => c.charCodeAt(0)),
   );
 }
-export function createRepositoryApi(options: CommonsClientOptions = {}) {
-  const client = commonsClient(options);
+export function createRepositoryApi(options: AuthenticatedClientOptions = {}) {
+  const client = authenticatedClient(options);
   const revisions = new Map<string, string>();
   async function state(project_id: string, branch = 'main'): Promise<RepositoryState> {
     const legacy = await result(

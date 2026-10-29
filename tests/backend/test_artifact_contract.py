@@ -3,7 +3,10 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from polycolab.artifacts.contracts import ArtifactUploadDeclaration, private_download_headers
+from polycolab.artifacts.contracts import (
+    ArtifactUploadDeclaration,
+    private_download_headers,
+)
 from polycolab.artifacts.storage import MAX_ARTIFACT_BYTES
 
 

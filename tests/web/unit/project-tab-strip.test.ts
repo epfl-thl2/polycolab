@@ -6,7 +6,7 @@ afterEach(cleanup);
 const tabs: ProjectTab[] = [
   { id: 'chat', kind: 'chat', label: 'New chat', href: '/sessions/new' },
   { id: 'file', kind: 'file', label: 'proof.lean', href: '/files', dirty: true },
-  { id: 'object', kind: 'object', label: 'Lemma', href: '/objects/lemma' },
+  { id: 'object', kind: 'page', label: 'Lemma', href: '/sessions/lemma' },
 ];
 function setup() {
   const callbacks = { onselect: vi.fn(), onclose: vi.fn(), onreorder: vi.fn(), onnewchat: vi.fn() };

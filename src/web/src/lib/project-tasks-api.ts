@@ -1,11 +1,15 @@
 import type { components } from '$lib/api-client';
-import { commonsClient, result, type CommonsClientOptions } from './commons-client';
+import {
+  authenticatedClient,
+  result,
+  type AuthenticatedClientOptions,
+} from './authenticated-client';
 
 export type ProjectTask = components['schemas']['ProjectTaskRead'] &
   Partial<components['schemas']['WorktreeRead']>;
 
-export function createProjectTasksApi(options: CommonsClientOptions = {}) {
-  const client = commonsClient(options);
+export function createProjectTasksApi(options: AuthenticatedClientOptions = {}) {
+  const client = authenticatedClient(options);
   return {
     list: async (project_id: string, _cursor?: string) => {
       void _cursor;

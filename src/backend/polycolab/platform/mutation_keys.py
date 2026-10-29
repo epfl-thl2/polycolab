@@ -1,5 +1,7 @@
 """Small durable retry primitives; callers own authorization and transactions."""
 
+import hashlib
+import json
 from collections.abc import Callable
 from uuid import UUID
 
@@ -8,9 +10,15 @@ from sqlalchemy.orm import Session
 
 from polycolab.db.models import SqlMutationReceipt
 from polycolab.entities.enums import MutationReceiptStatus
-from polycolab.platform.outbox import canonical_digest
 from polycolab.platform.project_history import receipt_operation, receipt_payload
 from polycolab.projects.service import DomainConflict
+
+
+def canonical_digest(value: object) -> str:
+    encoded = json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True, default=str
+    ).encode()
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def lock_key(session: Session, actor_key: str, operation: str, key: str) -> None:

@@ -6,7 +6,7 @@
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
   import { createAccountRecoveryApi } from '../lib/account-recovery-api';
-  import { ApiError } from '../lib/research-api';
+  import { ApiError } from '../lib/projects-api';
   import { projectContext } from '../svelte-lib/context';
 
   let { mode }: { mode: 'verify' | 'request' | 'confirm' } = $props();

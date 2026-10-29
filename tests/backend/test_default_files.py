@@ -24,10 +24,16 @@ def files(client: TestClient, tmp_path: Path) -> tuple[TestClient, str, Path]:
     assert response.status_code == 201, response.text
     assert response.json()["workspace_mode"] == "default"
     project_id = response.json()["id"]
-    return client, f"/api/v1/projects/{project_id}/files", tmp_path / f"{project_id}.files"
+    return (
+        client,
+        f"/api/v1/projects/{project_id}/files",
+        tmp_path / f"{project_id}.files",
+    )
 
 
-def test_files_crud_conflicts_and_no_history(files: tuple[TestClient, str, Path]) -> None:
+def test_files_crud_conflicts_and_no_history(
+    files: tuple[TestClient, str, Path],
+) -> None:
     client, root, directory = files
 
     def command(**values: Any) -> Any:
@@ -70,7 +76,9 @@ def test_permissions_and_mode_isolation(files: tuple[TestClient, str, Path]) -> 
     assert client.get(root, headers=headers("reader")).json()["writable"] is False
     assert (
         client.post(
-            root, headers=headers("reader"), json={"action": "write", "path": "a", "content": "x"}
+            root,
+            headers=headers("reader"),
+            json={"action": "write", "path": "a", "content": "x"},
         ).status_code
         == 403
     )
@@ -80,16 +88,22 @@ def test_permissions_and_mode_isolation(files: tuple[TestClient, str, Path]) -> 
         client.get(root.replace("/files", "/linear"), headers=headers("owner")).status_code == 409
     )
     other = client.post(
-        "/api/v1/projects", headers=headers("owner"), json={"name": "Git", "workspace_mode": "git"}
+        "/api/v1/projects",
+        headers=headers("owner"),
+        json={"name": "Git", "workspace_mode": "git"},
     ).json()["id"]
     assert (
         client.get(f"/api/v1/projects/{other}/files", headers=headers("owner")).status_code == 409
     )
     client.patch(
-        f"/api/v1/projects/{project_id}", headers=headers("owner"), json={"archived": True}
+        f"/api/v1/projects/{project_id}",
+        headers=headers("owner"),
+        json={"archived": True},
     )
     assert client.post(
-        root, headers=headers("owner"), json={"action": "write", "path": "a", "content": "x"}
+        root,
+        headers=headers("owner"),
+        json={"action": "write", "path": "a", "content": "x"},
     ).status_code in {403, 409}
 
 
@@ -100,7 +114,9 @@ def test_path_escape_rejected(files: tuple[TestClient, str, Path], path: str) ->
     client, root, _ = files
     assert (
         client.post(
-            root, headers=headers("owner"), json={"action": "write", "path": path, "content": "x"}
+            root,
+            headers=headers("owner"),
+            json={"action": "write", "path": path, "content": "x"},
         ).status_code
         == 422
     )
@@ -169,7 +185,11 @@ def test_agent_tool_uses_current_directory_without_repository(
         headers=tool_headers,
         json={
             "name": "project_files",
-            "arguments": {"action": "write", "path": "agent.txt", "content": "Agent output"},
+            "arguments": {
+                "action": "write",
+                "path": "agent.txt",
+                "content": "Agent output",
+            },
         },
     )
     assert result.status_code == 200, result.text
@@ -189,7 +209,9 @@ def test_agent_tool_uses_current_directory_without_repository(
     assert partial.json()["next_offset"] == 5
     # Revocation must apply to an already issued capability.
     client.patch(
-        f"/api/v1/projects/{project_id}", headers=headers("owner"), json={"archived": True}
+        f"/api/v1/projects/{project_id}",
+        headers=headers("owner"),
+        json={"archived": True},
     )
     denied = client.post(
         "/internal/v1/tools/call",
@@ -203,12 +225,17 @@ def test_agent_tool_uses_current_directory_without_repository(
     assert not (tmp_path / f"{project_id}.files" / "late.txt").exists()
 
 
-def test_concurrent_saves_preserve_one_winner(files: tuple[TestClient, str, Path]) -> None:
+@pytest.mark.parametrize("client", ["file"], indirect=True)
+def test_concurrent_saves_preserve_one_winner(
+    files: tuple[TestClient, str, Path],
+) -> None:
     from concurrent.futures import ThreadPoolExecutor
 
     client, root, directory = files
     created = client.post(
-        root, headers=headers("owner"), json={"action": "write", "path": "a", "content": "base"}
+        root,
+        headers=headers("owner"),
+        json={"action": "write", "path": "a", "content": "base"},
     ).json()
 
     def save(content: str) -> int:

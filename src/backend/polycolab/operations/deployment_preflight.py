@@ -19,9 +19,7 @@ from polycolab.platform.config import Environment, Settings
 MIGRATIONS_DIR = Path(__file__).resolve().parents[1] / "db" / "migrations" / "postgresql"
 
 
-def configuration_failures(
-    settings: Settings, *, require_moderation_operator: bool = False
-) -> list[str]:
+def configuration_failures(settings: Settings) -> list[str]:
     """Return fixed diagnostic codes only; never echo settings or validation errors."""
     checks = {
         "placeholders": not any(
@@ -51,8 +49,6 @@ def configuration_failures(
         ),
     }
     failures = [name for name, passed in checks.items() if not passed]
-    if require_moderation_operator and not settings.public_project_moderator_subjects:
-        failures.append("moderation_operators")
     return failures
 
 
@@ -121,7 +117,7 @@ def main(argv: list[str] | None = None) -> int:
         # bootstrap completes. Normal startup therefore permits an empty,
         # fail-closed moderation allowlist; the post-bootstrap live release gate
         # requires it before ingress may open.
-        failures = configuration_failures(settings, require_moderation_operator=args.live)
+        failures = configuration_failures(settings)
     except Exception:
         # Pydantic errors can contain input values, including credentials.
         print("deployment configuration: INVALID_SETTINGS")

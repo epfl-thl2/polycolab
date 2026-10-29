@@ -211,10 +211,8 @@
       </div>{/if}
 
     {#if !projectMode}<nav class="product-navigation" aria-label="Main navigation">
-        <a href="/library" aria-current={active === 'explore' ? 'page' : undefined}>Library</a>
         <a href={projectsHref} aria-current={active === 'projects' ? 'page' : undefined}>Projects</a
         >
-        <a href="/activity" aria-current={active === 'activity' ? 'page' : undefined}>Activity</a>
         <a href="/agents" aria-current={active === 'agents' ? 'page' : undefined}>Agents</a>
         <div
           class="product-docs-menu"
@@ -348,9 +346,7 @@
             <DropdownMenu.GroupHeading class="product-menu-heading"
               >Navigate</DropdownMenu.GroupHeading
             >
-            {@render menuLink('/library', 'Library', active === 'explore')}
             {@render menuLink(projectsHref, 'Projects', active === 'projects')}
-            {@render menuLink('/activity', 'Activity', active === 'activity')}
             {@render menuLink('/agents', 'Agents', active === 'agents')}
             <DropdownMenu.Separator />
             <DropdownMenu.GroupHeading>Docs</DropdownMenu.GroupHeading>

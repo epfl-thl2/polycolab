@@ -1,246 +1,148 @@
 <script lang="ts">
-  import { notificationService } from '../svelte-lib/notifications.svelte';
-  const notifications = notificationService();
-  import { Capabilities } from '../svelte-lib/capabilities.svelte';
-  import { createHistoryApi } from '../lib/history-api';
-  import LoadingState from './LoadingState.svelte';
   import { onMount, setContext } from 'svelte';
   import { toStore } from 'svelte/store';
   import { goto } from '$app/navigation';
-  import { accountReturnPath } from '../lib/account-navigation';
   import { createQuery, useQueryClient } from '@tanstack/svelte-query';
-  import { SvelteMap } from 'svelte/reactivity';
   import { Auth } from '../svelte-lib/auth.svelte';
-  import { contextKey, type Draft } from '../svelte-lib/context';
-  import { createResearchApi } from '../lib/research-api';
+  import { Capabilities } from '../svelte-lib/capabilities.svelte';
+  import { notificationService } from '../svelte-lib/notifications.svelte';
+  import { contextKey } from '../svelte-lib/context';
+  import { accountReturnPath } from '../lib/account-navigation';
+  import { createProjectsApi } from '../lib/projects-api';
   import { createAgentSessionsApi } from '../lib/agent-sessions-api';
-  import { createProposalApi } from '../lib/proposals-api';
-  import SignIn from './SignIn.svelte';
-  import NotFound from './NotFound.svelte';
-  import { createCatalogueApi } from '../lib/catalogue-api';
-  import { createRecordsApi } from '../lib/records-api';
-  import { createCommunityApi } from '../lib/community-api';
-  import { createResearchStructureApi } from '../lib/research-structure-api';
-  import { createPublicationApi } from '../lib/publication-api';
+  import { createExternalAgentApi } from '../lib/external-agent-api';
   import { createDocumentBuildsApi } from '../lib/document-builds-api';
   import { createRepositoryApi } from '../lib/repository-api';
   import { createProjectTasksApi } from '../lib/project-tasks-api';
   import { createArtifactApi } from '../lib/artifact-api';
-  import { createVerificationApi } from '../lib/verification-api';
-  import type { SourceRevisionDraft } from '../lib/verification-view';
-  import { createExternalAgentApi } from '../lib/external-agent-api';
+  import LoadingState from './LoadingState.svelte';
+  import SignIn from './SignIn.svelte';
+  import NotFound from './NotFound.svelte';
   import ProductHeader from './ProductHeader.svelte';
   import ProductFooter from './ProductFooter.svelte';
-  import { readSearch, type NavigateQuery } from '../lib/ui-location';
   let {
     path,
     search = '',
     hash = '',
-    onNavigate,
-  }: { path: string; search?: string; hash?: string; onNavigate?: NavigateQuery } = $props();
-  const searchState = $derived(readSearch(search));
-  const returnTo = $derived(accountReturnPath(new URLSearchParams(search).get('returnTo')));
+  }: {
+    path: string;
+    search?: string;
+    hash?: string;
+  } = $props();
+  const notifications = notificationService();
   const query = useQueryClient();
-  const drafts = new SvelteMap<string, Draft>();
-  const sourceDrafts = new SvelteMap<string, SourceRevisionDraft>();
   let accountEpoch = $state(0);
   const auth = new Auth(() => {
     notifications?.clear();
     query.clear();
-    drafts.clear();
-    sourceDrafts.clear();
     accountEpoch += 1;
   });
   const options = { getAccessToken: auth.token, onUnauthorized: () => auth.expireSession() };
-  const history = createHistoryApi(options);
-  const externalAgents = createExternalAgentApi(options);
+  const api = createProjectsApi(options);
   const capabilities = new Capabilities();
   setContext(contextKey, {
-    capabilities,
-    history,
-    catalogue: createCatalogueApi(options),
-    records: createRecordsApi(options),
-    community: createCommunityApi(options),
-    researchStructure: createResearchStructureApi(options),
-    publication: createPublicationApi(options),
-    artifacts: createArtifactApi(options),
-    repository: createRepositoryApi(options),
-    documentBuilds: createDocumentBuildsApi(options),
-    tasks: createProjectTasksApi(options),
-    verification: createVerificationApi(options),
-    externalAgents,
+    api,
     auth,
     query,
-    drafts,
-    sourceDrafts,
-    api: createResearchApi(options),
+    capabilities,
     agents: createAgentSessionsApi(options),
-    proposals: createProposalApi(options),
+    externalAgents: createExternalAgentApi(options),
+    artifacts: createArtifactApi(options),
+    repository: createRepositoryApi(options),
+    tasks: createProjectTasksApi(options),
+    documentBuilds: createDocumentBuildsApi(options),
   });
   onMount(() => {
     void auth.initialize();
     return () => auth.dispose();
   });
   $effect(() => {
-    if (
-      !path.startsWith('/docs') &&
-      !capabilities.configuration &&
-      !capabilities.loading &&
-      !capabilities.error
-    )
+    if (!capabilities.configuration && !capabilities.loading && !capabilities.error)
       void capabilities.load();
   });
-  const projectId = $derived(path.match(/^\/projects\/([^/]+)/)?.[1]);
+  const returnTo = $derived(accountReturnPath(new URLSearchParams(search).get('returnTo')));
+  const projectId = $derived(
+    path.match(
+      /^\/projects\/(?!demo(?:\/|$))([^/]+)(?:\/(?:overview|files|settings|agent-connect|sessions)(?:\/[^/]+)?)?\/?$/,
+    )?.[1],
+  );
   const projectScope = $derived(
     new URLSearchParams(search).get('scope') ?? (auth.signedIn ? 'member' : 'public'),
   );
-  const retiredPreview = $derived(
-    /^\/(?:demo|(?:projects|library|profile)\/demo)(?:\/|$)/.test(path),
-  );
   const view = $derived(
-    retiredPreview
-      ? 'missing'
-      : path === '/activity' || path === '/activity/recent' || path === '/activity/projects'
-        ? 'activity'
-        : path === '/search' || path === '/'
-          ? 'search'
-          : path === '/about'
-            ? 'about'
-            : path === '/library' || path.startsWith('/library/')
-              ? 'library'
-              : path === '/docs' || path.startsWith('/docs/')
-                ? 'docs'
-                : path === '/connect'
-                  ? 'connect'
-                  : path === '/agents' || path.startsWith('/agents/')
-                    ? 'agent-library'
-                    : path === '/projects' && projectScope === 'public'
-                      ? 'public-projects'
-                      : path === '/guide'
-                        ? 'guide'
-                        : path === '/commons' || path.startsWith('/commons/')
-                          ? 'commons'
-                          : [
-                                '/account/password-reset',
-                                '/account/reset-password',
-                                '/account/verify-email',
-                                '/forgot-password',
-                                '/reset-password',
-                                '/verify-email',
-                              ].includes(path)
-                            ? 'recovery'
-                            : path === '/signin'
-                              ? 'signin'
-                              : path === '/signup'
-                                ? 'signup'
-                                : path === '/profile' ||
-                                    /^\/(?:profile|agent-profiles)\/[^/]+$/.test(path)
-                                  ? 'profile'
-                                  : path === '/moderation'
-                                    ? 'moderation'
-                                    : path === '/settings' ||
-                                        (path.startsWith('/settings/') &&
-                                          path !== '/settings/notifications')
-                                      ? 'account-settings'
-                                      : projectId
-                                        ? 'project'
-                                        : path === '/projects'
-                                          ? 'home'
-                                          : 'missing',
+    path === '/' || path === '/projects'
+      ? 'home'
+      : projectId
+        ? 'project'
+        : path === '/about'
+          ? 'about'
+          : path === '/docs' || path.startsWith('/docs/')
+            ? 'docs'
+            : path === '/connect'
+              ? 'connect'
+              : path === '/guide'
+                ? 'guide'
+                : path === '/agents' || path.startsWith('/agents/')
+                  ? 'agent-library'
+                  : [
+                        '/account/password-reset',
+                        '/account/reset-password',
+                        '/account/verify-email',
+                        '/forgot-password',
+                        '/reset-password',
+                        '/verify-email',
+                      ].includes(path)
+                    ? 'recovery'
+                    : path === '/signin'
+                      ? 'signin'
+                      : path === '/signup'
+                        ? 'signup'
+                        : path === '/settings' ||
+                            (path.startsWith('/settings/') && path !== '/settings/notifications')
+                          ? 'account-settings'
+                          : 'missing',
   );
   const identity = createQuery(
     toStore(() => ({
       queryKey: ['current-profile-identity', accountEpoch],
-      enabled:
-        auth.loaded &&
-        auth.signedIn &&
-        (auth.configuration?.mode === 'oidc' ||
-          (view === 'profile' && !path.startsWith('/agent-profiles/'))),
+      enabled: auth.loaded && auth.signedIn && auth.configuration?.mode === 'oidc',
       retry: false,
       staleTime: Infinity,
-      // Lazy account pages can mount after a fast identity failure.
-      notifyOnChangeProps: 'all',
-      queryFn: async () => {
-        const user = await history.currentUser();
-        if (!('username' in user) || (auth.configuration?.mode === 'local' && !user.username))
-          throw new Error('The account service did not return a profile username.');
-        return user;
-      },
+      notifyOnChangeProps: 'all' as const,
+      queryFn: () => api.currentUser(),
     })),
   );
   $effect(() => {
     if (auth.signedIn && $identity.data?.username) auth.username = $identity.data.username;
   });
-  const pageTitle = $derived(
-    view === 'search' && searchState.query
-      ? `Results for “${searchState.query.slice(0, 200)}”`
-      : {
-          search: 'Home',
-          activity: 'Activity',
-          about: 'About',
-          library: 'Library',
-          docs: 'Documentation',
-          connect: 'Connect',
-          guide: 'Getting started',
-          'agent-library': 'Agents',
-          'public-projects': 'Projects',
-          commons: 'Public research',
-          recovery: 'Account recovery',
-          signin: 'Sign in',
-          signup: 'Create account',
-          profile: 'Profile',
-          moderation: 'Moderation',
-          'account-settings': 'Settings',
-          project: 'Project',
-          home: 'Projects',
-          missing: 'Page not found',
-        }[view],
-  );
-  const headerActive = $derived(
-    view === 'search'
-      ? ('search' as const)
-      : path === '/activity' || path.startsWith('/activity/')
-        ? ('activity' as const)
-        : view === 'commons' || view === 'library'
-          ? ('explore' as const)
-          : view === 'docs' || view === 'connect' || view === 'guide'
-            ? ('docs' as const)
-            : view === 'agent-library'
-              ? ('agents' as const)
-              : view === 'profile'
-                ? ('profile' as const)
-                : view === 'moderation'
-                  ? ('moderation' as const)
-                  : view === 'account-settings'
-                    ? ('settings' as const)
-                    : view === 'home' || view === 'public-projects'
-                      ? ('projects' as const)
-                      : undefined,
-  );
   $effect(() => {
     if (auth.loaded && auth.signedIn && (view === 'signin' || view === 'signup')) {
       if (/^\/docs(?:[/?#]|$)/.test(returnTo)) location.assign(returnTo);
       else void goto(returnTo, { replaceState: true });
     }
   });
+  const headerActive = $derived(
+    view === 'home'
+      ? 'projects'
+      : view === 'agent-library'
+        ? 'agents'
+        : view === 'account-settings'
+          ? 'settings'
+          : undefined,
+  );
 </script>
 
-<svelte:head
-  >{#if view !== 'library' && view !== 'project' && view !== 'agent-library'}<title
-      >{pageTitle} · Polycolab</title
-    >{/if}</svelte:head
->
-
+<svelte:head><title>Polycolab · Projects</title></svelte:head>
 <div class="product-shell" class:product-shell-project={view === 'project'}>
   <a class="skip-link" href="#main">Skip to content</a>
-  {#if view !== 'docs' && view !== 'project'}<ProductHeader
+  {#if view !== 'project' && view !== 'docs'}<ProductHeader
       {auth}
       active={headerActive}
-      currentPath={view === 'signin' || view === 'signup' ? returnTo : path + search}
+      currentPath={path + search}
     />{/if}
   <div class="product-shell-content">
     {#if capabilities.error}<div role="alert" class="notice">
-        Application configuration could not be loaded. Optional actions are unavailable.
+        Application configuration could not be loaded.
         <button type="button" onclick={() => capabilities.load()}>Retry configuration</button>
       </div>{/if}
     {#key accountEpoch}
@@ -251,46 +153,18 @@
             onRetry={() => void $identity.refetch()}
             onComplete={() => void $identity.refetch()}
           />{/await}
-      {:else if view === 'activity'}
-        {#await import('./Activity.svelte') then module}<module.default
-            source={history.source}
-            {search}
-            {onNavigate}
-          />{/await}
-      {:else if view === 'search'}
-        {#await import('./Search.svelte') then module}<module.default
-            query={searchState.query}
-            resultType={searchState.type}
-            {onNavigate}
-          />{/await}
-      {:else if view === 'library'}
-        {#await import('./Library.svelte') then module}{#key path}<module.default
-              entryId={path.match(/^\/library\/([^/]+)/)?.[1]}
-              revisionId={path.match(/^\/library\/[^/]+\/revisions\/([^/]+)/)?.[1]}
-            />{/key}{/await}
-      {:else if view === 'commons'}
-        {#await import('./Commons.svelte')}<main id="main" class="page" tabindex="-1">
-            <LoadingState>Opening public research…</LoadingState>
+      {:else if view === 'home'}
+        {#if !auth.loaded}<main id="main" class="page">
+            <LoadingState>Opening projects…</LoadingState>
           </main>
-        {:then module}<module.default
-            entryId={path.startsWith('/commons/records/') ||
-            path.startsWith('/commons/publications/')
-              ? undefined
-              : path.match(/^\/commons\/([^/]+)/)?.[1]}
-            revisionId={path.match(/^\/commons\/records\/([^/]+)/)?.[1]}
-            publicationId={path.match(/^\/commons\/publications\/([^/]+)/)?.[1]}
-          />{/await}
-      {:else if path === '/projects' && !auth.loaded}
-        <main id="main" class="page"><LoadingState>Opening projects…</LoadingState></main>
-      {:else if path === '/projects'}
-        {#await import('./Home.svelte') then module}<module.default
-            publicScope={projectScope === 'public'}
-          />{/await}
+        {:else}{#await import('./Home.svelte') then module}<module.default
+              publicScope={projectScope === 'public'}
+            />{/await}{/if}
       {:else if view === 'project' && projectId}
         {#if !auth.loaded}<main id="main" class="page">
             <LoadingState>Opening project…</LoadingState>
           </main>
-        {:else}{#await import('../pages/project/ProjectRoute.svelte') then module}{#key projectId}<module.default
+        {:else}{#await import('../pages/project/Project.svelte') then module}{#key projectId}<module.default
                 {projectId}
                 {path}
               />{/key}{/await}{/if}
@@ -343,56 +217,17 @@
             </div>
           </main>{/if}
       {:else if view === 'missing'}<NotFound />
-      {:else if view === 'profile' && path !== '/profile'}
-        {#if !auth.loaded}<main id="main" class="page" tabindex="-1">
-            <LoadingState>Opening profile…</LoadingState>
-          </main>
-        {:else}{#await import('./Profile.svelte') then module}{#key path}<module.default
-                {search}
-                {onNavigate}
-                profileId={path.split('/')[2]}
-                agent={path.startsWith('/agent-profiles/')}
-                isOwnProfile={auth.signedIn &&
-                  $identity.data?.username === path.split('/')[2] &&
-                  path.startsWith('/profile/')}
-              />{/key}{/await}{/if}
-      {:else if !auth.loaded}<main id="main" class="page narrow" tabindex="-1">
-          <LoadingState>Opening your project…</LoadingState>
+      {:else if !auth.loaded}<main id="main" class="page">
+          <LoadingState>Opening your account…</LoadingState>
         </main>
-      {:else if !auth.signedIn}<main id="main" class="page narrow" tabindex="-1">
+      {:else if !auth.signedIn}<main id="main" class="page narrow">
           <SignIn {auth} returnTo={path + search + hash} />
         </main>
-      {:else if view === 'profile'}
-        {#await import('./ProfileRedirect.svelte') then module}<module.default
-            {search}
-            {hash}
-            username={$identity.data?.username ?? undefined}
-            error={$identity.error}
-            onRetry={() => void $identity.refetch()}
-          />{/await}
-      {:else if view === 'moderation'}
-        {#await import('./Moderation.svelte') then module}<module.default />{/await}
-      {:else if view === 'home'}
-        {#await import('./Home.svelte')}<main id="main" class="page" tabindex="-1">
-            <LoadingState>Loading projects…</LoadingState>
-          </main>{:then module}<module.default />{/await}
       {:else if view === 'account-settings'}
         {#await import('./AccountSettings.svelte')}<main id="main" class="page" tabindex="-1">
             <LoadingState>Loading settings…</LoadingState>
           </main>{:then module}<module.default {path} />{/await}
-      {:else if projectId}
-        {#await import('../pages/project/Project.svelte')}<main
-            id="main"
-            class="page"
-            tabindex="-1"
-          >
-            <LoadingState>Opening research…</LoadingState>
-          </main>{:then module}{#key projectId}<module.default {projectId} {path} />{/key}{/await}
-      {:else}<main id="main" class="page" tabindex="-1">
-          <h1>Page not found</h1>
-          <p>This page does not exist or is not available yet.</p>
-          <a href="/">Return home</a>
-        </main>{/if}
+      {:else}<NotFound />{/if}
     {/key}
   </div>
   {#if view !== 'project'}<ProductFooter />{/if}

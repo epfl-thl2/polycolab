@@ -36,7 +36,10 @@ from polycolab.db.models import (
 )
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.enums import InvitationStatus
-from polycolab.execution.limits import ExecutionLimitExceeded, enforce_login_address_limit
+from polycolab.execution.limits import (
+    ExecutionLimitExceeded,
+    enforce_login_address_limit,
+)
 from polycolab.platform.config import RegistrationMode, Settings
 
 PASSWORD = "correct horse battery staple"
@@ -168,7 +171,8 @@ def test_postgresql_exact_username_membership_materializes_registered_user_atomi
                 assert (
                     session.scalar(
                         select(SqlUser).where(
-                            SqlUser.issuer == "polycolab-local", SqlUser.subject == str(account.id)
+                            SqlUser.issuer == "polycolab-local",
+                            SqlUser.subject == str(account.id),
                         )
                     )
                     is None
@@ -190,7 +194,8 @@ def test_postgresql_exact_username_membership_materializes_registered_user_atomi
         with Session(engine) as session:
             canonical = session.scalar(
                 select(SqlUser).where(
-                    SqlUser.issuer == "polycolab-local", SqlUser.subject == str(account.id)
+                    SqlUser.issuer == "polycolab-local",
+                    SqlUser.subject == str(account.id),
                 )
             )
             assert canonical is not None
@@ -248,7 +253,9 @@ def test_postgresql_invitation_is_consumed_once_under_contention(
         admin = session.scalar(select(SqlLocalAccount).where(SqlLocalAccount.is_admin.is_(True)))
         assert admin is not None
         code = issue_registration_invitation(
-            SqlAlchemyTransaction(session), created_by_account_id=admin.id, ttl_seconds=3600
+            SqlAlchemyTransaction(session),
+            created_by_account_id=admin.id,
+            ttl_seconds=3600,
         ).code
     barrier = Barrier(2)
 
@@ -316,7 +323,9 @@ def test_postgresql_revoked_invitation_cannot_register(
         admin = session.scalar(select(SqlLocalAccount).where(SqlLocalAccount.is_admin.is_(True)))
         assert admin is not None
         issued = issue_registration_invitation(
-            SqlAlchemyTransaction(session), created_by_account_id=admin.id, ttl_seconds=3600
+            SqlAlchemyTransaction(session),
+            created_by_account_id=admin.id,
+            ttl_seconds=3600,
         )
         invitation_id = issued.invitation.id
         code = issued.code

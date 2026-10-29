@@ -75,8 +75,6 @@ class ProjectStore(Protocol):
 
     def remove_membership(self, membership_id: UUID) -> None: ...
 
-    def close_external_runs(self, project_id: UUID, user_id: UUID) -> None: ...
-
     def create_invitation(
         self,
         *,

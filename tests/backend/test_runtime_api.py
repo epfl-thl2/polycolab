@@ -12,7 +12,12 @@ from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from sqlalchemy import func, select
 
-from polycolab.agents.runtime.contracts import ModelStreamFrame, ModelTurn, ToolCallDelta, Usage
+from polycolab.agents.runtime.contracts import (
+    ModelStreamFrame,
+    ModelTurn,
+    ToolCallDelta,
+    Usage,
+)
 from polycolab.agents.runtime.remote import (
     ApiBackedWorker,
     RuntimeClaim,
@@ -176,7 +181,9 @@ def test_runtime_api_requires_worker_credential_and_owns_state_mutations(
         session.close()
 
 
-def test_runtime_worker_credential_rotation_audit_and_expiry(client: TestClient) -> None:
+def test_runtime_worker_credential_rotation_audit_and_expiry(
+    client: TestClient,
+) -> None:
     app = cast(Any, client.app)
     settings = app.state.settings
     settings.runtime_worker_token = SecretStr("current-runtime-token")
@@ -446,7 +453,7 @@ def test_remote_worker_completes_without_database_dependency() -> None:
 
 @pytest.mark.parametrize(
     "tool_name",
-    ["write_object_version", "comment_on_object_version", "create_relation", "submit_proposal"],
+    ["project_files"],
 )
 def test_remote_worker_sends_trusted_mutation_event_cursor(tool_name: str) -> None:
     class MutationModel:

@@ -2,7 +2,9 @@ import { expect, type Page } from '@playwright/test';
 
 /** Existing save/draft journeys also cover the accessible plain-text fallback. */
 export async function plainFileEditor(page: Page) {
-  const field = page.locator('.source-editor textarea[aria-label="File contents"]');
+  const field = page.locator(
+    '.source-editor textarea[aria-label="File contents"], .file-view .editor-content > textarea[aria-label="File contents"]',
+  );
   await expect(page.getByLabel('File actions', { exact: true })).toBeVisible();
   if (!(await field.isVisible())) {
     const menu = page.getByLabel('File actions', { exact: true });

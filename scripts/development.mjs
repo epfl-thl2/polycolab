@@ -1,4 +1,5 @@
-import { spawn } from 'node:child_process';
+import { createSupervisor } from './development-processes.mjs';
+import { controlSocketPath, listenForStop, requestStop } from './development-control.mjs';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
@@ -7,51 +8,28 @@ import net from 'node:net';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const config = resolve(root, 'deploy/docker/.env');
 const mode = process.argv[2];
-if (!['local', 'docker', 'apply'].includes(mode))
-  throw new Error('Expected local, docker, or apply');
+if (!['local', 'docker', 'apply', 'stop'].includes(mode))
+  throw new Error('Expected local, docker, apply, or stop');
+const socketPath = await controlSocketPath(root);
+if (mode === 'stop') {
+  // Keep stop usable for launchers started before the runtime-path change.
+  const stopped =
+    (await requestStop(socketPath)) ||
+    (await requestStop(resolve(root, '.local/development.sock')));
+  console.log(
+    stopped ? 'Local services stopped.' : 'No local launcher is running for this checkout.',
+  );
+  process.exit(0);
+}
 if (!existsSync(config))
   throw new Error('Copy deploy/docker/.env.example to deploy/docker/.env first.');
 process.loadEnvFile(config);
-const children = new Set();
-let stopping = false;
-function stop() {
-  if (stopping) return;
-  stopping = true;
-  for (const child of children) {
-    try {
-      process.kill(-child.pid, 'SIGTERM');
-    } catch {
-      /* already stopped */
-    }
-  }
-  const timer = setTimeout(() => {
-    for (const child of children) {
-      try {
-        process.kill(-child.pid, 'SIGKILL');
-      } catch {
-        /* already stopped */
-      }
-    }
-  }, 5000);
-  timer.unref();
-}
+const supervisor = createSupervisor({ cwd: root });
+const run = supervisor.run;
+const stop = () => supervisor.stop();
 process.on('SIGINT', stop);
 process.on('SIGTERM', stop);
-function run(executable, args, env = process.env) {
-  return new Promise((accept, reject) => {
-    const child = spawn(executable, args, { cwd: root, env, stdio: 'inherit', detached: true });
-    children.add(child);
-    child.on('error', (error) => {
-      children.delete(child);
-      reject(error);
-    });
-    child.on('exit', (code, signal) => {
-      children.delete(child);
-      if (code === 0 || stopping) accept();
-      else reject(new Error(`${executable} exited with ${signal || code}`));
-    });
-  });
-}
+let closeControl;
 async function checkPort(port) {
   await new Promise((accept, reject) => {
     const server = net.createServer();
@@ -84,6 +62,7 @@ try {
       env,
     );
   } else {
+    closeControl = await listenForStop(socketPath, stop);
     await checkPort(8000);
     await checkPort(8002);
     await checkPort(5174);
@@ -113,9 +92,21 @@ try {
       ],
       env,
     );
-    if (!stopping) {
+    await run(
+      process.execPath,
+      ['node_modules/@sveltejs/kit/svelte-kit.js', 'sync'],
+      env,
+      resolve(root, 'src/web'),
+    );
+    if (!supervisor.stopping) {
+      // Launch Node entry points directly so package-manager subprocesses cannot
+      // move services outside the process groups owned by this launcher.
       const commands = [
-        ['pnpm', ['--filter', '@polycolab/collaboration', 'run', 'start']],
+        [
+          process.execPath,
+          ['--experimental-strip-types', 'src/server.ts'],
+          resolve(root, 'src/collaboration'),
+        ],
         [
           'uv',
           [
@@ -132,27 +123,28 @@ try {
           ],
         ],
         [
-          'pnpm',
+          process.execPath,
           [
-            '--filter',
-            '@polycolab/web',
-            'run',
-            'dev',
+            'node_modules/vite/bin/vite.js',
             '--host',
             '127.0.0.1',
             '--port',
             '5174',
             '--strictPort',
           ],
+          resolve(root, 'src/web'),
         ],
       ];
       console.log('Local mode: http://localhost:5174 — data in .local/');
-      await Promise.race(commands.map(([cmd, args]) => run(cmd, args, env)));
-      stop();
+      await Promise.race(commands.map(([cmd, args, directory]) => run(cmd, args, env, directory)));
+      await stop();
     }
   }
 } catch (error) {
   console.error(error.message);
   process.exitCode = 1;
-  stop();
+  await stop();
+} finally {
+  await stop();
+  if (closeControl) await closeControl();
 }

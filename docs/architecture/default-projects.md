@@ -1,6 +1,6 @@
 # Default projects
 
-Default is the browser's initial choice for new projects and Library copies.
+Default is the browser's initial choice for new projects.
 Existing projects keep their mode. API callers that omit `workspace_mode` retain
 the Git default for compatibility. No database migration is needed: the existing
 mode column accepts `default`, `linear`, and `git`.
@@ -10,8 +10,8 @@ mode column accepts `default`, `linear`, and `git`.
 Each Default project stores its current files at
 `PROJECT_REPOSITORY_DIRECTORY/<project UUID>.files/` on the API server volume.
 There is no Git repository, operation log, checkpoint, tombstone, or retained file
-revision. Project metadata, membership, conversations, and research records remain
-in the database. Research version and publication rules are unchanged.
+revision. Project metadata, membership, conversations, and artifact metadata remain
+in the database.
 
 The member-only `/api/v1/projects/{project_id}/files` API lists files and accepts
 read, write, rename, and delete commands. Paths are relative; traversal, symlinks,
@@ -26,16 +26,26 @@ Owners and contributors can edit; read-only members can inspect. Outsiders canno
 read project files, including files in public projects. Archived projects reject
 writes. Backup the current project volume alongside the database.
 
+The same endpoints accept external agent keys. Account keys follow their sponsor's
+current project membership; project-bound keys additionally require a matching
+project ID. Agents cannot use these endpoints to manage membership or access Git
+or Linear files. Keys must remain unexpired and unrevoked. The service rechecks
+key authority under the project/membership and filesystem locks before file I/O.
+
+Authenticated agent requests consume the key's request budget. Mutating commands
+also reserve one mutation before filesystem I/O, so conflicts, failed commands,
+and ambiguous writes consume that reservation. Reads do not consume mutation
+budget. Writes use the same expected-digest checks, path restrictions and quotas
+as human edits. Responses are private and non-cacheable.
+
 ## Browser
 
 Default uses the shared project shell, logo, navigation, chat center, and resizable
 side panels. Chats and Files in the navigation rail select the left panel: either
 a New chat action with an icon above a scrolling Recents list, or the file tree
 with creation and upload controls. Recents includes drafts and accessible shared conversations.
-The project name opens an information modal. Overview and research Activity are
-not rail destinations in this mode. The right panel has a white background and
-shows files; the chat agent-history panel is hidden. Existing research links can
-still open contextual details. Opening a file selects the right sidebar’s File view
+The project name opens an information modal. Overview is not a rail destination in this mode. The right panel has a white background and
+shows files; the chat agent-history panel is hidden. Opening a file selects the right sidebar’s File view
 while the conversation stays in the center. The compact editor toolbar is shared
 with Git; new files use an inline path field with Enter to create and Escape to
 cancel. There are no document tabs or file-history controls.
@@ -52,7 +62,7 @@ Private Default conversations expose the `project_files` tool through the existi
 authenticated tool gateway. It reads and writes the same current server files with
 the same digest checks and current membership checks. Mutations apply immediately;
 there is no batch merge, revert, or checkpoint. The existing run capability and
-lease checks apply. Public-destination runs cannot access these files.
+lease checks apply.
 
 Default files are not automatically mounted in a hosted execution directory.
 An agent uses `project_files` to read inputs and save outputs; shell commands act

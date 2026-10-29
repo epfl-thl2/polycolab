@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as Dialog from '../../../lib/components/ui/dialog';
-  import type { Project } from '../../../lib/research-api';
-  import { canWriteResearch } from '../../../lib/access';
+  import type { Project } from '../../../lib/projects-api';
+  import { canWriteProject } from '../../../lib/access';
   import ProjectOverview from '../sections/ProjectOverview.svelte';
   import LoadingState from '../../../ui/LoadingState.svelte';
   import type { ProjectUtility } from '../project-dialogs';
@@ -68,7 +68,7 @@
             projectId={project.id}
             projectName={project.name}
             signedIn={true}
-            canWrite={canWriteResearch(project.current_user_role, Boolean(project.archived_at))}
+            canWrite={canWriteProject(project.current_user_role, Boolean(project.archived_at))}
             embedded
           />{/await}
       {/if}

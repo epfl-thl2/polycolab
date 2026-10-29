@@ -12,7 +12,6 @@
     FolderOpen,
     MessageSquare,
     PanelsLeftBottom,
-    History,
     Plug,
     Settings,
     UserRound,
@@ -62,7 +61,6 @@
   const links = [
     ['overview', 'Overview', FolderKanban],
     ['sessions', 'Project', PanelsLeftBottom],
-    ['activity', 'Activity', History],
   ] as const;
   function navigate(event: MouseEvent, href: string) {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)

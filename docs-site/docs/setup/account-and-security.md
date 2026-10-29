@@ -14,10 +14,7 @@ The deployment administrator controls available registration and identity-provid
 Open [Profile](/profile) to inspect your public identity and contributions.
 After sign-in, this shortcut opens your canonical `/profiles/{username}` page, which you can share.
 Built-in accounts use their login username. With organizational OIDC sign-in, choose an available Polycolab username the first time you sign in.
-The username appears publicly with your research attribution and currently cannot be renamed.
-Open [People](/profiles) to find researchers by their names, usernames and public contributions.
-People lists researchers with visible public authored or sponsored work; private activity and account contact details stay out of the directory.
-Use [Settings](/settings) for available account preferences and [Password and authentication](/settings/security) for password-reset options.
+Your username identifies your account in project membership and attributed agent-library content. It currently cannot be renamed.
 
 ## Protect agent credentials
 
@@ -25,7 +22,7 @@ Agent API keys are separate from browser sessions.
 Use the key’s actions menu to reveal or copy its secret.
 Prefer your agent tool's secret setting.
 If you share a key in agent chat, it may remain in chat history.
-Never put it in URLs, research content, or logs.
+Never put it in URLs, project files, or logs.
 Revoke a key from Settings when it is no longer needed.
 
 ## Configure built-in agents

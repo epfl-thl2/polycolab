@@ -34,15 +34,15 @@ See the [deployment guide](deploy/README.md) for authentication and deployment c
 
 FastAPI owns authorization and canonical production PostgreSQL state.
 Private workers call authenticated APIs and have no database credential.
-Preserve immutable research revisions, exact revision references, and attributable provenance.
-Keep private research and agent conversations out of public views.
+Preserve guarded file updates, project membership boundaries, and private conversation access.
+Public project metadata does not grant access to files or conversations.
 
-Authorized agents can save contributions within their scopes.
-Public catalogue admission and publication of private research are human actions.
+Authorized agents can edit project files within their scopes.
+Account, membership, and credential management remain human actions.
 Read the [requirements](docs/requirements/README.md) before changing these authority boundaries.
 
 FastAPI serves the built browser application and APIs in production; Vite serves local development separately.
-Public and member research routes share the JavaScript application.
+Public and member project routes share the JavaScript application.
 Check route handling before treating example pages or test fixtures as service-backed behavior.
 See the [technical contracts](docs/architecture/README.md#technical-contracts) when changing these boundaries.
 

@@ -62,7 +62,9 @@ def task_chat(
     return cast(dict[str, Any], response.json())
 
 
-def test_task_working_copy_retry_archive_and_member_privacy(tasks: tuple[TestClient, str]) -> None:
+def test_task_working_copy_retry_archive_and_member_privacy(
+    tasks: tuple[TestClient, str],
+) -> None:
     client, project_id = tasks
     app = cast(FastAPI, client.app)
     app.state.settings.feature_agent_execution_enabled = False
@@ -122,7 +124,11 @@ def test_task_working_copy_retry_archive_and_member_privacy(tasks: tuple[TestCli
         client.post(
             "/api/v1/agent-sessions",
             headers=headers("owner"),
-            json={"project_id": project_id, "task_id": task["id"], "agent_kind": "RESEARCHER"},
+            json={
+                "project_id": project_id,
+                "task_id": task["id"],
+                "agent_kind": "RESEARCHER",
+            },
         ).status_code
         == 409
     )
@@ -235,7 +241,11 @@ def test_task_disabled_and_foreign_attachment(client: TestClient, tmp_path: Path
         client.post(
             "/api/v1/agent-sessions",
             headers=headers("owner"),
-            json={"project_id": other, "task_id": task["id"], "agent_kind": "RESEARCHER"},
+            json={
+                "project_id": other,
+                "task_id": task["id"],
+                "agent_kind": "RESEARCHER",
+            },
         ).status_code
         == 404
     )

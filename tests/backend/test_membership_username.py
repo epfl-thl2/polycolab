@@ -72,7 +72,8 @@ def test_owner_adds_exact_builtin_username_and_receives_readable_identity(
         assert (
             session.scalar(
                 select(SqlUser).where(
-                    SqlUser.issuer == "polycolab-local", SqlUser.subject == str(account.id)
+                    SqlUser.issuer == "polycolab-local",
+                    SqlUser.subject == str(account.id),
                 )
             )
             is None

@@ -7,18 +7,13 @@
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import { projectContext, contextKey, explain } from '../../svelte-lib/context';
-  import type { ObjectVersion } from '../../lib/research-api';
-  import type { Activity } from '../../lib/history-api';
-  import type { ProjectMap } from '../../lib/project-map';
-  import ProjectSectionPanel from './components/ProjectSectionPanel.svelte';
-  import ProjectObjectPanel from './components/ProjectObjectPanel.svelte';
-  import type { Project } from '../../lib/research-api';
+  import type { Project } from '../../lib/projects-api';
   import { createProjectSessions, projectSessionItems } from '../../lib/session-queries';
   import { createDefaultFilesApi, type DefaultFiles } from '../../lib/default-files-api';
   import { bytesToBase64 } from '../../lib/repository-api';
   import { projectRouteTab, type ProjectTab } from '../../lib/project-tabs';
-  import { canWriteResearch } from '../../lib/access';
-  import { Info, FileText } from '@lucide/svelte';
+  import { canWriteProject } from '../../lib/access';
+  import { FileText } from '@lucide/svelte';
   import ProjectToolsHeader from './components/ProjectToolsHeader.svelte';
   import SidebarFileView from './components/SidebarFileView.svelte';
   import DefaultFileEditor from './components/DefaultFileEditor.svelte';
@@ -48,11 +43,6 @@
   let rightMode = $state('file');
   let error = $state('');
   let fileBusy = $state(false);
-  let selectedResearch = $state<{ version: ObjectVersion; searchResult: boolean }>();
-  let selectedActivity = $state<Activity>();
-  let mapData = $state<ProjectMap>();
-  let mapObjectId = $state('');
-  let mapPanelTab = $state('body');
   const active = $derived(projectRouteTab(project.id, page.url.pathname + page.url.search));
   const section = $derived(page.url.pathname.split('/')[3] || 'overview');
   const entity = $derived(page.url.pathname.split('/')[4]);
@@ -63,7 +53,7 @@
   let fileEditor = $state<DefaultFileEditor>();
   const activeId = $derived(active?.id || '');
   const canChat = $derived(
-    canWriteResearch(project.current_user_role, Boolean(project.archived_at)),
+    canWriteProject(project.current_user_role, Boolean(project.archived_at)),
   );
   const draftChats = $derived(
     tabs.filter(
@@ -176,29 +166,14 @@
     {project}
     bind:tabs
     {activeId}
-    bind:selectedResearch
-    bind:selectedActivity
-    bind:mapData
-    bind:mapObjectId
-    bind:mapPanelTab
     onCreated={(id) => {
       navigate(`/projects/${project.id}/sessions/${id}`);
-    }}
-    onInspect={() => {
-      if (section === 'sessions') return;
-      rightMode = 'details';
-      shell?.showPanel('tools');
     }}
   />
 
   {#snippet right(placement)}
     <ProjectToolsHeader
-      items={[
-        ['file', 'File', FileText],
-        ...(section !== 'sessions' && section !== 'files' && section !== 'overview'
-          ? [['details', 'Details', Info] as const]
-          : []),
-      ]}
+      items={[['file', 'File', FileText]]}
       value={rightMode}
       onselect={(value) => (rightMode = value)}
       {placement}
@@ -207,22 +182,6 @@
     <div class="tool-content">
       {#if rightMode === 'file'}<div class="file-host" data-file-panel-host={placement}></div>
         {#if !filePath}<p class="tool-empty">Choose a file from Files in the left sidebar.</p>{/if}
-      {/if}
-      {#if rightMode === 'details'}
-        {#if section === 'objects' && entity}<ProjectObjectPanel
-            projectId={project.id}
-            objectId={entity}
-            publicRead={false}
-          />
-        {:else}<ProjectSectionPanel
-            {project}
-            {section}
-            bind:selected={selectedActivity}
-            bind:selectedResearch
-            {mapData}
-            bind:mapObjectId
-            bind:mapPanelTab
-          />{/if}
       {/if}
     </div>
   {/snippet}

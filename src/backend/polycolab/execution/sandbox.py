@@ -10,9 +10,9 @@ import os
 import stat
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import Literal
 
-from polycolab.verification.contracts import ControllerClaim, ResourceLimits, validate_path
+from polycolab.execution.contracts import ResourceLimits, validate_path
 
 
 class SandboxUnavailable(Exception):
@@ -28,34 +28,6 @@ class SandboxOutput:
     path: str
     role: Literal["OUTPUT", "CERTIFICATE", "DIAGNOSTIC"]
     data: bytes
-
-
-@dataclass(frozen=True)
-class SandboxResult:
-    outcome: Literal["COMPLETED", "FAILED", "CANCELLED", "TIMED_OUT"]
-    exit_code: int | None
-    diagnostic_code: Literal[
-        "NONE", "PROGRAM_ERROR", "RESOURCE_LIMIT", "CANCELLED", "LEASE_LOST", "RUNTIME_UNAVAILABLE"
-    ]
-    outputs: tuple[SandboxOutput, ...] = ()
-
-
-class SandboxRuntime(Protocol):
-    async def check_ready(self) -> None:
-        """Reject unavailable/unaccepted isolation before any job claim."""
-        ...
-
-    async def reconcile(self) -> None:
-        """Stop only this controller's orphan sandboxes before claiming work."""
-        ...
-
-    async def run(self, claim: ControllerClaim, inputs: dict[str, bytes]) -> SandboxResult:
-        """Enforce the absolute execution deadline and all admitted ceilings.
-
-        Cancellation must synchronously stop the sandbox before this await exits.
-        Never return paths to a still-running or writable sandbox filesystem.
-        """
-        ...
 
 
 def collect_outputs(

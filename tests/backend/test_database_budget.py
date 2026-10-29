@@ -36,7 +36,18 @@ def test_no_processes_or_no_maintenance_reserve_is_invalid() -> None:
 def test_cli_returns_failure_for_overcommit(capsys: pytest.CaptureFixture[str]) -> None:
     assert (
         main(
-            ["--server-limit", "10", "--reserved", "3", "--headroom", "2", "--pool", "1", "5", "5"]
+            [
+                "--server-limit",
+                "10",
+                "--reserved",
+                "3",
+                "--headroom",
+                "2",
+                "--pool",
+                "1",
+                "5",
+                "5",
+            ]
         )
         == 1
     )

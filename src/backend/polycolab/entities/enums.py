@@ -14,30 +14,8 @@ class ProjectVisibility(StrEnum):
     PUBLIC = "PUBLIC"
 
 
-class ResearchScopeKind(StrEnum):
-    PROJECT = "PROJECT"
-    COMMONS = "COMMONS"
-
-
-class ResearchEntityClass(StrEnum):
-    STATEMENT = "STATEMENT"
-    RECORD = "RECORD"
-
-
-class ContributionActorKind(StrEnum):
-    HUMAN = "HUMAN"
-    AGENT = "AGENT"
-
-
 class MutationReceiptStatus(StrEnum):
     COMMITTED = "COMMITTED"
-    FAILED = "FAILED"
-
-
-class OutboxEventStatus(StrEnum):
-    PENDING = "PENDING"
-    CLAIMED = "CLAIMED"
-    DELIVERED = "DELIVERED"
     FAILED = "FAILED"
 
 
@@ -83,46 +61,6 @@ class MailOutboxStatus(StrEnum):
     DISCARDED = "DISCARDED"
 
 
-class ResearchObjectKind(StrEnum):
-    PROBLEM = "PROBLEM"
-    DEFINITION = "DEFINITION"
-    CLAIM = "CLAIM"
-    PROOF = "PROOF"
-    PROOF_SKETCH = "PROOF_SKETCH"
-    ATTEMPT = "ATTEMPT"
-    COUNTEREXAMPLE = "COUNTEREXAMPLE"
-    NOTE = "NOTE"
-    IDEA = "IDEA"
-    DISCUSSION = "DISCUSSION"
-    FORMALIZATION = "FORMALIZATION"
-    COMPUTATION = "COMPUTATION"
-
-
-class RelationType(StrEnum):
-    DEPENDS_ON = "DEPENDS_ON"
-    PROVES = "PROVES"
-    ATTEMPTS = "ATTEMPTS"
-    REFUTES = "REFUTES"
-    USES = "USES"
-    IMPLIES = "IMPLIES"
-    EQUIVALENT_TO = "EQUIVALENT_TO"
-
-
-class CorrespondenceStatus(StrEnum):
-    MATCHES = "MATCHES"
-    PARTIAL = "PARTIAL"
-    MISMATCH = "MISMATCH"
-    UNASSESSED = "UNASSESSED"
-
-
-class ResearchProgressStatus(StrEnum):
-    POTENTIAL = "POTENTIAL"
-    PARTIAL = "PARTIAL"
-    COMPLETE = "COMPLETE"
-    STALLED = "STALLED"
-    FAILED = "FAILED"
-
-
 class ArtifactState(StrEnum):
     STAGING = "STAGING"
     COMMITTED = "COMMITTED"
@@ -130,105 +68,13 @@ class ArtifactState(StrEnum):
     DELETED = "DELETED"
 
 
-class ArtifactResearchRole(StrEnum):
-    SOURCE = "SOURCE"
-    INPUT = "INPUT"
-    EVIDENCE = "EVIDENCE"
-    OUTPUT = "OUTPUT"
-    FORMALIZATION = "FORMALIZATION"
-    CERTIFICATE = "CERTIFICATE"
-
-
-class VerificationLanguage(StrEnum):
-    PYTHON = "PYTHON"
-    LEAN = "LEAN"
-
-
-class VerificationJobState(StrEnum):
-    QUEUED = "QUEUED"
-    RUNNING = "RUNNING"
-    COMPLETED = "COMPLETED"
-    FAILED = "FAILED"
-    CANCELLED = "CANCELLED"
-    TIMED_OUT = "TIMED_OUT"
-
-
-class VerificationAttemptState(StrEnum):
-    ACTIVE = "ACTIVE"
-    COMPLETED = "COMPLETED"
-    FAILED = "FAILED"
-    CANCELLED = "CANCELLED"
-    TIMED_OUT = "TIMED_OUT"
-    LEASE_LOST = "LEASE_LOST"
-
-
-class VerificationReservationState(StrEnum):
-    ACTIVE = "ACTIVE"
-    RELEASED = "RELEASED"
-
-
 class ExecutionWorkloadClass(StrEnum):
     AGENT = "AGENT"
-    INTERACTIVE_LEAN = "INTERACTIVE_LEAN"
-    BACKGROUND_LEAN = "BACKGROUND_LEAN"
-    PYTHON = "PYTHON"
 
 
 class ExecutionTenantKind(StrEnum):
     USER = "USER"
     PROJECT = "PROJECT"
-
-
-class VerificationInputRole(StrEnum):
-    SOURCE = "SOURCE"
-    INPUT = "INPUT"
-    CERTIFICATE = "CERTIFICATE"
-
-
-class VerificationOutputRole(StrEnum):
-    OUTPUT = "OUTPUT"
-    CERTIFICATE = "CERTIFICATE"
-    DIAGNOSTIC = "DIAGNOSTIC"
-
-
-class AttemptEvidenceRole(StrEnum):
-    INPUT = "INPUT"
-    SUPPORTS = "SUPPORTS"
-    CONTRADICTS = "CONTRADICTS"
-    OUTPUT = "OUTPUT"
-
-
-class ProvenanceKind(StrEnum):
-    """Direct work or an accepted agent proposal decided by a human."""
-
-    HUMAN_DIRECT = "HUMAN_DIRECT"
-    AGENT_PROPOSAL = "AGENT_PROPOSAL"
-    AGENT_DIRECT = "AGENT_DIRECT"
-
-
-class ProposalChangeType(StrEnum):
-    CREATE_OBJECT = "CREATE_OBJECT"
-    CREATE_REVISION = "CREATE_REVISION"
-    CREATE_RELATION = "CREATE_RELATION"
-    CREATE_COMMENT = "CREATE_COMMENT"
-
-
-class ProposalChangeStatus(StrEnum):
-    PENDING = "PENDING"
-    ACCEPTED = "ACCEPTED"
-    REJECTED = "REJECTED"
-
-
-class ProposalDecisionAction(StrEnum):
-    ACCEPT = "ACCEPT"
-    REJECT = "REJECT"
-
-
-class CanonicalEntityType(StrEnum):
-    RESEARCH_OBJECT = "RESEARCH_OBJECT"
-    OBJECT_REVISION = "OBJECT_REVISION"
-    RELATION_ASSERTION = "RELATION_ASSERTION"
-    RESEARCH_COMMENT = "RESEARCH_COMMENT"
 
 
 class PlatformAgentKind(StrEnum):
@@ -299,47 +145,26 @@ class RuntimeRunBindingStatus(StrEnum):
 
 
 __all__ = [
+    "AccountTokenPurpose",
+    "AgentMessageRole",
+    "AgentRunEventKind",
+    "AgentRunStatus",
+    "AgentSessionStatus",
+    "ArtifactState",
+    "ExecutionProfile",
+    "ExecutionTenantKind",
+    "ExecutionWorkloadClass",
+    "InvitationStatus",
+    "MailOutboxStatus",
+    "MailPurpose",
+    "MutationReceiptStatus",
+    "PlatformAgentKind",
     "ProjectRole",
     "ProjectVisibility",
-    "ResearchScopeKind",
-    "ResearchEntityClass",
-    "ContributionActorKind",
-    "MutationReceiptStatus",
-    "OutboxEventStatus",
-    "SocialProviderKind",
-    "SocialAuthPurpose",
-    "SocialIdentityAuditAction",
-    "InvitationStatus",
-    "AccountTokenPurpose",
-    "MailPurpose",
-    "MailOutboxStatus",
-    "ResearchObjectKind",
-    "RelationType",
-    "CorrespondenceStatus",
-    "ResearchProgressStatus",
-    "ArtifactState",
-    "ArtifactResearchRole",
-    "VerificationLanguage",
-    "VerificationJobState",
-    "VerificationAttemptState",
-    "VerificationReservationState",
-    "ExecutionWorkloadClass",
-    "ExecutionTenantKind",
-    "VerificationInputRole",
-    "VerificationOutputRole",
-    "AttemptEvidenceRole",
-    "ProvenanceKind",
-    "ProposalChangeType",
-    "ProposalChangeStatus",
-    "ProposalDecisionAction",
-    "CanonicalEntityType",
-    "PlatformAgentKind",
-    "ExecutionProfile",
-    "AgentSessionStatus",
-    "AgentMessageRole",
-    "AgentRunStatus",
-    "AgentRunEventKind",
-    "UsageSource",
     "RuntimeBindingStatus",
     "RuntimeRunBindingStatus",
+    "SocialAuthPurpose",
+    "SocialIdentityAuditAction",
+    "SocialProviderKind",
+    "UsageSource",
 ]

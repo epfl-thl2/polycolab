@@ -54,7 +54,9 @@ from polycolab.entities.enums import (
 )
 
 
-def _domain_setup(client: TestClient) -> tuple[Any, SqlUser, SqlProject, SqlGatewayProfile]:
+def _domain_setup(
+    client: TestClient,
+) -> tuple[Any, SqlUser, SqlProject, SqlGatewayProfile]:
     app = cast(Any, client.app)
     session = app.state.session_factory()
     user = SqlUser(issuer="https://issuer.example", subject="worker-owner", email="owner@test")
@@ -100,7 +102,9 @@ def _new_run(client: TestClient) -> tuple[Any, SqlUser, SqlGatewayProfile, UUID]
     return session, user, profile, run.id
 
 
-def test_agent_versions_are_pinned_trusted_and_digest_integral(client: TestClient) -> None:
+def test_agent_versions_are_pinned_trusted_and_digest_integral(
+    client: TestClient,
+) -> None:
     session, _, _, _ = _domain_setup(client)
     try:
         researcher = platform_agent_version(session, agent_kind=PlatformAgentKind.RESEARCHER)
@@ -115,7 +119,9 @@ def test_agent_versions_are_pinned_trusted_and_digest_integral(client: TestClien
         session.close()
 
 
-def test_custom_session_keeps_its_prompt_and_uses_it_for_model_input(client: TestClient) -> None:
+def test_custom_session_keeps_its_prompt_and_uses_it_for_model_input(
+    client: TestClient,
+) -> None:
     session, user, project, profile = _domain_setup(client)
     try:
         prompt = "Look for counterexamples before proposing a proof."
@@ -145,7 +151,10 @@ def test_custom_session_keeps_its_prompt_and_uses_it_for_model_input(client: Tes
 
 
 def test_custom_session_requires_a_harness_and_nonblank_prompt() -> None:
-    base = {"project_id": "00000000-0000-0000-0000-000000000001", "agent_kind": "RESEARCHER"}
+    base = {
+        "project_id": "00000000-0000-0000-0000-000000000001",
+        "agent_kind": "RESEARCHER",
+    }
     for fields in (
         {"harness": "codex"},
         {"system_prompt": "custom"},
@@ -242,14 +251,18 @@ def test_transaction_compatible_claim_can_roll_back_without_leaking_a_lease(
         session.close()
 
 
-def test_private_session_creator_must_match_the_run_requester(client: TestClient) -> None:
+def test_private_session_creator_must_match_the_run_requester(
+    client: TestClient,
+) -> None:
     session, owner, project, _ = _domain_setup(client)
     try:
         reader = SqlUser(
             issuer="https://issuer.example", subject="read-only-creator", email="r@test"
         )
         contributor = SqlUser(
-            issuer="https://issuer.example", subject="contributor-requester", email="c@test"
+            issuer="https://issuer.example",
+            subject="contributor-requester",
+            email="c@test",
         )
         session.add_all((reader, contributor))
         session.flush()
@@ -395,7 +408,9 @@ def test_event_cursor_is_idempotent_and_stale_worker_generation_is_rejected(
         session.close()
 
 
-def test_cancel_resume_and_runtime_bindings_preserve_history(client: TestClient) -> None:
+def test_cancel_resume_and_runtime_bindings_preserve_history(
+    client: TestClient,
+) -> None:
     session, user, profile, run_id = _new_run(client)
     try:
         cancelled = request_cancel(session, run_id=run_id)
@@ -442,7 +457,8 @@ def test_postgresql_migration_compiles_runtime_integrity_and_immutable_history()
     sql = StringIO()
     config = Config(str(api_directory / "alembic.ini"), output_buffer=sql)
     config.set_main_option(
-        "script_location", str(api_directory / "polycolab" / "db" / "migrations" / "postgresql")
+        "script_location",
+        str(api_directory / "polycolab" / "db" / "migrations" / "postgresql"),
     )
     config.set_main_option("sqlalchemy.url", "postgresql+psycopg://unused/unused")
     command.upgrade(config, "head", sql=True)

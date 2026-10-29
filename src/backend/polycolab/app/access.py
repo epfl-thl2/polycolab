@@ -1,4 +1,4 @@
-"""One explicit identity boundary for shared research resources."""
+"""One explicit identity boundary for shared application resources."""
 
 from dataclasses import dataclass
 from typing import Annotated
@@ -14,7 +14,7 @@ from polycolab.accounts.authentication import (
     current_principal,
 )
 from polycolab.accounts.identity import current_user
-from polycolab.agents.external import credential_from_secret
+from polycolab.agents.credentials import credential_from_secret
 from polycolab.app.dependencies import DbSession
 from polycolab.db.models import SqlExternalAgentCredential, SqlMembership, SqlProject
 from polycolab.db.transaction import SqlAlchemyTransaction
@@ -22,7 +22,7 @@ from polycolab.entities.accounts import User
 
 
 @dataclass(frozen=True)
-class ResearchAccess:
+class ResourceAccess:
     user: User | None = None
     credential: SqlExternalAgentCredential | None = None
 
@@ -49,25 +49,25 @@ class ResearchAccess:
         )
 
 
-def research_access(request: Request, response: Response, session: DbSession) -> ResearchAccess:
+def resource_access(request: Request, response: Response, session: DbSession) -> ResourceAccess:
     response.headers["Cache-Control"] = "private, no-store"
     authorization = request.headers.get("authorization")
     token = bearer_token(authorization)
     if token and token.startswith("pca_"):
-        return ResearchAccess(
+        return ResourceAccess(
             credential=credential_from_secret(
                 session, token, consume_request=request.url.path != "/api/v1/me"
             )
         )
     if authorization is not None:
-        return ResearchAccess(
+        return ResourceAccess(
             user=current_user(SqlAlchemyTransaction(session), current_principal(request))
         )
     try:
         principal = current_principal(request)
     except AuthenticationRequired:
-        return ResearchAccess()
-    return ResearchAccess(user=current_user(SqlAlchemyTransaction(session), principal))
+        return ResourceAccess()
+    return ResourceAccess(user=current_user(SqlAlchemyTransaction(session), principal))
 
 
-Access = Annotated[ResearchAccess, Depends(research_access)]
+Access = Annotated[ResourceAccess, Depends(resource_access)]

@@ -24,7 +24,7 @@ function signedOutAuth() {
 
 it('keeps unresolved authentication neutral in desktop and mobile account controls', async () => {
   const auth = new Auth(() => {});
-  render(ProductHeader, { props: { auth, active: 'explore' } });
+  render(ProductHeader, { props: { auth, active: 'projects' } });
 
   expect(screen.getByRole('status', { name: 'Checking account' })).toBeTruthy();
   expect(screen.queryByRole('link', { name: 'Sign in' })).toBeNull();
@@ -43,9 +43,6 @@ it('uses clear global destinations and exposes account destinations from the ava
   const brand = screen.getByRole('link', { name: 'Polycolab home' });
   expect(brand.querySelector('img')?.getAttribute('src')).toBe('/brand/polycolab-mark.png');
   const navigation = screen.getByRole('navigation', { name: 'Main navigation' });
-  expect(within(navigation).getByRole('link', { name: 'Library' }).getAttribute('href')).toBe(
-    '/library',
-  );
   expect(within(navigation).getByRole('link', { name: 'Docs' }).getAttribute('href')).toBe(
     '/docs/',
   );
@@ -54,13 +51,8 @@ it('uses clear global destinations and exposes account destinations from the ava
     within(navigation)
       .getAllByRole('link')
       .map((link) => link.textContent?.trim()),
-  ).toEqual(['Library', 'Projects', 'Activity', 'Agents', 'Docs']);
+  ).toEqual(['Projects', 'Agents', 'Docs']);
   expect(within(navigation).queryByRole('link', { name: 'People' })).toBeNull();
-  expect(
-    within(navigation)
-      .getByRole('link', { name: /^Activity/ })
-      .getAttribute('href'),
-  ).toBe('/activity');
   expect(
     within(navigation).getByRole('link', { name: 'Projects' }).getAttribute('aria-current'),
   ).toBe('page');
@@ -68,12 +60,10 @@ it('uses clear global destinations and exposes account destinations from the ava
 
   await fireEvent.click(screen.getByRole('button', { name: 'Open account menu for Ada Lovelace' }));
   for (const item of [
-    'Profile',
     'Your projects',
     'Settings',
     'Password and authentication',
     'Getting started',
-    'Moderation',
   ])
     expect(await screen.findByRole('menuitem', { name: item })).toBeTruthy();
   expect(screen.getByText('@ada')).toBeTruthy();
@@ -110,21 +100,10 @@ it('links anonymous desktop and mobile navigation to public projects', async () 
   render(ProductHeader, { props: { auth: signedOutAuth(), active: 'explore' } });
 
   const navigation = screen.getByRole('navigation', { name: 'Main navigation' });
-  expect(
-    within(navigation).getByRole('link', { name: 'Library' }).getAttribute('aria-current'),
-  ).toBe('page');
-  expect(within(navigation).getByRole('link', { name: 'Library' }).getAttribute('href')).toBe(
-    '/library',
-  );
   expect(within(navigation).getByRole('button', { name: 'Open Docs menu' })).toBeTruthy();
   expect(within(navigation).getByRole('link', { name: 'Projects' }).getAttribute('href')).toBe(
     '/projects?scope=public',
   );
-  expect(
-    within(navigation)
-      .getByRole('link', { name: /^Activity/ })
-      .getAttribute('href'),
-  ).toBe('/activity');
   expect(screen.getByRole('link', { name: 'Sign in' }).getAttribute('href')).toBe('/signin');
   expect(screen.getByRole('link', { name: 'Create account' }).getAttribute('href')).toBe('/signup');
 
@@ -160,23 +139,6 @@ it('keeps the account available after sign-out fails', async () => {
 
   expect((await screen.findByRole('alert')).textContent).toBe('Sign-out failed. Please retry.');
   expect(screen.getByRole('button', { name: 'Open account menu for Ada Lovelace' })).toBeTruthy();
-});
-
-it('marks Activity as current for anonymous desktop and mobile navigation', async () => {
-  render(ProductHeader, { props: { auth: signedOutAuth(), active: 'activity' } });
-  const navigation = screen.getByRole('navigation', { name: 'Main navigation' });
-  expect(
-    within(navigation)
-      .getByRole('link', { name: /^Activity/ })
-      .getAttribute('aria-current'),
-  ).toBe('page');
-  expect(within(navigation).queryByRole('link', { name: /Commons/ })).toBeNull();
-  await fireEvent.click(screen.getByRole('button', { name: 'Open navigation and account menu' }));
-  const activity = await screen.findByRole('menuitem', { name: /^Activity/ });
-  expect(activity.textContent).not.toContain('Planned');
-  expect(screen.queryByRole('menuitem', { name: 'Chat' })).toBeNull();
-  expect(activity.getAttribute('href')).toBe('/activity');
-  expect(activity.getAttribute('aria-current')).toBe('page');
 });
 
 it('links the Docs label and exposes the main documentation routes', async () => {

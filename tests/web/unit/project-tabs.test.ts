@@ -2,18 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { restoreProjectTabs, projectRouteTab } from '../../../src/web/src/lib/project-tabs';
 
 describe('project route tabs', () => {
-  it('uses stable route identities for pages, objects and chats', () => {
+  it('uses stable route identities for pages and chats', () => {
     expect(projectRouteTab('project', '/projects/project')).toEqual({
       id: 'overview:',
       kind: 'page',
       label: 'Overview',
       href: '/projects/project',
     });
-    expect(projectRouteTab('project', '/projects/project/objects/object')).toEqual({
-      id: 'objects:object',
-      kind: 'object',
-      label: 'Research object',
-      href: '/projects/project/objects/object',
+    expect(projectRouteTab('project', '/projects/project/sessions/saved')).toEqual({
+      id: 'sessions:saved',
+      kind: 'chat',
+      label: 'Chat',
+      href: '/projects/project/sessions/saved',
     });
     expect(projectRouteTab('project', '/projects/project/sessions/chat')).toEqual({
       id: 'sessions:chat',
@@ -26,9 +26,9 @@ describe('project route tabs', () => {
   });
 
   it('preserves query parameters without changing identity', () => {
-    const first = projectRouteTab('project', '/projects/project/research?kind=THEOREM&q=a%20b');
-    const second = projectRouteTab('project', '/projects/project/research?kind=PROOF');
-    expect(first?.href).toBe('/projects/project/research?kind=THEOREM&q=a%20b');
+    const first = projectRouteTab('project', '/projects/project/sessions?kind=THEOREM&q=a%20b');
+    const second = projectRouteTab('project', '/projects/project/sessions?kind=PROOF');
+    expect(first?.href).toBe('/projects/project/sessions?kind=THEOREM&q=a%20b');
     expect(first?.id).toBe(second?.id);
   });
 
@@ -49,13 +49,13 @@ describe('project route tabs', () => {
 
   it('rejects routes outside the current project and unknown sections', () => {
     for (const href of [
-      '/projects/other/research',
+      '/projects/other/sessions',
       '/projects/other/sessions/chat',
-      '/research',
+      '/sessions',
       '/projects/project/unknown',
       '/projects/project/chat',
-      'https://example.com/projects/project/research',
-      '//example.com/projects/project/research',
+      'https://example.com/projects/project/sessions',
+      '//example.com/projects/project/sessions',
       '/projects/project/overview/anything',
       '/projects/project/sessions/chat/extra',
       '/projects/project/objects',
@@ -71,21 +71,21 @@ describe('restored project tabs', () => {
       'project',
       JSON.stringify([
         {
-          href: '/projects/project/research?q=first',
+          href: '/projects/project/overview?q=first',
           label: 'Untrusted',
           kind: 'chat',
           dirty: true,
         },
-        { href: '/projects/project/research?q=duplicate' },
-        { href: '/projects/other/research' },
-        { href: 'https://example.com/projects/project/research' },
+        { href: '/projects/project/overview?q=duplicate' },
+        { href: '/projects/other/sessions' },
+        { href: 'https://example.com/projects/project/sessions' },
         { href: '/projects/project/unknown' },
         { href: '/projects/project/chat' },
         { href: '/projects/project/overview/anything' },
         { href: '/projects/project/sessions/chat/extra' },
         { href: 'http://[' },
         { href: '/projects/project/files' },
-        { href: '/projects/project/objects/object?revision=2' },
+        { href: '/projects/project/sessions/saved?revision=2' },
         null,
         {},
         { href: 1 },
@@ -93,10 +93,10 @@ describe('restored project tabs', () => {
     );
     expect(restored).toEqual([
       {
-        id: 'objects:object',
-        kind: 'object',
-        label: 'Research object',
-        href: '/projects/project/objects/object?revision=2',
+        id: 'sessions:saved',
+        kind: 'chat',
+        label: 'Chat',
+        href: '/projects/project/sessions/saved?revision=2',
       },
     ]);
   });
@@ -109,7 +109,7 @@ describe('restored project tabs', () => {
   it('bounds restored entries to thirty', () => {
     const raw = JSON.stringify(
       Array.from({ length: 35 }, (_, index) => ({
-        href: `/projects/project/objects/object-${index}`,
+        href: `/projects/project/sessions/saved-${index}`,
       })),
     );
     expect(restoreProjectTabs('project', raw)).toHaveLength(30);
@@ -120,14 +120,14 @@ it('restores old bookmarks as project tabs without changing identity or query an
   expect(
     restoreProjectTabs(
       'project',
-      JSON.stringify([{ href: '/workspaces/project/objects/object?revision=old#proof' }]),
+      JSON.stringify([{ href: '/workspaces/project/sessions/saved?revision=old#proof' }]),
     ),
   ).toEqual([
     {
-      id: 'objects:object',
-      kind: 'object',
-      label: 'Research object',
-      href: '/projects/project/objects/object?revision=old#proof',
+      id: 'sessions:saved',
+      kind: 'chat',
+      label: 'Chat',
+      href: '/projects/project/sessions/saved?revision=old#proof',
     },
   ]);
 });

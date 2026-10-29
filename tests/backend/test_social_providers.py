@@ -10,7 +10,11 @@ import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from polycolab.accounts.providers import Provider, SocialAuthenticationFailed, SocialProvider
+from polycolab.accounts.providers import (
+    Provider,
+    SocialAuthenticationFailed,
+    SocialProvider,
+)
 
 VERIFIER = "v" * 43
 NONCE = "n" * 32
@@ -54,11 +58,19 @@ def test_github_identity_is_stable_id_not_email_or_login() -> None:
         assert request.headers["authorization"] == "Bearer secret-token"
         return httpx.Response(
             200,
-            json={"id": 42, "login": "mutable", "email": "victim@example.org", "name": "Example"},
+            json={
+                "id": 42,
+                "login": "mutable",
+                "email": "victim@example.org",
+                "name": "Example",
+            },
         )
 
     result = provider("github").exchange(
-        code="code", verifier=VERIFIER, nonce=NONCE, transport=httpx.MockTransport(handle)
+        code="code",
+        verifier=VERIFIER,
+        nonce=NONCE,
+        transport=httpx.MockTransport(handle),
     )
     assert result.subject == "42" and result.provider == "github"
     assert "email" not in repr(result) and "secret-token" not in repr(result)
@@ -107,7 +119,10 @@ def test_google_verifies_signed_identity(invalid: str | None) -> None:
         return (
             provider()
             .exchange(
-                code="code", verifier=VERIFIER, nonce=NONCE, transport=httpx.MockTransport(handle)
+                code="code",
+                verifier=VERIFIER,
+                nonce=NONCE,
+                transport=httpx.MockTransport(handle),
             )
             .subject
         )
@@ -138,7 +153,10 @@ def test_failures_are_bounded_sanitized_and_not_retried(kind: str) -> None:
 
     with pytest.raises(SocialAuthenticationFailed) as failure:
         provider().exchange(
-            code="code", verifier=VERIFIER, nonce=NONCE, transport=httpx.MockTransport(handle)
+            code="code",
+            verifier=VERIFIER,
+            nonce=NONCE,
+            transport=httpx.MockTransport(handle),
         )
     assert str(failure.value) == "social_authentication_failed" and calls == 1
 

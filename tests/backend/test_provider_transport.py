@@ -88,7 +88,9 @@ def test_request_is_pinned_to_vetted_ip_with_original_host_and_bounded_settings(
     client, recording = transport([ProviderResponse(200, b'{"id":"ok"}')])
 
     assert client.request_json(
-        base_url="https://provider.example/v1/", api_key="provider-secret", payload={"model": "x"}
+        base_url="https://provider.example/v1/",
+        api_key="provider-secret",
+        payload={"model": "x"},
     ) == {"id": "ok"}
 
     call = recording.calls[0]

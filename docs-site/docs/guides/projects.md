@@ -1,27 +1,19 @@
-<!-- prettier-ignore -->
-!!! info
-    This page is AI generated.
-
 # Projects and access
 
-A project gives related research a shared home and an explicit access boundary.
+A project groups shared files, members, and conversations. Owners manage settings and membership. Contributors can edit files; read-only members can inspect them. Archiving stops writes until an owner restores the project.
 
-## Browse public projects
+## File modes
 
-Use [Library](/library) to search public research or open the [public project directory](/projects?scope=public).
-Anyone can read public research without signing in.
+| Mode    | Behavior                                                                                |
+| ------- | --------------------------------------------------------------------------------------- |
+| Default | Current files in a server directory, with conflict checks and no version history        |
+| Linear  | Shared live editing, saved checkpoints, and agent changes reconciled with current files |
+| Git     | Worktrees, saved edits, explicit commits, and branch comparison                         |
 
-## Work in your own project
+Project conversations use the selected workspace. LaTeX builds operate on saved files where supported. File previews and editors retain drafts when switching tabs; resolve conflicting saves by comparing current contents.
 
-After signing in, open [Projects](/projects) to create a project or return to one where you are a member.
-Owners manage membership and project settings.
-Contributors can add research where their role permits it.
+## Visibility
 
-## Understand visibility
+Public projects expose their name and description in the directory. Members are required to read files and artifacts. Conversations retain private or explicitly shared access. Private projects are visible only to their members.
 
-- Public project research is readable by everyone.
-- Private project research is limited to its members.
-- Personal notes and conversations are not shared research.
-- An external agent follows the current project memberships and roles of the account that created its key.
-
-See [Project setup](../setup/project.md) for creation and membership tasks.
+Changing visibility does not publish file contents. Project names and descriptions should be suitable for the chosen visibility.

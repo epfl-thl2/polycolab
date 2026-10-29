@@ -13,20 +13,16 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 
-from polycolab.access.actors import Actor
 from polycolab.app.dependencies import CurrentUser, DbSession
 from polycolab.artifacts import service as artifacts
 from polycolab.artifacts.contracts import (
-    ArtifactAttachmentPage,
-    ArtifactAttachmentRead,
-    ArtifactAttachmentWrite,
     ArtifactRead,
     ArtifactUploadDeclaration,
     private_download_headers,
 )
 from polycolab.artifacts.storage import ArtifactStorage, ArtifactStorageError, configured_storage
 from polycolab.platform.config import Settings
-from polycolab.research.records import project_access
+from polycolab.projects.access import project_access
 
 
 def private_no_store(response: Response) -> None:
@@ -73,8 +69,6 @@ def _stage(
     user_id: UUID,
     declaration: ArtifactUploadDeclaration,
     data: bytes,
-    source_revision_id: UUID | None,
-    actor: Actor | None = None,
 ) -> ArtifactRead:
     with request.app.state.session_factory() as session:
         row = artifacts.reserve(
@@ -83,8 +77,6 @@ def _stage(
             user_id=user_id,
             declaration=declaration,
             settings=request.app.state.settings,
-            source_revision_id=source_revision_id,
-            actor=actor,
         )
     try:
         with artifact_storage(request) as store:
@@ -121,7 +113,6 @@ async def upload(
     sha256: Annotated[str, Query(min_length=64, max_length=64, pattern="^[0-9a-f]{64}$")],
     byte_length: Annotated[int, Query(ge=0, le=16 * 1024 * 1024)],
     media_type: Annotated[str, Query(max_length=127)] = "application/octet-stream",
-    source_object_version_id: UUID | None = None,
 ) -> ArtifactRead:
     settings: Settings = request.app.state.settings
     if byte_length > settings.artifact_max_bytes:
@@ -147,28 +138,7 @@ async def upload(
         raise HTTPException(408, "artifact_upload_timeout") from None
     if len(data) != byte_length:
         raise HTTPException(422, "artifact_length_mismatch")
-    return await run_in_threadpool(
-        _stage, request, project_id, user_id, declaration, bytes(data), source_object_version_id
-    )
-
-
-@router.get("", response_model=ArtifactAttachmentPage, operation_id="pageArtifactAttachments")
-def list_attachments(
-    project_id: UUID,
-    user: CurrentUser,
-    session: DbSession,
-    object_version_id: UUID | None = None,
-    limit: Annotated[int, Query(ge=1, le=100)] = 25,
-    cursor: Annotated[str | None, Query(max_length=128)] = None,
-) -> ArtifactAttachmentPage:
-    return artifacts.list_attachments(
-        session,
-        project_id=project_id,
-        user_id=user.id,
-        revision_id=object_version_id,
-        limit=limit,
-        cursor=cursor,
-    )
+    return await run_in_threadpool(_stage, request, project_id, user_id, declaration, bytes(data))
 
 
 @router.get("/{artifact_id}", response_model=ArtifactRead, operation_id="readArtifact")
@@ -182,31 +152,6 @@ def metadata(
             user_id=user.id,
             artifact_id=artifact_id,
             include_staging=True,
-        )
-    )
-
-
-@router.post(
-    "/{artifact_id}/attachments",
-    response_model=ArtifactAttachmentRead,
-    operation_id="attachArtifact",
-)
-def attach(
-    project_id: UUID,
-    artifact_id: UUID,
-    payload: ArtifactAttachmentWrite,
-    user: CurrentUser,
-    session: DbSession,
-) -> ArtifactAttachmentRead:
-    return ArtifactAttachmentRead(
-        id=artifacts.attach(
-            session,
-            project_id=project_id,
-            user_id=user.id,
-            artifact_id=artifact_id,
-            revision_id=payload.object_version_id,
-            role=payload.role,
-            attempt_revision_id=payload.attempt_object_version_id,
         )
     )
 

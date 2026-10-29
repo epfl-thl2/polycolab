@@ -1,7 +1,6 @@
 """Transactional canonical session/run state for the WP-09 built-in worker.
 
-This module deliberately knows nothing about HTTP, providers, research context,
-tools, or proposals. It owns ordered product history and lease-safe state only.
+Owns ordered conversation history and lease-safe execution state.
 """
 
 from __future__ import annotations
@@ -14,8 +13,6 @@ from uuid import UUID, uuid4
 from sqlalchemy import and_, exists, or_, select, update
 from sqlalchemy.orm import Session, aliased
 
-from polycolab.agents import grants as run_grants
-from polycolab.agents.schemas import RunAuthorityRequest
 from polycolab.db.models import (
     SqlAgentMessage,
     SqlAgentRun,
@@ -96,6 +93,22 @@ _PLATFORM_V2: tuple[tuple[UUID, PlatformAgentKind, str, str], ...] = (
         "Never claim verification.",
     ),
 )
+_PLATFORM_V3: tuple[tuple[UUID, PlatformAgentKind, str, str], ...] = (
+    (
+        UUID("a0000000-0000-4000-8000-000000000005"),
+        PlatformAgentKind.RESEARCHER,
+        "Researcher",
+        "Explore problems and work with the project files. Read before editing; "
+        "explain changes and distinguish observed results from assumptions.",
+    ),
+    (
+        UUID("a0000000-0000-4000-8000-000000000006"),
+        PlatformAgentKind.CRITIC,
+        "Critic",
+        "Review project work for gaps, hidden assumptions, and counterexamples. "
+        "Explain findings and the evidence supporting them.",
+    ),
+)
 _TERMINAL = frozenset(
     {
         AgentRunStatus.COMPLETED,
@@ -137,24 +150,25 @@ def _commit(session: Session) -> None:
 
 
 def ensure_platform_agent_versions(session: Session) -> None:
-    """Seed the immutable v1 specs for metadata-created local/test databases."""
+    """Seed immutable agent specifications, preserving existing session bindings."""
 
     changed = False
-    for version_id, kind, display_name, instructions in (*_PLATFORM_V1, *_PLATFORM_V2):
-        existing = session.get(SqlPlatformAgentVersion, version_id)
-        if existing is None:
-            session.add(
-                SqlPlatformAgentVersion(
-                    id=version_id,
-                    agent_kind=kind,
-                    version=1 if version_id in {item[0] for item in _PLATFORM_V1} else 2,
-                    display_name=display_name,
-                    instructions_text=instructions,
-                    instructions_digest=sha256(instructions.encode()).hexdigest(),
-                    execution_profile=ExecutionProfile.TRUSTED_HOSTED,
+    for version, entries in enumerate((_PLATFORM_V1, _PLATFORM_V2, _PLATFORM_V3), start=1):
+        for version_id, kind, display_name, instructions in entries:
+            existing = session.get(SqlPlatformAgentVersion, version_id)
+            if existing is None:
+                session.add(
+                    SqlPlatformAgentVersion(
+                        id=version_id,
+                        agent_kind=kind,
+                        version=version,
+                        display_name=display_name,
+                        instructions_text=instructions,
+                        instructions_digest=sha256(instructions.encode()).hexdigest(),
+                        execution_profile=ExecutionProfile.TRUSTED_HOSTED,
+                    )
                 )
-            )
-            changed = True
+                changed = True
     if changed:
         _commit(session)
 
@@ -268,13 +282,11 @@ def append_user_message_and_queue_run(
     requested_by_user_id: UUID,
     gateway_profile_id: UUID,
     content_md: str,
-    context_revision_ids: list[UUID] | None = None,
     context_artifact_ids: list[UUID] | None = None,
     client_request_id: UUID | None = None,
     deadline_at: datetime | None = None,
     execution_limits: ExecutionLimits | None = None,
     now: datetime | None = None,
-    requested_authority: RunAuthorityRequest | None = None,
     runtime_spec: dict[str, object] | None = None,
 ) -> tuple[SqlAgentMessage, SqlAgentRun]:
     """Append a human message and its ordered run atomically.
@@ -315,23 +327,11 @@ def append_user_message_and_queue_run(
             or existing_run.requested_by_user_id != requested_by_user_id
             or existing_run.gateway_profile_id != gateway_profile_id
             or existing_message.content_md != content_md
-            or existing_run.requested_context_revision_ids
-            != [str(value) for value in context_revision_ids or []]
             or existing_run.requested_context_artifact_ids
             != [str(value) for value in context_artifact_ids or []]
-            or run_grants.requested(session, existing_run.id) != requested_authority
         ):
             session.rollback()
             raise SessionStateError("idempotency key reused with different turn")
-        if requested_authority is not None:
-            run_grants.validate(
-                session,
-                project_id=existing_run.project_id,
-                user_id=requested_by_user_id,
-                agent_version_id=existing_run.agent_version_id,
-                context_ids=context_revision_ids or [],
-                authority=requested_authority,
-            )
         session.commit()
         return existing_message, existing_run
     if execution_limits is not None:
@@ -369,13 +369,10 @@ def append_user_message_and_queue_run(
         runtime_spec=runtime_spec,
         queue_sequence=parent.next_run_sequence,
         input_message_sequence=message.sequence,
-        requested_context_revision_ids=[str(value) for value in context_revision_ids or []],
         requested_context_artifact_ids=[str(value) for value in context_artifact_ids or []],
         deadline_at=deadline_at,
     )
     session.add(run)
-    if requested_authority is not None:
-        run_grants.attach(session, run, requested_authority)
     from polycolab.execution.allocator import admit
 
     admit(session, run)
@@ -1163,16 +1160,6 @@ def resume_run(
         ):
             session.rollback()
             raise SessionStateError("idempotency key reused with different resume")
-        authority = run_grants.requested(session, existing.id)
-        if authority is not None:
-            run_grants.validate(
-                session,
-                project_id=existing.project_id,
-                user_id=requested_by_user_id,
-                agent_version_id=existing.agent_version_id,
-                context_ids=[UUID(value) for value in existing.requested_context_revision_ids],
-                authority=authority,
-            )
         session.commit()
         return existing
     if execution_limits is not None:
@@ -1200,14 +1187,10 @@ def resume_run(
         runtime_spec=runtime_spec,
         queue_sequence=parent.next_run_sequence,
         input_message_sequence=parent.next_message_sequence,
-        requested_context_revision_ids=previous.requested_context_revision_ids,
         requested_context_artifact_ids=previous.requested_context_artifact_ids,
         deadline_at=deadline_at,
     )
     session.add(successor)
-    authority = run_grants.requested(session, previous.id)
-    if authority is not None:
-        run_grants.attach(session, successor, authority)
     from polycolab.execution.allocator import admit
 
     admit(session, successor)

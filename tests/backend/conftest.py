@@ -33,7 +33,10 @@ def identity_verifier() -> MappingIdentityVerifier:
                 "https://issuer.example", "reader", "reader@example.test", "Reader"
             ),
             "outsider": Principal(
-                "https://issuer.example", "outsider", "outsider@example.test", "Outsider"
+                "https://issuer.example",
+                "outsider",
+                "outsider@example.test",
+                "Outsider",
             ),
             "same-email": Principal(
                 "https://other.example", "same-email", "owner@example.test", "Same"
@@ -43,12 +46,21 @@ def identity_verifier() -> MappingIdentityVerifier:
 
 
 @pytest.fixture
-def client(tmp_path: Path, identity_verifier: MappingIdentityVerifier) -> Generator[TestClient]:
+def client(
+    tmp_path: Path,
+    identity_verifier: MappingIdentityVerifier,
+    request: pytest.FixtureRequest,
+) -> Generator[TestClient]:
     app = create_app(
         Settings(
             app_env=Environment.LOCAL,
             feature_agent_execution_enabled=True,
-            database_url="sqlite+pysqlite:///:memory:",
+            # Concurrent requests need separate connections, not one StaticPool connection.
+            database_url=(
+                f"sqlite+pysqlite:///{tmp_path / 'api.db'}"
+                if getattr(request, "param", None) == "file"
+                else "sqlite+pysqlite:///:memory:"
+            ),
             # API tests must not change behavior merely because a developer built
             # the sibling Vite application before running pytest.
             web_dist_dir=str(tmp_path / "missing-web-dist"),
@@ -56,12 +68,6 @@ def client(tmp_path: Path, identity_verifier: MappingIdentityVerifier) -> Genera
         identity_verifier,
     )
     Base.metadata.create_all(app.state.engine)
-    # Production migrations provision the singleton commons scope.
-    from polycolab.db.models import ResearchScopeKind, SqlResearchScope
-
-    with app.state.session_factory() as session:
-        session.add(SqlResearchScope(scope_kind=ResearchScopeKind.COMMONS))
-        session.commit()
     with TestClient(app) as test_client:
         yield test_client
     Base.metadata.drop_all(app.state.engine)
@@ -72,12 +78,11 @@ def client(tmp_path: Path, identity_verifier: MappingIdentityVerifier) -> Genera
 def isolated_dotenv(monkeypatch: pytest.MonkeyPatch) -> Generator[None]:
     """Tests never inherit a developer's deployment file or cached settings."""
     from polycolab.platform.config import (
-        VerificationControllerSettings,
         WorkerSettings,
         get_settings,
     )
 
-    for model in (Settings, WorkerSettings, VerificationControllerSettings):
+    for model in (Settings, WorkerSettings):
         monkeypatch.setitem(model.model_config, "env_file", None)
     get_settings.cache_clear()
     yield
@@ -101,7 +106,8 @@ def pg_schema(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[Engine, Config,
     backend = Path(__file__).resolve().parents[2] / "src/backend"
     config = Config(str(backend / "alembic.ini"))
     config.set_main_option(
-        "script_location", str(backend / "polycolab" / "db" / "migrations" / "postgresql")
+        "script_location",
+        str(backend / "polycolab" / "db" / "migrations" / "postgresql"),
     )
     try:
         yield engine, config, scoped

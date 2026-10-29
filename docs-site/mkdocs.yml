@@ -87,8 +87,6 @@ nav:
       - guides/index.md
       - Agent library: agents.md
       - Projects and access: guides/projects.md
-      - Research and revisions: guides/research.md
-      - Collaboration and evidence: guides/collaboration-and-evidence.md
       - Working with agents: guides/agents.md
   - User Setup:
       - setup/index.md

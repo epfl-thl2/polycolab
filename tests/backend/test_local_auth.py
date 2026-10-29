@@ -39,7 +39,8 @@ def local_client(request: pytest.FixtureRequest) -> Generator[TestClient]:
 def test_bootstrapped_admin_authenticates_api(local_client: TestClient) -> None:
     assert local_client.get("/auth/me").json() == {"authenticated": False}
     login = local_client.post(
-        "/auth/login", json={"username": "admin", "password": "correct horse battery staple"}
+        "/auth/login",
+        json={"username": "admin", "password": "correct horse battery staple"},
     )
     assert login.status_code == 200
     assert login.json() == {
@@ -75,11 +76,14 @@ def test_bootstrapped_admin_authenticates_api(local_client: TestClient) -> None:
     assert projects.json()["items"] == []
 
 
-def test_setup_route_is_removed_and_logout_revokes_session(local_client: TestClient) -> None:
+def test_setup_route_is_removed_and_logout_revokes_session(
+    local_client: TestClient,
+) -> None:
     assert local_client.post("/auth/setup", json={}).status_code == 404
     assert (
         local_client.post(
-            "/auth/login", json={"username": "admin", "password": "correct horse battery staple"}
+            "/auth/login",
+            json={"username": "admin", "password": "correct horse battery staple"},
         ).status_code
         == 200
     )
@@ -98,7 +102,8 @@ def test_local_login_rejects_wrong_password_and_accepts_correct_password(
     assert wrong.json()["error"]["code"] == "http_error"
 
     login = local_client.post(
-        "/auth/login", json={"username": "admin", "password": "correct horse battery staple"}
+        "/auth/login",
+        json={"username": "admin", "password": "correct horse battery staple"},
     )
     assert login.status_code == 200
     assert local_client.get("/api/v1/projects?scope=member").status_code == 200
@@ -148,7 +153,8 @@ def test_local_login_rate_limits_normalized_username(local_client: TestClient) -
     app.state.settings.login_username_requests_per_minute = 1
     assert (
         local_client.post(
-            "/auth/login", json={"username": "Missing.User", "password": "wrong password"}
+            "/auth/login",
+            json={"username": "Missing.User", "password": "wrong password"},
         ).status_code
         == 401
     )

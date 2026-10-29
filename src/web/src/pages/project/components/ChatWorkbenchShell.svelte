@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import type { Project } from '../../../lib/research-api';
+  import type { Project } from '../../../lib/projects-api';
   import type { AgentSession } from '../../../lib/agent-sessions-api';
   import type { ProjectTab } from '../../../lib/project-tabs';
   import { projectContext } from '../../../svelte-lib/context';
@@ -101,7 +101,7 @@
   {#snippet navigation(expanded)}<ProjectNavigationRail
       auth={context.auth}
       projectId={project.id}
-      section={['files', 'sessions', 'objects'].includes(section) ? 'sessions' : section}
+      section={['files', 'sessions'].includes(section) ? 'sessions' : section}
       canManage={project.current_user_role === 'OWNER'}
       {expanded}
       selectedPanel={leftMode}

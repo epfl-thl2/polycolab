@@ -44,7 +44,10 @@ def test_unexpected_anonymous_status_fails_without_sending_secret(status: int) -
 
     with httpx.Client(transport=httpx.MockTransport(handle)) as client:
         assert not staging_auth_probe.probe(
-            {"STAGING_BASE_URL": "https://staging.example.org", "STAGING_OPERATOR_SESSION": "test"},
+            {
+                "STAGING_BASE_URL": "https://staging.example.org",
+                "STAGING_OPERATOR_SESSION": "test",
+            },
             client,
         )
     assert len(requests) == 1

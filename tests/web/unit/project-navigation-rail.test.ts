@@ -58,7 +58,7 @@ it('shows the mobile drawer expanded and limits project management links', () =>
 });
 it('preserves modified clicks for opening navigation in another tab', async () => {
   const { onNavigate } = setup();
-  await fireEvent.click(screen.getByRole('link', { name: 'Activity' }), { ctrlKey: true });
+  await fireEvent.click(screen.getByRole('link', { name: 'Overview' }), { ctrlKey: true });
   expect(onNavigate).not.toHaveBeenCalled();
 });
 
@@ -69,7 +69,6 @@ it('opens the shared account menu without leaving the project and supports sign 
   expect(await screen.findByRole('menu')).toBeTruthy();
   expect(onNavigate).not.toHaveBeenCalled();
   for (const [name, href] of [
-    ['Profile', '/profile'],
     ['Your projects', '/projects'],
     ['Settings', '/settings'],
     ['Password and authentication', '/settings/security'],

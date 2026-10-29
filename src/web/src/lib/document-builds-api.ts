@@ -1,12 +1,16 @@
 import type { components } from '$lib/api-client';
-import { commonsClient, result, type CommonsClientOptions } from './commons-client';
+import {
+  authenticatedClient,
+  result,
+  type AuthenticatedClientOptions,
+} from './authenticated-client';
 
 export type DocumentBuild = components['schemas']['BuildRead'];
 export type LatexEngine = components['schemas']['BuildRequest']['engine'];
 const root = '/api/v1/projects/{project_id}/worktrees/{worktree_id}/latex-builds' as const;
 
-export function createDocumentBuildsApi(options: CommonsClientOptions = {}) {
-  const client = commonsClient(options);
+export function createDocumentBuildsApi(options: AuthenticatedClientOptions = {}) {
+  const client = authenticatedClient(options);
   return {
     list: (project_id: string, worktree_id: string) =>
       result(client.GET(root, { params: { path: { project_id, worktree_id } } })),

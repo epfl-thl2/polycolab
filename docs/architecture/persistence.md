@@ -1,7 +1,7 @@
 # Application entities and SQL persistence
 
 Polycolab separates application data from persisted rows.
-A research view may combine an object, revision, author, contribution, and several attachment rows.
+A project view may combine project, membership, and account rows.
 An application entity does not have to correspond to one table.
 
 ## Ownership and dependency direction
@@ -25,7 +25,6 @@ Every SQLAlchemy mapped class, including query projections, uses the `Sql` prefi
 Imports and exports retain that prefix.
 Application entities keep their domain names.
 The unmapped declarative `Base`, plain table variables, and shared enums are exempt.
-Python class names are not persisted identifiers: research activity uses explicit stable source-kind strings so class renames preserve event identities and backfill retries.
 
 Composition creates database adapters and injects the application interface.
 Application services must not construct SQLAlchemy adapters themselves once converted.
@@ -105,21 +104,7 @@ The following operations have application boundaries:
   Actor and artifact values also live in the application entity package.
   Timestamp converters normalize UTC consistently across PostgreSQL and lightweight SQLite tests.
 
-Research object/version and relationship snapshots now have application entities and a batch read store.
-Stable identities load without version content.
-Complete record reads and object history use materialized version snapshots.
-Exact relationships have one canonical table, with read-only typed projections for existing proof/attempt/attachment consumers.
-Write helpers share their caller's transaction and preserve structural insertion boundaries and attribution.
-Research read stores translate SQLAlchemy failures through the same persistence error boundary as account and project stores.
-
-Their batch queries load the rows needed by query-free, typed research converters.
-Artifact and verification workflows share one artifact converter, including UTC timestamp normalization.
-Relationship write helpers remain internal SQL adapters used by the unconverted mutation services.
-They are not application store interfaces.
-Research authorization, metadata projection, and mutation services still contain SQL access.
-This is a read-boundary conversion, not complete research persistence isolation.
-
-See [research versions](research-versions.md).
+Artifacts use immutable application values and a shared byte-integrity converter.
 
 Artifact cleanup is a complete converted workflow.
 `artifacts/cleanup.py` owns expiry policy, lifecycle transitions, and transaction completion through `Transaction.artifacts`.
@@ -131,10 +116,10 @@ The cleanup workflow records each successful deletion in a separate transaction.
 Tombstones remain eligible for repeated deletion to handle late uploads.
 
 `artifacts/gc.py` composes the adapters and runs the cleanup loop.
-Upload, attachment, and public artifact workflows still use SQL directly and remain separate conversion work.
+Project upload and hosted artifact workflows still use SQL directly and remain separate conversion work.
 
 The service-wide isolation design is **not yet fully implemented**.
-Research, catalogue, hosted/external agents, verification/execution, credential management, account recovery and social enrollment, and operational workflows still contain direct ORM access.
+Hosted/external agents, execution, credential management, account recovery and social enrollment, and operational workflows still contain direct ORM access.
 Some HTTP handlers also retain SQL reads and workflow coordination.
 These must be converted through explicit stores and application entities.
 Moving them wholesale into `db/` would incorrectly move business policy there.

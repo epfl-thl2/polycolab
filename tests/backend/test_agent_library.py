@@ -101,14 +101,18 @@ def test_archive_and_moderation_cover_every_public_path(client: TestClient) -> N
         base + "/publish", json={"expected_revision": 1}, headers=headers()
     ).json()
     archived = client.post(
-        base + "/archive", json={"expected_revision": 2, "archived": True}, headers=headers()
+        base + "/archive",
+        json={"expected_revision": 2, "archived": True},
+        headers=headers(),
     )
     assert archived.status_code == 200
     assert client.get("/api/v1/agent-library").json()["items"] == []
     assert client.get(base).status_code == 200
     assert (
         client.post(
-            base + "/copy", json={"version_id": version["id"]}, headers=headers("reader")
+            base + "/copy",
+            json={"version_id": version["id"]},
+            headers=headers("reader"),
         ).status_code
         == 409
     )
@@ -128,7 +132,9 @@ def test_archive_and_moderation_cover_every_public_path(client: TestClient) -> N
         assert client.get(path).status_code == 404
     assert client.get(base + "/draft", headers=headers()).status_code == 200
     client.post(
-        base + "/archive", json={"expected_revision": 4, "archived": False}, headers=headers()
+        base + "/archive",
+        json={"expected_revision": 4, "archived": False},
+        headers=headers(),
     )
     client.put(
         base + "/draft",
@@ -214,7 +220,9 @@ def test_filter_pagination_and_retry_conflicts(client: TestClient) -> None:
     assert client.post("/api/v1/agent-library", json=body, headers=key).json() == first
     assert (
         client.post(
-            "/api/v1/agent-library", json={**body, "content": content("different")}, headers=key
+            "/api/v1/agent-library",
+            json={**body, "content": content("different")},
+            headers=key,
         ).status_code
         == 409
     )
@@ -228,12 +236,14 @@ def test_filter_pagination_and_retry_conflicts(client: TestClient) -> None:
     page = client.get("/api/v1/agent-library?limit=1&tag=proof").json()
     assert len(page["items"]) == 1 and page["next_cursor"]
     next_page = client.get(
-        "/api/v1/agent-library", params={"limit": 1, "tag": "proof", "cursor": page["next_cursor"]}
+        "/api/v1/agent-library",
+        params={"limit": 1, "tag": "proof", "cursor": page["next_cursor"]},
     ).json()
     assert next_page["items"][0]["id"] != page["items"][0]["id"]
     assert (
         client.get(
-            "/api/v1/agent-library", params={"cursor": page["next_cursor"], "tag": "other"}
+            "/api/v1/agent-library",
+            params={"cursor": page["next_cursor"], "tag": "other"},
         ).status_code
         == 422
     )
@@ -258,7 +268,10 @@ def test_agent_keys_cannot_contribute_and_cross_entry_versions_are_denied(
         client.post(
             "/api/v1/agent-library",
             json={"kind": "PROMPT", "content": content()},
-            headers={"Authorization": f"Bearer {secret}", "Idempotency-Key": str(uuid4())},
+            headers={
+                "Authorization": f"Bearer {secret}",
+                "Idempotency-Key": str(uuid4()),
+            },
         ).status_code
         == 401
     )
@@ -350,7 +363,11 @@ def test_migrated_sqlite_protects_public_history(
             assert (
                 real_client.post(
                     base + "/moderation",
-                    json={"expected_revision": 2, "hidden": True, "reason": "Retained decision"},
+                    json={
+                        "expected_revision": 2,
+                        "hidden": True,
+                        "reason": "Retained decision",
+                    },
                     headers=headers(),
                 ).status_code
                 == 200
@@ -385,14 +402,19 @@ def test_kind_specific_fields_cannot_hide_content_from_publication_preview(
     }
     assert (
         client.post(
-            "/api/v1/agent-library", json={"kind": "PLUGIN", "content": plugin}, headers=headers()
+            "/api/v1/agent-library",
+            json={"kind": "PLUGIN", "content": plugin},
+            headers=headers(),
         ).status_code
         == 422
     )
     assert (
         client.post(
             "/api/v1/agent-library",
-            json={"kind": "PROMPT", "content": {**content(), "runtime": "Hidden runtime"}},
+            json={
+                "kind": "PROMPT",
+                "content": {**content(), "runtime": "Hidden runtime"},
+            },
             headers=headers(),
         ).status_code
         == 422

@@ -25,7 +25,11 @@ def host(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> docker_host.Host:
     config = tmp_path / "host.json"
     config.write_text(
         json.dumps(
-            {"state_dir": str(root), "executor_uid": os.getuid(), "docker_socket": "/test.sock"}
+            {
+                "state_dir": str(root),
+                "executor_uid": os.getuid(),
+                "docker_socket": "/test.sock",
+            }
         )
     )
     read_json = docker_host.read_json
@@ -116,7 +120,10 @@ def test_shutdown_ignores_journal_storage(
     slice_name, guard, holder = host.names(ATTEMPT)
     expected: list[tuple[str, ...]] = [("systemctl", "stop", holder, slice_name)]
     if action == "release":
-        expected += [("systemctl", "stop", guard), ("systemctl", "reset-failed", guard, holder)]
+        expected += [
+            ("systemctl", "stop", guard),
+            ("systemctl", "reset-failed", guard, holder),
+        ]
     assert calls == expected * 2
 
 

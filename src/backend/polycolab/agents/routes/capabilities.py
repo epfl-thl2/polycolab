@@ -17,7 +17,6 @@ class AgentCapabilities(BaseModel):
     sessions: bool
     execution_available: bool
     hosted_agents: bool
-    verification: bool = False
 
 
 def hosted_ready(session: Session, settings: Settings) -> bool:

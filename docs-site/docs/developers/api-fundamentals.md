@@ -22,15 +22,12 @@ Keep identity, scope, and filters unchanged.
 Stop when `next_cursor` is null.
 The default page size is 25 and the maximum is 100.
 
-## Preserve exact context
+## Save current files
 
-Objects have immutable revisions.
-Read revision history.
-Send exact revision identifiers when a relationship, attachment, or agent run depends on particular content.
-Revision-aware requests prevent later edits from silently changing the meaning of recorded work.
+Default project file reads return a content digest. Send that digest as `expected_digest` when updating, renaming, or deleting the file. A stale write returns a conflict; reread and reconcile before retrying. File history depends on the project's selected mode.
 
 ## Handle errors
 
 Inspect the structured error response and HTTP status before deciding whether to retry.
 Do not retry authorization, validation, or conflict failures as transient failures.
-Agent mutations have additional idempotency rules described in [Agent identities and contributions](agent-runs.md).
+External agent file requests consume the key's request and mutation budgets. See [Agent identities and file access](agent-runs.md).

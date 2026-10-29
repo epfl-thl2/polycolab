@@ -22,7 +22,9 @@ from polycolab.platform.config import (
 )
 
 
-def test_openapi_has_versioned_operations_security_and_error_envelopes(client: TestClient) -> None:
+def test_openapi_has_versioned_operations_security_and_error_envelopes(
+    client: TestClient,
+) -> None:
     response = client.get("/api/openapi.json")
     assert response.status_code == 200
     document = response.json()
@@ -64,43 +66,31 @@ def test_openapi_has_versioned_operations_security_and_error_envelopes(client: T
     )
 
 
-def test_research_version_contract_has_no_legacy_revision_fields() -> None:
+def test_research_contract_is_removed() -> None:
     document = json.loads(serialized_openapi())
-    # These are independent draft, file, note and summary histories.
-    independent_histories = {
-        "LibraryArchiveWrite": {"expected_revision"},
-        "LibraryDraftWrite": {"expected_revision"},
-        "LibraryEntryRead": {"revision"},
-        "LibraryModerateWrite": {"expected_revision"},
-        "LibraryRevisionWrite": {"expected_revision"},
-        "ConversionRequest": {"revision"},
-        "BuildRead": {"revision"},
-        "BuildRequest": {"revision"},
-        "RepositoryRunState": {"input_revision", "output_revision"},
-        "RepositoryMerge": {"expected_target_revision", "expected_source_revision"},
-        "RepositoryMergePreview": {"target_revision", "source_revision"},
-        "WorktreeCommit": {"expected_revision"},
-        "WorktreeRead": {"revision"},
-        "WorktreeRemove": {"expected_revision"},
-        "WorktreeRevision": {"expected_revision"},
-        "WorktreeSave": {"expected_revision"},
-        "WorktreeSaved": {"revision"},
-        "HumanNoteRead": {"current_revision"},
-        "HumanNoteRevisionRead": {"base_revision_id"},
-        "HumanNoteWrite": {"base_revision_id"},
-        "PublicPublicationVersionSelection": {"summary_revision_ids"},
-        "PublicationVersionConfirm": {"summary_revision_ids"},
-        "PublicationVersionSelection": {"summary_revision_ids"},
-        "ResearchSummaryVersionRead": {"current_revision"},
-        "ResearchSummaryVersionRevisionRead": {"base_revision_id"},
-        "ResearchSummaryVersionWrite": {"base_revision_id"},
+    retired = {
+        "objects",
+        "catalogue",
+        "commons",
+        "publications",
+        "verification",
+        "proposals",
+        "research",
+        "relationships",
     }
-    actual = {
-        name: {field for field in schema.get("properties", {}) if "revision" in field}
-        for name, schema in document["components"]["schemas"].items()
-        if any("revision" in field for field in schema.get("properties", {}))
-    }
-    assert actual == independent_histories
+    assert "/api/v1/runs" not in document["paths"]
+    for path in document["paths"]:
+        assert not (retired & set(path.removeprefix("/api/v1/").split("/")))
+    for name in document["components"]["schemas"]:
+        assert not name.startswith(
+            (
+                "Research",
+                "ObjectVersion",
+                "Proposal",
+                "Verification",
+                "PublicPublication",
+            )
+        )
 
 
 def test_openapi_tags_match_resource_boundaries() -> None:
@@ -108,16 +98,11 @@ def test_openapi_tags_match_resource_boundaries() -> None:
     paths = document["paths"]
     assert paths["/api/v1/me"]["get"]["tags"] == ["identity"]
     assert paths["/api/v1/account/agent-keys"]["post"]["tags"] == ["agent-keys"]
-    assert "post" not in paths["/api/v1/runs"]
+    assert "/api/v1/runs" not in paths
     assert paths["/api/v1/agent-runs/{run_id}"]["get"]["tags"] == ["agent-runs"]
     assert paths["/api/v1/projects"]["get"]["tags"] == ["projects"]
     assert paths["/api/v1/projects"]["post"]["tags"] == ["projects"]
-    assert paths["/api/v1/catalogue/{entry_id}/audit"]["get"]["tags"] == ["catalogue"]
-    assert paths["/api/v1/catalogue-moderators/{user_id}"]["put"]["tags"] == ["moderation"]
-    assert paths["/api/v1/research/objects/{object_id}/human-note"]["get"]["tags"] == ["context"]
     assert "Human authentication required" in paths["/api/v1/projects"]["post"]["description"]
-    assert "Idempotency-Key" in paths["/api/v1/objects"]["post"]["description"]
-    assert "X-Run-ID" not in paths["/api/v1/objects"]["post"]["description"]
     assert (
         "Optional deployment capability" in paths["/api/v1/platform-agents"]["get"]["description"]
     )
@@ -136,7 +121,7 @@ def test_reference_groups_cover_every_operation_once_without_empty_sections() ->
     used_tags = {operation["tags"][0] for operation in operations}
     assert used_tags == set(grouped_tags) == {tag["name"] for tag in document["tags"]}
     assert all(tag["description"] for tag in document["tags"])
-    assert "## Start here" in document["info"]["description"]
+    assert "project" in document["info"]["description"]
     assert "pca_" in document["info"]["description"]
 
 
@@ -158,62 +143,37 @@ def test_reference_omits_sections_when_their_operations_are_absent() -> None:
     assert [tag["name"] for tag in document["tags"]] == ["identity"]
 
 
-def test_list_pagination_uses_opaque_cursor_headers_and_stable_order(client: TestClient) -> None:
-    project = client.post(
-        "/api/v1/projects",
-        headers={"Authorization": "Bearer owner"},
-        json={"visibility": "PRIVATE", "name": "Pages"},
-    )
-    assert project.status_code == 201
-    project_id = project.json()["id"]
-    for title in ("one", "two", "three"):
-        response = client.post(
-            "/api/v1/objects",
-            headers={"Authorization": "Bearer owner", "Idempotency-Key": title},
-            json={
-                "destination": {"kind": "project", "project_id": project_id},
-                "snapshot": {
-                    "kind": "STATEMENT",
-                    "content": {
-                        "title": title,
-                        "content_md": title,
-                        "assumptions_md": "None",
-                        "reported_outcome": None,
-                        "explanation_md": None,
-                    },
-                    "structural_relationships": [],
-                },
-            },
+def test_project_pagination_uses_opaque_cursors(client: TestClient) -> None:
+    headers = {"Authorization": "Bearer owner"}
+    for name in ("one", "two", "three"):
+        assert (
+            client.post(
+                "/api/v1/projects",
+                headers=headers,
+                json={"name": name, "visibility": "PRIVATE"},
+            ).status_code
+            == 201
         )
-        assert response.status_code == 201
-    first = client.get(
-        f"/api/v1/projects/{project_id}/objects?limit=2",
-        headers={"Authorization": "Bearer owner"},
-    )
+    first = client.get("/api/v1/projects?scope=member&limit=2", headers=headers)
     assert first.status_code == 200
-    assert "x-total-count" not in first.headers
     assert len(first.json()["items"]) == 2
     cursor = first.json()["next_cursor"]
     second = client.get(
-        f"/api/v1/projects/{project_id}/objects?limit=2&cursor={cursor}",
-        headers={"Authorization": "Bearer owner"},
+        "/api/v1/projects",
+        params={"scope": "member", "limit": 2, "cursor": cursor},
+        headers=headers,
     )
     assert second.status_code == 200
     assert len(second.json()["items"]) == 1
-    assert "x-next-cursor" not in second.headers
-    assert {
-        item["current_object_version"]["content"]["title"]
-        for item in first.json()["items"] + second.json()["items"]
-    } == {
+    assert {item["name"] for item in first.json()["items"] + second.json()["items"]} == {
         "one",
         "two",
         "three",
     }
-    malformed = client.get(
-        f"/api/v1/projects/{project_id}/objects?cursor=not-a-cursor",
-        headers={"Authorization": "Bearer owner"},
+    assert (
+        client.get("/api/v1/projects?scope=member&cursor=invalid", headers=headers).status_code
+        == 422
     )
-    assert malformed.status_code == 422
 
 
 def test_openapi_snapshot_is_the_deterministic_application_contract() -> None:
@@ -359,29 +319,3 @@ def test_legacy_api_reference_redirects(client: TestClient) -> None:
     response = client.get("/api/reference", follow_redirects=False)
     assert response.status_code == 307
     assert response.headers["location"] == "/docs/api/"
-
-
-def test_public_project_vocabulary_does_not_change_stored_payload_keys() -> None:
-    from uuid import uuid4
-
-    from polycolab.projects.schemas import ProjectVersionCopyCreate
-
-    document = json.loads(serialized_openapi())
-    for path, methods in document["paths"].items():
-        assert "workspace" not in path
-        for operation in methods.values():
-            assert "Workspace" not in operation["operationId"]
-            assert all(
-                parameter["name"] != "workspace_id" for parameter in operation.get("parameters", [])
-            )
-    for name, schema in document["components"]["schemas"].items():
-        assert "Workspace" not in name
-        assert "workspace_id" not in schema.get("properties", {})
-    project_id, version_id = uuid4(), uuid4()
-    request = ProjectVersionCopyCreate.model_validate(
-        {"project_id": str(project_id), "source_object_version_id": str(version_id)}
-    )
-    assert request.model_dump(mode="json", by_alias=True)["project_id"] == str(project_id)
-    stored = request.historical_command().model_dump(mode="json")
-    assert stored["project_id"] == str(project_id)
-    assert "workspace_id" not in stored

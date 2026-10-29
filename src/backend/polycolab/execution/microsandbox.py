@@ -19,16 +19,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from polycolab.agents.runtime.codex import CodexFailure
+from polycolab.execution.contracts import ResourceLimits, validate_path
 from polycolab.execution.runtime import GuestChannel as GuestChannel
 from polycolab.execution.runtime import ImagePolicy as ImagePolicy
 from polycolab.execution.runtime import Process as Process
 from polycolab.execution.sandbox import (
-    SandboxOutput,
-    SandboxResult,
     SandboxUnavailable,
-    collect_outputs,
 )
-from polycolab.verification.contracts import ControllerClaim, ResourceLimits, validate_path
 
 if TYPE_CHECKING:
     from microsandbox import ExecHandle, Sandbox
@@ -199,79 +196,3 @@ class MicrosandboxRuntime:
             except asyncio.CancelledError:
                 await cleanup
                 raise
-
-    async def run(self, claim: ControllerClaim, inputs: dict[str, bytes]) -> SandboxResult:
-        await self.check_ready()
-        image = self.images.get(claim.image_digest)
-        if (
-            image is None
-            or image.language == "AGENT"
-            or (
-                image.toolchain_version,
-                image.dependency_lock_digest,
-                image.build_digest,
-                image.platform_identity,
-            )
-            != (
-                claim.toolchain_version,
-                claim.dependency_lock_digest,
-                claim.build_digest,
-                claim.platform_identity,
-            )
-        ):
-            raise SandboxUnavailable("sandbox_environment_unavailable")
-        from microsandbox import ExecEventType, Rlimit
-
-        submission = claim.submission
-        command = "python3" if image.language == "PYTHON" else "lake"
-        args = (
-            ["-I", "/inputs/" + submission.entrypoint, *submission.arguments]
-            if image.language == "PYTHON"
-            else ["env", "lean", "/inputs/" + submission.entrypoint]
-        )
-        async with self.attempt(
-            name=f"verification-{claim.attempt_id}-{claim.generation}",
-            image=image,
-            limits=submission.limits,
-            deadline=claim.execution_deadline_at,
-            inputs=inputs,
-        ) as (sandbox, output):
-            handle = await sandbox.exec_stream(
-                command,
-                args,
-                cwd="/workspace",
-                tty=False,
-                env={"POLYCOLAB_OUTPUT_DIR": "/outputs", "POLYCOLAB_SEED": str(submission.seed)},
-                rlimits=[
-                    Rlimit.cpu(submission.limits.cpu_seconds),
-                    Rlimit.nproc(submission.limits.process_count),
-                ],
-            )
-            remaining_logs = submission.limits.log_bytes
-            logs: dict[str, bytearray] = {"stdout.log": bytearray(), "stderr.log": bytearray()}
-            async for event in handle:
-                if event.data:
-                    remaining_logs -= len(event.data)
-                    if remaining_logs < 0:
-                        raise SandboxUnavailable("sandbox_log_limit_exceeded")
-                    name = (
-                        "stdout.log" if event.event_type == ExecEventType.STDOUT else "stderr.log"
-                    )
-                    logs[name].extend(event.data)
-            exit_code, _ = await handle.wait()
-            await sandbox.kill(timeout=5)
-            await sandbox.wait_until_stopped()
-            outputs = collect_outputs(output, submission.limits)
-            if any(item.path in logs for item in outputs):
-                raise SandboxUnavailable("reserved_diagnostic_path")
-            outputs += tuple(
-                SandboxOutput(name, "DIAGNOSTIC", bytes(data))
-                for name, data in logs.items()
-                if data
-            )
-        return SandboxResult(
-            "COMPLETED" if exit_code == 0 else "FAILED",
-            exit_code,
-            "NONE" if exit_code == 0 else "PROGRAM_ERROR",
-            outputs,
-        )

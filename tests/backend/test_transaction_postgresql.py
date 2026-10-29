@@ -10,7 +10,11 @@ from sqlalchemy.engine import Engine
 from polycolab.db.session import make_session_factory
 from polycolab.db.transaction import make_transaction_factory
 from polycolab.entities.enums import ProjectRole, ProjectVisibility
-from polycolab.projects.service import DomainConflict, change_membership_role, create_project
+from polycolab.projects.service import (
+    DomainConflict,
+    change_membership_role,
+    create_project,
+)
 from polycolab.transaction import PersistenceConflict
 
 
@@ -36,7 +40,10 @@ def test_owner_set_mutations_are_serialized_by_shared_transaction(
             commit=False,
         )
         transaction.projects.add_membership(
-            project_id=project.id, user_id=second.id, role=ProjectRole.OWNER, invited_by=first.id
+            project_id=project.id,
+            user_id=second.id,
+            role=ProjectRole.OWNER,
+            invited_by=first.id,
         )
         transaction.commit()
     barrier = Barrier(2)
@@ -84,7 +91,10 @@ def test_constraint_failure_rolls_back_new_project_and_user(
             commit=False,
         )
         transaction.projects.add_membership(
-            project_id=project.id, user_id=owner.id, role=ProjectRole.OWNER, invited_by=None
+            project_id=project.id,
+            user_id=owner.id,
+            role=ProjectRole.OWNER,
+            invited_by=None,
         )
     with factory() as transaction:
         assert transaction.accounts.user(owner.id) is None

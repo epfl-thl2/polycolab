@@ -48,7 +48,8 @@ def library_pg(
     _, config, url = pg_schema
     command.upgrade(config, "head")
     app = create_app(
-        Settings(database_url=url, web_dist_dir="/missing-library-web"), identity_verifier
+        Settings(database_url=url, web_dist_dir="/missing-library-web"),
+        identity_verifier,
     )
     try:
         with TestClient(app) as client:
@@ -95,7 +96,8 @@ def test_upgrade_parity_and_history(
             )
         ] == []
     app = create_app(
-        Settings(database_url=url, web_dist_dir="/missing-library-web"), identity_verifier
+        Settings(database_url=url, web_dist_dir="/missing-library-web"),
+        identity_verifier,
     )
     try:
         with TestClient(app) as client:
@@ -113,7 +115,10 @@ def test_upgrade_parity_and_history(
                 "UPDATE agent_library_versions SET content = content WHERE id = :id",
                 {"id": UUID(version_id)},
             ),
-            ("DELETE FROM agent_library_versions WHERE id = :id", {"id": UUID(version_id)}),
+            (
+                "DELETE FROM agent_library_versions WHERE id = :id",
+                {"id": UUID(version_id)},
+            ),
             (
                 "UPDATE agent_library_entries SET kind = 'PLUGIN' WHERE id = :id",
                 {"id": UUID(entry_id)},

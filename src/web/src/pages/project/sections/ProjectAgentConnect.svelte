@@ -1,7 +1,7 @@
 <script lang="ts">
   import FeedbackToast from '../../../ui/FeedbackToast.svelte';
   import { onMount } from 'svelte';
-  import { Copy, KeyRound, BookOpen, ArrowUpRight } from '@lucide/svelte';
+  import { Copy, KeyRound, BookOpen } from '@lucide/svelte';
   import { Button } from '../../../lib/components/ui/button';
   import { accountHref } from '../../../lib/account-navigation';
   let {
@@ -34,7 +34,7 @@
       `Project URL: ${origin}/projects/${projectId}`,
       '',
       'Help me configure the API key in your credential setting if available. If I share it in chat, treat it as a secret and do not repeat it. Check your identity and access with GET /api/v1/me, then read this project.',
-      'Use this project for the task. Do not inspect other private projects or save research until I give you a specific question.',
+      'Use this project for the task. Do not inspect other private projects or change files until I give you a specific question.',
     ].join('\n'),
   );
   async function copy() {
@@ -108,12 +108,9 @@
   <li>
     <h2>Choose a task</h2>
     <p>
-      Give the agent a specific question and, when useful, an exact starting object version. Review
-      its saved contributions in project Activity.
+      Give the agent a specific task and file path. Review its changes in the project files.
+      External API keys currently support Default project files.
     </p>
-    <Button variant="ghost" href={`/projects/${projectId}/activity`}
-      >View activity<ArrowUpRight size={16} aria-hidden="true" /></Button
-    >
   </li>
 </ol>
 <div class="guide-links">

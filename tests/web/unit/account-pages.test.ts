@@ -2,8 +2,6 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 
 import AccountSettings from '../../../src/web/src/ui/AccountSettings.svelte';
-import Administration from '../../../src/web/src/ui/Administration.svelte';
-import Profile from '../../../src/web/src/ui/Profile.svelte';
 import { Auth } from '../../../src/web/src/svelte-lib/auth.svelte';
 import { contextKey } from '../../../src/web/src/svelte-lib/context';
 
@@ -38,103 +36,6 @@ function context(
     ],
   ]);
 }
-
-it('loads public profile activity by username and separates sponsorship', async () => {
-  const activity = vi.fn().mockResolvedValue({
-    items: [
-      {
-        id: 'event-1',
-        contribution_id: 'contribution-1',
-        action: 'object.created',
-        actor: { kind: 'human', username: 'ada', display_name: 'Ada Lovelace' },
-        object_id: 'object-1',
-        revision_id: 'revision-1',
-        title: 'A constructive compactness proof',
-        object_kind: 'PROOF',
-        occurred_at: '2026-09-08T10:00:00Z',
-        project_id: null,
-      },
-    ],
-    next_cursor: null,
-  });
-  render(Profile, {
-    props: { profileId: 'ada', isOwnProfile: true },
-    context: context(activity),
-  });
-  expect(await screen.findByRole('heading', { name: 'Ada Lovelace' })).toBeTruthy();
-  expect(
-    await screen.findByRole('link', { name: 'A constructive compactness proof' }),
-  ).toBeTruthy();
-  expect(activity).toHaveBeenCalledWith('ada', false, undefined, 'all');
-  await fireEvent.click(screen.getByRole('button', { name: 'Sponsored agents' }));
-  await waitFor(() => expect(activity).toHaveBeenCalledWith('ada', false, undefined, 'sponsored'));
-});
-
-it('shows the public username on the canonical researcher profile', async () => {
-  const view = render(Profile, { props: { profileId: 'ada' }, context: context() });
-  await screen.findByRole('heading', { name: 'Ada Lovelace' });
-  expect(screen.getByText('@ada')).toBeTruthy();
-  await view.rerender({ profileId: 'ada', isOwnProfile: true });
-  expect(screen.getByText('@ada')).toBeTruthy();
-});
-
-it('keeps loaded profile contributions when pagination fails and retries the same cursor', async () => {
-  const search = vi
-    .fn()
-    .mockResolvedValueOnce({
-      items: [
-        {
-          id: 'event-r1',
-          revision_id: 'r1',
-          object_id: 'object-r1',
-          action: 'object.created',
-          object_kind: 'STATEMENT',
-          actor: { kind: 'human', username: 'ada', display_name: 'Ada Lovelace' },
-          title: 'First contribution',
-          occurred_at: '2026-09-10T10:00:00Z',
-          project_id: null,
-        },
-      ],
-      next_cursor: 'page-2',
-    })
-    .mockRejectedValueOnce(new Error('Offline'))
-    .mockResolvedValueOnce({ items: [], next_cursor: null });
-  render(Profile, {
-    props: { profileId: 'ada', isOwnProfile: true },
-    context: context(search),
-  });
-  await screen.findByRole('link', { name: 'First contribution' });
-  await fireEvent.click(screen.getByRole('button', { name: 'Load more contributions' }));
-  expect((await screen.findByRole('alert')).textContent).toContain('Could not load contributions');
-  expect(screen.getByRole('link', { name: 'First contribution' })).toBeTruthy();
-  await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-  await waitFor(() => expect(search).toHaveBeenLastCalledWith('ada', false, 'page-2', 'all'));
-  expect(screen.getByRole('link', { name: 'First contribution' })).toBeTruthy();
-});
-
-it('keeps the researcher profile free of personal management shortcuts', () => {
-  render(Profile, { props: { profileId: 'ada', isOwnProfile: true }, context: context() });
-
-  expect(screen.queryByRole('button', { name: 'Edit profile' })).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Complete profile' })).toBeNull();
-  expect(screen.queryByRole('heading', { name: 'Edit profile preview' })).toBeNull();
-  for (const name of ['Manage account', 'Your projects', 'Agent connections']) {
-    expect(screen.queryByRole('link', { name })).toBeNull();
-  }
-  expect(screen.queryByRole('link', { name: 'View your activity' })).toBeNull();
-});
-
-it('does not show zero contribution totals before a successful load', async () => {
-  const search = vi.fn().mockRejectedValue(new Error('Offline'));
-  render(Profile, {
-    props: { profileId: 'ada', isOwnProfile: true },
-    context: context(search),
-  });
-  await screen.findByRole('alert');
-  expect(screen.queryByText('No public contributions loaded')).toBeNull();
-  expect(screen.getByText('Contribution history unavailable')).toBeTruthy();
-  expect(screen.queryByRole('region', { name: /Yearly contribution calendar/ })).toBeNull();
-});
 
 it('shows core settings without capability configuration', () => {
   render(AccountSettings, { props: { path: '/settings' }, context: context() });
@@ -195,15 +96,6 @@ it('groups API keys and model providers under Access', () => {
   );
 });
 
-it('presents administration as a future deployment-level surface', () => {
-  render(Administration);
-
-  expect(screen.getByRole('heading', { name: 'Administration' })).toBeTruthy();
-  expect(screen.getByText('People & access', { exact: true })).toBeTruthy();
-  expect(screen.getByText('Agents & execution', { exact: true })).toBeTruthy();
-  expect(screen.getByText('System health', { exact: true })).toBeTruthy();
-});
-
 it('creates an account-wide key without a project and forgets its secret on navigation', async () => {
   const auth = new Auth(() => {});
   auth.configuration = { mode: 'local' };
@@ -237,7 +129,7 @@ it('creates an account-wide key without a project and forgets its secret on navi
   );
   await fireEvent.click(screen.getByRole('button', { name: 'New API key' }));
   await waitFor(() => expect(screen.getByText(/Expires after 30 days/)).toBeTruthy());
-  expect(screen.getByText(/including private projects and projects you join later/)).toBeTruthy();
+  expect(screen.getByText(/using your current membership/)).toBeTruthy();
   expect(screen.queryByRole('combobox', { name: 'Polycolab agent name' })).toBeNull();
   await fireEvent.input(screen.getByLabelText('Polycolab agent name'), {
     target: { value: 'Ada assistant' },
@@ -249,12 +141,7 @@ it('creates an account-wide key without a project and forgets its secret on navi
       'one-time-test-secret',
     ),
   );
-  expect(externalAgents.createCredential).toHaveBeenCalledWith(
-    'My assistant',
-    'agent-1',
-    false,
-    false,
-  );
+  expect(externalAgents.createCredential).toHaveBeenCalledWith('My assistant', 'agent-1');
   await view.rerender({ path: '/settings/security' });
   expect(screen.queryByLabelText('API key')).toBeNull();
   await view.rerender({ path: '/settings/api-keys' });
@@ -310,8 +197,6 @@ it('separates existing agent selection from creating a new agent', async () => {
     expect(externalAgents.createCredential).toHaveBeenCalledWith(
       'Replacement key',
       'existing-agent',
-      false,
-      false,
     ),
   );
   expect(externalAgents.createAgent).not.toHaveBeenCalled();

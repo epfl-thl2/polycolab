@@ -43,7 +43,7 @@ def main() -> int:
         "-p",
         identity,
         "-f",
-        str(ROOT / "tests/system/research-compose.yaml"),
+        str(ROOT / "tests/system/workspace-compose.yaml"),
     ]
     children: list[subprocess.Popen[bytes]] = []
     started_remote = False

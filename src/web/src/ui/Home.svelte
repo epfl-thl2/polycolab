@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Page, Project, PublicProject } from '../lib/research-api';
+  import type { Page, Project, PublicProject } from '../lib/projects-api';
   type ProjectListingItem = PublicProject &
     Partial<Pick<Project, 'current_user_role' | 'member_count'>>;
   import { FolderOpen, Globe, LockKeyhole, Users, X, LoaderCircle } from '@lucide/svelte';
@@ -191,8 +191,8 @@
               >
               <p>
                 {visibility === 'PUBLIC'
-                  ? 'Anyone can view this project and its research.'
-                  : 'Only members can view this project and its research.'}
+                  ? 'Anyone can view the project name and description. Files and conversations are for members.'
+                  : 'Only members can view this project, its files, and conversations.'}
               </p>
               {#if error}<Alert.Root variant="destructive" role="alert">
                   {error}

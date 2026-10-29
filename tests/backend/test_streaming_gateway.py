@@ -140,7 +140,9 @@ def test_private_stream_normalizes_provider_frames_and_consumes_grant(
     assert replay.status_code == 401
 
 
-def test_private_stream_rejects_tools_before_consuming_grant(client: TestClient) -> None:
+def test_private_stream_rejects_tools_before_consuming_grant(
+    client: TestClient,
+) -> None:
     profile = create_profile(client)
     run_id = uuid4()
     token = issue_grant(client, UUID(profile["id"]), run_id)
@@ -171,7 +173,9 @@ def test_private_stream_rejects_tools_before_consuming_grant(client: TestClient)
         session.close()
 
 
-def test_stream_parser_failure_is_stable_and_closes_provider(client: TestClient) -> None:
+def test_stream_parser_failure_is_stable_and_closes_provider(
+    client: TestClient,
+) -> None:
     profile = create_profile(client)
     run_id = uuid4()
     token = issue_grant(client, UUID(profile["id"]), run_id)
@@ -235,7 +239,9 @@ def test_stream_generator_close_closes_upstream(client: TestClient) -> None:
         session.close()
 
 
-def test_invalid_derived_grant_digest_rolls_back_and_bounds_input(client: TestClient) -> None:
+def test_invalid_derived_grant_digest_rolls_back_and_bounds_input(
+    client: TestClient,
+) -> None:
     session = app_for(client).state.session_factory()
     try:
         with pytest.raises(GrantInvalid):
@@ -275,7 +281,9 @@ def test_stream_uses_configured_response_limit(client: TestClient) -> None:
 
 
 @pytest.mark.parametrize("address", [("93.184.216.34", "127.0.0.1")])
-def test_stream_transport_rejects_mixed_dns_before_open(address: tuple[str, str]) -> None:
+def test_stream_transport_rejects_mixed_dns_before_open(
+    address: tuple[str, str],
+) -> None:
     fake = FakeStreamTransport([])
     transport = ProviderTransport(
         resolver=lambda _host, _port: address,

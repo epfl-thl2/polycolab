@@ -45,8 +45,6 @@ async function auth(page: Page, signedIn = false) {
     route.fulfill({
       json: {
         agent_execution: false,
-        verification_submission: false,
-        verification_execution: false,
         email_recovery: false,
       },
     }),
@@ -114,7 +112,7 @@ test('anonymous library discovery, filters, exact version and copy fallback', as
     /returnTo=/,
   );
   await page.screenshot({
-    path: '/private/tmp/polycolab-agent-library-desktop.png',
+    path: '/tmp/polycolab-agent-library-desktop.png',
     fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -122,7 +120,7 @@ test('anonymous library discovery, filters, exact version and copy fallback', as
     page.getByRole('heading', { name: 'Inspect proof gaps', exact: true }),
   ).toBeVisible();
   await page.screenshot({
-    path: '/private/tmp/polycolab-agent-library-mobile.png',
+    path: '/tmp/polycolab-agent-library-mobile.png',
     fullPage: true,
   });
   await page.getByRole('link', { name: /^Version 1/ }).click();

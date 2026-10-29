@@ -2,9 +2,13 @@ from typing import Any, cast
 from uuid import UUID
 
 from fastapi.testclient import TestClient
-from test_public_external_agents import headers
+from workspace_support import headers
 
-from polycolab.accounts.builtin import AccountAlreadyExists, bootstrap_admin, create_account
+from polycolab.accounts.builtin import (
+    AccountAlreadyExists,
+    bootstrap_admin,
+    create_account,
+)
 from polycolab.db.transaction import SqlAlchemyTransaction
 
 
@@ -14,7 +18,9 @@ def test_oidc_username_claim_is_unique_and_does_not_replace_authentication_ident
     before = client.get("/api/v1/users/me", headers=headers()).json()
     assert before["username"] is None
     chosen = client.put(
-        "/api/v1/account/username", headers=headers(), json={"username": " Ada.Example "}
+        "/api/v1/account/username",
+        headers=headers(),
+        json={"username": " Ada.Example "},
     )
     assert chosen.status_code == 200, chosen.text
     assert chosen.json()["id"] == before["id"]
@@ -22,13 +28,17 @@ def test_oidc_username_claim_is_unique_and_does_not_replace_authentication_ident
     assert client.get("/api/v1/users/me", headers=headers()).json()["username"] == "ada.example"
     assert (
         client.put(
-            "/api/v1/account/username", headers=headers(), json={"username": "ADA.EXAMPLE"}
+            "/api/v1/account/username",
+            headers=headers(),
+            json={"username": "ADA.EXAMPLE"},
         ).status_code
         == 200
     )
     assert (
         client.put(
-            "/api/v1/account/username", headers=headers(), json={"username": "other-name"}
+            "/api/v1/account/username",
+            headers=headers(),
+            json={"username": "other-name"},
         ).status_code
         == 409
     )
@@ -64,7 +74,9 @@ def test_oidc_username_claim_is_unique_and_does_not_replace_authentication_ident
         assert account.issuer == "https://issuer.example" and account.subject == "owner"
 
 
-def test_oidc_and_builtin_accounts_share_the_username_namespace(client: TestClient) -> None:
+def test_oidc_and_builtin_accounts_share_the_username_namespace(
+    client: TestClient,
+) -> None:
     app = cast(Any, client.app)
     with app.state.session_factory() as session:
         bootstrap_admin(SqlAlchemyTransaction(session), "admin-test-password")
@@ -76,7 +88,9 @@ def test_oidc_and_builtin_accounts_share_the_username_namespace(client: TestClie
     )
     assert (
         client.put(
-            "/api/v1/account/username", headers=headers(), json={"username": "reserved-name"}
+            "/api/v1/account/username",
+            headers=headers(),
+            json={"username": "reserved-name"},
         ).status_code
         == 200
     )

@@ -22,7 +22,15 @@ SCRIPTS = Path(__file__).resolve().parents[2] / "deploy/scripts"
 )
 def test_ambiguous_restore_urls_fail_even_in_dry_run(script: str, url: str) -> None:
     result = subprocess.run(
-        ["bash", str(SCRIPTS / script), "--dump", "missing", "--database-url", url, "--dry-run"],
+        [
+            "bash",
+            str(SCRIPTS / script),
+            "--dump",
+            "missing",
+            "--database-url",
+            url,
+            "--dry-run",
+        ],
         env={"PATH": os.environ["PATH"], "APP_ENV": "local"},
         capture_output=True,
         text=True,
@@ -102,7 +110,7 @@ def test_failed_preflight_never_creates_or_drops_target(tmp_path: Path, failure:
     assert not calls.exists()
 
 
-@pytest.mark.parametrize("failure", ["none", "metadata", "manifest", "research"])
+@pytest.mark.parametrize("failure", ["none", "metadata", "manifest"])
 @pytest.mark.parametrize("use_manifest", [True, False])
 def test_drill_cleans_only_after_all_verification(
     tmp_path: Path, failure: str, use_manifest: bool
@@ -127,9 +135,6 @@ def test_drill_cleans_only_after_all_verification(
         'case "$*" in\n'
         '*polycolab.recovery_integrity*) printf "compared\\n" >> "$TEST_CALLS"; '
         '[ "$TEST_FAILURE" != manifest ] ;;\n'
-        '*"polycolab.recovery_dependencies research --isolated-restore '
-        '--max-items $TEST_BOUND"*) printf "research\\n" >> "$TEST_CALLS"; '
-        '[ "$TEST_FAILURE" != research ] ;;\n'
         "*) exit 9 ;;\nesac",
     }.items():
         tool = tools / name
@@ -147,7 +152,7 @@ def test_drill_cleans_only_after_all_verification(
             str(dump),
             "--database-url",
             "postgresql://localhost/source",
-            *(["--manifest", str(manifest)] if use_manifest else ["--research-max-items", "17"]),
+            *(["--manifest", str(manifest)] if use_manifest else []),
         ],
         env={
             "PATH": f"{tools}:{os.environ['PATH']}",
@@ -156,7 +161,6 @@ def test_drill_cleans_only_after_all_verification(
             "RECOVERY_MANIFEST_HMAC_KEY": "synthetic-key-" * 4,
             "TEST_FAILURE": failure,
             "TEST_CALLS": str(calls),
-            "TEST_BOUND": "1000" if use_manifest else "17",
         },
         capture_output=True,
         text=True,
@@ -167,36 +171,10 @@ def test_drill_cleans_only_after_all_verification(
     expected = ["created"]
     if failure != "metadata" and use_manifest:
         expected.append("compared")
-    if failure not in {"metadata", "manifest"}:
-        expected.append("research")
     if failure == "none":
         expected.append("dropped")
     assert calls.read_text().splitlines() == expected
     assert "synthetic-key" not in result.stdout + result.stderr
-
-
-@pytest.mark.parametrize("bound", ["0", "-1", "1000001", "01", "bad", "1+1"])
-def test_research_bound_is_validated_before_restore(bound: str) -> None:
-    result = subprocess.run(
-        [
-            "bash",
-            str(SCRIPTS / "verify-restore.sh"),
-            "--dump",
-            "missing",
-            "--database-url",
-            "postgresql://localhost/source",
-            "--research-max-items",
-            bound,
-            "--dry-run",
-        ],
-        env={"PATH": os.environ["PATH"], "APP_ENV": "local"},
-        capture_output=True,
-        text=True,
-        timeout=5,
-        check=False,
-    )
-    assert result.returncode == 2
-    assert "Research verification bound must be 1-1000000" in result.stderr
 
 
 @pytest.mark.parametrize("kind", ["artifacts", "credentials"])
@@ -227,9 +205,15 @@ def test_dependency_bounds_fail_before_restore(kind: str, bound: str) -> None:
 
 @pytest.mark.parametrize(
     "options",
-    [["--artifacts-max-items", "1"], ["--credentials-max-items", "1"], ["--isolated-dependencies"]],
+    [
+        ["--artifacts-max-items", "1"],
+        ["--credentials-max-items", "1"],
+        ["--isolated-dependencies"],
+    ],
 )
-def test_dependencies_require_explicit_isolation_acknowledgment(options: list[str]) -> None:
+def test_dependencies_require_explicit_isolation_acknowledgment(
+    options: list[str],
+) -> None:
     result = subprocess.run(
         [
             "bash",
@@ -284,8 +268,6 @@ def test_dependency_checks_use_exact_restore_and_gate_cleanup(
         '[ "$DATABASE_URL" = "$expected" ] || exit 9\n'
         'case "$*" in\n'
         '*"polycolab.recovery_integrity compare --expected "*) kind=manifest ;;\n'
-        '*"polycolab.recovery_dependencies research --isolated-restore --max-items 1000") '
-        "kind=research ;;\n"
         '*"polycolab.recovery_dependencies artifacts --isolated-restore --max-items 17") '
         "kind=artifacts ;;\n"
         '*"polycolab.recovery_dependencies credentials --isolated-restore --max-items 23") '
@@ -338,7 +320,7 @@ def test_dependency_checks_use_exact_restore_and_gate_cleanup(
         check=False,
     )
     assert result.returncode == (0 if failure == "none" else 1), result.stderr
-    expected = ["created", "manifest", "research"]
+    expected = ["created", "manifest"]
     if selected in {"artifacts", "both"}:
         expected.append("artifacts")
     if selected in {"credentials", "both"} and not failure.startswith("artifacts"):

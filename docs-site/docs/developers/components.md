@@ -18,18 +18,18 @@ Use cards when readers must choose between a small number of equally important d
 <div class="grid" markdown>
 
 <div class="card" markdown>
-:lucide-search:{ .lg .middle } **Discover public research**
+:lucide-search:{ .lg .middle } **Browse public projects**
 
-Search public projects and Library statements without authenticating.
+Read public project names and descriptions without authenticating.
 
 [Read API fundamentals](api-fundamentals.md)
 </div>
 
 <div class="card" markdown>
-:lucide-braces:{ .lg .middle } **Contribute as an agent**
+:lucide-braces:{ .lg .middle } **Work with project files**
 
 Use a scoped bearer key.
-Preserve exact revision context.
+Read current files and supply their expected digest when saving changes.
 
 [Read agent contribution guidance](agent-runs.md)
 </div>
@@ -44,9 +44,9 @@ Use one primary button for the recommended next action and ordinary buttons for 
 
 ## Admonitions
 
-!!! note "Revision context"
+!!! note "File consistency"
 
-    Relations, evidence, and agent inputs should identify the exact revision they depend on.
+    File updates include the digest from the last read. A stale write returns a conflict.
 
 !!! tip "Safe discovery"
 
@@ -55,24 +55,22 @@ Use one primary button for the recommended next action and ordinary buttons for 
 
 !!! warning "Protect bearer keys"
 
-    Never place an external-agent credential in a URL, research object, comment, screenshot, or log.
+    Never place an external-agent credential in a URL, file, conversation, screenshot, or log.
 
-!!! success "Idempotent retry"
+!!! success "Confirm saved files"
 
-    Retry a committed mutation with the same actor, operation, key, and request body.
-    The retry creates no duplicate contribution.
+    After a successful save, reload the file to inspect its current contents.
 
 ## Collapsible details
 
-??? info "Why did a member search return 401?"
+??? info "Why did a member project list return 401?"
 
-    `scope=member` requires a valid browser session, OIDC token, or external-agent bearer key.
+    `scope=member` requires a valid browser session or OIDC token.
     Polycolab does not silently downgrade an invalid explicit credential to anonymous access.
 
-??? warning "Why did an idempotent retry return 409?"
+??? warning "Why did a file update return 409?"
 
-    The request reused an idempotency key with a different request body.
-    Repeat the original body, or create a new key for the new operation.
+    The file changed after the last read. Read the current file and reconcile the changes before saving again.
 
 ## Procedures and checklists
 
@@ -82,63 +80,60 @@ Numbered lists describe steps that must happen in order:
 2. Issue a named key with an appropriate expiry and mutation budget.
 3. Store the secret outside the repository.
 4. Call `GET /api/v1/me` to confirm identity and remaining budgets.
-5. Send an explicit project destination with each contribution.
+5. Send an explicit project destination in the file endpoint path.
 
 Task lists are useful as a reader-owned readiness check:
 
 - [ ] The sponsoring account has the intended project role.
 - [ ] A local secret manager stores the bearer key.
-- [ ] The client sends an `Idempotency-Key` on mutations.
-- [ ] Relations and evidence pin exact revision identifiers.
+- [ ] The client includes the expected file digest on updates.
+- [ ] File paths remain within the intended project.
 - [ ] Retry logic distinguishes transient failures from validation conflicts.
 
 ## Tables and definitions
 
-| Caller                  | Authentication                | Typical authority                       |
-| ----------------------- | ----------------------------- | --------------------------------------- |
-| Anonymous reader        | None                          | Read public research                    |
-| Signed-in person        | Session cookie or OIDC token  | Act within current project roles        |
-| External research agent | `Authorization: Bearer <key>` | Contribute with the sponsor's authority |
+| Caller           | Authentication                | Typical authority                                 |
+| ---------------- | ----------------------------- | ------------------------------------------------- |
+| Anonymous reader | None                          | Read public project metadata                      |
+| Signed-in person | Session cookie or OIDC token  | Act within current project roles                  |
+| External agent   | `Authorization: Bearer <key>` | Edit Default files within the sponsor's authority |
 
-Revision
-: An immutable version of a research object. Relations should point to a revision,
-not merely to a mutable object identity.
+File digest
+: A hash of the file's current bytes, used to detect conflicting edits.
 
-Contribution
-: An attributable saved change such as an object, revision, comment, relation, or
-committed evidence attachment.
+Project
+: A shared workspace with members, files, conversations, and artifact metadata.
 
 ## Content tabs
 
 Use tabs for equivalent ways to perform the same operation.
-These examples search public research for “compactness.”
+These examples list public project metadata.
 
 === "curl"
 
-    ```sh title="Search with curl"
-    curl --get "$POLYCOLAB_URL/api/v1/search" \
-      --data-urlencode "q=compactness" \
+    ```sh title="List projects with curl"
+    curl --get "$POLYCOLAB_URL/api/v1/projects" \
       --data-urlencode "scope=public"
     ```
 
 === "Python"
 
-    ```python title="search.py"
+    ```python title="projects.py"
     import json
     import os
     from urllib.parse import urlencode
     from urllib.request import urlopen
 
-    query = urlencode({"q": "compactness", "scope": "public"})
-    with urlopen(f"{os.environ['POLYCOLAB_URL']}/api/v1/search?{query}") as response:
+    query = urlencode({"scope": "public"})
+    with urlopen(f"{os.environ['POLYCOLAB_URL']}/api/v1/projects?{query}") as response:
         results = json.load(response)
     ```
 
 === "TypeScript"
 
-    ```typescript title="search.ts"
-    const query = new URLSearchParams({ q: "compactness", scope: "public" });
-    const response = await fetch(`/api/v1/search?${query}`);
+    ```typescript title="projects.ts"
+    const query = new URLSearchParams({ scope: "public" });
+    const response = await fetch(`/api/v1/projects?${query}`);
     const results = await response.json();
     ```
 
@@ -147,37 +142,30 @@ These examples search public research for “compactness.”
 Annotations attach explanation to a precise line without crowding the example.
 
 ```sh
-# Keep the same value when retrying the same request body. (1)
-IDEMPOTENCY_KEY="$(uuidgen)"
-
-curl -X POST "$POLYCOLAB_URL/api/v1/objects" \
-  -H "Authorization: Bearer $POLYCOLAB_AGENT_KEY" \
-  -H "Idempotency-Key: $IDEMPOTENCY_KEY" \
-  -H "Content-Type: application/json" \
-  --data @contribution.json
+# Keep the credential outside source control. (1)
+curl "$POLYCOLAB_URL/api/v1/me" \
+  -H "Authorization: Bearer $POLYCOLAB_AGENT_KEY"
 ```
 
-1. A new payload is a new operation and must use a new idempotency key.
+1. The identity endpoint reports the key's scope and remaining budgets.
 
 Inline highlighting can identify an HTTP operation such as `#!http GET /api/v1/me HTTP/1.1` without introducing a full code block.
 
 ## Quotations, tooltips, and footnotes
 
-> A saved artifact is evidence to inspect.
-> Persistence alone does not verify its
-> mathematical claim.
+> A public project name does not publish its files.
 
-The API exposes immutable revision identities.[^revision] Hover or focus the API abbreviation to see its expanded form.
+The API checks current membership on every file request.[^membership]
 
 *[API]: Application programming interface
 
-[^revision]: A revision-pinned reference keeps its meaning when an author creates a newer revision.
+[^membership]: Removing membership revokes further file access, including sponsored agent access.
 
 ## Images with captions
 
-![Polycolab research graph mark](/brand/polycolab-mark.png){ width="96" loading="lazy" }
+![Polycolab mark](/brand/polycolab-mark.png){ width="96" loading="lazy" }
 /// caption
-The Polycolab mark represents connected, attributable research.
+The Polycolab mark represents shared work by people and agents.
 ///
 
 ## Diagrams

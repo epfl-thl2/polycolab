@@ -47,7 +47,7 @@ class RepositoryService:
             self.transaction,
             self.project_id,
             self.user_id,
-            ProjectAction.CREATE_RESEARCH if write else ProjectAction.VIEW,
+            ProjectAction.WRITE_FILES if write else ProjectAction.VIEW,
         )
         if write and (
             access.project.workspace_mode != "git"
@@ -299,8 +299,6 @@ class RepositoryService:
         self.transaction.commit()
         if not session.enabled:
             return None
-        if self.store.public_run(run_id):
-            raise RepositoryError("repository_public_run_denied", 403)
         self.transaction.commit()
         with self.open():
             binding = self.store.run(run_id)

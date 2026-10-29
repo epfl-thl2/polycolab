@@ -18,9 +18,6 @@ from test_hosted_scheduler import (
 from test_hosted_scheduler import (
     new_hosted,
 )
-from test_hosted_scheduler import (
-    scheduler_pg_schema as scheduler_pg_schema,
-)
 from test_linear_workspace import (
     collaboration_url as collaboration_url,
 )
@@ -30,8 +27,7 @@ from test_linear_workspace import (
 )
 from test_sessions_api import add_member, headers
 
-from polycolab.db.models import SqlAgentRun, SqlProject, SqlResearchScope, SqlUser
-from polycolab.entities.enums import ResearchScopeKind
+from polycolab.db.models import SqlAgentRun, SqlProject, SqlUser
 from polycolab.execution import guest_repository
 
 
@@ -47,7 +43,6 @@ def agent(hosted_client: TestClient, tmp_path: Path, collaboration_url: str) -> 
         project_id = str(run.project_id)
         db.get(SqlUser, run.requested_by_user_id).subject = "owner"
         db.get(SqlProject, run.project_id).workspace_mode = "linear"
-        db.add(SqlResearchScope(scope_kind=ResearchScopeKind.PROJECT, project_id=run.project_id))
         db.commit()
     root = f"/api/v1/projects/{project_id}/linear"
     command = create_file("notes.txt", "one\ntwo\nthree\nfour\nfive\n")
@@ -207,7 +202,9 @@ def test_refresh_requires_ack_and_preserves_local_changes(
     assert result.json()["application_status"] == "applied"
 
 
-def test_restored_project_keeps_old_agent_result_pending(agent: tuple[Any, ...]) -> None:
+def test_restored_project_keeps_old_agent_result_pending(
+    agent: tuple[Any, ...],
+) -> None:
     client, root, internal, lease, metadata, project, outputs, command = agent
     checkpoint = client.get(root + "/checkpoints", headers=OWNER).json()[0]
     restored = client.post(

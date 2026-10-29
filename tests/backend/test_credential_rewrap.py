@@ -18,7 +18,10 @@ from polycolab.model_gateway.rewrap import main, migrate_page
 
 def ring_for(client: TestClient) -> CredentialKeyring:
     return CredentialKeyring(
-        [app_for(client).state.credential_wrapper, LocalAesGcmKeyWrapper(b"b" * 32, "target-v2")]
+        [
+            app_for(client).state.credential_wrapper,
+            LocalAesGcmKeyWrapper(b"b" * 32, "target-v2"),
+        ]
     )
 
 

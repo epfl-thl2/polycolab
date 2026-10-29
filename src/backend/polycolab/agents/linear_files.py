@@ -32,10 +32,7 @@ def content(file: LinearFile) -> dict[str, Any]:
 
 
 def pin(settings: Settings, db: Session, run: SqlAgentRun) -> dict[str, str]:
-    from polycolab.db.stores.repositories import SqlRepositoryStore
 
-    if SqlRepositoryStore(db).public_run(run.id):
-        raise RepositoryError("repository_public_run_denied", 403)
     instance = service(settings, db, run.project_id, run.requested_by_user_id)
     instance.authorize(True)
     db.commit()

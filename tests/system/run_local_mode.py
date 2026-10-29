@@ -45,7 +45,7 @@ def main() -> int:
         tempfile.TemporaryDirectory(prefix=".svelte-kit-test-", dir=ROOT / "src/web") as web_temporary,
     ):
         directory = Path(temporary)
-        database = directory / "research.db"
+        database = directory / "workspace.db"
         upgrade_database(database)
         api_port, web_port, collaboration_port = free_port(), free_port(), free_port()
         origin = f"http://127.0.0.1:{web_port}"

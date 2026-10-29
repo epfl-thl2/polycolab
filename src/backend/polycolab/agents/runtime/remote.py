@@ -488,22 +488,7 @@ class ApiBackedWorker:
                             name=call.name,
                             arguments=cast(dict[str, object], arguments),
                             invocation=invocation,
-                            source_event_cursor=(
-                                cursor
-                                if call.name
-                                in {
-                                    "submit_proposal",
-                                    "project_files",
-                                    "write_object_version",
-                                    "create_relation",
-                                    "write_summary",
-                                    "comment_on_object_version",
-                                    "report_progress",
-                                    "submit_verification",
-                                    "cancel_verification",
-                                }
-                                else None
-                            ),
+                            source_event_cursor=cursor if call.name == "project_files" else None,
                         )
                         encoded = json.dumps(response, separators=(",", ":"), ensure_ascii=False)
                         if len(encoded.encode()) > claim.max_tool_result_bytes:

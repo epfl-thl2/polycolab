@@ -7,7 +7,7 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
 });
 
-it('authenticates account key management and private project run inspection', async () => {
+it('authenticates account key management', async () => {
   const requests: Request[] = [];
   globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const request = new Request(input, init);
@@ -40,25 +40,20 @@ it('authenticates account key management and private project run inspection', as
   const issued = await api.createCredential('Lean helper', 'agent-a');
   await api.listCredentials();
   await api.revokeCredential('credential-a');
-  await api.listProjectRuns('project-a');
 
   expect(issued.secret).toBe('shown-once');
   expect(await requests[0]!.json()).toEqual({
     name: 'Lean helper',
     agent_id: 'agent-a',
-    allow_library_contributions: false,
-    allow_reviews: false,
   });
   expect(
     requests
       .slice(0, 3)
       .every((request) => request.headers.get('Authorization') === 'Bearer human-token'),
   ).toBe(true);
-  expect(requests[3]!.headers.get('Authorization')).toBe('Bearer human-token');
   expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
     '/api/v1/account/agent-keys',
     '/api/v1/account/agent-keys',
     '/api/v1/account/agent-keys/credential-a',
-    '/api/v1/projects/project-a/runs',
   ]);
 });

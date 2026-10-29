@@ -7,7 +7,7 @@ from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import MetaData, Table, select
 from sqlalchemy.engine import Engine
-from test_public_external_agents import headers
+from workspace_support import headers
 
 from polycolab.accounts.authentication import MappingIdentityVerifier
 from polycolab.app.application import create_app
@@ -52,7 +52,8 @@ def test_username_migration_and_concurrent_claims_on_postgresql(
         row = connection.execute(select(upgraded).where(upgraded.c.id == user_id)).mappings().one()
         assert row["username"] == "retained-name" and row["subject"] == str(account_id)
     app = create_app(
-        Settings(database_url=url, web_dist_dir="/missing-username-web"), identity_verifier
+        Settings(database_url=url, web_dist_dir="/missing-username-web"),
+        identity_verifier,
     )
     try:
         with TestClient(app) as client:
@@ -76,7 +77,10 @@ def test_username_migration_and_concurrent_claims_on_postgresql(
                 return int(result)
 
             with ThreadPoolExecutor(max_workers=2) as executor:
-                assert sorted(executor.map(claim, ["owner", "contributor"])) == [200, 409]
+                assert sorted(executor.map(claim, ["owner", "contributor"])) == [
+                    200,
+                    409,
+                ]
             names = [
                 client.get("/api/v1/users/me", headers=headers(token)).json()["username"]
                 for token in ["owner", "contributor"]

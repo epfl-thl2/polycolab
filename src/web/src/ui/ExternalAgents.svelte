@@ -32,8 +32,8 @@
   <h1>External agents</h1>
   <p>
     Manage keys in <a href="/settings/api-keys">Settings → API keys</a> and configure
-    <a href="/settings/model-providers">model providers</a>. Agent identities and contribution
-    history persist when keys are rotated.
+    <a href="/settings/model-providers">model providers</a>. Agent identities persist when keys are
+    rotated.
   </p>
   {#if error}<p role="alert">{error}</p>
     <Button onclick={() => failedRead?.()}>Retry</Button>{/if}
@@ -44,7 +44,7 @@
   </p>
   <ul class="list">
     {#each agents as agent (agent.id)}<li>
-        <a href={`/agent-profiles/${agent.id}`}>{agent.name}</a>
+        <span>{agent.name}</span>
         <form
           onsubmit={async (event) => {
             event.preventDefault();

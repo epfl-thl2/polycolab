@@ -14,7 +14,8 @@
     "format:check": "prettier --check .",
     "lint": "pnpm --recursive --if-present run lint && pnpm exec src/web/node_modules/.bin/eslint --config src/web/eslint.config.mjs tests/web",
     "typecheck": "pnpm --recursive --if-present run typecheck",
-    "test": "pnpm --recursive --if-present run test",
+    "test": "pnpm run test:dev && pnpm --recursive --if-present run test",
+    "test:dev": "node --test tests/scripts/*.test.mjs",
     "test:e2e": "pnpm --filter @polycolab/web run test:e2e",
     "web:dev": "pnpm --filter @polycolab/web run dev",
     "docs:prepare": "node docs-site/sync-brand.mjs",
@@ -28,6 +29,7 @@
     "api:contract": "uv --directory src/backend run python -m polycolab.export_openapi && pnpm --filter @polycolab/web run api:generate",
     "api:contract:check": "uv --directory src/backend run python -m polycolab.export_openapi --check && pnpm --filter @polycolab/web run api:generate:check",
     "api:test": "uv --directory src/backend run pytest",
+    "dev:stop": "node scripts/development.mjs stop",
     "dev:local": "node scripts/development.mjs local",
     "dev:docker": "node scripts/development.mjs docker",
     "dev:docker:apply": "node scripts/development.mjs apply"

@@ -16,7 +16,6 @@ from polycolab.accounts.builtin import hash_password, normalize_username
 from polycolab.db.models import (
     SqlAuthSession,
     SqlExternalAgentCredential,
-    SqlExternalResearchRun,
     SqlLocalAccount,
     SqlOperatorAccountRecovery,
     SqlUser,
@@ -86,28 +85,10 @@ def recover_account(
             .with_for_update()
         )
     )
-    credential_ids = [credential.id for credential in credentials]
-    runs = (
-        list(
-            session.scalars(
-                select(SqlExternalResearchRun)
-                .where(
-                    SqlExternalResearchRun.credential_id.in_(credential_ids),
-                    SqlExternalResearchRun.status == "OPEN",
-                )
-                .with_for_update()
-            )
-        )
-        if credential_ids
-        else []
-    )
     for credential in credentials:
         credential.revoked_at = now
     for auth_session in auth_sessions:
         auth_session.revoked_at = now
-    for run in runs:
-        run.status = "REVOKED"
-        run.closed_at = now
     account.password_digest = password_digest
     account.updated_at = now
     revoked_sessions = len(auth_sessions)
@@ -120,11 +101,11 @@ def recover_account(
             ).hexdigest(),
             revoked_session_count=revoked_sessions,
             revoked_credential_count=len(credentials),
-            revoked_run_count=len(runs),
+            revoked_run_count=0,
         )
     )
     session.commit()
-    return RecoveryResult(account.id, revoked_sessions, len(credentials), len(runs))
+    return RecoveryResult(account.id, revoked_sessions, len(credentials), 0)
 
 
 def main(argv: list[str] | None = None) -> int:

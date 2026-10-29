@@ -21,6 +21,7 @@ from importlib.metadata import version
 from pathlib import Path
 from uuid import uuid4
 
+from polycolab.execution.contracts import ResourceLimits, validate_path
 from polycolab.execution.host_io import (
     PipeProcess as PipeProcess,
 )
@@ -42,7 +43,6 @@ from polycolab.execution.microsandbox import (
 from polycolab.execution.runtime import SlotQuarantined as SlotQuarantined
 from polycolab.execution.sandbox import SandboxUnavailable
 from polycolab.execution.slots import SlotPool
-from polycolab.verification.contracts import ResourceLimits, validate_path
 
 
 def isolated_executor() -> None:

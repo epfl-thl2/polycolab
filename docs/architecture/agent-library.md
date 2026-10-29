@@ -56,7 +56,7 @@ The editor under `/agents/yours/{id}/edit` retains inputs on failures, guards un
 Public copying creates an independently editable private draft with exact source attribution.
 The existing external-agent identity page is now `/agents/connections`.
 Keys and model providers retain their Settings routes.
-Public-content moderation includes an Agent library option and a current-revision loader.
+Operator moderation remains available through the agent-library API with current-revision checks.
 
 This implementation provides copying/downloading and external-plugin discovery.
 Custom-agent builders, bundled skill uploads, runtime activation, project-only sharing and improvement proposals remain future work.

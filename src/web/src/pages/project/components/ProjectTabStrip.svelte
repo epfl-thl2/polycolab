@@ -1,14 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import {
-    FileText,
-    MessageSquare,
-    BookOpen,
-    GitCompare,
-    LayoutDashboard,
-    Plus,
-    X,
-  } from '@lucide/svelte';
+  import { FileText, MessageSquare, GitCompare, LayoutDashboard, Plus, X } from '@lucide/svelte';
   import type { ProjectTab } from '../../../lib/project-tabs';
   let {
     tabs,
@@ -63,11 +55,9 @@
           ? MessageSquare
           : tab.kind === 'file'
             ? FileText
-            : tab.kind === 'object'
-              ? BookOpen
-              : tab.kind === 'diff'
-                ? GitCompare
-                : LayoutDashboard}
+            : tab.kind === 'diff'
+              ? GitCompare
+              : LayoutDashboard}
       <div
         class="project-tab"
         class:active={activeId === tab.id}

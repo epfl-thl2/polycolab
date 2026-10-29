@@ -1,5 +1,5 @@
 import { expect, test } from '../fixtures';
-import { mockProfiles } from '../helpers/profiles';
+import { mockAccount } from '../helpers/account';
 
 test('Docs links to its index and exposes the main documentation routes', async ({
   page,
@@ -52,7 +52,7 @@ for (const mobile of [false, true]) {
   test(`account menu stays usable in the app (${mobile ? 'mobile' : 'desktop'})`, async ({
     page,
   }, info) => {
-    await mockProfiles(page, true);
+    await mockAccount(page, true);
     await page.setViewportSize({ width: mobile ? 390 : 1280, height: 900 });
     await page.goto('/');
     const trigger = page.getByRole('button', {
@@ -61,7 +61,7 @@ for (const mobile of [false, true]) {
     });
     await expect(trigger).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
     await trigger.click();
-    await expect(page.getByRole('menuitem', { name: 'Profile', exact: true })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Settings', exact: true })).toBeVisible();
     await expect(
       page.getByRole('menuitem', { name: 'Agent connections', exact: true }),
     ).toHaveCount(0);
@@ -76,7 +76,7 @@ for (const mobile of [false, true]) {
     await expect(trigger).toBeFocused();
     await expect(trigger).toHaveAttribute('aria-expanded', 'false');
     await trigger.click();
-    await page.getByRole('menuitem', { name: 'Profile', exact: true }).click();
-    await expect(page).toHaveURL('/profile/ada');
+    await page.getByRole('menuitem', { name: 'Settings', exact: true }).click();
+    await expect(page).toHaveURL('/settings');
   });
 }

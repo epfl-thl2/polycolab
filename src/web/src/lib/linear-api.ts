@@ -1,5 +1,10 @@
 import type { components } from './api-client';
-import { commonsClient, result, retryHeaders, type CommonsClientOptions } from './commons-client';
+import {
+  authenticatedClient,
+  result,
+  retryHeaders,
+  type AuthenticatedClientOptions,
+} from './authenticated-client';
 
 export type LinearBatch = components['schemas']['BatchRead'];
 export type LinearState = components['schemas']['LinearStateRead'];
@@ -11,8 +16,8 @@ export type LinearCommand = Omit<WireCommand, 'binary' | 'executable'> &
   Partial<Pick<WireCommand, 'binary' | 'executable'>>;
 export type LinearCheckpoint = components['schemas']['LinearCheckpointRead'];
 
-export function createLinearApi(options: CommonsClientOptions = {}) {
-  const client = commonsClient(options);
+export function createLinearApi(options: AuthenticatedClientOptions = {}) {
+  const client = authenticatedClient(options);
   const path = (project_id: string) => ({ path: { project_id } });
   return {
     batches: (id: string) =>

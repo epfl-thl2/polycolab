@@ -13,21 +13,6 @@ def event(payload: dict[str, object]) -> bytes:
     return b"data: " + json.dumps(payload, separators=(",", ":")).encode() + b"\n\n"
 
 
-def proposal_snapshot(title: str, content: str) -> dict[str, object]:
-    return {
-        "kind": "CLAIM",
-        "content": {
-            "title": title,
-            "content_md": content,
-            "assumptions_md": "None stated",
-            "reported_outcome": None,
-            "explanation_md": None,
-        },
-        "structural_relationships": [],
-        "change_summary": None,
-    }
-
-
 class ProviderHandler(BaseHTTPRequestHandler):
     calls: list[dict[str, Any]] = []
 
@@ -70,75 +55,11 @@ class ProviderHandler(BaseHTTPRequestHandler):
                 ],
                 "usage": {"completion_tokens": 1, "prompt_tokens": 1, "total_tokens": 2},
             }
-        elif len(tool_results) == 1:
-            arguments = json.dumps(
-                {
-                    "summary": "Deterministic integration findings",
-                    "changes": [
-                        {
-                            "kind": "CREATE_OBJECT",
-                            "snapshot": proposal_snapshot("Accepted finding", "accepted"),
-                        },
-                        {
-                            "kind": "CREATE_OBJECT",
-                            "snapshot": proposal_snapshot("Editable finding", "original"),
-                        },
-                        {
-                            "kind": "CREATE_OBJECT",
-                            "snapshot": proposal_snapshot("Rejected finding", "reject"),
-                        },
-                    ],
-                },
-                separators=(",", ":"),
-            )
-            payload = {
-                "choices": [
-                    {
-                        "delta": {
-                            "tool_calls": [
-                                {
-                                    "index": 0,
-                                    "function": {"name": "submit_proposal", "arguments": arguments},
-                                }
-                            ]
-                        },
-                        "finish_reason": "tool_calls",
-                    }
-                ],
-                "usage": {"completion_tokens": 1, "prompt_tokens": 1, "total_tokens": 2},
-            }
-            if body.get("model") == "integration-direct-public":
-                context = json.loads(tool_results[0]["content"])
-                target = context["object_versions"][0]["id"]
-                arguments = {
-                    "destination": {"kind": "library", "statement_object_version_id": target},
-                    "snapshot": {
-                        "kind": "ATTEMPT",
-                        "content": {
-                            "title": "Direct public induction attempt",
-                            "content_md": "The induction step does not close.",
-                            "assumptions_md": "Finite connected graph",
-                            "reported_outcome": "FAILED",
-                            "explanation_md": "The smaller graph need not satisfy the premise.",
-                            "outcome": "FAILED",
-                            "findings_md": "The smaller graph need not satisfy the premise.",
-                        },
-                        "structural_relationships": [
-                            {"relationship_type": role, "target_object_version_id": target}
-                            for role in ("TARGET", "ATTACHMENT")
-                        ],
-                        "change_summary": "Preserve the failed approach",
-                    },
-                }
-                payload["choices"][0]["delta"]["tool_calls"][0]["function"] = {
-                    "name": "write_object_version",
-                    "arguments": json.dumps(arguments),
-                }
         else:
             payload = {
                 "choices": [
                     {
-                        "delta": {"content": "Findings are ready for review."},
+                        "delta": {"content": "Project context is ready."},
                         "finish_reason": "stop",
                     }
                 ],

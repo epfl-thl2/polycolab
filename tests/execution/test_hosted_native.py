@@ -17,7 +17,7 @@ import pytest
 from polycolab.execution.linux import LinuxRuntime
 from polycolab.execution.microsandbox import GuestChannel
 from polycolab.execution.service import ServiceConfig, exclusive_controller_state
-from polycolab.verification.contracts import ResourceLimits
+from polycolab.execution.contracts import ResourceLimits
 
 
 def test_cancelling_one_native_vm_preserves_another() -> None:

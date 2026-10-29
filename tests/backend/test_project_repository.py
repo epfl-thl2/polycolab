@@ -20,14 +20,21 @@ OWNER = {"Authorization": "Bearer owner"}
 def repository(client: TestClient, tmp_path: Path) -> tuple[TestClient, str]:
     cast(FastAPI, client.app).state.settings.project_repository_directory = tmp_path / "repos"
     response = client.post(
-        "/api/v1/projects", headers=OWNER, json={"name": "Files", "visibility": "PUBLIC"}
+        "/api/v1/projects",
+        headers=OWNER,
+        json={"name": "Files", "visibility": "PUBLIC"},
     )
     assert response.status_code == 201, response.text
     return client, f"/api/v1/projects/{response.json()['id']}/repository"
 
 
 def change(
-    client: TestClient, url: str, head: str, path: str, text: str | None, key: str = "save"
+    client: TestClient,
+    url: str,
+    head: str,
+    path: str,
+    text: str | None,
+    key: str = "save",
 ) -> Response:
     return cast(
         Response,
@@ -71,13 +78,17 @@ def test_files_history_retry_and_stale_save(repository: tuple[TestClient, str]) 
     assert client.get(url, headers=OWNER).json()["files"] == []
     assert (
         client.get(
-            url + "/file", headers=OWNER, params={"commit": commit, "path": "notes/idea.md"}
+            url + "/file",
+            headers=OWNER,
+            params={"commit": commit, "path": "notes/idea.md"},
         ).status_code
         == 200
     )
 
 
-def test_public_project_files_remain_member_only(repository: tuple[TestClient, str]) -> None:
+def test_public_project_files_remain_member_only(
+    repository: tuple[TestClient, str],
+) -> None:
     client, url = repository
     assert client.get(url).status_code == 401
     assert client.get(url, headers={"Authorization": "Bearer outsider"}).status_code == 404
@@ -154,7 +165,10 @@ def test_bundle_restore_checkpoint_and_import(tmp_path: Path) -> None:
     with git.locked():
         head = git.head("main")
         commit = git.commit_tree(
-            git.changed_tree(head, {"proofs/Main.lean": b"-- initial\n"}), [head], "seed", "human"
+            git.changed_tree(head, {"proofs/Main.lean": b"-- initial\n"}),
+            [head],
+            "seed",
+            "human",
         )
         git.advance("main", head, commit)
         git.advance(branch, "0" * 40, commit)
@@ -179,7 +193,11 @@ def test_bundle_restore_checkpoint_and_import(tmp_path: Path) -> None:
 
     subprocess.run(
         ["git", "-C", str(other), "commit", "-m", "Subtask"],
-        env={"PATH": os.defpath, "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": os.devnull},
+        env={
+            "PATH": os.defpath,
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": os.devnull,
+        },
         check=True,
         capture_output=True,
     )
@@ -242,7 +260,10 @@ def test_merge_requires_current_heads_and_explicit_resolution(
     git = GitRepository(app.state.settings.project_repository_directory, UUID(url.split("/")[4]))
     with git.locked():
         incoming = git.commit_tree(
-            git.changed_tree(common, {"note.md": b"agent\n"}), [common], "Agent", "agent"
+            git.changed_tree(common, {"note.md": b"agent\n"}),
+            [common],
+            "Agent",
+            "agent",
         )
         git.advance(branch, "0" * 40, incoming)
     current = change(client, url, common, "note.md", "human\n", "human").json()["commit"]
@@ -263,7 +284,10 @@ def test_merge_requires_current_heads_and_explicit_resolution(
         json={
             **body,
             "resolutions": [
-                {"path": "note.md", "content_base64": base64.b64encode(b"resolved\n").decode()}
+                {
+                    "path": "note.md",
+                    "content_base64": base64.b64encode(b"resolved\n").decode(),
+                }
             ],
         },
     )

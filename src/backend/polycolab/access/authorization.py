@@ -30,9 +30,7 @@ class ProjectAction(StrEnum):
     MANAGE_MEMBERS = "MANAGE_MEMBERS"
     ARCHIVE = "ARCHIVE"
     DELETE = "DELETE"
-    CREATE_RESEARCH = "CREATE_RESEARCH"
-    COMMENT = "COMMENT"
-    REVIEW_PROPOSALS = "REVIEW_PROPOSALS"
+    WRITE_FILES = "WRITE_FILES"
     RUN_AGENTS = "RUN_AGENTS"
 
 
@@ -49,9 +47,7 @@ ROLE_ACTIONS: dict[ProjectRole, frozenset[ProjectAction]] = {
     ProjectRole.CONTRIBUTOR: frozenset(
         {
             ProjectAction.VIEW,
-            ProjectAction.CREATE_RESEARCH,
-            ProjectAction.COMMENT,
-            ProjectAction.REVIEW_PROPOSALS,
+            ProjectAction.WRITE_FILES,
             ProjectAction.RUN_AGENTS,
         }
     ),
@@ -75,7 +71,6 @@ def _require_scoped_operation(
     operation: ActorOperation,
     *,
     project_id: UUID | None = None,
-    ownership_scope_id: UUID | None = None,
 ) -> None:
     if actor.kind is ActorKind.HUMAN:
         return
@@ -83,61 +78,10 @@ def _require_scoped_operation(
         raise AuthorizationDenied(f"missing delegated operation: {operation.value}")
     if project_id is not None and actor.project_id != project_id:
         raise AuthorizationDenied("agent project scope mismatch")
-    if ownership_scope_id is not None and actor.ownership_scope_id != ownership_scope_id:
-        raise AuthorizationDenied("agent ownership scope mismatch")
-
-
-def require_catalogue_admission(actor: Actor) -> None:
-    require_human_actor(actor, action="catalogue admission")
-
-
-def require_catalogue_promotion(actor: Actor) -> None:
-    require_human_actor(actor, action="catalogue promotion")
-
-
-def require_catalogue_edit(actor: Actor) -> None:
-    require_human_actor(actor, action="catalogue edit")
-
-
-def require_contribution_creation(
-    actor: Actor, *, project_id: UUID | None = None, ownership_scope_id: UUID | None = None
-) -> None:
-    _require_scoped_operation(
-        actor,
-        ActorOperation.CONTRIBUTION_CREATE,
-        project_id=project_id,
-        ownership_scope_id=ownership_scope_id,
-    )
-
-
-def require_contribution_edit(
-    actor: Actor, *, project_id: UUID | None = None, ownership_scope_id: UUID | None = None
-) -> None:
-    _require_scoped_operation(
-        actor,
-        ActorOperation.CONTRIBUTION_EDIT,
-        project_id=project_id,
-        ownership_scope_id=ownership_scope_id,
-    )
-
-
-def require_public_participation(
-    actor: Actor, *, project_id: UUID | None = None, ownership_scope_id: UUID | None = None
-) -> None:
-    _require_scoped_operation(
-        actor,
-        ActorOperation.PUBLIC_PARTICIPATION,
-        project_id=project_id,
-        ownership_scope_id=ownership_scope_id,
-    )
 
 
 def require_project_write(actor: Actor, *, project_id: UUID | None = None) -> None:
     _require_scoped_operation(actor, ActorOperation.PROJECT_WRITE, project_id=project_id)
-
-
-def require_publication(actor: Actor) -> None:
-    require_human_actor(actor, action="publication")
 
 
 def require_project_management(actor: Actor) -> None:
@@ -154,14 +98,6 @@ def require_manage_credentials(actor: Actor) -> None:
 
 def require_moderation(actor: Actor) -> None:
     require_human_actor(actor, action="moderation")
-
-
-def require_proposal_submission(actor: Actor) -> None:
-    _require_scoped_operation(actor, ActorOperation.PROPOSAL_SUBMISSION)
-
-
-def require_proposal_review(actor: Actor) -> None:
-    require_human_actor(actor, action="proposal review")
 
 
 def lock_project_authorization(
@@ -219,7 +155,7 @@ class ProjectPolicy:
         if membership is None:
             raise ProjectNotFound
         # Archived projects are read-only until an owner changes settings to
-        # unarchive them; membership, research, agent, and review mutations stop.
+        # unarchive them; membership, file, and agent mutations stop.
         if project.archived_at is not None and action not in {
             ProjectAction.VIEW,
             ProjectAction.MANAGE_SETTINGS,

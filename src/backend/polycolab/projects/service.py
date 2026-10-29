@@ -147,8 +147,6 @@ def change_membership_role(
     owners = transaction.projects.owners(project_id)
     if target.role is ProjectRole.OWNER and role is not ProjectRole.OWNER and len(owners) == 1:
         raise DomainConflict
-    if role is ProjectRole.READ_ONLY:
-        transaction.projects.close_external_runs(project_id, user_id)
     changed = transaction.projects.change_role(target.id, role)
     transaction.commit()
     return changed
@@ -162,7 +160,6 @@ def remove_membership(transaction: Transaction, *, project_id: UUID, user_id: UU
     owners = transaction.projects.owners(project_id)
     if target.role is ProjectRole.OWNER and len(owners) == 1:
         raise DomainConflict
-    transaction.projects.close_external_runs(project_id, user_id)
     transaction.projects.remove_membership(target.id)
     transaction.commit()
 

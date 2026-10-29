@@ -46,7 +46,10 @@ def test_repository_postgresql(
                     json={"name": "Files", "visibility": "PUBLIC"},
                 )
                 assert created.status_code == 201, created.text
-                fixture = (pg_client, f"/api/v1/projects/{created.json()['id']}/repository")
+                fixture = (
+                    pg_client,
+                    f"/api/v1/projects/{created.json()['id']}/repository",
+                )
                 if scenario == "save":
                     cases.test_files_history_retry_and_stale_save(fixture)
                 else:
@@ -157,7 +160,11 @@ def test_native_worktrees_postgresql(
                 )
                 return
             project_id = str(create_project(client)["id"])
-            fixture = (client, project_id, GitRepository(tmp_path / "repos", UUID(project_id)))
+            fixture = (
+                client,
+                project_id,
+                GitRepository(tmp_path / "repos", UUID(project_id)),
+            )
             if scenario == "files":
                 native.test_save_commit_discard_and_remove(fixture)
             elif scenario == "migration":

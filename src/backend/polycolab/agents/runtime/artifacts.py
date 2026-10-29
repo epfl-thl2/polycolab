@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from polycolab.verification.contracts import RelativePath, validate_path
+from polycolab.execution.contracts import RelativePath, validate_path
 
 
 class ExportDeclaration(BaseModel):
@@ -24,7 +24,7 @@ EXPORT_TOOL = {
         "description": (
             "Register a file written under /outputs as a private downloadable session artifact. "
             "Only explicitly registered files survive a successful turn. "
-            "The path is relative to /outputs. This does not publish or verify research."
+            "The path is relative to /outputs. Exports retain private session access."
         ),
         "parameters": ExportDeclaration.model_json_schema(),
     },

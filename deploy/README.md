@@ -1,13 +1,12 @@
 # Deployment guide
 
-Fresh installations apply the complete Alembic chain from `20260905_baseline` to `head`.
-Existing post-reset installations also upgrade to `head` without resetting accounts or research.
-The unification migration removes only sample installation bookkeeping.
-It never changes project visibility or deletes tutorial research.
+Fresh installations apply the complete Alembic chain. Existing installations upgrade to `head` using forward migrations.
 
-Databases from before the 2026-09-05 prototype reset remain unsupported and must not be stamped as current.
-No application command resets data automatically.
-See the [schema contract](../docs/architecture/research-schema.md).
+The `20261029_workspace_only` PostgreSQL revision and matching SQLite revision permanently remove research objects, revisions, relationships, catalogue/commons/publication data, proposals, verification jobs, research history, and notifications. Development research data is intentionally discarded. Accounts, projects, memberships, credentials and usage counts, conversations, workspace files, agent-library content, and project artifacts are retained. Commons-only artifact bytes are queued for ordinary garbage collection.
+
+Stop old API/worker processes before migration and start the new binaries afterward. Existing tool capabilities are revoked. Nonterminal agent runs with retired research grants are cancelled before those grants are removed, with a recorded cancellation reason and invalidated worker leases. They must not be resumed automatically using private conversation context. Take the normal database/files/artifacts backup first; downgrade requires restoring it. Do not stamp an old database or reset the migration chain. SQLite's upgrade runner creates its normal pre-upgrade backup.
+
+If this revision was already applied before the cancellation safeguard was added, Alembic will not rerun it. Keep workers stopped and inspect outstanding pre-upgrade runs before restarting execution: their deleted grants can no longer establish the original context restrictions. The safeguard does not undo model input already sent before the fix.
 
 This guide describes the existing Compose/API/worker implementation.
 Verify the selected services on the target deployment.
@@ -15,16 +14,14 @@ For current non-execution incident handling and rollback, use the [active operat
 Live drills remain deployment gates.
 
 Configure [database pool budgets](DATABASE-POOLS.md) across every API/consumer process and rolling-update surge before increasing replica counts.
-Use the [protected telemetry guide](OBSERVABILITY.md) for canonical community backlog metrics and their replica-aggregation and failure semantics.
-That guide also covers the opt-in, operator-authenticated community pool exporter over a private Unix socket.
-The default consumer command remains listener-free.
+Use the [protected telemetry guide](OBSERVABILITY.md) for API pool metrics.
 
 `docker/compose.yml` defines `postgres`, `object-storage` (Garage), and `core`
 (FastAPI, the browser application, and background jobs).
 The deployment launcher runs migrations in a temporary core container before starting core.
 Use `--profile execution` for the private built-in worker.
 FastAPI is the production web service and serves the compiled Svelte bundle and JSON API.
-Public projects, Library, agent keys, artifacts, and scoped direct contributions are standard features with no enable/disable flags.
+Projects, files, agent keys, and artifacts are standard features with no enable/disable flags.
 Local browser development runs Vite separately with `pnpm run web:dev`.
 The Compose file deliberately uses local-only credentials and loopback ports.
 
@@ -33,6 +30,7 @@ The example URLs are not usable credentials.
 
 The two supported development commands are `pnpm run dev:local` (SQLite plus local files, no Docker) and `pnpm run dev:docker` (PostgreSQL plus Garage).
 Both read `deploy/docker/.env`.
+Stop local mode with Ctrl+C or `pnpm run dev:stop` from the same checkout.
 Local data stays under `.local/`.
 Docker data stays in its named volumes.
 These datasets are independent.
@@ -141,45 +139,14 @@ Production runs the same temporary job with configuration preflight before Alemb
 
 ## Local deployment
 
-The Library and project imports are always available.
-Apply the migration through `20260915_submission_numbers` before running this version.
-The migration preserves existing literature and status values.
-This migration assigns permanent numbers to existing research activity and initializes the counter for new submissions.
+Project files, membership, keys, and artifacts are core functionality. Hosted execution remains optional. Core runs hosted recovery, artifact cleanup, and document-build maintenance in background jobs sharing the application pool. Run one application process on one host; independent replicas are outside this deployment model.
 
-The `/library` route uses catalogue-only search.
-`/projects?scope=member` opens the member working area.
-`/projects?scope=public` browses public investigations.
-No community consumer or hosted execution service is required for the Library.
-
-Scoped version-2 agent tools require explicit per-run write authority, not a deployment feature switch.
-Existing version-1 sessions keep their four-tool contract.
-Hosted execution has separate controls and defaults to disabled.
-Direct-write authority does not grant permission to start execution services.
-
-The core application processes catalogue/research outbox events for private notifications and deterministic progress summaries.
-Its background jobs also recover hosted runs and clean expired staged artifacts.
-They use separate sessions from the shared application database pool, commit bounded batches, and stop with the application.
-Run one application process on one host; independent replicas are outside this deployment model.
-Do not start standalone consumers alongside core.
-
-Moderator assignment requires an explicit JSON list of verified human subjects in `CATALOGUE_OPERATOR_SUBJECTS`.
-It defaults to `[]`.
-The local Compose service supplies these variables.
-See the [catalogue contract](../docs/architecture/catalogue.md) for endpoints and authority.
-The Svelte Library supplies discovery, admission, revision history and project imports.
-
-Local browser and integration tests do not establish deployment acceptance for the combined src/web/API image.
-
-`bash deploy/scripts/deploy-stack.sh build --env-file deploy/docker/.env -f deploy/docker/compose.yml` starts PostgreSQL, Garage, migrations, FastAPI with notification, recovery, and artifact-cleanup jobs.
-Enable the `execution` profile and matching API capability explicitly to start a private built-in worker.
-The worker publishes no port.
-It reaches model and tool gateways only at `RUNTIME_INTERNAL_API_URL` on the backend network.
-Production deployments expose only the FastAPI service for browser/API traffic and run the worker as a separate private process without a database credential.
+The launcher starts PostgreSQL, Garage, migrations, and FastAPI. Enable the `execution` profile and API capability to run a private built-in worker. The worker publishes no port and has no database credential. Local tests do not establish target-deployment acceptance.
 
 ## Production deployment
 
 There is one Compose model.
-Overlay `docker/compose.production.yml` on `docker/compose.yml` for the standard research configuration, without additional profiles.
+Overlay `docker/compose.production.yml` on `docker/compose.yml` for the standard workspace configuration, without additional profiles.
 Use `config/production.env.example` as the application settings reference.
 Store the populated file outside the checkout with mode 0600.
 Set `POLYCOLAB_ENV_FILE` to its absolute path.
@@ -319,11 +286,11 @@ do not automatically downgrade the database.
 Agents library access does not depend on hosted execution.
 Apply the PostgreSQL `20261013_agent_library` migration (or local SQLite `local_20261013_agent_library`) before running the matching application.
 Set `AGENT_LIBRARY_MODERATOR_SUBJECTS` to an explicit JSON list of verified human subjects allowed to hide and restore library entries.
-It defaults to an empty list and is separate from research and catalogue moderation authority.
+It defaults to an empty list.
 On the Moderation page, choose Agent library entry, enter its ID, load the current revision, and record a reason for hiding or restoring.
 Published versions remain immutable; restore a verified backup instead of downgrading away library history.
 
-Projects choose Linear history or Git mode. See [Linear project operations](../docs/architecture/linear-projects.md#operation-and-verification) for the collaboration service, configuration, and coordinated backups.
+Projects choose Default files, Linear history, or Git mode. See [Linear project operations](../docs/architecture/linear-projects.md#operation-and-verification) for the collaboration service, configuration, and coordinated backups.
 
 ## LaTeX compiler
 

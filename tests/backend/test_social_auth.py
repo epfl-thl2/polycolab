@@ -116,7 +116,9 @@ def _callback(client: TestClient, provider: str, state: str, **query: str) -> An
     )
 
 
-def test_configuration_is_complete_exact_and_secret_free(social_client: TestClient) -> None:
+def test_configuration_is_complete_exact_and_secret_free(
+    social_client: TestClient,
+) -> None:
     assert social_client.get("/auth/config").json() == {
         "mode": "local",
         "social_providers": ["google", "github"],
@@ -243,7 +245,9 @@ def test_wrong_browser_provider_denial_and_replay_issue_no_session(
     assert social_client.get("/auth/me").json()["authenticated"] is False
 
 
-def test_missing_or_malformed_state_clears_flow_cookie(social_client: TestClient) -> None:
+def test_missing_or_malformed_state_clears_flow_cookie(
+    social_client: TestClient,
+) -> None:
     _setup(social_client)
     social_client.post("/auth/logout")
     _start(social_client, "google")
@@ -261,7 +265,9 @@ def test_missing_or_malformed_state_clears_flow_cookie(social_client: TestClient
     assert "polycolab_social_flow" not in social_client.cookies
 
 
-def test_expired_or_failed_provider_flow_issues_no_session(social_client: TestClient) -> None:
+def test_expired_or_failed_provider_flow_issues_no_session(
+    social_client: TestClient,
+) -> None:
     _setup(social_client)
     social_client.post("/auth/logout")
     expired_state = _start(social_client, "google")
@@ -407,7 +413,9 @@ def test_link_requires_recent_reauthentication_and_unlink_preserves_login(
     assert social_client.get("/auth/social/identities").json()["linked"] == []
 
 
-def test_social_only_account_cannot_unlink_its_last_method(social_client: TestClient) -> None:
+def test_social_only_account_cannot_unlink_its_last_method(
+    social_client: TestClient,
+) -> None:
     _setup(social_client)
     social_client.post("/auth/logout")
     state = _start(social_client, "google")

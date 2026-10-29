@@ -8,7 +8,7 @@
   import { page } from '$app/state';
   import { beforeNavigate, goto } from '$app/navigation';
   import { projectContext, contextKey, explain } from '../../svelte-lib/context';
-  import type { Project } from '../../lib/research-api';
+  import type { Project } from '../../lib/projects-api';
   import { createProjectSessions, projectSessionItems } from '../../lib/session-queries';
   import type { LinearCheckpoint, LinearDocument } from '../../lib/linear-api';
   import { LinearSession } from '../../lib/linear-session';
@@ -16,15 +16,10 @@
   import { projectRouteTab, type ProjectTab } from '../../lib/project-tabs';
   import { ProjectEditorSessions } from '../../lib/project-editor-session';
   import { Button } from '../../lib/components/ui/button';
-  import { canWriteResearch } from '../../lib/access';
-  import { FileText, FileCheck2, History, Info } from '@lucide/svelte';
+  import { canWriteProject } from '../../lib/access';
+  import { FileText, FileCheck2, History } from '@lucide/svelte';
   import ProjectToolsHeader from './components/ProjectToolsHeader.svelte';
   import ProjectPanelHeader from './components/ProjectPanelHeader.svelte';
-  import ProjectSectionPanel from './components/ProjectSectionPanel.svelte';
-  import ProjectObjectPanel from './components/ProjectObjectPanel.svelte';
-  import type { ObjectVersion } from '../../lib/research-api';
-  import type { Activity } from '../../lib/history-api';
-  import type { ProjectMap } from '../../lib/project-map';
   import { Input } from '../../lib/components/ui/input';
   import MonacoSourceEditor from '../../ui/MonacoSourceEditor.svelte';
   import LinearGitArchive from './components/LinearGitArchive.svelte';
@@ -82,7 +77,7 @@
   let lastChatHref = $state('');
   let selectionVersion = 0;
   const canChat = $derived(
-    canWriteResearch(project.current_user_role, Boolean(project.archived_at)),
+    canWriteProject(project.current_user_role, Boolean(project.archived_at)),
   );
   const draftChats = $derived(
     tabs.filter(
@@ -96,11 +91,6 @@
   let rightMode = $state('file');
   const history = $derived(rightMode === 'history');
   let shell = $state<ChatWorkbenchShell>();
-  let selectedResearch = $state<{ version: ObjectVersion; searchResult: boolean }>();
-  let selectedActivity = $state<Activity>();
-  let mapData = $state<ProjectMap>();
-  let mapObjectId = $state('');
-  let mapPanelTab = $state('body');
   function selectTool(value: string) {
     rightMode = value;
     if (value === 'history')
@@ -329,17 +319,8 @@
     {project}
     bind:tabs
     {activeId}
-    bind:selectedResearch
-    bind:selectedActivity
-    bind:mapData
-    bind:mapObjectId
-    bind:mapPanelTab
     onCreated={(id) => {
       navigate(`/projects/${project.id}/sessions/${id}`);
-    }}
-    onInspect={() => {
-      rightMode = 'details';
-      shell?.showPanel('tools');
     }}
   />
 
@@ -364,11 +345,7 @@
       ['file', 'File', FileText],
       ['history', 'History', History],
       ['changes', 'Agent changes', FileCheck2],
-      [
-        'details',
-        section === 'objects' ? 'Details' : 'Agent history',
-        section === 'objects' ? Info : History,
-      ],
+      ['details', 'Agent history', History],
     ]}
     value={rightMode}
     onselect={selectTool}
@@ -389,20 +366,7 @@
         {#if !entity || entity === 'new'}<p class="tool-empty">
             Start a conversation to see its agent run history.
           </p>{/if}
-      {:else if section === 'objects' && entity}<ProjectObjectPanel
-          projectId={project.id}
-          objectId={entity}
-          publicRead={false}
-        />
-      {:else}<ProjectSectionPanel
-          {project}
-          {section}
-          bind:selected={selectedActivity}
-          bind:selectedResearch
-          {mapData}
-          bind:mapObjectId
-          bind:mapPanelTab
-        />{/if}
+      {/if}
     {:else if history}
       <div class="history-content">
         <ProjectPanelHeader title="History" />

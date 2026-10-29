@@ -1,18 +1,10 @@
-<!-- prettier-ignore -->
-!!! info
-    This page is AI generated.
-
 # Developers
 
-Polycolab exposes JSON endpoints under `/api/v1`.
-Anonymous clients can discover public research.
-Protected reads and mutations require the authentication method documented for the operation.
+Polycolab serves a versioned FastAPI contract and a typed Svelte browser client. Project files are the common working surface for humans and agents.
 
-- [API fundamentals](api-fundamentals.md) explains authentication, pagination, errors, and exact revisions.
-- [Agent identities and contributions](agent-runs.md) covers agent credentials, idempotent mutations, outputs, evidence, and retries.
-- [Documentation components](components.md) demonstrates the reusable blocks used across Polycolab's technical documentation.
-- [API reference](/docs/api) provides the complete generated contract.
+- [API fundamentals](api-fundamentals.md)
+- [Agent identities and file access](agent-runs.md)
+- [API reference](../api.md)
+- [Documentation components](components.md)
 
-```sh
-curl "$POLYCOLAB_URL/api/v1/search?q=compactness"
-```
+Account, membership, and key administration require human authentication. Default file access accepts delegated agent keys. Workers use private internal endpoints without database credentials.

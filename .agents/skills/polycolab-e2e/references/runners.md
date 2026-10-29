@@ -49,26 +49,13 @@ uv run --directory src/backend python ../../tests/system/run_local_mode.py
 ```
 
 The [runner](../../../../tests/system/run_local_mode.py) starts FastAPI and Vite on unused loopback ports with temporary migrated SQLite and filesystem artifacts.
-It runs `tests/web/browser/local/service.spec.ts` and removes its temporary data and child services afterward.
+It runs the specs under `tests/web/browser/local/` and removes its temporary data and child services afterward.
 It establishes local-mode integration; PostgreSQL locking and production storage require their own gates.
-
-## Real research browser gate
-
-```sh
-POLYCOLAB_RESEARCH_BROWSER=1 uv run --directory src/backend python ../../tests/system/run_research.py
-```
-
-The [runner](../../../../tests/system/run_research.py) creates a unique disposable PostgreSQL/Garage Compose project, migrates the database, and serves the built Svelte application from FastAPI.
-It runs real external-client and authority checks plus `tests/system/specs/public-agent-real-service.spec.ts`.
-Use this gate for public research, delegated contributions, evidence bytes, and revocation across real process boundaries.
-No hosted worker or live model provider runs.
-Keep its trace disabling and private temporary failure-artifact handling intact because the browser reveals a one-time credential.
-The browser spec is gated by runner-provided environment; invoking that spec alone can skip the journey.
 
 ## Real hosted-worker journeys
 
 ```sh
-tests/system/run-local.sh --grep "M1 real worker"
+tests/system/run-local.sh --grep "SSE|PostgreSQL"
 ```
 
 The [runner](../../../../tests/system/run-local.sh) builds the browser, then starts PostgreSQL, a test-only API, a deterministic provider, the private worker, and Vite.

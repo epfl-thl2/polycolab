@@ -10,7 +10,6 @@ from fastapi import FastAPI
 
 from polycolab.artifacts.gc import consume as collect_artifacts
 from polycolab.artifacts.storage import configured_storage
-from polycolab.catalogue.community_consumer import consume as consume_notifications
 from polycolab.document_builds.maintenance import consume as collect_document_builds
 from polycolab.execution.reconciler import consume as recover_execution
 
@@ -20,7 +19,6 @@ async def maintenance_lifespan(app: FastAPI) -> AsyncIterator[None]:
     stopped = Event()
     factory = app.state.session_factory
     threads = [
-        Thread(target=consume_notifications, args=(factory, stopped), name="notifications"),
         Thread(target=recover_execution, args=(factory, stopped), name="execution-recovery"),
     ]
     storage = None

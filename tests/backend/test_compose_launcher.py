@@ -30,7 +30,13 @@ def test_launcher_runs_migration_before_core(tmp_path: Path, mode: str, worker: 
         "polycolab.operations.migrate",
     ]
     assert "polycolab.operations.migrate" in calls[migration]
-    assert calls[migration - 1][-5:] == ["up", "-d", "--wait", "postgres", "object-storage"]
+    assert calls[migration - 1][-5:] == [
+        "up",
+        "-d",
+        "--wait",
+        "postgres",
+        "object-storage",
+    ]
     assert calls[migration - 2][-3:] == ["stop", "worker", "core"]
     assert calls[-1][-1] == ("worker" if worker else "core")
     assert "--force-recreate" in calls[-1]
@@ -116,10 +122,17 @@ def launch(
 
 @pytest.mark.parametrize(
     "environment,preflight_code,expected",
-    [(Environment.LOCAL, 1, 0), (Environment.PRODUCTION, 0, 0), (Environment.PRODUCTION, 1, 1)],
+    [
+        (Environment.LOCAL, 1, 0),
+        (Environment.PRODUCTION, 0, 0),
+        (Environment.PRODUCTION, 1, 1),
+    ],
 )
 def test_migration_preserves_production_preflight(
-    monkeypatch: pytest.MonkeyPatch, environment: Environment, preflight_code: int, expected: int
+    monkeypatch: pytest.MonkeyPatch,
+    environment: Environment,
+    preflight_code: int,
+    expected: int,
 ) -> None:
     settings = Settings().model_copy(update={"app_env": environment})
     calls: list[str] = []

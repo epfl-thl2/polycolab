@@ -17,9 +17,6 @@ from fastapi.testclient import TestClient
 from test_hosted_scheduler import (
     hosted_client as hosted_client,
 )
-from test_hosted_scheduler import (
-    scheduler_pg_schema as scheduler_pg_schema,
-)
 from test_sessions_api import add_member, headers
 
 
@@ -199,7 +196,9 @@ def test_structural_batch_is_atomic(linear: tuple[TestClient, str, str]) -> None
     assert sorted(f["path"] for f in state["files"]) == ["a.txt", "b.txt"]
 
 
-def test_shared_chat_read_access_and_unshare(linear: tuple[TestClient, str, str]) -> None:
+def test_shared_chat_read_access_and_unshare(
+    linear: tuple[TestClient, str, str],
+) -> None:
     from test_sessions_api import create_session
 
     client, project, root = linear
@@ -284,6 +283,7 @@ def test_conversion_preserves_saved_overlay_and_freezes_git(
     )
 
 
+@pytest.mark.parametrize("client", ["file"], indirect=True)
 def test_websocket_ack_replay_and_revoked_write(
     linear: tuple[TestClient, str, str], collaboration_url: str
 ) -> None:
@@ -326,7 +326,8 @@ def test_websocket_ack_replay_and_revoked_write(
         contributor = client.get("/api/v1/users/me", headers=headers("contributor")).json()
         assert (
             client.delete(
-                f"/api/v1/projects/{project}/members/{contributor['id']}", headers=headers("owner")
+                f"/api/v1/projects/{project}/members/{contributor['id']}",
+                headers=headers("owner"),
             ).status_code
             == 204
         )

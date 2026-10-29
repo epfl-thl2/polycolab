@@ -15,11 +15,11 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
+from polycolab.execution.contracts import ResourceLimits, validate_path
 from polycolab.execution.host_io import PipeProcess, atomic_record, blocking, command
 from polycolab.execution.runtime import ImagePolicy, Process, SlotQuarantined
 from polycolab.execution.sandbox import SandboxUnavailable
 from polycolab.execution.slots import SlotPool
-from polycolab.verification.contracts import ResourceLimits, validate_path
 
 
 class DockerProcess(PipeProcess):

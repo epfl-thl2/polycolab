@@ -7,8 +7,10 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import update
 from test_sessions_api import add_member, create_project, headers
 
+from polycolab.db.models import SqlUser
 from polycolab.projects.git_storage import GitRepository
 from polycolab.projects.worktree_storage import WorktreeStorage
 
@@ -21,7 +23,44 @@ def native(client: TestClient, tmp_path: Path) -> tuple[TestClient, str, GitRepo
     return client, project_id, GitRepository(tmp_path / "repos", UUID(project_id))
 
 
-def test_save_commit_discard_and_remove(native: tuple[TestClient, str, GitRepository]) -> None:
+@pytest.mark.parametrize("client", ["file"], indirect=True)
+def test_worktree_save_survives_account_write_during_git_preparation(
+    native: tuple[TestClient, str, GitRepository], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, project, _ = native
+    app = cast(FastAPI, client.app)
+    root = f"/api/v1/projects/{project}/worktrees"
+    auth = headers("owner")
+    worktree = client.get(root, headers=auth).json()[0]
+    original = WorktreeStorage.snapshot
+
+    def snapshot(
+        storage: WorktreeStorage, identifier: UUID, tree: str, head: str, previous: str | None
+    ) -> str:
+        # Browser polling can touch account state while Git prepares a saved revision.
+        # A retained SQLite read transaction cannot then be promoted to a writer.
+        with app.state.session_factory() as db:
+            db.execute(update(SqlUser).values(display_name="Concurrent account update"))
+            db.commit()
+        return original(storage, identifier, tree, head, previous)
+
+    monkeypatch.setattr(WorktreeStorage, "snapshot", snapshot)
+    response = client.post(
+        f"{root}/{worktree['id']}/save",
+        headers={**auth, "Idempotency-Key": "concurrent-account"},
+        json={
+            "expected_revision": worktree["revision"],
+            "changes": [{"path": "notes.txt", "content_base64": "aGVsbG8="}],
+        },
+    )
+    assert response.status_code == 200, response.text
+    saved = client.get(f"{root}/{worktree['id']}", headers=auth).json()
+    assert saved["changed_files"] == [{"path": "notes.txt", "status": "added"}]
+
+
+def test_save_commit_discard_and_remove(
+    native: tuple[TestClient, str, GitRepository],
+) -> None:
     client, project, git = native
     root = f"/api/v1/projects/{project}/worktrees"
     auth = headers("owner")
@@ -29,7 +68,11 @@ def test_save_commit_discard_and_remove(native: tuple[TestClient, str, GitReposi
     assert response.status_code == 200, response.text
     main = response.json()[0]
     assert main["branch"] == "main"
-    create = {"client_request_id": str(uuid4()), "title": "Experiment", "branch": "experiment"}
+    create = {
+        "client_request_id": str(uuid4()),
+        "title": "Experiment",
+        "branch": "experiment",
+    }
     response = client.post(root, headers=auth, json=create)
     assert response.status_code == 201, response.text
     worktree = response.json()
@@ -98,7 +141,9 @@ def test_save_commit_discard_and_remove(native: tuple[TestClient, str, GitReposi
     assert client.get(url, headers=headers("reader")).json()["writable"] is False
     assert (
         client.post(
-            url + "/save", headers={**headers("reader"), "Idempotency-Key": "denied"}, json=body
+            url + "/save",
+            headers={**headers("reader"), "Idempotency-Key": "denied"},
+            json=body,
         ).status_code
         == 403
     )

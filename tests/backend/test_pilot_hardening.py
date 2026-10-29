@@ -144,7 +144,7 @@ def test_public_reads_store_keyed_identifiers_without_client_addresses(
     address = "192.0.2.10"
     with TestClient(_app(client), client=(address, 50000)) as anonymous:
         for _ in range(2):
-            assert anonymous.get("/api/v1/catalogue").status_code == 200
+            assert anonymous.get("/api/v1/projects").status_code == 200
     expected_id = UUID(
         bytes=hmac.new(
             settings.admission_hmac_key.encode(), address.encode(), hashlib.sha256
@@ -203,7 +203,9 @@ def test_sse_cursor_reconnects_are_rate_limited_after_authorization(
     assert renewed.status_code == 200
 
 
-def test_execution_concurrency_quota_and_operator_metrics_are_enforced(client: TestClient) -> None:
+def test_execution_concurrency_quota_and_operator_metrics_are_enforced(
+    client: TestClient,
+) -> None:
     project = _project(client)
     profile = _profile(client)
     _app(client).state.settings.execution_user_concurrent_runs = 1
@@ -344,7 +346,9 @@ def test_operator_run_diagnostics_are_redacted_audited_and_cross_process_observa
     assert "separate-private-worker" not in metrics_response.text
 
 
-def test_rate_windows_enforce_a_minute_and_roll_over_at_utc_boundary(client: TestClient) -> None:
+def test_rate_windows_enforce_a_minute_and_roll_over_at_utc_boundary(
+    client: TestClient,
+) -> None:
     db = _app(client).state.session_factory()
     user_id, project_id = uuid4(), uuid4()
     midnight = datetime(2026, 8, 22, 23, 59, 59, tzinfo=UTC)
@@ -451,7 +455,9 @@ def test_sse_connection_gauge_tracks_open_generators_and_closes_without_leaks(
     asyncio.run(check())
 
 
-def test_rate_window_retention_deletes_only_old_rows_in_bounded_batches(client: TestClient) -> None:
+def test_rate_window_retention_deletes_only_old_rows_in_bounded_batches(
+    client: TestClient,
+) -> None:
     db = _app(client).state.session_factory()
     now = datetime(2026, 8, 22, 12, tzinfo=UTC)
     try:
@@ -490,7 +496,9 @@ def test_rate_window_retention_deletes_only_old_rows_in_bounded_batches(client: 
         db.close()
 
 
-def test_nullable_usage_is_conservatively_aggregated_and_charged(client: TestClient) -> None:
+def test_nullable_usage_is_conservatively_aggregated_and_charged(
+    client: TestClient,
+) -> None:
     project = _project(client)
     profile = _profile(client)
     agent_session = _session(client, str(project["id"]))
@@ -510,7 +518,10 @@ def test_nullable_usage_is_conservatively_aggregated_and_charged(client: TestCli
         claimed = claim_next_run(db, worker_id="meter", lease_for=timedelta(minutes=1))
         assert claimed is not None
         running = start_claimed_run(
-            db, run_id=claimed.id, worker_id="meter", lease_generation=claimed.lease_generation
+            db,
+            run_id=claimed.id,
+            worker_id="meter",
+            lease_generation=claimed.lease_generation,
         )
         record_usage(
             db,
@@ -564,7 +575,12 @@ def test_nullable_usage_is_conservatively_aggregated_and_charged(client: TestCli
             project_id=None,
             since=datetime(2026, 1, 1, tzinfo=UTC),
         )
-        assert (tokens, input_tokens, output_tokens, unallocated_tokens) == (26, 6, 10, 10)
+        assert (tokens, input_tokens, output_tokens, unallocated_tokens) == (
+            26,
+            6,
+            10,
+            10,
+        )
         assert (
             execution_limits._cost_microusd(
                 _limits(input_rate=1_000_000, output_rate=2_000_000),
@@ -586,7 +602,9 @@ def test_nullable_usage_is_conservatively_aggregated_and_charged(client: TestCli
         db.close()
 
 
-def test_resume_and_next_round_budget_fail_closed_when_ceiling_is_tight(client: TestClient) -> None:
+def test_resume_and_next_round_budget_fail_closed_when_ceiling_is_tight(
+    client: TestClient,
+) -> None:
     project = _project(client)
     profile = _profile(client)
     agent_session = _session(client, str(project["id"]))

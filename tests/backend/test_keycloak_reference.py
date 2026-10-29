@@ -12,7 +12,11 @@ def test_optional_realm_matches_browser_paths_and_token_boundary() -> None:
     assert "users" not in realm
     (client,) = realm["clients"]
     assert client["publicClient"] and client["standardFlowEnabled"]
-    for key in ("implicitFlowEnabled", "directAccessGrantsEnabled", "serviceAccountsEnabled"):
+    for key in (
+        "implicitFlowEnabled",
+        "directAccessGrantsEnabled",
+        "serviceAccountsEnabled",
+    ):
         assert client[key] is False
     assert "secret" not in client
     assert client["attributes"]["pkce.code.challenge.method"] == "S256"

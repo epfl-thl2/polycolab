@@ -1,8 +1,8 @@
 from fastapi import APIRouter
 
-from polycolab.artifacts.routes.shared import router as shared_router
+from polycolab.artifacts.routes.private import router as private_router
 
 router = APIRouter()
-router.include_router(shared_router)
+router.include_router(private_router)
 
 __all__ = ["router"]

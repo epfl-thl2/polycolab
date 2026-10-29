@@ -32,13 +32,9 @@ MAX_MANIFEST_BYTES = 2 * 1024 * 1024
 # a migration adds a new table.
 DERIVED_TABLES = frozenset(
     {
-        "community_delivery_cursors",
         "execution_rate_windows",
         "operational_metric_aggregates",
         "operator_diagnostic_accesses",
-        "outbox_consumer_receipts",
-        "research_notifications",
-        "research_progress_summaries",
     }
 )
 CANONICAL_TABLES = tuple(sorted(set(metadata.tables) - DERIVED_TABLES))

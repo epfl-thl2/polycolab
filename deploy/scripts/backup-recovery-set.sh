@@ -9,7 +9,7 @@ if [[ "${1:-}" == --help ]]; then
     'RECOVERY_KEY_MATERIAL_DIR, RELEASE_SHA and RECOVERY_SCHEMA_HEAD.'
   exit 0
 fi
-fail() { printf '%s\n' "Research backup: $1" >&2; exit 1; }
+fail() { printf '%s\n' "Workspace backup: $1" >&2; exit 1; }
 [[ $# == 1 ]] || fail invalid_arguments
 [[ "${RECOVERY_WRITERS_QUIESCED:-}" == yes && "${RECOVERY_GARAGE_STOPPED:-}" == yes ]] || fail quiescence_required
 [[ -n "${PGSERVICE:-}" && -z "${DATABASE_URL:-}" ]] || fail private_pgservice_required
@@ -48,11 +48,11 @@ done
 [[ "$key_dir/" != "$data_dir/"* && "$data_dir/" != "$key_dir/"* ]] || fail overlapping_sources
 
 umask 077
-run_dir="$(mktemp -d "$backup_root/research-recovery.XXXXXXXX")"
+run_dir="$(mktemp -d "$backup_root/workspace-recovery.XXXXXXXX")"
 # Preserve partial ciphertext for diagnosis; never mark it complete or delete
 # operator data on failure. No secret-bearing command diagnostics are relayed.
-trap 'printf "%s\n" "Research backup interrupted; incomplete set retained" >&2; exit 130' INT
-trap 'printf "%s\n" "Research backup interrupted; incomplete set retained" >&2; exit 143' TERM
+trap 'printf "%s\n" "Workspace backup interrupted; incomplete set retained" >&2; exit 130' INT
+trap 'printf "%s\n" "Workspace backup interrupted; incomplete set retained" >&2; exit 143' TERM
 if ! pg_dump --format=custom --no-owner --no-acl 2>/dev/null |
   age --encrypt --recipient "$BACKUP_ENCRYPTION_RECIPIENT" > "$run_dir/postgres.dump.age" 2>/dev/null; then
   fail database_capture_failed
@@ -77,4 +77,4 @@ done
   "${checksum[@]}" postgres.dump.age garage-metadata.tar.age garage-data.tar.age key-material.tar.age
 ) | age --encrypt --recipient "$BACKUP_ENCRYPTION_RECIPIENT" > "$run_dir/manifest.age" 2>/dev/null || fail manifest_failed
 printf '%s\n' polycolab-recovery-v1 > "$run_dir/COMPLETE"
-printf '%s\n' 'Research backup: captured encrypted recovery set; writers remain stopped' "$run_dir"
+printf '%s\n' 'Workspace backup: captured encrypted recovery set; writers remain stopped' "$run_dir"

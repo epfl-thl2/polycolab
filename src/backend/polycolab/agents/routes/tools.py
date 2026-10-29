@@ -54,7 +54,7 @@ def call_tool(payload: ToolRequest, request: Request) -> dict[str, object]:
             arguments=payload.arguments,
             idempotency_key=invocation,
             source_event_cursor=int(source_cursor) if source_cursor is not None else None,
-            verification_settings=request.app.state.settings,
+            settings=request.app.state.settings,
         )
     except ToolCapabilityInvalid as exc:
         raise AuthenticationRequired from exc

@@ -1,9 +1,6 @@
 import { expect, test, type Page } from '../fixtures';
-import { claimVersion } from '../../unit/version-fixtures';
 
 const projectId = '11111111-1111-1111-1111-111111111111';
-const objectId = '22222222-2222-2222-2222-222222222222';
-const revisionId = '33333333-3333-3333-3333-333333333333';
 
 async function authenticate(page: Page) {
   await page.route('**/auth/config', (route) => route.fulfill({ json: { mode: 'local' } }));
@@ -22,9 +19,6 @@ test('read-only member has no browser agent controls', async ({ page }) => {
       return route.fulfill({
         json: {
           agent_execution: true,
-
-          verification_submission: true,
-          verification_execution: false,
           email_recovery: true,
         },
       });
@@ -37,28 +31,7 @@ test('read-only member has no browser agent controls', async ({ page }) => {
           archived_at: null,
           current_user_role: 'READ_ONLY',
         }
-      : path.endsWith('/objects')
-        ? []
-        : path.includes('/neighborhood')
-          ? { object_version_id: revisionId, relationships: [], nodes: [] }
-          : path.endsWith(`/objects/${objectId}`)
-            ? {
-                id: objectId,
-                project_id: projectId,
-                kind: 'STATEMENT',
-                current_object_version_id: revisionId,
-                current_object_version: claimVersion({
-                  id: revisionId,
-                  object_id: objectId,
-                  number: 1,
-                  previous_object_version_id: null,
-                  content: { ...claimVersion().content, title: 'Claim', content_md: 'A claim.' },
-                }),
-                authorship: claimVersion().authorship,
-                created_at: '2026-01-01T00:00:00Z',
-                updated_at: '2026-01-01T00:00:00Z',
-              }
-            : [];
+      : [];
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -69,8 +42,8 @@ test('read-only member has no browser agent controls', async ({ page }) => {
       ),
     });
   });
-  await page.goto(`/projects/${projectId}/objects/${objectId}`);
-  await expect(page.getByRole('heading', { name: 'Claim', level: 1 })).toBeVisible();
+  await page.goto(`/projects/${projectId}/sessions/new`);
+  await expect(page.getByRole('heading', { name: 'Private sessions', level: 1 })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Agent chat' })).toHaveCount(0);
 });
 
@@ -100,16 +73,12 @@ test('contributor can create a session and queue a chat turn', async ({ page }) 
           sessions: true,
           execution_available: true,
           hosted_agents: false,
-          verification: false,
         },
       });
     if (new URL(route.request().url()).pathname === '/api/v1/config')
       return route.fulfill({
         json: {
           agent_execution: true,
-
-          verification_submission: true,
-          verification_execution: false,
           email_recovery: true,
         },
       });

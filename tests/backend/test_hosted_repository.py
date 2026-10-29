@@ -12,8 +12,8 @@ from test_codex_runtime import spec
 from test_hosted_artifacts import OWNER, WORKER
 from test_runtime_api import _queue_run
 
-from polycolab.db.models import SqlAgentRun, SqlAgentSession, SqlResearchScope, SqlUser
-from polycolab.entities.enums import AgentRunStatus, ResearchScopeKind
+from polycolab.db.models import SqlAgentRun, SqlAgentSession, SqlUser
+from polycolab.entities.enums import AgentRunStatus
 from polycolab.entities.time import utc_now
 from polycolab.execution import guest_repository
 
@@ -32,7 +32,6 @@ def repository_claim(
     with app.state.session_factory() as db:
         run = db.get(SqlAgentRun, run_id)
         db.get(SqlUser, run.requested_by_user_id).subject = "owner"
-        db.add(SqlResearchScope(scope_kind=ResearchScopeKind.PROJECT, project_id=run.project_id))
         run.status = AgentRunStatus.FAILED
         url = f"/api/v1/projects/{run.project_id}/repository"
         session_id = run.session_id
@@ -108,7 +107,11 @@ def repository_claim(
             old_controller = client.post(
                 "/internal/v1/runtime/claims",
                 headers=WORKER,
-                json={"worker_id": "hosted", "engine": "codex", "protocol_version": protocol},
+                json={
+                    "worker_id": "hosted",
+                    "engine": "codex",
+                    "protocol_version": protocol,
+                },
             )
             assert old_controller.status_code == 409, old_controller.text
             assert "executor_protocol_mismatch" in old_controller.text
@@ -142,7 +145,11 @@ def test_hosted_checkout_save_completion_and_fencing(
     )
     checkout = client.get(internal, headers=WORKER, params=lease)
     assert checkout.status_code == 200, checkout.text
-    inputs, outputs, project = tmp_path / "inputs", tmp_path / "outputs", tmp_path / "project"
+    inputs, outputs, project = (
+        tmp_path / "inputs",
+        tmp_path / "outputs",
+        tmp_path / "project",
+    )
     inputs.mkdir()
     outputs.mkdir()
     (inputs / "workspace.bundle").write_bytes(checkout.content)
@@ -178,7 +185,11 @@ def test_hosted_checkout_save_completion_and_fencing(
     merged = client.post(
         url + "/merge",
         headers={**OWNER, "Idempotency-Key": "merge"},
-        json={"source": binding["branch"], "expected_target": main, "expected_source": commit},
+        json={
+            "source": binding["branch"],
+            "expected_target": main,
+            "expected_source": commit,
+        },
     )
     assert merged.status_code == 200, merged.text
     assert client.get(url, headers=OWNER).json()["files"][0]["path"] == "proof.lean"
@@ -229,7 +240,11 @@ def test_native_agent_sees_saved_overlay_and_leaves_human_review(
         json={"expected_revision": binding["revision"]},
     )
     assert blocked.status_code == 409
-    inputs, outputs, project = tmp_path / "inputs", tmp_path / "outputs", tmp_path / "project"
+    inputs, outputs, project = (
+        tmp_path / "inputs",
+        tmp_path / "outputs",
+        tmp_path / "project",
+    )
     inputs.mkdir()
     outputs.mkdir()
     (inputs / "workspace.bundle").write_bytes(
@@ -244,13 +259,19 @@ def test_native_agent_sees_saved_overlay_and_leaves_human_review(
     (project / "agent.txt").write_text("agent")
     guest_commit = guest_repository.checkpoint(metadata, project, outputs)
     saved = client.post(
-        internal, headers=WORKER, params=lease, content=(outputs / "workspace.bundle").read_bytes()
+        internal,
+        headers=WORKER,
+        params=lease,
+        content=(outputs / "workspace.bundle").read_bytes(),
     )
     assert saved.status_code == 200, saved.text
     assert saved.json()["commit"] != guest_commit
     state = client.get(tree_url, headers=OWNER).json()
     assert state["head_commit"] == binding["commit"]
-    assert {file["path"] for file in state["changed_files"]} == {"human.txt", "agent.txt"}
+    assert {file["path"] for file in state["changed_files"]} == {
+        "human.txt",
+        "agent.txt",
+    }
     finish = client.post(
         f"/internal/v1/runtime/runs/{run_id}/finish",
         headers=WORKER,

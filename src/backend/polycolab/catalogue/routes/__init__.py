@@ -1,1 +1,0 @@
-"""Catalogue HTTP route modules."""

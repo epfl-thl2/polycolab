@@ -73,7 +73,7 @@ Mocked gateway tests do not prove it.
 
 1. Contain the affected route/cohort at ingress if disclosure is suspected.
    Preserve audit evidence without copying private content to tickets.
-   Do not erase immutable research/history as an incident-cleanup shortcut.
+   Preserve conversation history and audit records during incident cleanup.
 2. Revoke affected access/session through the configured provider's supported controls.
    Built-in logout, membership revocation, OIDC session revocation and provider-key rotation are distinct.
    None automatically substitutes for another.
@@ -113,7 +113,7 @@ Mocked gateway tests do not prove it.
    Fence/drain incompatible consumers before resuming them.
    Retain revisions, publication releases, job history and audits.
    Recursive cleanup and schema resets are not rollback steps.
-4. Verify readiness, selected authentication, cross-scope denials, exact historical reads and moderation.
+4. Verify readiness, selected authentication, cross-scope denials, file reads and agent-library moderation.
    Resume paused execution admission with approval.
    Computation also requires accepted isolation and an authorized execution environment.
 
@@ -128,7 +128,7 @@ For each applicable scenario, record:
   Attach exact service/code versions and reviewer sign-off.
   Missing evidence means **not exercised**, not passed.
 
-Local regressions under `tests/backend/` include `test_local_auth.py`, `test_gateway.py`, `test_openbao_credentials.py`, `test_outbox.py`, `test_record_moderation.py`, `test_recovery_dependencies.py` and `test_staging_auth_probe.py`.
+Local regressions under `tests/backend/` include `test_local_auth.py`, `test_gateway.py`, `test_openbao_credentials.py`, `test_recovery_dependencies.py` and `test_staging_auth_probe.py`.
 Their local/mocked behavior does not establish a live database, key, ingress, identity or recovery drill.
 Execution scenarios remain separate and must not be silently omitted from deployment acceptance.
 

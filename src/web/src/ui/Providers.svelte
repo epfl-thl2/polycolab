@@ -15,7 +15,7 @@
   import { toStore } from 'svelte/store';
   import { createInfiniteQuery } from '@tanstack/svelte-query';
   import { projectContext, explain } from '../svelte-lib/context';
-  import type { GatewayProfile } from '../lib/research-api';
+  import type { GatewayProfile } from '../lib/projects-api';
   const confirmation = new Confirmation();
   const { api, query } = projectContext();
   const profiles = createInfiniteQuery(

@@ -6,7 +6,6 @@
   import { Button } from '../lib/components/ui/button';
   import { Plus, Search, SlidersHorizontal, Ellipsis, Copy, KeyRound } from '@lucide/svelte';
   import { Badge } from '../lib/components/ui/badge';
-  import { Checkbox } from '../lib/components/ui/checkbox';
   import { Skeleton } from '../lib/components/ui/skeleton';
   import * as Table from '../lib/components/ui/table';
   import * as Dialog from '../lib/components/ui/dialog';
@@ -30,8 +29,6 @@
   let agentId = $state('');
   let agentName = $state('');
   let creatingAgent = $state(false);
-  let allowLibrary = $state(false);
-  let allowReviews = $state(false);
   let identityCursor = $state<string>();
   let name = $state('');
   let busy = $state(false);
@@ -56,8 +53,6 @@
     agentName = '';
     agentId = '';
     creatingAgent = false;
-    allowLibrary = false;
-    allowReviews = false;
     error = '';
     notice = '';
   }
@@ -157,12 +152,7 @@
     try {
       const identity = agentId || (await externalAgents.createAgent(agentName.trim())).id;
       agentId = identity;
-      const result = await externalAgents.createCredential(
-        name.trim(),
-        identity,
-        allowLibrary,
-        allowReviews,
-      );
+      const result = await externalAgents.createCredential(name.trim(), identity);
       if (current !== generation) return;
       issued = result;
       notice = 'API key created.';
@@ -307,9 +297,7 @@
             <Table.Row>
               <Table.Cell
                 ><span class="key-name">{key.name}</span><span class="key-detail"
-                  >Library contributions {key.allow_library_contributions
-                    ? 'allowed'
-                    : 'disabled'}</span
+                  >Project files</span
                 ></Table.Cell
               >
               <Table.Cell
@@ -443,7 +431,7 @@
         agent tool. They include the project address and the
         <a href="/SKILL.md">agent instructions</a>.
       </li>
-      <li>Ask your agent to check its access, then give it a research task.</li>
+      <li>Ask your agent to check its access, then give it a project task.</li>
     </ol>
     <p>
       To check access yourself, set <code>POLYCOLAB_URL</code> to this site’s address and
@@ -484,7 +472,7 @@
       <Dialog.Description
         >{issued
           ? 'You can reveal this key again from its actions menu.'
-          : 'Give an external agent access to your research.'}</Dialog.Description
+          : 'Give an external agent access to your project files.'}</Dialog.Description
       >
     </Dialog.Header>
     {#if dialogOpen}
@@ -536,7 +524,9 @@
               disabled={busy || !!agentId}
             /></Field.Label
           >
-          <p class="key-form-hint">This name appears on contributions made with this API key.</p>
+          <p class="key-form-hint">
+            Use this name to recognize the agent associated with this key.
+          </p>
           {#if identities.length}
             <Button
               type="button"
@@ -575,34 +565,21 @@
               >{/if}
           </div>
           <p class="key-form-hint">
-            This name appears on contributions made with this API key. Select the same agent when
-            replacing a key to preserve its contribution history.
+            This name identifies the agent using this key. Select the same agent when replacing a
+            key.
           </p>
         {/if}
-        <label class="key-permission"
-          ><Checkbox bind:checked={allowLibrary} />Allow public contributions to existing Library
-          statements</label
-        >
-        <p class="key-form-hint">Public contributions are visible to everyone.</p>
-        <label class="key-permission"
-          ><Checkbox bind:checked={allowReviews} />Allow structured AI reviews</label
-        >
         <div class="key-access-summary">
           <p>
-            Each key can read public research and shared research in every project you belong to,
-            including private projects and projects you join later. It can contribute where you are
-            an owner or contributor.
+            Each key can access Default project files using your current membership. Owners and
+            contributors can write; read-only members can read.
           </p>
           <details>
             <summary>Access and limits</summary>
-            <p>
-              Keys cannot read personal notes or conversations, manage your account or project
-              membership, admit statements to the Library, or publish private research.
-            </p>
+            <p>Keys cannot access conversations or manage your account and project memberships.</p>
             <p>
               Expires after {Math.round(policy.ttl_seconds / 86400)} days. Each key includes {policy.max_requests.toLocaleString()}
-              requests and {policy.max_mutations.toLocaleString()} mutations. These limits are set by
-              your server.
+              requests and {policy.max_mutations.toLocaleString()} mutations.
             </p>
           </details>
         </div>
@@ -802,13 +779,6 @@
     align-items: center;
     gap: 8px;
     margin-top: -8px;
-  }
-  .key-permission {
-    display: flex;
-    flex-direction: row;
-    align-items: start;
-    gap: 10px;
-    font-weight: 400;
   }
   .key-access-summary {
     padding: 12px;

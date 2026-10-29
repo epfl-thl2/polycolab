@@ -8,16 +8,12 @@ from polycolab.platform.config import AuthMode, Settings
 
 class ApplicationConfiguration(ApiModel):
     agent_execution: bool
-    verification_submission: bool
-    verification_execution: bool
     email_recovery: bool
 
 
 def application_configuration(settings: Settings) -> ApplicationConfiguration:
     return ApplicationConfiguration(
         agent_execution=settings.feature_agent_execution_enabled,
-        verification_submission=settings.feature_verification_submission_enabled,
-        verification_execution=settings.feature_verification_execution_enabled,
         email_recovery=(
             settings.auth_mode is AuthMode.LOCAL
             and settings.smtp_host is not None

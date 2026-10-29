@@ -8,7 +8,7 @@ import hashlib
 import os
 import tempfile
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Literal
@@ -69,16 +69,17 @@ class DefaultFiles:
         self.root = root.resolve()
         self.directory = self.root / f"{project_id}.files"
         self.quota = quota
+        self.authorize_access: Callable[[bool], None] | None = None
 
     @contextmanager
     def locked(self, write: bool) -> Iterator[None]:
-        if write:
+        if write or self.authorize_access is not None:
             lock_project_authorization(self.tx, project_id=self.project_id, user_id=self.user_id)
         access = project_policy.require_scope(
             self.tx,
             self.project_id,
             self.user_id,
-            ProjectAction.CREATE_RESEARCH if write else ProjectAction.VIEW,
+            ProjectAction.WRITE_FILES if write else ProjectAction.VIEW,
         )
         if access.project.workspace_mode != "default":
             raise RepositoryError("default_mode_required", 409)
@@ -100,6 +101,8 @@ class DefaultFiles:
                     if time.monotonic() >= deadline:
                         raise RepositoryError("repository_busy", 409) from None
                     time.sleep(0.02)
+            if self.authorize_access is not None:
+                self.authorize_access(write)
             if self.directory.is_symlink():
                 raise RepositoryError("repository_invalid_path", 422)
             self.directory.mkdir(exist_ok=True, mode=0o700)
@@ -154,7 +157,7 @@ class DefaultFiles:
                 self.tx,
                 self.project_id,
                 self.user_id,
-                ProjectAction.CREATE_RESEARCH,
+                ProjectAction.WRITE_FILES,
             ),
         )
 

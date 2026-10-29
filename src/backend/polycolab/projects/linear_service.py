@@ -115,7 +115,7 @@ class LinearService:
         action = (
             ProjectAction.MANAGE_SETTINGS
             if owner
-            else ProjectAction.CREATE_RESEARCH
+            else ProjectAction.WRITE_FILES
             if write
             else ProjectAction.VIEW
         )

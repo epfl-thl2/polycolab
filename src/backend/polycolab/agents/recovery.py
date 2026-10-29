@@ -21,7 +21,6 @@ from polycolab.db.models import (
     SqlAgentRun,
     SqlAgentRunEvent,
     SqlAgentSession,
-    SqlContributionEnvelope,
     SqlHostedCompletion,
     SqlHostedModelRequest,
 )
@@ -62,7 +61,6 @@ def effects_possible(session: Session, run_id: UUID) -> bool:
         session.scalar(select(exists().where(condition)))
         for condition in (
             SqlHostedModelRequest.run_id == run_id,
-            SqlContributionEnvelope.run_id == run_id,
             (SqlAgentRunEvent.run_id == run_id)
             & (SqlAgentRunEvent.kind == AgentRunEventKind.TOOL_REQUESTED),
         )

@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Literal, Protocol
 
 from polycolab.agents.runtime.codex import CodexFailure, decode_frame
+from polycolab.execution.contracts import ResourceLimits
 from polycolab.execution.sandbox import SandboxUnavailable
-from polycolab.verification.contracts import ResourceLimits
 
 ModelRequest = Callable[[dict[str, object]], Awaitable[bytes]]
 
@@ -30,7 +30,7 @@ class ImagePolicy:
     def __post_init__(self) -> None:
         from pydantic import TypeAdapter
 
-        from polycolab.verification.contracts import Digest
+        from polycolab.execution.contracts import Digest
 
         digest = self.reference.rsplit("@sha256:", 1)
         if len(digest) != 2 or not digest[0]:

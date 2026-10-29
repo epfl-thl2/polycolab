@@ -154,7 +154,7 @@ def test_guest_frame_rejects_escaped_invalid_unicode() -> None:
         decode_frame(b'{"delta":"\\ud800"}')
 
 
-@pytest.mark.parametrize("name,write", [("get_context", False), ("write_summary", True)])
+@pytest.mark.parametrize("name,write", [("get_context", False), ("project_files", True)])
 def test_tool_provenance_only_on_writes(name: str, write: bool) -> None:
     async def scenario() -> None:
         async def handler(request: httpx.Request) -> httpx.Response:
@@ -196,7 +196,11 @@ def test_docker_launch_policy_has_no_ambient_authority(tmp_path: Path) -> None:
     adapter = runtime(tmp_path)
     image = next(iter(adapter.images.values()))
     args = adapter.create_args(
-        "a" * 32, tmp_path / "work", image, spec().limits, datetime.now(UTC) + timedelta(seconds=60)
+        "a" * 32,
+        tmp_path / "work",
+        image,
+        spec().limits,
+        datetime.now(UTC) + timedelta(seconds=60),
     )
     for required in (
         "--network=none",
@@ -212,7 +216,11 @@ def test_docker_launch_policy_has_no_ambient_authority(tmp_path: Path) -> None:
     mounts = [args[i + 1] for i, arg in enumerate(args) if arg == "--mount"]
     assert any("dst=/inputs,readonly" in mount for mount in mounts)
     assert all("docker.sock" not in mount and "repositories" not in mount for mount in mounts)
-    assert adapter.docker_args("ps")[:3] == ("docker", "--host", "unix:///run/test-docker.sock")
+    assert adapter.docker_args("ps")[:3] == (
+        "docker",
+        "--host",
+        "unix:///run/test-docker.sock",
+    )
     assert "DOCKER_CONTEXT" not in adapter.environment
 
 
@@ -452,7 +460,12 @@ def test_startup_retries_api_and_journal_acknowledgement(
     monkeypatch.setattr(adapter, "acknowledge", acknowledge)
     gateway = AsyncMock()
     gateway.incarnation = "new-controller"
-    gateway.post.side_effect = [RuntimeGatewayError("runtime_api_failed"), None, None, None]
+    gateway.post.side_effect = [
+        RuntimeGatewayError("runtime_api_failed"),
+        None,
+        None,
+        None,
+    ]
     monkeypatch.setattr(service, "make_runtime", lambda _: adapter)
     monkeypatch.setattr(service, "read_credential", lambda _: "synthetic")
     monkeypatch.setattr(client_module, "RuntimeClient", lambda *_: gateway)

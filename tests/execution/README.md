@@ -26,7 +26,7 @@ It does not treat ETags as evidence.
 It does not depend on ACLs, bucket versioning or bucket lifecycle GC.
 
 This proves only the byte-storage boundary.
-PostgreSQL authorization, commit/GC contention, exact publication and Linux execution isolation have separate gates.
+PostgreSQL authorization, commit/GC contention and Linux execution isolation have separate gates.
 This single-node fixture provides no replication or production recovery evidence.
 
 ## Hosted native controller

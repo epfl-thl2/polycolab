@@ -1,4 +1,4 @@
-"""Member-only working files. File history never grants public research access."""
+"""Member-only Git working files."""
 
 import base64
 from typing import Annotated
@@ -67,7 +67,7 @@ def state(
     with instance.open() as git:
         commit = git.head(branch_name(branch))
         writable = (
-            project_policy.can(tx, project_id, user.id, ProjectAction.CREATE_RESEARCH)
+            project_policy.can(tx, project_id, user.id, ProjectAction.WRITE_FILES)
             and project_policy.require_scope(
                 tx, project_id, user.id, ProjectAction.VIEW
             ).project.workspace_mode

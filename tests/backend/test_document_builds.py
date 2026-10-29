@@ -41,7 +41,10 @@ def builds(client: TestClient, tmp_path: Path) -> tuple[TestClient, str, dict[st
         json={
             "expected_revision": tree["revision"],
             "changes": [
-                {"path": "main.tex", "content_base64": base64.b64encode(SOURCE.encode()).decode()}
+                {
+                    "path": "main.tex",
+                    "content_base64": base64.b64encode(SOURCE.encode()).decode(),
+                }
             ],
         },
     )
@@ -53,7 +56,11 @@ def builds(client: TestClient, tmp_path: Path) -> tuple[TestClient, str, dict[st
     return (
         client,
         root + "/latex-builds",
-        {"revision": saved.json()["revision"], "main_file": "main.tex", "engine": "pdflatex"},
+        {
+            "revision": saved.json()["revision"],
+            "main_file": "main.tex",
+            "engine": "pdflatex",
+        },
     )
 
 
@@ -73,7 +80,9 @@ def claim(client: TestClient) -> dict[str, Any]:
     return cast(dict[str, Any], response.json())
 
 
-def test_compile_snapshot_results_and_scope(builds: tuple[TestClient, str, dict[str, Any]]) -> None:
+def test_compile_snapshot_results_and_scope(
+    builds: tuple[TestClient, str, dict[str, Any]],
+) -> None:
     client, root, body = builds
     build = submit(client, root, body)
     assert submit(client, root, body)["id"] == build["id"]
@@ -147,7 +156,9 @@ def test_compile_snapshot_results_and_scope(builds: tuple[TestClient, str, dict[
     )
 
 
-def test_stale_missing_main_and_worker_auth(builds: tuple[TestClient, str, dict[str, Any]]) -> None:
+def test_stale_missing_main_and_worker_auth(
+    builds: tuple[TestClient, str, dict[str, Any]],
+) -> None:
     client, root, body = builds
     auth = {**headers("owner"), "Idempotency-Key": "bad"}
     assert client.post(root, headers=auth, json={**body, "revision": "0" * 40}).status_code == 409
@@ -157,7 +168,9 @@ def test_stale_missing_main_and_worker_auth(builds: tuple[TestClient, str, dict[
     )
     assert (
         client.post(
-            "/internal/latex/claim", headers=headers("owner"), json={"worker_id": "evil"}
+            "/internal/latex/claim",
+            headers=headers("owner"),
+            json={"worker_id": "evil"},
         ).status_code
         == 401
     )
@@ -221,7 +234,9 @@ def test_worker_loss_and_expiry(builds: tuple[TestClient, str, dict[str, Any]]) 
     )
 
 
-def test_revocation_and_output_limits(builds: tuple[TestClient, str, dict[str, Any]]) -> None:
+def test_revocation_and_output_limits(
+    builds: tuple[TestClient, str, dict[str, Any]],
+) -> None:
     from polycolab.db.models import SqlMembership
     from polycolab.entities.enums import ProjectRole
 
@@ -232,7 +247,10 @@ def test_revocation_and_output_limits(builds: tuple[TestClient, str, dict[str, A
     generation = {"generation": attempt["generation"]}
     assert (
         client.put(
-            route + "/outputs/pdf", headers=WORKER, params=generation, content=b"not a PDF"
+            route + "/outputs/pdf",
+            headers=WORKER,
+            params=generation,
+            content=b"not a PDF",
         ).status_code
         == 422
     )
@@ -247,7 +265,9 @@ def test_revocation_and_output_limits(builds: tuple[TestClient, str, dict[str, A
     )
     assert (
         client.post(
-            route + "/complete", headers=WORKER, json={**generation, "status": "succeeded"}
+            route + "/complete",
+            headers=WORKER,
+            json={**generation, "status": "succeeded"},
         ).status_code
         == 409
     )
@@ -266,7 +286,9 @@ def test_revocation_and_output_limits(builds: tuple[TestClient, str, dict[str, A
     )
 
 
-def test_expired_bytes_are_collected(builds: tuple[TestClient, str, dict[str, Any]]) -> None:
+def test_expired_bytes_are_collected(
+    builds: tuple[TestClient, str, dict[str, Any]],
+) -> None:
     from polycolab.db.stores.document_builds import SqlBuildStore
     from polycolab.db.transaction import SqlAlchemyTransaction
     from polycolab.document_builds.service import BuildService
@@ -279,7 +301,10 @@ def test_expired_bytes_are_collected(builds: tuple[TestClient, str, dict[str, An
     generation = {"generation": attempt["generation"]}
     assert (
         client.put(
-            route + "/outputs/log", headers=WORKER, params=generation, content=b"failed log"
+            route + "/outputs/log",
+            headers=WORKER,
+            params=generation,
+            content=b"failed log",
         ).status_code
         == 204
     )
@@ -296,7 +321,8 @@ def test_expired_bytes_are_collected(builds: tuple[TestClient, str, dict[str, An
             update(SqlDocumentBuild)
             .where(SqlDocumentBuild.id == UUID(build["id"]))
             .values(
-                expires_at=utc_now() - timedelta(days=1), deadline=utc_now() - timedelta(hours=1)
+                expires_at=utc_now() - timedelta(days=1),
+                deadline=utc_now() - timedelta(hours=1),
             )
         )
         session.commit()
@@ -329,13 +355,18 @@ def test_list_retains_last_pdf_after_many_failures(
     generation = {"generation": attempt["generation"]}
     assert (
         client.put(
-            route + "/outputs/pdf", headers=WORKER, params=generation, content=b"%PDF-test"
+            route + "/outputs/pdf",
+            headers=WORKER,
+            params=generation,
+            content=b"%PDF-test",
         ).status_code
         == 204
     )
     assert (
         client.post(
-            route + "/complete", headers=WORKER, json={**generation, "status": "succeeded"}
+            route + "/complete",
+            headers=WORKER,
+            json={**generation, "status": "succeeded"},
         ).status_code
         == 204
     )

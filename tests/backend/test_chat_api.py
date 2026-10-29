@@ -12,7 +12,10 @@ from test_sessions_api import add_member, create_project, headers
 
 from polycolab.db.models.chat import SqlChatConversation, SqlChatTurn
 from polycolab.entities.time import utc_now
-from polycolab.model_gateway.transport import ProviderStreamResponse, ProviderTransportError
+from polycolab.model_gateway.transport import (
+    ProviderStreamResponse,
+    ProviderTransportError,
+)
 
 
 class Provider:
@@ -47,7 +50,11 @@ class Provider:
                     "response": {
                         "status": "completed",
                         "output": output,
-                        "usage": {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+                        "usage": {
+                            "input_tokens": 10,
+                            "output_tokens": 5,
+                            "total_tokens": 15,
+                        },
                     },
                 }
             ]
@@ -56,19 +63,29 @@ class Provider:
             if self.tools:
                 delta = {
                     "tool_calls": [
-                        {"index": 0, "function": {"name": "run_command", "arguments": "{}"}}
+                        {
+                            "index": 0,
+                            "function": {"name": "run_command", "arguments": "{}"},
+                        }
                     ]
                 }
             frames = [
                 {"choices": [{"delta": delta, "finish_reason": None}]},
                 {
                     "choices": [
-                        {"delta": {}, "finish_reason": "tool_calls" if self.tools else "stop"}
+                        {
+                            "delta": {},
+                            "finish_reason": "tool_calls" if self.tools else "stop",
+                        }
                     ]
                 },
                 {
                     "choices": [],
-                    "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+                    "usage": {
+                        "prompt_tokens": 10,
+                        "completion_tokens": 5,
+                        "total_tokens": 15,
+                    },
                 },
             ]
         data = b"".join(b"data: " + json.dumps(frame).encode() + b"\n\n" for frame in frames)
@@ -170,7 +187,11 @@ def test_failed_turns_are_durable_and_never_replayed(
     client: TestClient, wire_api: str, problem: str
 ) -> None:
     provider, profile, conversation = setup(client, wire_api)
-    setattr(provider, problem, "provider_request_uncertain" if problem == "failure" else True)
+    setattr(
+        provider,
+        problem,
+        "provider_request_uncertain" if problem == "failure" else True,
+    )
     key = str(uuid4())
     result = send(client, conversation, profile, request_id=key)
     assert result.status_code == 200, result.text
@@ -194,7 +215,8 @@ def test_chat_privacy_project_access_and_profile_ownership(client: TestClient) -
     for token in ("outsider", "contributor"):
         assert (
             client.get(
-                f"/api/v1/chat/conversations/{conversation}/turns", headers=headers(token)
+                f"/api/v1/chat/conversations/{conversation}/turns",
+                headers=headers(token),
             ).status_code
             == 404
         )
@@ -255,7 +277,9 @@ def test_concurrent_retry_busy_and_interrupted_recovery(client: TestClient) -> N
     assert recovered[0]["failure_code"] == "chat_request_interrupted"
 
 
-def test_saved_retry_is_available_after_rate_budget_is_exhausted(client: TestClient) -> None:
+def test_saved_retry_is_available_after_rate_budget_is_exhausted(
+    client: TestClient,
+) -> None:
     provider, profile, conversation = setup(client)
     cast(FastAPI, client.app).state.settings.execution_user_requests_per_minute = 1
     key = str(uuid4())

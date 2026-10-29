@@ -121,7 +121,7 @@ def state_read(instance: LinearService) -> LinearStateRead:
         epoch=state.epoch,
         sequence=state.sequence,
         writable=project_policy.can(
-            instance.tx, instance.project_id, instance.user_id, ProjectAction.CREATE_RESEARCH
+            instance.tx, instance.project_id, instance.user_id, ProjectAction.WRITE_FILES
         ),
         can_restore=project_policy.can(
             instance.tx, instance.project_id, instance.user_id, ProjectAction.MANAGE_SETTINGS

@@ -3,47 +3,9 @@ import pytest
 from polycolab.execution.scheduling import (
     MAX_COUNTER,
     AgentCostPolicy,
-    VerificationCostPolicy,
     advance_runtime,
     reserved_agent_cost,
-    reserved_cost,
 )
-from polycolab.verification.contracts import ResourceLimits
-
-
-def limits() -> ResourceLimits:
-    return ResourceLimits(
-        cpu_count=1,
-        cpu_seconds=11,
-        wall_seconds=21,
-        memory_bytes=2**24,
-        process_count=1,
-        disk_bytes=2**20,
-        output_bytes=0,
-        log_bytes=0,
-        output_files=0,
-    )
-
-
-def test_cost_is_maximum_rounded_share_not_sum() -> None:
-    assert reserved_cost(limits(), VerificationCostPolicy(1, 10, 10 * 2**24, 10)) == 3
-    assert reserved_cost(limits(), VerificationCostPolicy(1, 1, 10 * 2**24, 10)) == 11
-    assert reserved_cost(limits(), VerificationCostPolicy(1, 100, 2**24, 100)) == 21
-
-
-def test_cost_never_rounds_positive_work_to_zero() -> None:
-    assert (
-        reserved_cost(limits(), VerificationCostPolicy(1, MAX_COUNTER, MAX_COUNTER, MAX_COUNTER))
-        == 1
-    )
-
-
-@pytest.mark.parametrize("invalid", [0, -1, True, MAX_COUNTER + 1])
-def test_policy_rejects_invalid_versions_and_divisors(invalid: int) -> None:
-    with pytest.raises(ValueError):
-        VerificationCostPolicy(invalid, 1, 1, 1)
-    with pytest.raises(ValueError):
-        VerificationCostPolicy(1, invalid, 1, 1)
 
 
 def test_virtual_runtime_uses_exact_integer_arithmetic() -> None:
@@ -60,7 +22,8 @@ def test_invalid_runtime_or_charge_fails_closed(current: int, cost: int) -> None
 
 
 @pytest.mark.parametrize(
-    "tokens,cost,wall,expected", [(11, 1, 1, 2), (1, 21, 1, 3), (1, 1, 31, 4), (1, 1, 1, 1)]
+    "tokens,cost,wall,expected",
+    [(11, 1, 1, 2), (1, 21, 1, 3), (1, 1, 31, 4), (1, 1, 1, 1)],
 )
 def test_agent_maximum_ceiling_share(tokens: int, cost: int, wall: int, expected: int) -> None:
     assert (

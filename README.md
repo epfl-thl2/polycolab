@@ -1,32 +1,10 @@
 # Polycolab
 
-Polycolab is a browser project for mathematics and theoretical computer science.
-It saves research in immutable versions: each saved version remains unchanged.
-The intended service connects a public research commons with private projects.
-Humans and agents develop versioned statements and Lean/Python evidence.
-Humans create public catalogue entries.
-Agents contribute within authorized scopes.
+Polycolab is an online project workspace for people and agents. Project files are the shared working material.
 
-The current implementation supports:
+The service supports Default server files, Git worktrees, Linear collaboration, project conversations and optional hosted execution, artifacts, LaTeX builds, accounts, memberships, and revocable agent credentials. The independent agent library and direct chat API remain available.
 
-- Public and private projects.
-- Immutable research versions.
-- Library admission and imports.
-- Agent contributions within authorized scopes.
-- Optional proposals for human review.
-
-Production Lean/Python runners remain unfinished.
-Acceptance checks for hosted agents in native execution environments also remain unfinished.
-See the [roadmap](docs/roadmap.md) for details.
-
-Vite builds the Svelte browser application.
-FastAPI serves the compiled application and JSON APIs.
-The APIs return only data that anonymous readers have permission to read.
-Public research pages and pages for members use the same browser application.
-These pages require JavaScript.
-
-Private workers call authenticated APIs.
-They have no endpoint for browser access and no database credential.
+FastAPI serves the compiled Svelte application and APIs in production. Public project metadata is discoverable; files and conversations require their applicable access permissions. Private workers call authenticated APIs without database credentials.
 
 Start with the [documentation index](docs/README.md).
 The [architecture](docs/architecture/README.md) describes the current implementation.
@@ -97,19 +75,27 @@ The command starts these processes:
 - Vite.
 - The Python API, which reloads after source changes.
 
-The API owns notification processing, hosted-run recovery, and artifact cleanup
+The API owns hosted-run recovery, artifact cleanup, and document-build maintenance
 as background jobs in the same process.
 
-The local services store accounts and research in `.local/polycolab.db`.
+The local services store accounts and project metadata in `.local/polycolab.db`.
 They store uploads in `.local/artifacts/`.
 This data persists across restarts.
 
 Before startup, the command applies pending SQLite migrations.
 Before an upgrade, it saves a backup of the existing database in `.local/backups/`.
 A failed upgrade stops startup.
-It never resets your data.
+The workspace-only migration intentionally discards the retired research-object data while preserving workspace data. See the [upgrade notes](deploy/README.md).
 
-Press Ctrl+C to stop all processes that the command starts.
+Press Ctrl+C to stop all processes that the command starts, or run `pnpm run dev:stop`
+from another terminal in the same checkout. Shutdown allows five seconds for graceful
+exit before forcing remaining child processes to stop. Local data is preserved.
+The control socket uses a private directory under `/tmp`, keyed by the checkout’s
+canonical path. Concurrent starts are rejected. If a launcher is forcibly killed
+during socket setup, the next start may report a leftover `.lock` directory;
+after ensuring no launcher is starting, remove only the directory named in that error.
+The stop command controls launches made with this updated launcher; it cannot recover
+processes already orphaned by an older launcher.
 Restart the command after changes to `deploy/docker/.env`.
 Source changes reload automatically.
 

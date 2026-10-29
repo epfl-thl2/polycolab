@@ -44,7 +44,7 @@ Managed-platform or role/database limits may be tighter than the server ceiling 
 Do not assume the stock PostgreSQL default is the deployed value.
 
 Run the offline preflight with one repeated `--pool PROCESSES SIZE OVERFLOW` per process class.
-This example represents four API processes (including any surge) and two serial consumers on a **hypothetical** 100-connection server:
+This example represents four API processes (including any surge) and two operator batch jobs on a **hypothetical** 100-connection server:
 
 ```sh
 uv run --directory src/backend python -m polycolab.database_budget \
@@ -60,7 +60,7 @@ Recalculate before scaling or rolling out a changed pool.
 
 ## Compose and environment examples
 
-The single-process core shares one pool across HTTP requests, notifications,
+The single-process core shares one pool across HTTP requests,
 hosted recovery, and artifact cleanup. Each job uses its own session.
 The default pool size is 5 with 5 overflow connections: at most 10 total.
 Pools acquire connections lazily. Migrations retain their separate NullPool.

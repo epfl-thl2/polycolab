@@ -23,7 +23,6 @@ def agent_actor(
     context_manifest_id: UUID,
     project_id: UUID,
     operation_scope: frozenset[ActorOperation],
-    ownership_scope_id: UUID | None = None,
 ) -> Actor:
     return Actor(
         kind=ActorKind.AGENT,
@@ -34,26 +33,5 @@ def agent_actor(
         session_id=session_id,
         context_manifest_id=context_manifest_id,
         project_id=project_id,
-        ownership_scope_id=ownership_scope_id,
-        operation_scope=operation_scope,
-    )
-
-
-def external_agent_actor(
-    *,
-    sponsor_user_id: UUID,
-    credential_id: UUID,
-    run_id: UUID,
-    project_id: UUID,
-    ownership_scope_id: UUID,
-    operation_scope: frozenset[ActorOperation],
-) -> Actor:
-    return Actor(
-        kind=ActorKind.AGENT,
-        sponsor_user_id=sponsor_user_id,
-        external_credential_id=credential_id,
-        external_run_id=run_id,
-        project_id=project_id,
-        ownership_scope_id=ownership_scope_id,
         operation_scope=operation_scope,
     )

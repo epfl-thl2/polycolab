@@ -1,4 +1,4 @@
-"""Build state belongs to projects and worktrees, never public research."""
+"""Project and worktree document build state."""
 
 from datetime import datetime
 from uuid import UUID

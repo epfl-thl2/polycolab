@@ -665,7 +665,9 @@ def test_existing_preview_is_null_until_replacement_and_reads_do_not_decrypt(
     )
 
 
-def test_failed_replacement_preserves_preview_and_encrypted_key(client: TestClient) -> None:
+def test_failed_replacement_preserves_preview_and_encrypted_key(
+    client: TestClient,
+) -> None:
     created = create_gateway_profile(client)
     with app_for(client).state.session_factory() as db:
         stored = db.get(SqlGatewayProfile, UUID(created["id"]))

@@ -30,7 +30,10 @@ WORKER = {"Authorization": "Bearer isolated-test-worker"}
 def transport(client: TestClient) -> httpx.MockTransport:
     def send(request: httpx.Request) -> httpx.Response:
         response = client.request(
-            request.method, str(request.url), headers=dict(request.headers), content=request.read()
+            request.method,
+            str(request.url),
+            headers=dict(request.headers),
+            content=request.read(),
         )
         return httpx.Response(
             response.status_code, headers=response.headers, content=response.content
@@ -70,7 +73,10 @@ def test_real_texlive_bibliography_and_private_pdf(
         json={
             "expected_revision": tree["revision"],
             "changes": [
-                {"path": name, "content_base64": base64.b64encode(value.encode()).decode()}
+                {
+                    "path": name,
+                    "content_base64": base64.b64encode(value.encode()).decode(),
+                }
                 for name, value in files.items()
             ],
         },
@@ -83,7 +89,11 @@ def test_real_texlive_bibliography_and_private_pdf(
         response = client.post(
             root + "/latex-builds",
             headers={**headers("owner"), "Idempotency-Key": "build"},
-            json={"revision": saved.json()["revision"], "main_file": "main.tex", "engine": engine},
+            json={
+                "revision": saved.json()["revision"],
+                "main_file": "main.tex",
+                "engine": engine,
+            },
         )
         assert response.status_code == 202, response.text
         claim: dict[str, Any] = worker.post(

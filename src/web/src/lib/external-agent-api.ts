@@ -1,12 +1,11 @@
 import type { components } from '$lib/api-client';
 
 import { createWebApiClient } from './runtime';
-import { ApiError, type Page } from './research-api';
+import { ApiError, type Page } from './projects-api';
 
 export type ExternalCredential = components['schemas']['ExternalCredentialRead'];
 export type IssuedExternalCredential = components['schemas']['ExternalCredentialIssued'];
 export type AgentIdentity = components['schemas']['AgentIdentityRead'];
-export type ProjectRun = components['schemas']['ProjectRunRead'];
 
 type ErrorBody = { error?: { code?: string } };
 
@@ -77,22 +76,8 @@ export function createExternalAgentApi(
           params: { query: query(cursor) },
         }),
       ),
-    createCredential: (
-      name: string,
-      agentId: string,
-      allowLibraryContributions = false,
-      allowReviews = false,
-    ) =>
-      unwrap(
-        human.POST('/api/v1/account/agent-keys', {
-          body: {
-            name,
-            agent_id: agentId,
-            allow_library_contributions: allowLibraryContributions,
-            allow_reviews: allowReviews,
-          },
-        }),
-      ),
+    createCredential: (name: string, agentId: string) =>
+      unwrap(human.POST('/api/v1/account/agent-keys', { body: { name, agent_id: agentId } })),
     revealCredential: (credentialId: string) =>
       unwrap(
         human.POST('/api/v1/account/agent-keys/{credential_id}/reveal', {
@@ -103,12 +88,6 @@ export function createExternalAgentApi(
       unwrap<void>(
         human.DELETE('/api/v1/account/agent-keys/{credential_id}', {
           params: { path: { credential_id: credentialId } },
-        }),
-      ),
-    listProjectRuns: (projectId: string, cursor?: string) =>
-      page(
-        human.GET('/api/v1/projects/{project_id}/runs', {
-          params: { path: { project_id: projectId }, query: query(cursor) },
         }),
       ),
   };

@@ -45,7 +45,9 @@ def observed() -> Iterator[tuple[PoolMeter, Engine]]:
         engine.dispose()
 
 
-def test_acquisition_timeout_release_and_no_sql(observed: tuple[PoolMeter, Engine]) -> None:
+def test_acquisition_timeout_release_and_no_sql(
+    observed: tuple[PoolMeter, Engine],
+) -> None:
     meter, engine = observed
 
     def forbid_sql(*args: object) -> None:
@@ -96,7 +98,9 @@ def test_engine_dispose_recreation_keeps_process_counters(
     assert 'checkout_total{outcome="acquired",role="api"} 2' in meter.render(engine)
 
 
-def test_waiting_checkout_recovers_after_return(observed: tuple[PoolMeter, Engine]) -> None:
+def test_waiting_checkout_recovers_after_return(
+    observed: tuple[PoolMeter, Engine],
+) -> None:
     meter, engine = observed
     started = Event()
 
@@ -129,7 +133,9 @@ def test_disposal_gauge_tracks_current_pool_not_retired_connections(
 
 
 def test_authorized_route_exports_only_its_own_pool(
-    observed: tuple[PoolMeter, Engine], client: TestClient, monkeypatch: pytest.MonkeyPatch
+    observed: tuple[PoolMeter, Engine],
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     meter, engine = observed
     app = cast(FastAPI, client.app)
@@ -168,13 +174,13 @@ def test_engine_factory_passes_pool_class_and_meters_are_isolated(
 ) -> None:
     meter, engine = observed
     settings = _settings()
-    community = PoolMeter(settings, PoolRole.COMMUNITY)
+    second_meter = PoolMeter(settings, PoolRole.API)
     with patch("polycolab.db.session.create_engine") as create:
-        make_engine(settings, pool_class=community.pool_class)
-    assert create.call_args.kwargs["poolclass"] is community.pool_class
+        make_engine(settings, pool_class=second_meter.pool_class)
+    assert create.call_args.kwargs["poolclass"] is second_meter.pool_class
     with pytest.raises(ValueError, match="does not own"):
-        community.render(engine)
-    assert community.pool_class is not meter.pool_class
+        second_meter.render(engine)
+    assert second_meter.pool_class is not meter.pool_class
 
 
 def test_sqlite_does_not_advertise_postgresql_pool_budget() -> None:

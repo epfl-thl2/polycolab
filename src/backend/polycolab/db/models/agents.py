@@ -34,9 +34,6 @@ from polycolab.entities.enums import (
     AgentSessionStatus,
     ExecutionProfile,
     PlatformAgentKind,
-    ProposalChangeStatus,
-    ProposalChangeType,
-    ProposalDecisionAction,
     RuntimeBindingStatus,
     RuntimeRunBindingStatus,
     UsageSource,
@@ -199,7 +196,6 @@ class SqlAgentRun(Base):
     runtime_spec: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
     queue_sequence: Mapped[int] = mapped_column(Integer)
     input_message_sequence: Mapped[int] = mapped_column(Integer)
-    requested_context_revision_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
     requested_context_artifact_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
     status: Mapped[AgentRunStatus] = mapped_column(
         Enum(AgentRunStatus, native_enum=False, length=16), default=AgentRunStatus.QUEUED
@@ -436,7 +432,7 @@ class SqlRuntimeRunBinding(Base):
 
 
 class SqlContextManifest(Base):
-    """Immutable, permission-filtered exact revisions supplied to one run."""
+    """Immutable, permission-filtered project artifact selection for one run."""
 
     __tablename__ = "context_manifests"
     __table_args__ = (
@@ -466,7 +462,6 @@ class SqlContextManifest(Base):
     project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), index=True)
     requested_by_user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
     agent_version_id: Mapped[UUID] = mapped_column(ForeignKey("platform_agent_versions.id"))
-    revision_ids: Mapped[list[str]] = mapped_column(JSON)
     artifact_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
     digest: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
@@ -486,38 +481,6 @@ class SqlContextManifestArtifact(Base):
         ForeignKey("artifacts.id"), primary_key=True, index=True
     )
     position: Mapped[int] = mapped_column(Integer)
-
-
-class SqlRunWriteGrant(Base):
-    """Immutable requested authority; effective rights are recomputed on every call."""
-
-    __tablename__ = "run_write_grants"
-    run_id: Mapped[UUID] = mapped_column(ForeignKey("agent_runs.id"), primary_key=True)
-    request: Mapped[dict[str, object]] = mapped_column(JSON)
-    request_digest: Mapped[str] = mapped_column(String(64))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-
-
-class SqlRunRevisionOutput(Base):
-    """Exact run-created outputs, separate from the immutable input manifest."""
-
-    __tablename__ = "run_revision_outputs"
-    run_id: Mapped[UUID] = mapped_column(ForeignKey("agent_runs.id"), primary_key=True)
-    revision_id: Mapped[UUID] = mapped_column(ForeignKey("object_revisions.id"), primary_key=True)
-    contribution_id: Mapped[UUID] = mapped_column(ForeignKey("contribution_envelopes.id"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-
-
-class SqlRunArtifactOutput(Base):
-    """Exact committed verification outputs attributable to one agent run."""
-
-    __tablename__ = "run_artifact_outputs"
-    __table_args__ = (UniqueConstraint("artifact_id", name="uq_run_artifact_output_artifact"),)
-
-    run_id: Mapped[UUID] = mapped_column(ForeignKey("agent_runs.id"), primary_key=True)
-    artifact_id: Mapped[UUID] = mapped_column(ForeignKey("artifacts.id"), primary_key=True)
-    result_id: Mapped[UUID] = mapped_column(ForeignKey("verification_results.id"), index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
 class SqlRunToolCapability(Base):
@@ -554,239 +517,6 @@ class SqlRunToolCapability(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
-class SqlProposal(Base):
-    """Unaccepted agent output, deliberately separate from canonical research."""
-
-    __tablename__ = "proposals"
-    __table_args__ = (
-        UniqueConstraint("run_id", "idempotency_key", name="uq_proposals_run_key"),
-        UniqueConstraint("id", "project_id", name="uq_proposals_id_project"),
-        ForeignKeyConstraint(
-            [
-                "context_manifest_id",
-                "run_id",
-                "project_id",
-                "requested_by_user_id",
-                "agent_version_id",
-            ],
-            [
-                "context_manifests.id",
-                "context_manifests.run_id",
-                "context_manifests.project_id",
-                "context_manifests.requested_by_user_id",
-                "context_manifests.agent_version_id",
-            ],
-            name="fk_proposals_manifest_scope",
-        ),
-        ForeignKeyConstraint(
-            ["session_id", "project_id"],
-            ["agent_sessions.id", "agent_sessions.project_id"],
-            name="fk_proposals_session_project",
-        ),
-        ForeignKeyConstraint(
-            ["run_id", "session_id", "project_id", "requested_by_user_id", "agent_version_id"],
-            [
-                "agent_runs.id",
-                "agent_runs.session_id",
-                "agent_runs.project_id",
-                "agent_runs.requested_by_user_id",
-                "agent_runs.agent_version_id",
-            ],
-            name="fk_proposals_run_session_scope",
-        ),
-    )
-
-    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), index=True)
-    session_id: Mapped[UUID] = mapped_column(ForeignKey("agent_sessions.id"), index=True)
-    run_id: Mapped[UUID] = mapped_column(ForeignKey("agent_runs.id"), index=True)
-    agent_version_id: Mapped[UUID] = mapped_column(ForeignKey("platform_agent_versions.id"))
-    context_manifest_id: Mapped[UUID] = mapped_column(ForeignKey("context_manifests.id"))
-    requested_by_user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
-    idempotency_key: Mapped[str] = mapped_column(String(200))
-    summary: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-
-
-class SqlProposalChange(Base):
-    __tablename__ = "proposal_changes"
-    __table_args__ = (
-        UniqueConstraint("proposal_id", "ordinal", name="uq_proposal_changes_ordinal"),
-        CheckConstraint("ordinal > 0", name="ck_proposal_changes_ordinal"),
-        CheckConstraint(
-            "change_type IN ('CREATE_OBJECT', 'CREATE_REVISION', 'CREATE_RELATION', "
-            "'CREATE_COMMENT')",
-            name="ck_proposal_changes_type",
-        ),
-        CheckConstraint(
-            "status IN ('PENDING', 'ACCEPTED', 'REJECTED')",
-            name="ck_proposal_changes_status",
-        ),
-        CheckConstraint(
-            "(status = 'PENDING' AND decided_by_user_id IS NULL AND decided_at IS NULL "
-            "AND applied_entity_id IS NULL) OR "
-            "(status = 'REJECTED' AND decided_by_user_id IS NOT NULL AND decided_at IS NOT NULL "
-            "AND applied_entity_id IS NULL) OR "
-            "(status = 'ACCEPTED' AND decided_by_user_id IS NOT NULL AND decided_at IS NOT NULL "
-            "AND applied_entity_id IS NOT NULL)",
-            name="ck_proposal_changes_decision",
-        ),
-        UniqueConstraint("id", "project_id", name="uq_proposal_changes_id_project"),
-        ForeignKeyConstraint(
-            ["proposal_id", "project_id"],
-            ["proposals.id", "proposals.project_id"],
-            name="fk_proposal_changes_proposal_project",
-        ),
-    )
-
-    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    proposal_id: Mapped[UUID] = mapped_column(ForeignKey("proposals.id"), index=True)
-    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), index=True)
-    ordinal: Mapped[int] = mapped_column(Integer)
-    change_type: Mapped[ProposalChangeType] = mapped_column(
-        Enum(ProposalChangeType, native_enum=False, length=32)
-    )
-    payload: Mapped[dict[str, object]] = mapped_column(JSON)
-    status: Mapped[ProposalChangeStatus] = mapped_column(
-        Enum(ProposalChangeStatus, native_enum=False, length=16),
-        default=ProposalChangeStatus.PENDING,
-    )
-    decided_by_user_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    applied_entity_id: Mapped[UUID | None] = mapped_column(nullable=True)
-    rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
-    source_event_cursors: Mapped[list[int]] = mapped_column(JSON, default=list)
-
-
-class SqlProposalChangeDecision(Base):
-    """One immutable human decision and its replay-safe request identity."""
-
-    __tablename__ = "proposal_change_decisions"
-    __table_args__ = (
-        UniqueConstraint("proposal_change_id", name="uq_proposal_change_decisions_change"),
-        UniqueConstraint(
-            "proposal_change_id",
-            "idempotency_key_digest",
-            name="uq_proposal_change_decisions_change_key",
-        ),
-        CheckConstraint(
-            "action IN ('ACCEPT', 'REJECT')", name="ck_proposal_change_decisions_action"
-        ),
-        CheckConstraint(
-            "length(idempotency_key_digest) = 64 AND length(request_digest) = 64",
-            name="ck_proposal_change_decisions_digest_length",
-        ),
-        ForeignKeyConstraint(
-            ["proposal_change_id", "project_id"],
-            ["proposal_changes.id", "proposal_changes.project_id"],
-            name="fk_proposal_change_decisions_change_project",
-        ),
-    )
-
-    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    proposal_change_id: Mapped[UUID] = mapped_column(ForeignKey("proposal_changes.id"), index=True)
-    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), index=True)
-    action: Mapped[ProposalDecisionAction] = mapped_column(
-        Enum(ProposalDecisionAction, native_enum=False, length=16)
-    )
-    idempotency_key_digest: Mapped[str] = mapped_column(String(64))
-    request_digest: Mapped[str] = mapped_column(String(64))
-    decided_by_user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-
-
-class SqlProposalDecisionBatch(Base):
-    """One all-or-nothing review request, retained only as an idempotency record."""
-
-    __tablename__ = "proposal_decision_batches"
-    __table_args__ = (
-        UniqueConstraint(
-            "proposal_id", "idempotency_key_digest", name="uq_proposal_decision_batches_key"
-        ),
-        CheckConstraint(
-            "length(idempotency_key_digest) = 64 AND length(request_digest) = 64",
-            name="ck_proposal_decision_batches_digest_length",
-        ),
-        ForeignKeyConstraint(
-            ["proposal_id", "project_id"],
-            ["proposals.id", "proposals.project_id"],
-            name="fk_proposal_decision_batches_proposal_project",
-        ),
-    )
-
-    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    proposal_id: Mapped[UUID] = mapped_column(ForeignKey("proposals.id"), index=True)
-    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), index=True)
-    idempotency_key_digest: Mapped[str] = mapped_column(String(64))
-    request_digest: Mapped[str] = mapped_column(String(64))
-    decided_by_user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-
-
-class SqlExternalResearchRun(Base):
-    """Bookkeeping for externally executed research with a frozen exact context."""
-
-    __tablename__ = "external_research_runs"
-    __table_args__ = (
-        ForeignKeyConstraint(
-            ["credential_id", "sponsor_user_id"],
-            [
-                "external_agent_credentials.id",
-                "external_agent_credentials.sponsor_user_id",
-            ],
-            name="fk_external_run_credential_binding",
-        ),
-        UniqueConstraint(
-            "id",
-            "credential_id",
-            "project_id",
-            "sponsor_user_id",
-            name="uq_external_research_run_identity",
-        ),
-        UniqueConstraint(
-            "credential_id", "client_request_id", name="uq_external_run_client_request"
-        ),
-        CheckConstraint(
-            "status IN ('OPEN','COMPLETED','FAILED','REVOKED')",
-            name="ck_external_research_run_status",
-        ),
-    )
-
-    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    credential_id: Mapped[UUID] = mapped_column(
-        ForeignKey("external_agent_credentials.id"), index=True
-    )
-    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), index=True)
-    sponsor_user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
-    client_request_id: Mapped[UUID] = mapped_column()
-    title: Mapped[str | None] = mapped_column(String(300), nullable=True)
-    input_revision_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
-    status: Mapped[str] = mapped_column(String(16), default="OPEN")
-    failure_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-
-
-class SqlExternalRunInvocation(Base):
-    """Idempotent external operation audit without request bodies or secrets."""
-
-    __tablename__ = "external_run_invocations"
-    __table_args__ = (
-        UniqueConstraint("run_id", "idempotency_digest", name="uq_external_invocation_key"),
-        CheckConstraint("length(idempotency_digest) = 64", name="ck_external_invocation_key"),
-        CheckConstraint("length(request_digest) = 64", name="ck_external_invocation_request"),
-    )
-
-    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    run_id: Mapped[UUID] = mapped_column(ForeignKey("external_research_runs.id"), index=True)
-    operation: Mapped[str] = mapped_column(String(64))
-    idempotency_digest: Mapped[str] = mapped_column(String(64))
-    request_digest: Mapped[str] = mapped_column(String(64))
-    output_type: Mapped[str] = mapped_column(String(64))
-    output_id: Mapped[UUID] = mapped_column()
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-
-
 __all__ = [
     "SqlPlatformAgentVersion",
     "SqlAgentSession",
@@ -801,16 +531,7 @@ __all__ = [
     "SqlRuntimeRunBinding",
     "SqlContextManifest",
     "SqlContextManifestArtifact",
-    "SqlRunWriteGrant",
-    "SqlRunRevisionOutput",
-    "SqlRunArtifactOutput",
     "SqlRunToolCapability",
-    "SqlProposal",
-    "SqlProposalChange",
-    "SqlProposalChangeDecision",
-    "SqlProposalDecisionBatch",
-    "SqlExternalResearchRun",
-    "SqlExternalRunInvocation",
 ]
 
 
@@ -836,7 +557,7 @@ class SqlHostedExecutor(Base):
 
 
 class SqlHostedRunArtifact(Base):
-    """Private session exports; unlike verification outputs, these assert no evidence."""
+    """Private artifact exports from a hosted session."""
 
     __tablename__ = "hosted_run_artifacts"
     __table_args__ = (

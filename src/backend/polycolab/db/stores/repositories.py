@@ -7,7 +7,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from polycolab.db.errors import persistence_boundary
-from polycolab.db.models import SqlAgentRun, SqlAgentSession, SqlRunWriteGrant
+from polycolab.db.models import SqlAgentRun, SqlAgentSession
 from polycolab.db.models.project_tasks import SqlProjectTask
 from polycolab.db.models.repositories import (
     SqlProjectRepository,
@@ -243,11 +243,6 @@ class SqlRepositoryStore:
         assert row is not None
         row.output_commit = commit
         self.db.flush()
-
-    @persistence_boundary
-    def public_run(self, run_id: UUID) -> bool:
-        grant = self.db.get(SqlRunWriteGrant, run_id)
-        return grant is not None and grant.request.get("destination") == "PUBLIC"
 
     @persistence_boundary
     def task(self, project_id: UUID, task_id: UUID, *, lock: bool = False) -> ProjectTask:

@@ -132,7 +132,7 @@ class WorktreeService(RepositoryService):
             == "git"
             and not self.transaction.linear.conversion_pending(self.project_id)
             and project_policy.can(
-                self.transaction, self.project_id, self.user_id, ProjectAction.CREATE_RESEARCH
+                self.transaction, self.project_id, self.user_id, ProjectAction.WRITE_FILES
             )
             and not self.store.branch_active(self.project_id, task.branch),
         }
@@ -158,6 +158,9 @@ class WorktreeService(RepositoryService):
             ).encode()
         ).hexdigest()
         receipt = self.store.receipt(self.project_id, self.user_id, key)
+        # Git preparation may take time. Do not retain a SQLite read snapshot
+        # across it and then attempt to promote that stale snapshot to a writer.
+        self.transaction.commit()
         if receipt:
             if receipt.digest != digest or receipt.branch != task.branch:
                 raise RepositoryError("repository_retry_mismatch")

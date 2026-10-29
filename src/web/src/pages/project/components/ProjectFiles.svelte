@@ -6,7 +6,7 @@
   import { createExplorerView, type ExplorerViewState } from '../../../lib/file-explorer';
   import { beforeNavigate } from '$app/navigation';
   import { projectContext, explain } from '../../../svelte-lib/context';
-  import { ApiError } from '../../../lib/research-api';
+  import { ApiError } from '../../../lib/projects-api';
   import {
     bytesToBase64,
     decodeFile,

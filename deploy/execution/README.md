@@ -9,7 +9,7 @@ It has no database or provider credential.
 
 The microsandbox installation steps remain **unverified**.
 The image and native containment boundary still require acceptance.
-Standalone Python/Lean verification remains disabled.
+Standalone research verification has been removed.
 
 ## Prepare the host
 
@@ -74,7 +74,7 @@ Record SDK 0.6.18 and Codex 0.154.0 versions and image identity alongside result
   Bounded host logs and outputs.
 - Cancellation, controller SIGKILL/restart, ambiguous creation and stop, and orphan reconciliation.
   Confirm no process remains before physical slot reuse.
-- Real app-server startup, Responses forwarding with a user-owned profile, research tools, completed chat, follow-up turns and reconnect from a browser.
+- Real app-server startup, Responses forwarding with a user-owned profile, workspace tools, completed chat, follow-up turns and reconnect from a browser.
 - Four simultaneous attempts across users/projects, queue fairness, stale lease rejection and conservative provider settlement after lease loss.
 - Explicit artifact downloads and cross-user denial.
   No retained raw commands, reasoning, undeclared project files or automatic publication.
@@ -125,7 +125,7 @@ The reconciler shares the core application database pool.
 It polls every five seconds; keep core running when executor admission is disabled.
 The reconciler needs no extra provider or controller credential.
 
-A run that may have dispatched a provider request or changed research requires explicit user resume after runner loss.
+A run that may have dispatched a provider request or changed files requires explicit user resume after runner loss.
 Resume creates a new run.
 Review prior work before resuming.
 External effects do not have an exactly-once execution guarantee.
@@ -138,7 +138,7 @@ Do not downgrade away completion receipts or delete quarantined reservations.
 See the [failure acceptance matrix](../../docs/architecture/hosted-failures.md).
 
 Docker-free development uses forward SQLite migrations through `local_20261013_executors`.
-Existing local accounts, research and uploads are retained, with a pre-upgrade backup.
+Existing local accounts, workspace files, conversations and project uploads are retained, with a pre-upgrade backup. The workspace-only migration discards research-object data.
 Hosted VMs still require the separate Linux host.
 The PostgreSQL merge revision preserves both previous migration histories and supports upgrading from either `20260915_submission_numbers` or `20260915_hosted_recovery`.
 

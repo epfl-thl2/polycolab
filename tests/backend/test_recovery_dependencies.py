@@ -1,29 +1,20 @@
 """SQLite, fake S3 and local crypto evidence; no deployment acceptance."""
 
-from typing import Any, cast
-from uuid import UUID, uuid4
+from typing import Any
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import event, select
 from sqlalchemy.engine import Connection
 from test_artifacts import artifact_client as artifact_client
-from test_artifacts import attach, upload
-from test_catalogue_api import admit, enable, headers
+from test_artifacts import upload
 from test_gateway import app_for, create_gateway_profile
-from test_research_domain import create_object, create_project
+from workspace_support import create_project
 
 from polycolab.db.models import (
-    SqlContributionEnvelope,
     SqlGatewayProfile,
-    SqlObjectRevision,
-    SqlPublicationManifest,
-    SqlPublicationRevision,
-    SqlPublicRelease,
-    SqlResearchObject,
-    SqlRevisionEndorsement,
 )
-from polycolab.entities.enums import ContributionActorKind
 from polycolab.entities.time import utc_now
 from polycolab.model_gateway.credentials import (
     LocalAesGcmKeyWrapper,
@@ -34,9 +25,7 @@ from polycolab.operations import recovery_dependencies
 from polycolab.operations.recovery_dependencies import (
     verify_artifacts,
     verify_credentials,
-    verify_research_integrity,
 )
-from polycolab.platform.outbox import canonical_digest
 
 
 def test_restored_committed_artifacts_are_verified_outside_transaction(
@@ -44,13 +33,7 @@ def test_restored_committed_artifacts_are_verified_outside_transaction(
 ) -> None:
     client = artifact_client
     project = create_project(client)
-    target = create_object(client, project)
-    uploaded = upload(client, project).json()
-    assert (
-        attach(client, project, uploaded["id"], target["current_object_version_id"]).status_code
-        == 200
-    )
-    assert upload(client, project, b"uncommitted").status_code == 201
+    assert upload(client, project).status_code == 201
     app = app_for(client)
     active: set[int] = set()
     event.listen(app.state.engine, "begin", lambda connection: active.add(id(connection)))
@@ -192,252 +175,3 @@ def test_database_failure_is_not_reported_as_verified(client: TestClient) -> Non
         assert report.status == "DATABASE_FAILURE" and report.checked == 0
     finally:
         event.remove(app.state.engine, "before_cursor_execute", failed)
-
-
-def test_restored_research_semantics_and_public_digest_are_verified(
-    client: TestClient,
-) -> None:
-    project_id = create_project(client)
-    created = create_object(client, project_id)
-    app = app_for(client)
-    revision_id = UUID(cast(str, created["current_object_version_id"]))
-    with app.state.session_factory() as session:
-        revision = session.get(SqlObjectRevision, revision_id)
-        obj = session.get(SqlResearchObject, UUID(cast(str, created["id"])))
-        assert revision is not None and obj is not None
-        publication = SqlContributionEnvelope(
-            actor_kind=ContributionActorKind.HUMAN,
-            human_user_id=revision.created_by_user_id,
-            ownership_scope_id=revision.ownership_scope_id,
-            operation="publication.confirm",
-            source_event_cursors=[],
-        )
-        session.add(publication)
-        session.flush()
-        manifest = SqlPublicationManifest(
-            project_id=obj.project_id,
-            ownership_scope_id=revision.ownership_scope_id,
-            preview_digest="1" * 64,
-            contribution_id=publication.id,
-            created_by_user_id=revision.created_by_user_id,
-            selection={},
-            public_fields={},
-        )
-        session.add(manifest)
-        session.flush()
-        fields: dict[str, object] = {
-            "object_id": str(obj.id),
-            "revision_id": str(revision.id),
-            "kind": "CLAIM",
-            "title": "Claim",
-            "content_md": "x",
-            "assumptions_md": None,
-            "author_display_name": "Owner",
-        }
-        release = SqlPublicRelease(
-            ownership_scope_id=revision.ownership_scope_id,
-            object_revision_id=revision.id,
-            contribution_id=publication.id,
-            publication_manifest_id=manifest.id,
-            projection_version=3,
-            public_fields=fields,
-            public_fields_digest=canonical_digest(fields),
-        )
-        endorsement = SqlRevisionEndorsement(
-            revision_id=revision.id,
-            active=True,
-            rationale="checked",
-            contribution_id=revision.contribution_id,
-            created_by_user_id=revision.created_by_user_id,
-        )
-        session.add_all(
-            (
-                SqlPublicationRevision(
-                    manifest_id=manifest.id,
-                    revision_id=revision.id,
-                    position=0,
-                    selected=True,
-                ),
-                release,
-                endorsement,
-            )
-        )
-        session.commit()
-        release_id = release.id
-
-    report = verify_research_integrity(app.state.session_factory)
-    assert report.status == "VERIFIED" and report.checked == 6
-    assert verify_research_integrity(app.state.session_factory, max_items=5).status == (
-        "LIMIT_REACHED"
-    )
-
-    with app.state.session_factory() as session:
-        release = session.get(SqlPublicRelease, release_id)
-        assert release is not None
-        release.public_fields_digest = "0" * 64
-        session.commit()
-    report = verify_research_integrity(app.state.session_factory)
-    assert report.status == "INTEGRITY_FAILURE"
-    assert report.sections == ("public_releases",)
-
-
-def test_restored_revision_head_mismatch_is_reported_without_content(client: TestClient) -> None:
-    project_id = create_project(client)
-    created = create_object(client, project_id)
-    app = app_for(client)
-    with app.state.session_factory() as session:
-        obj = session.get(SqlResearchObject, UUID(cast(str, created["id"])))
-        assert obj is not None
-        obj.current_revision_id = None
-        session.commit()
-    report = verify_research_integrity(app.state.session_factory)
-    assert report.status == "INTEGRITY_FAILURE"
-    assert report.sections == ("revision_heads",)
-
-
-def test_restore_verifier_accepts_independently_scoped_equivalence(client: TestClient) -> None:
-    app = enable(client)
-    first, second = admit(client, "first"), admit(client, "second")
-    project = create_project(client)
-    response = client.post(
-        "/api/v1/relations",
-        headers=headers(),
-        json={
-            "direction": "BIDIRECTIONAL",
-            "relationship_type": "EQUIVALENT_TO",
-            "destination": {"kind": "project", "project_id": project},
-            "first_object_version_id": first["object_version_id"],
-            "second_object_version_id": second["object_version_id"],
-        },
-    )
-    assert response.status_code == 201, response.text
-    assert verify_research_integrity(app.state.session_factory).status == "VERIFIED"
-
-
-def test_restore_verifier_counts_and_checks_structural_relationships(client: TestClient) -> None:
-    from polycolab.db.models.relationships import SqlObjectVersionRelationship
-
-    project = create_project(client)
-    proof = create_object(client, project, kind="PROOF_SKETCH")
-    unrelated = create_object(client, project)
-    app = app_for(client)
-    before = verify_research_integrity(app.state.session_factory)
-    assert before.status == "VERIFIED"
-    # Three identities, three versions and two structural relationships.
-    assert before.checked == 8
-    assert (
-        verify_research_integrity(app.state.session_factory, max_items=7).status == "LIMIT_REACHED"
-    )
-    with app.state.session_factory() as session:
-        pin = session.scalar(
-            select(SqlObjectVersionRelationship).where(
-                SqlObjectVersionRelationship.source_object_version_id
-                == UUID(proof["current_object_version_id"])
-            )
-        )
-        other = session.get(SqlObjectRevision, UUID(unrelated["current_object_version_id"]))
-        assert pin is not None and other is not None
-        # Simulate restored corruption not prevented by SQLite's reduced constraints.
-        pin.contribution_id = other.contribution_id
-        session.commit()
-    report = verify_research_integrity(app.state.session_factory)
-    assert report.status == "INTEGRITY_FAILURE"
-    assert report.sections == ("relations",)
-
-
-@pytest.mark.parametrize("missing_role", ["CONCLUSION", "ATTACHMENT", "TARGET"])
-def test_restore_verifier_rejects_incomplete_structure(
-    client: TestClient, missing_role: str
-) -> None:
-    from polycolab.db.models.relationships import SqlObjectVersionRelationship
-
-    project = create_project(client)
-    created = create_object(
-        client, project, kind="ATTEMPT" if missing_role == "TARGET" else "PROOF_SKETCH"
-    )
-    app = app_for(client)
-    assert verify_research_integrity(app.state.session_factory).status == "VERIFIED"
-    with app.state.session_factory() as session:
-        pin = session.scalar(
-            select(SqlObjectVersionRelationship).where(
-                SqlObjectVersionRelationship.source_object_version_id
-                == UUID(created["current_object_version_id"]),
-                SqlObjectVersionRelationship.relationship_type == missing_role,
-            )
-        )
-        assert pin is not None
-        # SQLite permits simulating a damaged restore without disabling production triggers.
-        session.delete(pin)
-        session.commit()
-    report = verify_research_integrity(app.state.session_factory)
-    assert report.status == "INTEGRITY_FAILURE"
-    assert report.sections == ("relations",)
-
-
-@pytest.mark.parametrize("kind", ["PROOF_SKETCH", "ATTEMPT"])
-def test_restore_verifier_rejects_incompatible_structural_target(
-    client: TestClient, kind: str
-) -> None:
-    from polycolab.db.models.relationships import SqlObjectVersionRelationship
-
-    project = create_project(client)
-    created = create_object(client, project, kind=kind)
-    incompatible = create_object(client, project, kind="ATTEMPT")
-    app = app_for(client)
-    assert verify_research_integrity(app.state.session_factory).status == "VERIFIED"
-    with app.state.session_factory() as session:
-        for pin in session.scalars(
-            select(SqlObjectVersionRelationship).where(
-                SqlObjectVersionRelationship.source_object_version_id
-                == UUID(created["current_object_version_id"])
-            )
-        ):
-            pin.target_object_version_id = UUID(incompatible["current_object_version_id"])
-        session.commit()
-    report = verify_research_integrity(app.state.session_factory)
-    assert report.status == "INTEGRITY_FAILURE"
-    assert report.sections == ("relations",)
-
-
-@pytest.mark.parametrize("different_object", [False, True])
-def test_restore_verifier_rejects_invalid_attempt_result(
-    client: TestClient, different_object: bool
-) -> None:
-    from polycolab.db.models.relationships import SqlObjectVersionRelationship
-
-    project = create_project(client)
-    created = create_object(client, project, kind="ATTEMPT")
-    unrelated = create_object(client, project)
-    app = app_for(client)
-    assert verify_research_integrity(app.state.session_factory).status == "VERIFIED"
-    with app.state.session_factory() as session:
-        target = session.scalar(
-            select(SqlObjectVersionRelationship).where(
-                SqlObjectVersionRelationship.source_object_version_id
-                == UUID(created["current_object_version_id"]),
-                SqlObjectVersionRelationship.relationship_type == "TARGET",
-            )
-        )
-        assert target is not None
-        session.add(
-            SqlObjectVersionRelationship(
-                relationship_type="RESULT",
-                binding="STRUCTURAL",
-                direction="UNIDIRECTIONAL",
-                source_object_version_id=target.source_object_version_id,
-                target_object_version_id=(
-                    UUID(unrelated["current_object_version_id"])
-                    if different_object
-                    else target.target_object_version_id
-                ),
-                ownership_scope_id=target.ownership_scope_id,
-                contribution_id=target.contribution_id,
-                created_by_user_id=target.created_by_user_id,
-                provenance_kind=target.provenance_kind,
-                created_at=target.created_at,
-            )
-        )
-        session.commit()
-    report = verify_research_integrity(app.state.session_factory)
-    assert report.status == "INTEGRITY_FAILURE"
-    assert report.sections == ("relations",)

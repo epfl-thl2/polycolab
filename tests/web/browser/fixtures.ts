@@ -3,9 +3,6 @@ export * from '@playwright/test';
 
 export const configuredCapabilities = {
   agent_execution: true,
-
-  verification_submission: true,
-  verification_execution: false,
   email_recovery: true,
 };
 

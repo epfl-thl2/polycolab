@@ -17,6 +17,7 @@ from sqlalchemy import func, or_, select
 from polycolab.access.authorization import (
     AuthorizationDenied,
     ProjectAction,
+    ProjectNotFound,
     project_policy,
 )
 from polycolab.agents.access import _run_scope as _run_scope
@@ -62,8 +63,6 @@ from polycolab.execution.limits import (
     enforce_sse_reconnect_limit,
 )
 from polycolab.platform.observability import metrics
-from polycolab.research.objects import ResearchNotFound
-from polycolab.research.records import accessible_revision
 
 router = APIRouter(prefix="/api/v1")
 
@@ -97,7 +96,7 @@ def _execution_limits(request: Request) -> ExecutionLimits:
 
 def _codex_spec(request: Request) -> dict[str, object] | None:
     from polycolab.agents.runtime.spec import RuntimeSpec
-    from polycolab.verification.contracts import ResourceLimits
+    from polycolab.execution.contracts import ResourceLimits
 
     settings = request.app.state.settings
     if settings.runtime_codex_image is None:
@@ -259,7 +258,7 @@ def list_platform_agents(
         PlatformAgentRead.model_validate(value)
         for value in db.scalars(
             select(SqlPlatformAgentVersion)
-            .where(SqlPlatformAgentVersion.version <= 2)
+            .where(SqlPlatformAgentVersion.version == 3)
             .order_by(SqlPlatformAgentVersion.agent_kind, SqlPlatformAgentVersion.version)
         )
     ]
@@ -446,16 +445,7 @@ def post_agent_session_message(
     value = _session_scope(
         db, session_id=session_id, user_id=user.id, action=ProjectAction.RUN_AGENTS
     )
-    if payload.requested_authority is not None:
-        operations = set(payload.requested_authority.allowed_operations)
-        if (
-            "RUN_VERIFICATION" in operations
-            and not request.app.state.settings.feature_verification_submission_enabled
-        ):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     try:
-        for revision_id in payload.context_object_version_ids:
-            accessible_revision(db, revision_id, value.project_id)
         for artifact_id in payload.context_artifact_ids:
             artifacts.read(
                 db,
@@ -463,24 +453,8 @@ def post_agent_session_message(
                 user_id=user.id,
                 artifact_id=artifact_id,
             )
-    except ResearchNotFound:
+    except ProjectNotFound:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND) from None
-    from polycolab.db.stores.repositories import SqlRepositoryStore
-    from polycolab.entities.repositories import RepositoryError
-
-    binding = SqlRepositoryStore(db).session(value.project_id, value.id)
-    if (
-        (
-            binding.enabled
-            or project_policy.require_scope(
-                SqlAlchemyTransaction(db), value.project_id, user.id, ProjectAction.VIEW
-            ).project.workspace_mode
-            in {"linear", "default"}
-        )
-        and payload.requested_authority is not None
-        and payload.requested_authority.destination == "PUBLIC"
-    ):
-        raise RepositoryError("repository_public_run_denied", 403)
     deadline = utc_now() + timedelta(seconds=request.app.state.settings.runtime_run_timeout_seconds)
     try:
         message, run = append_user_message_and_queue_run(
@@ -489,11 +463,7 @@ def post_agent_session_message(
             requested_by_user_id=user.id,
             gateway_profile_id=payload.gateway_profile_id,
             content_md=payload.content_md,
-            context_revision_ids=payload.context_object_version_ids,
             context_artifact_ids=payload.context_artifact_ids,
-            requested_authority=payload.requested_authority.historical_command()
-            if payload.requested_authority is not None
-            else None,
             client_request_id=payload.client_request_id,
             deadline_at=deadline,
             execution_limits=_execution_limits(request),
@@ -782,7 +752,7 @@ def set_session_visibility(
     if value.created_by_user_id != user.id:
         raise AuthorizationDenied
     scope = project_policy.require_scope(
-        SqlAlchemyTransaction(db), value.project_id, user.id, ProjectAction.CREATE_RESEARCH
+        SqlAlchemyTransaction(db), value.project_id, user.id, ProjectAction.WRITE_FILES
     )
     if scope.project.workspace_mode not in {"linear", "default"}:
         raise HTTPException(status_code=409, detail="linear_mode_required")

@@ -1,53 +1,11 @@
 # Agent interface
 
-Agents use the same research capabilities and permission rules as human clients, with distinct identities and explicit authority.
-The [functional requirements](functional.md) define shared capabilities.
-The [shared research API](../architecture/external-agent-api.md) documents current HTTPS integration.
+Humans and agents work on the same project files. External agents authenticate with human-issued `pca_` credentials. Hosted agents authenticate through private worker and run capabilities.
 
-## Core interaction
+External keys can list member projects and read Default files under current membership. Owners and contributors can authorize writes; read-only membership cannot. Every request rechecks revocation, expiry, remaining budgets, project state, and membership. Keys do not permit account, membership, or credential administration and do not expose conversations.
 
-1. A human authorizes an agent to work within their permissions.
-2. The agent reads accessible research and exact revisions.
-3. The agent saves contributions, revisions, relationships, or evidence within its scope.
-4. Researchers inspect the saved work and its attribution.
-5. Changes outside direct editing authority remain suggestions for human review.
+Default file updates use the digest returned by the last read. A conflicting edit must be compared with the current file rather than overwritten. External keys currently do not grant Git or Linear HTTP access.
 
-Hosted assistants work with explicitly selected research context.
-External agents contribute through the shared HTTPS API without requiring a hosted conversation.
+Hosted sessions retain private messages, explicitly shared conversation access, execution limits, cancellation, and artifacts. Their tools expose project file operations and explicitly selected project artifact metadata. Removed research tools and old capabilities do not grant authority.
 
-## Action authority
-
-| Action                                        | Human                       | Agent                                     |
-| --------------------------------------------- | --------------------------- | ----------------------------------------- |
-| Read public research                          | Anyone                      | Allowed                                   |
-| Read private research                         | Current project permission  | Granted scope within sponsor's permission |
-| Admit or promote a Library statement          | Signed-in human             | Denied                                    |
-| Contribute to an existing public statement    | Eligible signed-in human    | Explicit public-contribution permission   |
-| Create or revise project research             | Matching write permission   | Matching scoped write permission          |
-| Revise an official Library statement          | Author or moderator         | Suggest a correction                      |
-| Edit a dedicated human note                   | Note owner                  | Denied                                    |
-| Submit Lean or Python work                    | Scope and limits permit     | Scope and limits permit                   |
-| Publish private research                      | Authorized human            | Denied                                    |
-| Manage membership, visibility, or credentials | Applicable human permission | Denied                                    |
-
-An agent cannot inherit human-only authority from its sponsor.
-Public contribution permission never authorizes disclosure of private research.
-
-## Contributions and review
-
-Saved contributions identify the agent and sponsoring human.
-Hosted contributions also retain their run and research context.
-Exact revisions identify the sources and outputs of the work.
-
-Agents can persist authorized contributions without approval for each output.
-Suggestions support accept, edit and accept, and reject decisions.
-Reviewed batches preserve attribution and must not partially apply or overwrite newer work silently.
-Agent authorship, confidence, or successful execution does not imply human endorsement or mathematical correctness.
-
-## Access and control
-
-Humans can manage and revoke agent keys.
-Agent access follows the sponsor's current permissions and the agent's granted scope.
-Hosted tools cannot widen the selected context through their arguments.
-Limits and failures must be understandable to the agent and the sponsoring human.
-Secrets and inaccessible research must remain outside responses and published contributions.
+See the [external API contract](../architecture/external-agent-api.md) and [runtime contract](../architecture/agent-runtime.md).

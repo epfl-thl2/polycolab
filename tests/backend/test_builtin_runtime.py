@@ -10,7 +10,6 @@ from uuid import UUID
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from test_version_contracts import snapshot
 
 from polycolab.agents.context import manifest_for_run
 from polycolab.agents.runtime.contracts import (
@@ -20,7 +19,11 @@ from polycolab.agents.runtime.contracts import (
     Usage,
 )
 from polycolab.agents.runtime.gateways import HttpToolGateway, ModelGatewayError
-from polycolab.agents.runtime.remote import ApiBackedWorker, HttpRuntimeGateway, RuntimeGatewayError
+from polycolab.agents.runtime.remote import (
+    ApiBackedWorker,
+    HttpRuntimeGateway,
+    RuntimeGatewayError,
+)
 from polycolab.agents.sessions import (
     append_user_message_and_queue_run,
     archive_agent_session,
@@ -31,7 +34,6 @@ from polycolab.agents.sessions import (
 )
 from polycolab.agents.tools import issue_tool_capability
 from polycolab.db.models import (
-    ResearchScopeKind,
     SqlAgentMessage,
     SqlAgentRun,
     SqlAgentRunEvent,
@@ -39,22 +41,18 @@ from polycolab.db.models import (
     SqlGatewayProfile,
     SqlMembership,
     SqlProject,
-    SqlResearchScope,
     SqlRunToolCapability,
     SqlUser,
 )
-from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.enums import (
     AgentRunEventKind,
     AgentRunStatus,
     PlatformAgentKind,
     ProjectRole,
     ProjectVisibility,
-    ResearchObjectKind,
 )
 from polycolab.entities.time import utc_now
 from polycolab.execution.limits import ExecutionLimits
-from polycolab.research.objects import create_object
 
 
 @dataclass
@@ -284,7 +282,9 @@ def _internal_tool_call(
     )
 
 
-def test_builtin_worker_commits_normalized_turn_before_exposing_it(client: TestClient) -> None:
+def test_builtin_worker_commits_normalized_turn_before_exposing_it(
+    client: TestClient,
+) -> None:
     app, _, run_id, _ = _queue_run(client)
     gateway = FakeModelGateway(
         frames=[
@@ -320,7 +320,10 @@ def test_builtin_worker_commits_normalized_turn_before_exposing_it(client: TestC
         assert messages[-1].content_md == "The base case holds."
         assert gateway.grants[0] not in str([event.payload for event in events])
         assert gateway.turns[0].messages == [
-            {"role": "system", "content": "Explore mathematical claims and decompose problems."},
+            {
+                "role": "system",
+                "content": "Explore mathematical claims and decompose problems.",
+            },
             {"role": "user", "content": "Investigate the induction step."},
         ]
     finally:
@@ -346,7 +349,10 @@ def test_builtin_worker_fails_on_profile_rotation_before_private_gateway_call(
     try:
         run = session.get(SqlAgentRun, run_id)
         assert run is not None
-        assert (run.status, run.failure_code) == (AgentRunStatus.FAILED, "gateway_profile_changed")
+        assert (run.status, run.failure_code) == (
+            AgentRunStatus.FAILED,
+            "gateway_profile_changed",
+        )
         assert not gateway.turns
     finally:
         session.close()
@@ -393,7 +399,9 @@ def test_builtin_worker_observes_current_cancel_and_adapter_replays_canonical_ev
     del user_id, profile
 
 
-def test_builtin_worker_rechecks_current_membership_before_model_call(client: TestClient) -> None:
+def test_builtin_worker_rechecks_current_membership_before_model_call(
+    client: TestClient,
+) -> None:
     app, user_id, run_id, _ = _queue_run(client)
     session = app.state.session_factory()
     try:
@@ -409,13 +417,18 @@ def test_builtin_worker_rechecks_current_membership_before_model_call(client: Te
     try:
         run = session.get(SqlAgentRun, run_id)
         assert run is not None
-        assert (run.status, run.failure_code) == (AgentRunStatus.FAILED, "authorization_revoked")
+        assert (run.status, run.failure_code) == (
+            AgentRunStatus.FAILED,
+            "authorization_revoked",
+        )
         assert not gateway.turns
     finally:
         session.close()
 
 
-def test_archiving_a_session_cancels_queued_work_before_worker_claim(client: TestClient) -> None:
+def test_archiving_a_session_cancels_queued_work_before_worker_claim(
+    client: TestClient,
+) -> None:
     app, _, run_id, _ = _queue_run(client)
     session = app.state.session_factory()
     try:
@@ -431,20 +444,27 @@ def test_archiving_a_session_cancels_queued_work_before_worker_claim(client: Tes
     assert not gateway.turns
 
 
-def test_builtin_worker_normalizes_gateway_errors_without_error_detail(client: TestClient) -> None:
+def test_builtin_worker_normalizes_gateway_errors_without_error_detail(
+    client: TestClient,
+) -> None:
     app, _, run_id, _ = _queue_run(client)
     assert _worker(app, FakeModelGateway(error="provider_unavailable")).run_once()
     session = app.state.session_factory()
     try:
         run = session.get(SqlAgentRun, run_id)
         assert run is not None
-        assert (run.status, run.failure_code) == (AgentRunStatus.FAILED, "provider_unavailable")
+        assert (run.status, run.failure_code) == (
+            AgentRunStatus.FAILED,
+            "provider_unavailable",
+        )
         assert "provider" not in str(run.failure_code).replace("provider_unavailable", "")
     finally:
         session.close()
 
 
-def test_builtin_worker_completes_a_bounded_redacted_tool_loop(client: TestClient) -> None:
+def test_builtin_worker_completes_a_bounded_redacted_tool_loop(
+    client: TestClient,
+) -> None:
     app, _, run_id, _ = _queue_run(client)
     tools = FakeToolGateway()
     gateway = FakeModelGateway(
@@ -513,7 +533,7 @@ def test_concrete_private_tool_gateway_authorizes_and_redacts_capability(
         invocation=f"tool-{run_id}-1-0",
         source_event_cursor=None,
     )
-    assert "object_versions" in result
+    assert "project_id" in result and "artifacts" in result
     assert token not in repr(result)
     with pytest.raises(Exception, match="tool_authorization_denied"):
         gateway.call(
@@ -527,7 +547,14 @@ def test_concrete_private_tool_gateway_authorizes_and_redacts_capability(
 
 @pytest.mark.parametrize(
     "state",
-    ["expired", "revoked", "membership_removed", "session_archived", "terminal", "stale_lease"],
+    [
+        "expired",
+        "revoked",
+        "membership_removed",
+        "session_archived",
+        "terminal",
+        "stale_lease",
+    ],
 )
 def test_internal_tool_gateway_denies_current_capability_lifecycle_state(
     client: TestClient, state: str
@@ -610,7 +637,9 @@ def test_internal_tool_gateway_rejects_private_creator_scope_mismatch(
         run = session.get(SqlAgentRun, run_id)
         assert run is not None
         other = SqlUser(
-            issuer="https://issuer.example", subject="other-private-owner", email="other@test"
+            issuer="https://issuer.example",
+            subject="other-private-owner",
+            email="other@test",
         )
         session.add(other)
         session.flush()
@@ -663,100 +692,3 @@ def test_internal_tool_gateway_rejects_capability_session_and_tool_scope_mismatc
     finally:
         session.close()
     assert _internal_tool_call(client, token).status_code == 401
-
-
-def test_internal_tool_gateway_rejects_cross_project_object_version(client: TestClient) -> None:
-    from polycolab.projects.service import create_project
-
-    app, _, run_id, _ = _queue_run(client)
-    session = app.state.session_factory()
-    try:
-        run = session.get(SqlAgentRun, run_id)
-        assert run is not None
-        user = session.get(SqlUser, run.requested_by_user_id)
-        assert user is not None
-        session.add(
-            SqlResearchScope(scope_kind=ResearchScopeKind.PROJECT, project_id=run.project_id)
-        )
-        session.flush()
-        _, permitted = create_object(
-            session,
-            project_id=run.project_id,
-            kind=ResearchObjectKind.CLAIM,
-            title="Pinned context",
-            content_md="permitted",
-            rationale=None,
-            author=user,
-        )
-        run.requested_context_revision_ids = [str(permitted.id)]
-        session.commit()
-        project = create_project(
-            SqlAlchemyTransaction(session),
-            name="Other project",
-            description=None,
-            visibility=ProjectVisibility.PRIVATE,
-            creator=user,
-        )
-        _, revision = create_object(
-            session,
-            project_id=project.id,
-            kind=ResearchObjectKind.CLAIM,
-            title="Outside context",
-            content_md="private",
-            rationale=None,
-            author=user,
-        )
-    finally:
-        session.close()
-    token, _ = _active_capability(client, run_id)
-    allowed = _internal_tool_call(
-        client,
-        token,
-        name="get_object_version",
-        arguments={"object_version_id": str(permitted.id)},
-    )
-    assert allowed.status_code == 200
-    assert allowed.json()["id"] == str(permitted.id)
-    response = _internal_tool_call(
-        client,
-        token,
-        name="get_object_version",
-        arguments={"object_version_id": str(revision.id)},
-    )
-    assert response.status_code == 401
-
-
-def test_internal_tool_gateway_rejects_prior_submit_event_not_bound_to_invocation(
-    client: TestClient,
-) -> None:
-    token, run_id = _active_capability(client)
-    app = cast(Any, client.app)
-    session = app.state.session_factory()
-    try:
-        run = session.get(SqlAgentRun, run_id)
-        assert run is not None
-        cursor = run.next_event_cursor + 1
-        session.add(
-            SqlAgentRunEvent(
-                run_id=run.id,
-                cursor=cursor,
-                idempotency_key="prior-submit-requested",
-                kind=AgentRunEventKind.TOOL_REQUESTED,
-                payload={"tool_name": "submit_proposal"},
-            )
-        )
-        session.commit()
-    finally:
-        session.close()
-    response = _internal_tool_call(
-        client,
-        token,
-        name="submit_proposal",
-        arguments={
-            "summary": "A claim",
-            "changes": [{"kind": "CREATE_OBJECT", "snapshot": snapshot()}],
-        },
-        invocation="current-submit",
-        source_cursor=cursor,
-    )
-    assert response.status_code == 401

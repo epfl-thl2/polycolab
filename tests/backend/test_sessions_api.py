@@ -51,7 +51,11 @@ def create_session(client: TestClient, project_id: str, token: str = "owner") ->
     response = client.post(
         "/api/v1/agent-sessions",
         headers=headers(token),
-        json={"project_id": project_id, "agent_kind": "RESEARCHER", "title": "Main thread"},
+        json={
+            "project_id": project_id,
+            "agent_kind": "RESEARCHER",
+            "title": "Main thread",
+        },
     )
     assert response.status_code == 201, response.text
     return cast(dict[str, object], response.json())
@@ -183,6 +187,7 @@ def test_session_turn_authorization_idempotency_and_no_private_binding_leakage(
     agents = client.get("/api/v1/platform-agents", headers=headers("owner"))
     assert agents.status_code == 200
     assert {item["agent_kind"] for item in agents.json()} == {"RESEARCHER", "CRITIC"}
+    assert {item["version"] for item in agents.json()} == {3}
 
     assert (
         client.post(
@@ -248,7 +253,9 @@ def test_session_turn_authorization_idempotency_and_no_private_binding_leakage(
     assert "lease_owner" not in run
 
 
-def test_session_and_run_history_are_private_to_the_current_requester(client: TestClient) -> None:
+def test_session_and_run_history_are_private_to_the_current_requester(
+    client: TestClient,
+) -> None:
     project_id = str(create_project(client)["id"])
     add_member(client, project_id, "contributor", "CONTRIBUTOR")
     add_member(client, project_id, "same-email", "CONTRIBUTOR")
@@ -269,7 +276,8 @@ def test_session_and_run_history_are_private_to_the_current_requester(client: Te
     run_id = queued.json()["run"]["id"]
 
     listed_own = client.get(
-        f"/api/v1/agent-sessions?project_id={project_id}", headers=headers("contributor")
+        f"/api/v1/agent-sessions?project_id={project_id}",
+        headers=headers("contributor"),
     )
     assert listed_own.status_code == 200
     assert [item["id"] for item in listed_own.json()] == [agent_session["id"]]
@@ -281,7 +289,8 @@ def test_session_and_run_history_are_private_to_the_current_requester(client: Te
     )
     assert (
         client.get(
-            f"/api/v1/agent-sessions/{session_id}/messages", headers=headers("contributor")
+            f"/api/v1/agent-sessions/{session_id}/messages",
+            headers=headers("contributor"),
         ).status_code
         == 200
     )
@@ -356,7 +365,8 @@ def test_session_and_run_history_are_private_to_the_current_requester(client: Te
 
     assert (
         client.post(
-            f"/api/v1/agent-sessions/{session_id}/archive", headers=headers("contributor")
+            f"/api/v1/agent-sessions/{session_id}/archive",
+            headers=headers("contributor"),
         ).status_code
         == 200
     )
@@ -369,7 +379,8 @@ def test_session_and_run_history_are_private_to_the_current_requester(client: Te
         )
     assert (
         client.get(
-            f"/api/v1/agent-sessions/{session_id}/events", headers=headers("contributor")
+            f"/api/v1/agent-sessions/{session_id}/events",
+            headers=headers("contributor"),
         ).status_code
         == 200
     )
@@ -377,7 +388,8 @@ def test_session_and_run_history_are_private_to_the_current_requester(client: Te
     contributor_id = client.get("/api/v1/users/me", headers=headers("contributor")).json()["id"]
     assert (
         client.delete(
-            f"/api/v1/projects/{project_id}/members/{contributor_id}", headers=headers("owner")
+            f"/api/v1/projects/{project_id}/members/{contributor_id}",
+            headers=headers("owner"),
         ).status_code
         == 204
     )

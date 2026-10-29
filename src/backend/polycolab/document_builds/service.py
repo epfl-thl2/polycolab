@@ -36,7 +36,7 @@ class BuildService:
             self.transaction,
             project,
             user,
-            ProjectAction.CREATE_RESEARCH if write else ProjectAction.VIEW,
+            ProjectAction.WRITE_FILES if write else ProjectAction.VIEW,
         )
 
     def available(self) -> bool:
@@ -160,7 +160,7 @@ class BuildService:
 
     def eligible(self, build: DocumentBuild) -> bool:
         return project_policy.can(
-            self.transaction, build.project_id, build.requested_by, ProjectAction.CREATE_RESEARCH
+            self.transaction, build.project_id, build.requested_by, ProjectAction.WRITE_FILES
         ) and self.store.worktree_available(build.project_id, build.worktree_id)
 
     def claim(self, worker: str) -> DocumentBuild | None:

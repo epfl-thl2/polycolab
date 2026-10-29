@@ -11,28 +11,6 @@ from pydantic import Field, SecretStr, model_validator
 from polycolab.app.cursors import Collection
 from polycolab.app.schemas import ApiModel, RequestModel
 from polycolab.entities.enums import InvitationStatus, ProjectRole, ProjectVisibility
-from polycolab.research.contracts import ProjectCopyCreate
-
-
-class ProjectVersionCopyCreate(RequestModel):
-    workspace_mode: Literal["default", "linear", "git"] = "git"
-    source_object_version_id: UUID
-    project_id: UUID | None = None
-    project_name: str = Field(default="Research project", min_length=1, max_length=200)
-    project_visibility: Literal["PUBLIC", "PRIVATE"] = "PUBLIC"
-
-    def historical_command(self) -> ProjectCopyCreate:
-        return ProjectCopyCreate(
-            revision_id=self.source_object_version_id,
-            **self.model_dump(exclude={"source_object_version_id"}, exclude_unset=True),
-        )
-
-
-class ProjectVersionCopyRead(ApiModel):
-    project_id: UUID
-    object_id: UUID
-    object_version_id: UUID
-    source_object_version_id: UUID
 
 
 class ProjectCreate(RequestModel):

@@ -8,12 +8,18 @@ from fastapi.testclient import TestClient
 
 from polycolab.db.models import SqlGatewayProfile, SqlUser
 from polycolab.operations import recovery_integrity
-from polycolab.operations.recovery_integrity import capture_manifest, main, manifest_mismatches
+from polycolab.operations.recovery_integrity import (
+    capture_manifest,
+    main,
+    manifest_mismatches,
+)
 
 KEY = b"recovery-integrity-test-key-32b!"
 
 
-def test_manifest_is_deterministic_keyed_and_contains_no_values(client: TestClient) -> None:
+def test_manifest_is_deterministic_keyed_and_contains_no_values(
+    client: TestClient,
+) -> None:
     app = cast(Any, client.app)
     with app.state.session_factory() as session:
         user = SqlUser(

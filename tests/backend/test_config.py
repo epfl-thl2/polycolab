@@ -101,10 +101,12 @@ def test_openbao_settings_select_new_writer_and_exact_legacy_aws_reader() -> Non
     assert selected.key_version == "openbao:v1:primary:local:transit:gateway:3"
     assert isinstance(selected.wrapper("aws-v1"), AwsKmsKeyWrapper)
     assert isinstance(
-        selected.wrapper("openbao:v1:primary:local:transit:gateway:1"), OpenBaoKeyWrapper
+        selected.wrapper("openbao:v1:primary:local:transit:gateway:1"),
+        OpenBaoKeyWrapper,
     )
     assert isinstance(
-        selected.wrapper("openbao:v1:primary:local:transit:gateway:2"), OpenBaoKeyWrapper
+        selected.wrapper("openbao:v1:primary:local:transit:gateway:2"),
+        OpenBaoKeyWrapper,
     )
     with pytest.raises(CredentialError, match="credential_key_version_unavailable"):
         selected.wrapper("openbao:v1:primary:local:transit:gateway:4")
@@ -135,7 +137,13 @@ def test_local_cors_default_matches_vite_development_server() -> None:
 @pytest.mark.parametrize("environment", list(Environment))
 def test_builtin_auth_is_default_in_every_environment(environment: Environment) -> None:
     values = _deployed_oidc_settings("polycolab-web").model_dump()
-    for key in ("auth_mode", "oidc_issuer", "oidc_jwks_url", "oidc_audience", "oidc_client_id"):
+    for key in (
+        "auth_mode",
+        "oidc_issuer",
+        "oidc_jwks_url",
+        "oidc_audience",
+        "oidc_client_id",
+    ):
         values.pop(key)
     settings = Settings(**{**values, "app_env": environment, "_env_file": None})
     assert settings.auth_mode is AuthMode.LOCAL

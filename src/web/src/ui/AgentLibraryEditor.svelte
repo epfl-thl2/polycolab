@@ -12,7 +12,7 @@
     type LibraryKind,
     type LibraryOwned,
   } from '../lib/agent-library-api';
-  import { ApiError } from '../lib/research-api';
+  import { ApiError } from '../lib/projects-api';
   import LoadingState from './LoadingState.svelte';
   import Markdown from './Markdown.svelte';
   let { api, entryId }: { api: AgentLibraryApi; entryId?: string } = $props();

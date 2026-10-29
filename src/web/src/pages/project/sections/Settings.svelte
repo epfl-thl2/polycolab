@@ -16,7 +16,7 @@
   import { untrack } from 'svelte';
   import { goto } from '$app/navigation';
   import { projectContext, explain } from '../../../svelte-lib/context';
-  import { ApiError, type Project, type Role } from '../../../lib/research-api';
+  import { ApiError, type Project, type Role } from '../../../lib/projects-api';
   let { project, embedded = false }: { project: Project; embedded?: boolean } = $props();
   const { api, query } = projectContext();
   let visibility = $state(untrack(() => project.visibility));
@@ -75,7 +75,7 @@
     member.display_name ?? member.username ?? member.user_id;
   const addMemberError = (reason: unknown) => {
     if (reason instanceof ApiError && reason.code === 'invalid_member')
-      return 'No account matches that exact username. Check the spelling and ask the researcher to register first.';
+      return 'No account matches that exact username. Check the spelling and ask them to register first.';
     if (reason instanceof ApiError && reason.status === 409)
       return 'That account is already a member of this project.';
   };
@@ -112,8 +112,8 @@
             visibility !== project.visibility &&
             !(await confirmation.ask(
               visibility === 'PUBLIC'
-                ? 'Make this project public? Anyone will be able to read its saved research.'
-                : 'Make this project private? Previously downloaded research and separately published Library releases cannot be retracted.',
+                ? 'Make this project public? Anyone will be able to read its name and description. Files and conversations remain available only to members.'
+                : 'Make this project private? Its name and description will be visible only to members.',
             ))
           )
             return;
@@ -139,8 +139,8 @@
       </form>
       <p class="visibility-note">
         {project.visibility === 'PUBLIC'
-          ? 'Project details and saved research are public immediately. Membership controls writing, not reading.'
-          : 'Only project members can read this project and its saved research.'}
+          ? 'The project name and description are public. Files and conversations require membership.'
+          : 'Only project members can read this project.'}
       </p>
     </section>
     <section class="settings-section" aria-labelledby="members-heading">
@@ -154,7 +154,7 @@
             onclick={() => $members.refetch()}>Refresh</Button
           >
         </div>
-        <p>Invite registered researchers and manage their roles.</p>
+        <p>Invite registered users and manage their roles.</p>
       </div>
       <ul class="member-list">
         {#each $members.data?.pages.flatMap((p) => p.items) ?? [] as member (member.user_id)}<li>
@@ -241,7 +241,7 @@
     <section class="settings-section lifecycle-section" aria-labelledby="lifecycle-heading">
       <div class="section-heading">
         <h2 id="lifecycle-heading">Project lifecycle</h2>
-        <p>Archive to pause contributions, or permanently delete the project.</p>
+        <p>Archive to pause edits, or permanently delete the project.</p>
       </div>
       <div class="lifecycle-actions">
         <Button

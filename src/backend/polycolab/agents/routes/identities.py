@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import Field
 from sqlalchemy import select
 
-from polycolab.agents.routes.external import private_no_store
+from polycolab.agents.routes.keys import private_no_store
 from polycolab.app.cursors import Collection, Pagination
 from polycolab.app.dependencies import CurrentUser, DbSession
 from polycolab.app.schemas import ApiModel, RequestModel

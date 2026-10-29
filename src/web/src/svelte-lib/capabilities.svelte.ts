@@ -1,5 +1,5 @@
 import type { components } from '$lib/api-client';
-import { commonsClient, result } from '../lib/commons-client';
+import { authenticatedClient, result } from '../lib/authenticated-client';
 
 export type ApplicationConfiguration = components['schemas']['ApplicationConfiguration'];
 
@@ -16,7 +16,7 @@ export class Capabilities {
     this.loading = true;
     this.error = false;
     try {
-      this.configuration = await result(commonsClient().GET('/api/v1/config'));
+      this.configuration = await result(authenticatedClient().GET('/api/v1/config'));
     } catch {
       this.configuration = undefined;
       this.error = true;

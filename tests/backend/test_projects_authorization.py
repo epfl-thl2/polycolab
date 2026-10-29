@@ -12,7 +12,10 @@ from sqlalchemy import select
 
 from polycolab.access.authorization import ROLE_ACTIONS, ProjectAction
 from polycolab.accounts.authentication import MappingIdentityVerifier, Principal
-from polycolab.accounts.delivery import LocalInvitationOutbox, UnconfiguredInvitationDelivery
+from polycolab.accounts.delivery import (
+    LocalInvitationOutbox,
+    UnconfiguredInvitationDelivery,
+)
 from polycolab.accounts.identity import current_user
 from polycolab.app.application import create_app
 from polycolab.db.models import SqlInvitation, SqlUser
@@ -37,7 +40,11 @@ def create_project(client: TestClient, token: str = "owner", visibility: str = "
     response = client.post(
         "/api/v1/projects",
         headers=headers(token),
-        json={"name": "Ramsey notes", "description": "private research", "visibility": visibility},
+        json={
+            "name": "Ramsey notes",
+            "description": "private research",
+            "visibility": visibility,
+        },
     )
     assert response.status_code == 201
     assert response.json()["member_count"] == 1
@@ -61,15 +68,15 @@ def test_exact_role_action_matrix() -> None:
     assert ROLE_ACTIONS[ProjectRole.OWNER] == frozenset(ProjectAction)
     assert ROLE_ACTIONS[ProjectRole.CONTRIBUTOR] == {
         ProjectAction.VIEW,
-        ProjectAction.CREATE_RESEARCH,
-        ProjectAction.COMMENT,
-        ProjectAction.REVIEW_PROPOSALS,
+        ProjectAction.WRITE_FILES,
         ProjectAction.RUN_AGENTS,
     }
     assert ROLE_ACTIONS[ProjectRole.READ_ONLY] == {ProjectAction.VIEW}
 
 
-def test_project_roles_and_current_membership_are_checked_per_request(client: TestClient) -> None:
+def test_project_roles_and_current_membership_are_checked_per_request(
+    client: TestClient,
+) -> None:
     unauthenticated = client.get("/api/v1/projects?scope=member")
     assert unauthenticated.status_code == 401
     assert unauthenticated.headers["WWW-Authenticate"] == "Bearer"
@@ -116,7 +123,9 @@ def test_project_roles_and_current_membership_are_checked_per_request(client: Te
     )
 
 
-def test_member_project_shape_exposes_only_the_requesters_current_role(client: TestClient) -> None:
+def test_member_project_shape_exposes_only_the_requesters_current_role(
+    client: TestClient,
+) -> None:
     project_id = create_project(client, token="owner")
     add_member(client, project_id, "reader", "READ_ONLY")
 
@@ -144,7 +153,9 @@ def test_nonmember_private_project_is_concealed_and_public_shape_does_not_leak(
     assert client.get(f"/api/v1/projects/{project_id}").status_code == 404
 
     changed = client.patch(
-        f"/api/v1/projects/{project_id}", headers=headers("owner"), json={"visibility": "PUBLIC"}
+        f"/api/v1/projects/{project_id}",
+        headers=headers("owner"),
+        json={"visibility": "PUBLIC"},
     )
     assert changed.status_code == 200
     public = client.get(f"/api/v1/projects/{project_id}")
@@ -198,12 +209,16 @@ def test_cross_project_membership_and_last_owner_protection(client: TestClient) 
     )
 
 
-def test_archived_project_is_read_only_until_owner_unarchives(client: TestClient) -> None:
+def test_archived_project_is_read_only_until_owner_unarchives(
+    client: TestClient,
+) -> None:
     project_id = create_project(client)
     contributor_id = current_user_id(client, "contributor")
     assert (
         client.patch(
-            f"/api/v1/projects/{project_id}", headers=headers("owner"), json={"archived": True}
+            f"/api/v1/projects/{project_id}",
+            headers=headers("owner"),
+            json={"archived": True},
         ).status_code
         == 200
     )
@@ -218,7 +233,9 @@ def test_archived_project_is_read_only_until_owner_unarchives(client: TestClient
     assert client.get(f"/api/v1/projects/{project_id}", headers=headers("owner")).status_code == 200
 
 
-def test_invitation_is_account_bound_single_use_expirable_and_revocable(client: TestClient) -> None:
+def test_invitation_is_account_bound_single_use_expirable_and_revocable(
+    client: TestClient,
+) -> None:
     project_id = create_project(client)
     owner_id = current_user_id(client, "owner")
     reader_id = current_user_id(client, "reader")
@@ -254,7 +271,9 @@ def test_invitation_is_account_bound_single_use_expirable_and_revocable(client: 
     assert accepted.json()["role"] == "READ_ONLY"
     assert (
         client.post(
-            "/api/v1/invitations/accept", headers=headers("reader"), json={"token": token}
+            "/api/v1/invitations/accept",
+            headers=headers("reader"),
+            json={"token": token},
         ).status_code
         == 400
     )
@@ -285,7 +304,9 @@ def test_invitation_is_account_bound_single_use_expirable_and_revocable(client: 
 
     assert (
         client.post(
-            "/api/v1/invitations/accept", headers=headers("reader"), json={"token": expired_token}
+            "/api/v1/invitations/accept",
+            headers=headers("reader"),
+            json={"token": expired_token},
         ).status_code
         == 400
     )
@@ -298,7 +319,9 @@ def test_invitation_is_account_bound_single_use_expirable_and_revocable(client: 
         session.close()
 
 
-def test_local_delivery_outbox_is_not_serialized_by_create_invitation(client: TestClient) -> None:
+def test_local_delivery_outbox_is_not_serialized_by_create_invitation(
+    client: TestClient,
+) -> None:
     project_id = create_project(client)
     response = client.post(
         f"/api/v1/projects/{project_id}/invitations",
@@ -414,7 +437,9 @@ def test_project_directory_filters_before_pagination(client: TestClient) -> None
         session.commit()
     assert (
         client.patch(
-            f"/api/v1/projects/{owned[-1]}", headers=headers("owner"), json={"archived": True}
+            f"/api/v1/projects/{owned[-1]}",
+            headers=headers("owner"),
+            json={"archived": True},
         ).status_code
         == 200
     )
@@ -436,7 +461,9 @@ def test_project_directory_filters_before_pagination(client: TestClient) -> None
     assert outsider not in ids
     for category, expected in (("shared", {shared}), ("archived", {owned[-1]})):
         response = client.get(
-            "/api/v1/projects", headers=headers("owner"), params={**params, "category": category}
+            "/api/v1/projects",
+            headers=headers("owner"),
+            params={**params, "category": category},
         )
         assert {row["id"] for row in response.json()["items"]} == expected
         assert response.json()["total"] == len(expected)

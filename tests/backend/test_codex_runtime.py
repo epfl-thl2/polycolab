@@ -12,15 +12,24 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from polycolab.agents.runtime.codex import CodexFailure, CodexSession, CodexTask, decode_frame
+from polycolab.agents.runtime.codex import (
+    CodexFailure,
+    CodexSession,
+    CodexTask,
+    decode_frame,
+)
 from polycolab.agents.runtime.spec import RuntimeSpec
 from polycolab.db.models import SqlAgentRun, SqlAgentRunUsage
-from polycolab.execution.microsandbox import GuestChannel, ImagePolicy, MicrosandboxRuntime
+from polycolab.execution.contracts import ResourceLimits
+from polycolab.execution.microsandbox import (
+    GuestChannel,
+    ImagePolicy,
+    MicrosandboxRuntime,
+)
 from polycolab.execution.sandbox import SandboxUnavailable
 from polycolab.model_gateway.responses import completed_response, validated_request
 from polycolab.model_gateway.service import ProviderFailure
 from polycolab.model_gateway.transport import ProviderStreamResponse
-from polycolab.verification.contracts import ResourceLimits
 
 
 def spec() -> RuntimeSpec:
@@ -111,7 +120,12 @@ def run_codex(
         ],
         max_tool_calls=max_calls,
     )
-    return asyncio.run(CodexSession(channel, task, event, tool).run()), events, calls, channel
+    return (
+        asyncio.run(CodexSession(channel, task, event, tool).run()),
+        events,
+        calls,
+        channel,
+    )
 
 
 def test_codex_streams_text_and_dispatches_only_host_scoped_tools() -> None:
@@ -133,9 +147,19 @@ def test_codex_streams_text_and_dispatches_only_host_scoped_tools() -> None:
     text, events, calls, channel = run_codex(frames)
     assert text == "A result."
     assert calls == [("submit_proposal", {"summary": "draft"}, "tool-1", 1)]
-    assert [event[1] for event in events] == ["TOOL_REQUESTED", "TOOL_RESULT", "ASSISTANT_DELTA"]
+    assert [event[1] for event in events] == [
+        "TOOL_REQUESTED",
+        "TOOL_RESULT",
+        "ASSISTANT_DELTA",
+    ]
     serialized = json.dumps(events)
-    for private in ("private reasoning", "private result", "guest-selected-id", "99999", "draft"):
+    for private in (
+        "private reasoning",
+        "private result",
+        "guest-selected-id",
+        "99999",
+        "draft",
+    ):
         assert private not in serialized
     assert channel.sent[-1]["id"] == 42
     start = next(item for item in channel.sent if item.get("method") == "thread/start")
@@ -174,7 +198,10 @@ def test_codex_shell_history_omits_commands_output_and_paths() -> None:
             "codex_tool_invalid",
         ),
         (
-            {**notification("item/tool/call", tool=["bad"], arguments={}, callId="x"), "id": 99},
+            {
+                **notification("item/tool/call", tool=["bad"], arguments={}, callId="x"),
+                "id": 99,
+            },
             "codex_tool_invalid",
         ),
         (
@@ -188,7 +215,11 @@ def test_codex_shell_history_omits_commands_output_and_paths() -> None:
         (
             notification(
                 "turn/completed",
-                turn={"id": "private-turn", "status": "failed", "error": "sensitive detail"},
+                turn={
+                    "id": "private-turn",
+                    "status": "failed",
+                    "error": "sensitive detail",
+                },
             ),
             "codex_turn_failed",
         ),
@@ -214,7 +245,8 @@ def test_codex_bounds_tools_and_requires_terminal() -> None:
 def test_microsandbox_gate_precedes_sdk_and_host_access(tmp_path: Path) -> None:
     runtime = MicrosandboxRuntime(tmp_path / "not-created")
     with pytest.raises(
-        SandboxUnavailable, match="linux_microsandbox_required|executor_service_required"
+        SandboxUnavailable,
+        match="linux_microsandbox_required|executor_service_required",
     ):
         asyncio.run(runtime.reconcile())
     assert not (tmp_path / "not-created").exists()
@@ -527,7 +559,9 @@ def test_new_profile_validation_uses_responses(client: TestClient) -> None:
     assert "test-private-key" not in result.text
 
 
-def test_turn_notifications_can_precede_start_response(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_turn_notifications_can_precede_start_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     original = Channel.__init__
 
     def interleaved(self: Channel, notifications: list[dict[str, Any]]) -> None:
@@ -581,7 +615,12 @@ def test_hosted_controller_stops_before_collecting_only_declared_files(
                 from polycolab.agents.runtime.remote import RuntimeGatewayError
 
                 raise RuntimeGatewayError(provider_error)
-            await tool("export_artifact", {"path": "result.txt", "display_name": "Result"}, "1", 1)
+            await tool(
+                "export_artifact",
+                {"path": "result.txt", "display_name": "Result"},
+                "1",
+                1,
+            )
             return "Done."
 
         return SimpleNamespace(run=answer)

@@ -4,23 +4,20 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Select, SQLColumnExpression, and_, case, func, or_, select, true
+from sqlalchemy import Select, SQLColumnExpression, and_, case, func, or_, select, true, update
 from sqlalchemy.orm import Session
 
 from polycolab.db.converters import projects as converter
 from polycolab.db.errors import persistence_boundary
 from polycolab.db.models import (
-    SqlExternalResearchRun,
     SqlInvitation,
     SqlMembership,
     SqlProject,
-    SqlResearchScope,
 )
 from polycolab.entities.enums import (
     InvitationStatus,
     ProjectRole,
     ProjectVisibility,
-    ResearchScopeKind,
 )
 from polycolab.entities.projects import (
     Invitation,
@@ -28,7 +25,6 @@ from polycolab.entities.projects import (
     Project,
     ProjectAccess,
 )
-from polycolab.entities.time import utc_now
 
 
 class SqlProjectStore:
@@ -164,6 +160,15 @@ class SqlProjectStore:
 
     @persistence_boundary
     def project(self, project_id: UUID, *, lock: bool = False) -> Project | None:
+        if lock and self._session.get_bind().dialect.name == "sqlite":
+            # SQLite ignores FOR UPDATE. Reserve its writer before reading authority
+            # so concurrent account touches cannot invalidate a filesystem write's snapshot.
+            self._session.execute(
+                update(SqlProject)
+                .where(SqlProject.id == project_id)
+                .values(updated_at=SqlProject.updated_at)
+                .execution_options(synchronize_session=False)
+            )
         statement = select(SqlProject).where(SqlProject.id == project_id)
         if lock:
             statement = statement.with_for_update().execution_options(populate_existing=True)
@@ -243,7 +248,6 @@ class SqlProjectStore:
         )
         self._session.add(row)
         self._session.flush()
-        self._session.add(SqlResearchScope(project_id=row.id, scope_kind=ResearchScopeKind.PROJECT))
         self._session.add(
             SqlMembership(project_id=row.id, user_id=creator_id, role=ProjectRole.OWNER)
         )
@@ -276,19 +280,6 @@ class SqlProjectStore:
         if row is None:
             raise LookupError("membership disappeared during mutation")
         self._session.delete(row)
-        self._session.flush()
-
-    @persistence_boundary
-    def close_external_runs(self, project_id: UUID, user_id: UUID) -> None:
-        for row in self._session.scalars(
-            select(SqlExternalResearchRun).where(
-                SqlExternalResearchRun.project_id == project_id,
-                SqlExternalResearchRun.sponsor_user_id == user_id,
-                SqlExternalResearchRun.status == "OPEN",
-            )
-        ):
-            row.status = "REVOKED"
-            row.closed_at = utc_now()
         self._session.flush()
 
     @persistence_boundary

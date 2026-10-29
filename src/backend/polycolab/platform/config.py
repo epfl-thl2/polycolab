@@ -202,12 +202,6 @@ class Settings(BaseSettings):
     runtime_api_max_response_bytes: int = Field(default=1_000_000, ge=1, le=20_000_000)
     runtime_worker_poll_seconds: float = Field(default=0.25, gt=0, le=5)
     # Human moderation of public projects is separate from Library moderation.
-    public_project_moderator_subjects: list[str] = Field(
-        validation_alias=AliasChoices(
-            "PUBLIC_PROJECT_MODERATOR_SUBJECTS", "PUBLIC_WORKSPACE_MODERATOR_SUBJECTS"
-        ),
-        default_factory=list,
-    )
     external_agent_credential_ttl_seconds: int = Field(default=2_592_000, ge=3600, le=31_536_000)
     external_agent_max_requests: int = Field(default=10_000, ge=1, le=1_000_000)
     external_agent_max_mutations: int = Field(default=1_000, ge=1, le=100_000)
@@ -235,59 +229,8 @@ class Settings(BaseSettings):
     artifact_request_timeout_seconds: float = Field(default=30, gt=0, le=300)
     artifact_staging_ttl_seconds: int = Field(default=3600, ge=60, le=86_400)
     artifact_gc_grace_seconds: int = Field(default=300, ge=0, le=86_400)
-    # Verification admission and source execution are separate gates. Both stay
-    # disabled until their respective Step 14 and Linux-isolation evidence lands.
-    feature_verification_submission_enabled: bool = False
-    feature_verification_execution_enabled: bool = False
-    verification_internal_api_url: str = "http://127.0.0.1:8000"
-    verification_controller_id: str = Field(
-        default="verification-controller", min_length=1, max_length=200
-    )
-    verification_controller_token: SecretStr | None = None
-    verification_controller_previous_token: SecretStr | None = None
-    verification_controller_previous_token_expires_at: datetime | None = None
-    verification_queue_capacity: int = Field(default=1000, ge=1, le=100_000)
-    verification_user_concurrent_jobs: int = Field(default=2, ge=1, le=100)
-    verification_project_concurrent_jobs: int = Field(
-        validation_alias=AliasChoices(
-            "VERIFICATION_PROJECT_CONCURRENT_JOBS", "VERIFICATION_WORKSPACE_CONCURRENT_JOBS"
-        ),
-        default=8,
-        ge=1,
-        le=1000,
-    )
-    verification_user_daily_cpu_seconds: int = Field(default=28_800, ge=1)
-    verification_project_daily_cpu_seconds: int = Field(
-        validation_alias=AliasChoices(
-            "VERIFICATION_PROJECT_DAILY_CPU_SECONDS", "VERIFICATION_WORKSPACE_DAILY_CPU_SECONDS"
-        ),
-        default=115_200,
-        ge=1,
-    )
-    verification_user_daily_memory_byte_seconds: int = Field(
-        default=8 * 1024 * 1024 * 1024 * 3600, ge=1
-    )
-    verification_project_daily_memory_byte_seconds: int = Field(
-        validation_alias=AliasChoices(
-            "VERIFICATION_PROJECT_DAILY_MEMORY_BYTE_SECONDS",
-            "VERIFICATION_WORKSPACE_DAILY_MEMORY_BYTE_SECONDS",
-        ),
-        default=32 * 1024 * 1024 * 1024 * 3600,
-        ge=1,
-    )
-    verification_max_attempts: int = Field(default=2, ge=1, le=5)
-    verification_lease_seconds: int = Field(default=30, ge=5, le=300)
-    verification_deadline_seconds: int = Field(default=3600, ge=10, le=3600)
-    verification_manifest_max_inputs: int = Field(default=128, ge=1, le=128)
-    verification_event_page_size: int = Field(default=100, ge=1, le=1000)
-    verification_event_payload_bytes: int = Field(default=16_384, ge=1, le=262_144)
-    verification_diagnostic_payload_bytes: int = Field(default=65_536, ge=1, le=1_048_576)
-    verification_controller_poll_seconds: float = Field(default=0.25, gt=0, le=5)
-    verification_api_max_request_bytes: int = Field(default=262_144, ge=1, le=10_000_000)
-    verification_api_max_response_bytes: int = Field(default=1_000_000, ge=1, le=20_000_000)
     agent_library_moderator_subjects: list[str] = Field(default_factory=list)
 
-    catalogue_operator_subjects: list[str] = Field(default_factory=list)
     collaboration_url: str = "http://127.0.0.1:8002"
     collaboration_token: SecretStr = SecretStr(
         "polycolab-local-collaboration-token-change-in-production"
@@ -511,26 +454,6 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "ARTIFACT_S3_ENDPOINT must be HTTP(S) without userinfo, path, query or fragment"
                 )
-        if self.feature_verification_submission_enabled and not self.artifact_storage_configured:
-            raise ValueError("artifact storage must be configured before verification submission")
-        if (
-            self.feature_verification_execution_enabled
-            and self.verification_controller_token is None
-        ):
-            raise ValueError("VERIFICATION_CONTROLLER_TOKEN is required when execution is enabled")
-        controller_previous = self.verification_controller_previous_token
-        controller_previous_expiry = self.verification_controller_previous_token_expires_at
-        if (controller_previous is None) != (controller_previous_expiry is None):
-            raise ValueError(
-                "VERIFICATION_CONTROLLER_PREVIOUS_TOKEN and its expiry must be configured together"
-            )
-        if (
-            controller_previous is not None
-            and self.verification_controller_token is not None
-            and controller_previous.get_secret_value()
-            == self.verification_controller_token.get_secret_value()
-        ):
-            raise ValueError("current and previous verification controller tokens must differ")
         if self.execution_max_input_tokens_per_round < self.gateway_max_input_bytes:
             raise ValueError("execution input reservation must cover GATEWAY_MAX_INPUT_BYTES")
         if self.app_env is not Environment.LOCAL and self.admission_scope_hmac_key is None:
@@ -630,12 +553,6 @@ class Settings(BaseSettings):
             return self.runtime_worker_token.get_secret_value()
         return "polycolab-local-runtime-worker-token"
 
-    @property
-    def verification_controller_secret(self) -> str:
-        if self.verification_controller_token is not None:
-            return self.verification_controller_token.get_secret_value()
-        return "polycolab-local-verification-controller-token"
-
 
 class WorkerSettings(BaseSettings):
     """Worker-only configuration; deliberately has no database setting."""
@@ -665,36 +582,6 @@ class WorkerSettings(BaseSettings):
         if self.runtime_worker_token is not None:
             return self.runtime_worker_token.get_secret_value()
         return "polycolab-local-runtime-worker-token"
-
-
-class VerificationControllerSettings(BaseSettings):
-    """Controller-only configuration; deliberately has no database setting."""
-
-    model_config = SettingsConfigDict(
-        populate_by_name=True, env_file=_env_file, env_file_encoding="utf-8", extra="ignore"
-    )
-
-    app_env: Environment = Environment.LOCAL
-    verification_internal_api_url: str = "http://127.0.0.1:8000"
-    verification_controller_id: str = Field(
-        default="verification-controller", min_length=1, max_length=200
-    )
-    verification_controller_token: SecretStr | None = None
-    verification_controller_poll_seconds: float = Field(default=0.25, gt=0, le=5)
-    verification_api_max_request_bytes: int = Field(default=262_144, ge=1, le=10_000_000)
-    verification_api_max_response_bytes: int = Field(default=1_000_000, ge=1, le=20_000_000)
-
-    @model_validator(mode="after")
-    def validate_controller_settings(self) -> VerificationControllerSettings:
-        if self.app_env is not Environment.LOCAL and self.verification_controller_token is None:
-            raise ValueError("VERIFICATION_CONTROLLER_TOKEN is required outside local")
-        return self
-
-    @property
-    def verification_controller_secret(self) -> str:
-        if self.verification_controller_token is not None:
-            return self.verification_controller_token.get_secret_value()
-        return "polycolab-local-verification-controller-token"
 
 
 @lru_cache

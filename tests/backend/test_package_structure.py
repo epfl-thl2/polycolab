@@ -96,13 +96,10 @@ def test_capability_implementation_does_not_import_http_routes() -> None:
         "accounts",
         "agents",
         "artifacts",
-        "catalogue",
         "execution",
         "model_gateway",
         "operations",
         "platform",
-        "research",
-        "verification",
         "projects",
     ):
         for path in (PACKAGE / capability).rglob("*.py"):

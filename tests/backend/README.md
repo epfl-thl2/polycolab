@@ -27,5 +27,5 @@ Do not import fixtures from other test modules.
 Keep mutable application and database state isolated per test.
 PostgreSQL tests that construct their own application should request `identity_verifier`
 rather than obtaining it through the SQLite `client` fixture.
-Shared payload builders belong in helper modules, such as `research_requests.py`.
+Shared payload builders belong in helper modules, such as `workspace_support.py`.
 Keep the action under test and its behavioral assertions in the test itself.

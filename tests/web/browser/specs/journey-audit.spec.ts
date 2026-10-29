@@ -8,9 +8,6 @@ async function account(page: Page, initiallySignedIn = false) {
       return route.fulfill({
         json: {
           agent_execution: true,
-
-          verification_submission: true,
-          verification_execution: false,
           email_recovery: true,
         },
       });

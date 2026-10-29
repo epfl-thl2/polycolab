@@ -70,7 +70,7 @@ This is not live provider-token streaming.
 The guest can register an `export_artifact` declaration for a file in `/outputs`.
 After stopping the sandbox, the controller reads only those paths with descriptor-based link/path/type/count/byte checks, then uploads verified bytes through the API.
 Downloads require a completed run and its owner, including the shared artifact endpoint.
-These artifacts cannot be attached directly to research.
+These artifacts remain subject to hosted-session access controls.
 Session output is not publication, proof certification or a retained whole project.
 Commands, raw stdout and reasoning notifications are not copied into chat history.
 
@@ -79,7 +79,7 @@ Compatible executors renew readiness every ten seconds.
 Advertisements expire after 45 seconds.
 New hosted admissions require a live matching executor.
 Existing chat, history, follow-ups, cancellation and reconnect APIs remain in place.
-Standalone verification stays disabled in this hosted-first service and UI.
+Standalone research verification has been removed.
 
 The core application background reconciler runs bounded recovery batches every five seconds, even with no live executor or new claims.
 Expired hosted runs with any possible provider/tool/contribution effect fail with an explicit-resume code.
@@ -107,7 +107,7 @@ The migration preserves historical profiles as chat-completions.
 `RUNTIME_CODEX_IMAGE`, `RUNTIME_SANDBOX_BACKEND` and `RUNTIME_SANDBOX_VERSION` pin the immutable runtime specification for new/resumed runs.
 Readiness and claims require the matching backend, version and image. Historical specs without a backend retain microsandbox identity.
 Legacy workers cannot claim these runs.
-External agents continue using their existing credentials and shared research APIs.
+External agents continue using their existing credentials and Default project file APIs.
 
 ## Removal and remaining acceptance
 
@@ -120,7 +120,7 @@ Remove that compatibility implementation only after the real deployment succeeds
 It does not prove containment.
 The deployment procedure specifies native resource-exhaustion, offline-network, credential, crash/restart, cancellation, stale-result, provider and browser acceptance.
 Those results are still required before production enablement.
-Standalone Python/Lean runner images and verification assurance are separate future work.
+Standalone research verification is outside the current scope.
 
 Local protocol tests use synthetic Codex frames.
 Artifact tests use in-memory object storage.

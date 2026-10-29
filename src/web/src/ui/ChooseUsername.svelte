@@ -10,7 +10,7 @@
     onRetry,
     onComplete,
   }: { error: unknown; loading: boolean; onRetry: () => void; onComplete: () => void } = $props();
-  const { history, auth } = projectContext();
+  const { api, auth } = projectContext();
   let username = $state('');
   let busy = $state(false);
   let saveError = $state('');
@@ -19,7 +19,7 @@
     busy = true;
     saveError = '';
     try {
-      await history.chooseUsername(username.trim().toLowerCase());
+      await api.chooseUsername(username.trim().toLowerCase());
       onComplete();
     } catch (cause) {
       saveError =
@@ -41,10 +41,7 @@
     >
   {:else if loading}<LoadingState>Opening your account…</LoadingState>
   {:else}<h1>Choose your username</h1>
-    <p>
-      Your username appears on your public profile and research contributions. Choose it once to
-      continue.
-    </p>
+    <p>Your username identifies you to project members. Choose it once to continue.</p>
     <form onsubmit={save}>
       <label for="public-username">Username</label>
       <Input

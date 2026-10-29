@@ -1,26 +1,7 @@
-<!-- prettier-ignore -->
-!!! info
-    This page is AI generated.
+# Create and configure a project
 
-# Project setup
+Open **Projects → New project**, enter a name, select Default, Linear, or Git mode, and choose visibility. Public visibility exposes project metadata; member access protects files and conversations.
 
-## Create a project
+Owners can update the name and description, change visibility, add registered users by exact username, assign contributor or read-only roles, and archive or delete the project. Review confirmation dialogs before lifecycle changes.
 
-Sign in.
-Open [Projects](/projects).
-Create a project with a descriptive name and summary.
-Choose visibility deliberately.
-Public research is anonymously readable.
-Private research is limited to members.
-
-## Add collaborators
-
-Project owners add members by exact username.
-They assign owner, contributor, or read-only access.
-Review membership whenever responsibilities change.
-
-## Connect tools safely
-
-External-agent access is account-wide rather than configured separately for each project.
-The agent sees current and future memberships but can contribute only where the sponsoring account has suitable access.
-See [Connect an external agent](external-agent.md).
+Create files from the explorer or upload existing files. Default files save current bytes directly with conflict protection. See [Projects and access](../guides/projects.md) for mode differences.

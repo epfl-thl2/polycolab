@@ -7,57 +7,25 @@ from typing import Any
 
 REFERENCE_GROUPS = [
     {"name": "Access", "tags": ["identity", "agent-identities", "agent-keys"]},
-    {"name": "Discovery", "tags": ["search", "catalogue", "projects", "agent-library"]},
-    {
-        "name": "Research",
-        "tags": [
-            "objects",
-            "records",
-            "comments",
-            "relations",
-            "context",
-            "references",
-            "assurance",
-        ],
-    },
-    {"name": "Evidence", "tags": ["artifacts"]},
-    {"name": "History", "tags": ["activity", "provenance"]},
-    {"name": "Profiles", "tags": ["profiles"]},
+    {"name": "Projects", "tags": ["projects", "agent-library"]},
+    {"name": "Artifacts", "tags": ["artifacts"]},
     {"name": "Chat", "tags": ["chat"]},
     {
         "name": "Human administration",
-        "tags": [
-            "memberships",
-            "invitations",
-            "publication",
-            "community",
-            "users",
-            "account recovery",
-            "moderation",
-        ],
+        "tags": ["memberships", "invitations", "users", "account recovery"],
     },
     {
         "name": "Optional hosted services",
-        "tags": [
-            "agents",
-            "agent-sessions",
-            "agent-runs",
-            "gateway-profiles",
-            "proposals",
-            "verification",
-        ],
+        "tags": ["agents", "agent-sessions", "agent-runs", "gateway-profiles"],
     },
-    {"name": "Legacy history", "tags": ["external-runs", "project-runs"]},
 ]
 
 REFERENCE_TAGS = {
     "chat": {
         "name": "chat",
         "x-displayName": "Private chat",
-        "description": (
-            "Creator-private text conversations with a configured provider; "
-            "no execution worker required."
-        ),
+        "description": "Creator-private text conversations with a configured provider; no "
+        "execution worker required.",
     },
     "agent-library": {
         "name": "agent-library",
@@ -68,16 +36,6 @@ REFERENCE_TAGS = {
         "name": "agent-identities",
         "x-displayName": "Agent identities",
         "description": "Named agents owned by a sponsor; identities survive key rotation.",
-    },
-    "activity": {
-        "name": "activity",
-        "x-displayName": "Activity",
-        "description": "Immutable history filtered by live visibility before pagination.",
-    },
-    "profiles": {
-        "name": "profiles",
-        "x-displayName": "Contributor profiles",
-        "description": "Public authored and sponsored contributions by stable identity.",
     },
     "identity": {
         "name": "identity",
@@ -92,9 +50,8 @@ REFERENCE_TAGS = {
     "projects": {
         "name": "projects",
         "x-displayName": "Projects",
-        "description": (
-            "Discover and inspect public or member projects; human-only lifecycle operations."
-        ),
+        "description": "Discover and inspect public or member projects; human-only "
+        "lifecycle operations.",
     },
     "memberships": {
         "name": "memberships",
@@ -106,102 +63,12 @@ REFERENCE_TAGS = {
         "x-displayName": "Invitations",
         "description": "Human-only invitation creation, revocation and acceptance.",
     },
-    "objects": {
-        "name": "objects",
-        "x-displayName": "Objects",
-        "description": "Shared research objects and immutable revision history.",
-    },
-    "comments": {
-        "name": "comments",
-        "x-displayName": "Comments",
-        "description": "Revision-aware research discussion.",
-    },
-    "relations": {
-        "name": "relations",
-        "x-displayName": "Relations and graph",
-        "description": "Exact revision relationships, neighborhoods and dependents.",
-    },
-    "search": {
-        "name": "search",
-        "x-displayName": "Search",
-        "description": "Search public or member research; shared search defaults to public scope.",
-    },
     "artifacts": {
         "name": "artifacts",
         "x-displayName": "Artifacts and attachments",
-        "description": (
-            "Upload bytes, attach evidence to exact revisions and download "
-            "authorized artifacts. Stored evidence is not automatically "
-            "verified."
-        ),
-    },
-    "external-runs": {
-        "name": "external-runs",
-        "x-displayName": "Runs and outputs",
-        "description": (
-            "Historical external runs (new runs are retired): attributable "
-            "writes, separate output pagination and closure."
-        ),
-    },
-    "project-runs": {
-        "name": "project-runs",
-        "x-displayName": "Project run history",
-        "description": "Public or member-visible run summaries without input or output expansion.",
-    },
-    "catalogue": {
-        "name": "catalogue",
-        "x-displayName": "Library catalogue",
-        "description": (
-            "Browse admitted statements and manage human catalogue admission "
-            "and official revisions."
-        ),
-    },
-    "records": {
-        "name": "records",
-        "x-displayName": "Records and decisions",
-        "description": (
-            "Read or write structured research records and inspect revision "
-            "decisions; project records are not automatically Library "
-            "admissions."
-        ),
-    },
-    "publication": {
-        "name": "publication",
-        "x-displayName": "Publication",
-        "description": (
-            "Human-confirmed publication of exact private research closures and public manifests."
-        ),
-    },
-    "context": {
-        "name": "context",
-        "x-displayName": "Notes, summaries and progress",
-        "description": (
-            "Human research context, exact-target attempts and progress. "
-            "Personal notes are excluded from agent access."
-        ),
-    },
-    "references": {
-        "name": "references",
-        "x-displayName": "Project references",
-        "description": "Private project references pinned to exact public research versions.",
-    },
-    "provenance": {
-        "name": "provenance",
-        "x-displayName": "Contribution provenance",
-        "description": "Inspect attribution and exact contribution provenance.",
-    },
-    "assurance": {
-        "name": "assurance",
-        "x-displayName": "Assurance",
-        "description": (
-            "Revision-pinned assurance, endorsements and correspondence; "
-            "availability depends on deployment configuration."
-        ),
-    },
-    "community": {
-        "name": "community",
-        "x-displayName": "Community and notifications",
-        "description": "Following, interest, public progress summaries and personal notifications.",
+        "description": "Upload bytes, attach evidence to exact revisions and download "
+        "authorized artifacts. Stored evidence is not automatically "
+        "verified.",
     },
     "users": {
         "name": "users",
@@ -211,17 +78,15 @@ REFERENCE_TAGS = {
     "account recovery": {
         "name": "account recovery",
         "x-displayName": "Email and recovery",
-        "description": (
-            "Optional built-in email verification and password recovery; "
-            "availability depends on deployment configuration."
-        ),
+        "description": "Optional built-in email verification and password "
+        "recovery; availability depends on deployment "
+        "configuration.",
     },
     "agents": {
         "name": "agents",
         "x-displayName": "Hosted agent definitions",
-        "description": (
-            "Optional platform-managed agents, distinct from external agents using account keys."
-        ),
+        "description": "Optional platform-managed agents, distinct from external agents "
+        "using account keys.",
     },
     "agent-sessions": {
         "name": "agent-sessions",
@@ -231,36 +96,13 @@ REFERENCE_TAGS = {
     "agent-runs": {
         "name": "agent-runs",
         "x-displayName": "Hosted runs",
-        "description": (
-            "Optional platform-managed execution, context and events; distinct from /api/v1/runs."
-        ),
+        "description": "Optional platform-managed execution, context and events; "
+        "distinct from /api/v1/runs.",
     },
     "gateway-profiles": {
         "name": "gateway-profiles",
         "x-displayName": "Model provider profiles",
         "description": "Optional human-owned provider configuration and secret lifecycle.",
-    },
-    "proposals": {
-        "name": "proposals",
-        "x-displayName": "Proposal review",
-        "description": "Optional human review of hosted-agent proposed changes.",
-    },
-    "verification": {
-        "name": "verification",
-        "x-displayName": "Verification jobs",
-        "description": (
-            "Optional curated verification environments, jobs and events; "
-            "requires the configured verification service."
-        ),
-    },
-    "moderation": {
-        "name": "moderation",
-        "x-displayName": "Moderation and audit",
-        "description": (
-            "Human administration and moderation with the operation-specific "
-            "operator or moderator authority. Public reads and ordinary "
-            "contribution rights do not grant moderation authority."
-        ),
     },
 }
 
@@ -331,21 +173,6 @@ OPERATION_SECTIONS = {
     "previewProjectMerge": "projects",
     "mergeProjectFiles": "projects",
     "getApplicationConfiguration": "identity",
-    "saveObjectSummary": "context",
-    "readObjectSummary": "context",
-    "reportObjectProgress": "context",
-    "readObjectProgress": "context",
-    "listObjectVersionAttachments": "artifacts",
-    "listResearchActivity": "activity",
-    "listObjectActivity": "activity",
-    "listProfileActivity": "profiles",
-    "listAgentProfileActivity": "profiles",
-    "getPublicProfile": "profiles",
-    "getPublicAgentProfile": "profiles",
-    "getContribution": "activity",
-    "listProjectActivity": "activity",
-    "getObjectVersion": "objects",
-    "listAttachedContributions": "objects",
     "createExternalAgentIdentity": "agent-identities",
     "listExternalAgentIdentities": "agent-identities",
     "updateExternalAgentIdentity": "agent-identities",
@@ -361,7 +188,6 @@ OPERATION_SECTIONS = {
     "listHostedRunArtifacts": "agent-runs",
     "downloadHostedRunArtifact": "agent-runs",
     "cancelAgentRun": "agent-runs",
-    "getAgentRunContextManifest": "agent-runs",
     "streamAgentRunEvents": "agent-runs",
     "resumeAgentRun": "agent-runs",
     "listAgentSessions": "agent-sessions",
@@ -374,24 +200,6 @@ OPERATION_SECTIONS = {
     "queueAgentSessionTurn": "agent-sessions",
     "readArtifact": "artifacts",
     "downloadArtifact": "artifacts",
-    "assessExactCorrespondence": "assurance",
-    "reviewObjectVersion": "assurance",
-    "listObjectVersionReviews": "assurance",
-    "summarizeObjectVersionReviews": "assurance",
-    "endorseExactObjectVersion": "assurance",
-    "getScopedObjectVersionAssurance": "assurance",
-    "getScopedObjectVersionCurrentAssurance": "assurance",
-    "attachArtifact": "artifacts",
-    "admitCatalogueEntry": "catalogue",
-    "assignCatalogueModerator": "moderation",
-    "promoteCatalogueStatement": "catalogue",
-    "listCatalogueAudit": "catalogue",
-    "moderateCatalogueEntry": "moderation",
-    "createCatalogueVersion": "catalogue",
-    "getMyCatalogueCommunityState": "community",
-    "setCatalogueFollow": "community",
-    "setCatalogueInterest": "community",
-    "searchProjectResearch": "search",
     "listGatewayProfiles": "gateway-profiles",
     "createGatewayProfile": "gateway-profiles",
     "deleteGatewayProfile": "gateway-profiles",
@@ -399,90 +207,17 @@ OPERATION_SECTIONS = {
     "validateGatewayProfile": "gateway-profiles",
     "acceptInvitation": "invitations",
     "getCurrentIdentity": "identity",
-    "listMyResearchNotifications": "community",
-    "getResearchObject": "objects",
-    "listObjectComments": "comments",
-    "createObjectComment": "comments",
-    "listObjectDependents": "relations",
-    "getObjectNeighborhood": "relations",
-    "listObjectRelations": "relations",
-    "listObjectVersions": "objects",
-    "createObjectVersion": "objects",
-    "listPublicProjectRecordModerationAudit": "moderation",
-    "moderatePublicProjectRecord": "moderation",
     "listPlatformAgents": "agents",
-    "getAgentContributionProvenance": "provenance",
-    "listProjectProposals": "proposals",
-    "discoverVerificationEnvironments": "verification",
-    "submitVerificationJob": "verification",
-    "getVerificationJob": "verification",
-    "cancelVerificationJob": "verification",
-    "getVerificationEvents": "verification",
-    "rerunVerificationJob": "verification",
-    "getProposal": "proposals",
-    "acceptProposalChange": "proposals",
-    "rejectProposalChange": "proposals",
-    "getProposalContextManifest": "proposals",
-    "decideProposalChangesAtomically": "proposals",
     "verifyAccountEmail": "account recovery",
-    "getPublicRevisionAssurance": "assurance",
-    "getPublicRevisionCurrentAssurance": "assurance",
     "confirmPasswordReset": "account recovery",
     "requestPasswordReset": "account recovery",
-    "listPublicCatalogue": "catalogue",
-    "searchLibrary": "catalogue",
-    "listCatalogueHistory": "catalogue",
-    "getCatalogueVersion": "catalogue",
-    "getPublicCatalogueEntry": "catalogue",
-    "getPublicCatalogueInterest": "community",
-    "getPublicProgressSummary": "community",
-    "searchPublicResearch": "search",
-    "getPublicPublicationManifest": "publication",
-    "listPublicRecordRelations": "records",
-    "listPublicRecords": "records",
-    "getPublicRecord": "records",
-    "getPublicCorrectionDecision": "records",
-    "listPublicResearchAttempts": "context",
-    "confirmSelectivePublication": "publication",
-    "listSelectivePublicationHistory": "publication",
-    "previewSelectivePublication": "publication",
-    "listScopedRecordRelations": "records",
-    "listProjectRecords": "records",
-    "listPublicRecordModerationAudit": "moderation",
-    "moderatePublicRecord": "moderation",
-    "getScopedRecord": "records",
-    "decidePublicCorrection": "records",
-    "createObjectRelation": "relations",
-    "listScopedResearchAttempts": "context",
-    "listResearchComments": "comments",
-    "commentOnResearchVersion": "comments",
-    "getResearchHumanNote": "context",
-    "writeResearchHumanNote": "context",
-    "listResearchHumanNoteHistory": "context",
-    "listResearchProgress": "context",
-    "reportResearchProgress": "context",
-    "getResearchSummary": "context",
-    "writeResearchSummary": "context",
-    "listResearchSummaryHistory": "context",
-    "resolveResearchObjectVersionDisplays": "records",
-    "listExternalResearchRuns": "external-runs",
-    "createExternalResearchRun": "external-runs",
-    "getExternalResearchRun": "external-runs",
-    "closeExternalResearchRun": "external-runs",
-    "listExternalRunOutputs": "external-runs",
-    "searchResearch": "search",
     "getCurrentUser": "users",
     "chooseUsername": "users",
-    "listProjectReferences": "references",
-    "workPrivately": "references",
-    "upgradeProjectReference": "references",
     "listProjects": "projects",
     "createProject": "projects",
-    "copyLibraryToProject": "projects",
     "deleteProject": "projects",
     "getProject": "projects",
     "updateProject": "projects",
-    "pageArtifactAttachments": "artifacts",
     "uploadArtifact": "artifacts",
     "listProjectInvitations": "invitations",
     "createProjectInvitation": "invitations",
@@ -491,9 +226,6 @@ OPERATION_SECTIONS = {
     "addProjectMember": "memberships",
     "removeProjectMember": "memberships",
     "updateProjectMember": "memberships",
-    "listResearchObjects": "objects",
-    "createResearchObject": "objects",
-    "listProjectRuns": "project-runs",
 }
 
 
@@ -541,23 +273,11 @@ def arrange_reference(schema: dict[str, Any]) -> None:
                 "agent-sessions",
                 "agent-runs",
                 "gateway-profiles",
-                "proposals",
-                "verification",
                 "account recovery",
             }:
                 notes.append(
                     "**Availability:** Optional deployment capability; documentation "
                     "does not imply that this service is enabled."
-                )
-            if (
-                method != "get"
-                and any("ExternalAgentBearer" in option for option in security)
-                and section in {"objects", "comments", "relations", "artifacts"}
-            ):
-                notes.append(
-                    "**Research writes:** Humans and agents supply a stable Idempotency-Key. "
-                    "Each write is independently authorized; Library contributions require "
-                    "explicit opt-in on an agent key. Staging bytes is not a contribution."
                 )
             operation["description"] = "\n\n".join(note for note in notes if note)
     schema["x-tagGroups"] = [

@@ -25,7 +25,9 @@ def create_key(client: TestClient) -> dict[str, Any]:
     return cast(dict[str, Any], response.json())
 
 
-def test_owner_can_reveal_repeatedly_but_list_never_contains_secret(client: TestClient) -> None:
+def test_owner_can_reveal_repeatedly_but_list_never_contains_secret(
+    client: TestClient,
+) -> None:
     key = create_key(client)
     assert key["secret_reveal_available"] is True
     app = cast(Any, client.app)
@@ -91,13 +93,16 @@ def test_wrong_encryption_key_fails_without_exposing_secret(client: TestClient) 
     app = cast(Any, client.app)
     app.state.credential_wrapper = LocalAesGcmKeyWrapper(b"x" * 32)
     response = client.post(
-        f"/api/v1/account/agent-keys/{key['id']}/reveal", headers={"Authorization": "Bearer owner"}
+        f"/api/v1/account/agent-keys/{key['id']}/reveal",
+        headers={"Authorization": "Bearer owner"},
     )
     assert response.status_code == 503
     assert key["secret"] not in response.text
 
 
-def test_persisted_wrapping_key_can_reveal_after_wrapper_recreation(client: TestClient) -> None:
+def test_persisted_wrapping_key_can_reveal_after_wrapper_recreation(
+    client: TestClient,
+) -> None:
     app = cast(Any, client.app)
     app.state.credential_wrapper = LocalAesGcmKeyWrapper(b"s" * 32)
     key = create_key(client)

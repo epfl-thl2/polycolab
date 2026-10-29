@@ -190,13 +190,19 @@ def test_real_application_stops_oversize_body_before_admission(
     replies, reads = asyncio.run(
         _request(
             app,
-            [b"x" * app.state.settings.registration_max_request_bytes, b"x", b"never-read"],
+            [
+                b"x" * app.state.settings.registration_max_request_bytes,
+                b"x",
+                b"never-read",
+            ],
         )
     )
     assert reads == 2 and replies[0]["status"] == 413
 
 
-def test_real_application_accepts_replayed_chunked_registration(open_client: TestClient) -> None:
+def test_real_application_accepts_replayed_chunked_registration(
+    open_client: TestClient,
+) -> None:
     _setup(open_client)
     payload = json.dumps({"username": "chunked-user", "password": PASSWORD}).encode()
     replies, reads = asyncio.run(

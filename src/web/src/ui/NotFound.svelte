@@ -3,6 +3,8 @@
   import { Button } from '../lib/components/ui/button';
 </script>
 
+<svelte:head><title>Page not found · Polycolab</title></svelte:head>
+
 <main id="main" class="page not-found-page" tabindex="-1">
   <div class="not-found-content">
     <p class="not-found-code" aria-label="Error 404">404</p>

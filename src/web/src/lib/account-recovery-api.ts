@@ -1,6 +1,6 @@
 import type { components } from '$lib/api-client';
 
-import { ApiError } from './research-api';
+import { ApiError } from './projects-api';
 import { createWebApiClient } from './runtime';
 
 export type AccountEmail = components['schemas']['AccountEmailRead'];

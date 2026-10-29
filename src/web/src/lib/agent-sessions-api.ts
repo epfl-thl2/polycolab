@@ -1,7 +1,7 @@
 import type { components } from '$lib/api-client';
 
 import { createWebApiClient } from './runtime';
-import { ApiError } from './research-api';
+import { ApiError } from './projects-api';
 
 export type AgentSession = components['schemas']['AgentSessionRead'];
 export type AgentMessage = components['schemas']['AgentMessageRead'];
