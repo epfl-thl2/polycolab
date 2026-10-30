@@ -17,27 +17,49 @@ export async function controlSocketPath(root) {
   return join(directory, `${key}.sock`);
 }
 
-export function requestStop(path) {
+async function requestControl(path, command) {
   return new Promise((accept, reject) => {
     const socket = net.createConnection(path);
     let response = '';
-    socket.setTimeout(15000, () => socket.destroy(new Error('Local shutdown timed out.')));
-    socket.on('connect', () => socket.write('stop\n'));
+    socket.setTimeout(15000, () => socket.destroy(new Error('Local control request timed out.')));
+    socket.on('connect', () => socket.write(`${command}\n`));
     socket.on('data', (data) => {
       response += data;
+      if (response.length > 16384) socket.destroy(new Error('Invalid local control response.'));
     });
     socket.on('end', () => {
-      if (response === 'stopped\n') accept(true);
-      else reject(new Error('Local launcher closed before confirming shutdown.'));
+      if (response) accept(response);
+      else
+        reject(
+          new Error(
+            'Launcher did not support or complete this request. Restart dev:local to load the current launcher.',
+          ),
+        );
     });
     socket.on('error', (error) => {
-      if (['ENOENT', 'ECONNREFUSED'].includes(error.code)) accept(false);
+      if (['ENOENT', 'ECONNREFUSED'].includes(error.code)) accept(null);
       else reject(error);
     });
   });
 }
 
-export async function listenForStop(path, stop) {
+export async function requestStop(path) {
+  const response = await requestControl(path, 'stop');
+  if (response === null) return false;
+  if (response !== 'stopped\n') throw new Error('Local launcher did not confirm shutdown.');
+  return true;
+}
+
+export async function requestStatus(path) {
+  const response = await requestControl(path, 'status');
+  return response === null ? null : JSON.parse(response);
+}
+
+export async function listenForStop(
+  path,
+  stop,
+  status = async () => ({ phase: 'unknown', services: [] }),
+) {
   await mkdir(dirname(path), { recursive: true });
   const lock = `${path}.lock`;
   try {
@@ -49,13 +71,13 @@ export async function listenForStop(path, stop) {
     );
   }
   try {
-    return await bindControl(path, stop);
+    return await bindControl(path, stop, status);
   } finally {
     await rmdir(lock);
   }
 }
 
-async function bindControl(path, stop) {
+async function bindControl(path, stop, status) {
   // The exclusive startup lock covers probing, stale cleanup, and binding.
   // Probe an existing socket without sending a stop request to a running launcher.
   const active = await new Promise((accept, reject) => {
@@ -85,12 +107,17 @@ async function bindControl(path, stop) {
     socket.on('data', async (data) => {
       if (handled) return socket.destroy();
       request += data;
-      if (request.length > 5 || !'stop\n'.startsWith(request)) return socket.destroy();
-      if (request !== 'stop\n') return;
+      const commands = ['stop\n', 'status\n'];
+      if (request.length > 7 || !commands.some((command) => command.startsWith(request)))
+        return socket.destroy();
+      if (!commands.includes(request)) return;
       handled = true;
       try {
-        await stop();
-        socket.end('stopped\n');
+        if (request === 'status\n') socket.end(`${JSON.stringify(await status())}\n`);
+        else {
+          await stop();
+          socket.end('stopped\n');
+        }
       } catch {
         socket.destroy();
       }

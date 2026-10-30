@@ -29,6 +29,7 @@
     "api:contract": "uv --directory src/backend run python -m polycolab.export_openapi && pnpm --filter @polycolab/web run api:generate",
     "api:contract:check": "uv --directory src/backend run python -m polycolab.export_openapi --check && pnpm --filter @polycolab/web run api:generate:check",
     "api:test": "uv --directory src/backend run pytest",
+    "dev:status": "node scripts/development.mjs status",
     "dev:stop": "node scripts/development.mjs stop",
     "dev:local": "node scripts/development.mjs local",
     "dev:docker": "node scripts/development.mjs docker",

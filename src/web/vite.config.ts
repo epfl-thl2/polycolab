@@ -11,7 +11,10 @@ export default defineConfig(({ mode }) => {
     fileURLToPath(new URL('../../deploy/docker/', import.meta.url)),
     'POLYCOLAB_',
   );
-  const apiTarget = environment.POLYCOLAB_API_PROXY_TARGET || 'http://127.0.0.1:8000';
+  const apiTarget =
+    process.env.POLYCOLAB_API_PROXY_TARGET ||
+    environment.POLYCOLAB_API_PROXY_TARGET ||
+    'http://127.0.0.1:8000';
   return {
     cacheDir: process.env.POLYCOLAB_SVELTE_OUT_DIR
       ? `${process.env.POLYCOLAB_SVELTE_OUT_DIR}/vite`

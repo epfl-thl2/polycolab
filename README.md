@@ -67,12 +67,43 @@ cp deploy/docker/.env.example deploy/docker/.env
 
 2. When you first start the services, choose an administrator password at the prompt.
    You can instead supply `BOOTSTRAP_ADMIN_PASSWORD`.
-3. Open **http://localhost:5174**.
+3. Open the printed browser address (normally **http://localhost:5174**).
 4. Use `admin` as your username to access your account.
+
+You can run `pnpm run dev:local` in multiple worktrees at the same time.
+Each launcher prefers web port 5174, API port 8000, and collaboration port 8002,
+then automatically selects free alternatives when those ports are occupied.
+Open the browser address printed by the launcher. The default browser origin follows
+the selected web port.
+
+For predictable ports (for example, SSH forwarding), specify them explicitly:
+
+```sh
+pnpm run dev:local --web-port 5274 --api-port 8100 --collaboration-port 8102
+```
+
+Explicit ports must be free; the launcher reports a conflict instead of silently changing them.
+Open **http://localhost:5274** for that worktree. The launcher configures the API proxy,
+collaboration connection, allowed origins, and default login cookie name for those ports.
+Each worktree keeps its own `.local/` data and `deploy/docker/.env`.
+`pnpm run dev:stop` stops only the launcher for the current worktree; no port options are needed.
+
+For an SSH tunnel using a different browser address, pass its exact origin:
+
+```sh
+pnpm run dev:local --web-port 5274 --api-port 8100 --collaboration-port 8102 --public-origin http://localhost:6274
+```
+
+Forward local port 6274 to port 5274 on the development machine, then open
+**http://localhost:6274**. Services still bind to loopback.
+`--public-origin` overrides `PUBLIC_APP_ORIGIN` from your environment or `.env`;
+otherwise the origin defaults to `http://localhost:<web-port>` when unset.
+Run `pnpm run dev:local --help` to see the options.
 
 The command starts these processes:
 
 - Vite.
+- The collaboration server.
 - The Python API, which reloads after source changes.
 
 The API owns hosted-run recovery, artifact cleanup, and document-build maintenance
@@ -86,6 +117,24 @@ Before startup, the command applies pending SQLite migrations.
 Before an upgrade, it saves a backup of the existing database in `.local/backups/`.
 A failed upgrade stops startup.
 The workspace-only migration intentionally discards the retired research-object data while preserving workspace data. See the [upgrade notes](deploy/README.md).
+
+The launcher prints **Ready** only after the API readiness endpoint, collaboration health
+endpoint, and website return successful HTTP responses. If a service exits or startup
+health checks still fail after two minutes, it names the failing service and stops the
+remaining services. Database setup and the initial administrator prompt happen before
+this readiness timeout begins.
+
+From another terminal in the same worktree, inspect the selected ports and live health:
+
+```sh
+pnpm run dev:status
+```
+
+Status reports the launcher PID, browser URL, each service URL, and the phase:
+`preparing`, `starting`, `ready`, `degraded`, or `stopping`. Health is checked when you
+request status, so a service that becomes unhealthy after startup appears as degraded.
+Without an active launcher it reports that local mode is not running. Status supports
+local mode; restart launchers started before this command was added to enable it.
 
 Press Ctrl+C to stop all processes that the command starts, or run `pnpm run dev:stop`
 from another terminal in the same checkout. Shutdown allows five seconds for graceful

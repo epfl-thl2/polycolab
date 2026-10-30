@@ -30,6 +30,8 @@ The example URLs are not usable credentials.
 
 The two supported development commands are `pnpm run dev:local` (SQLite plus local files, no Docker) and `pnpm run dev:docker` (PostgreSQL plus Garage).
 Both read `deploy/docker/.env`.
+For simultaneous worktrees, `dev:local` automatically chooses free ports when defaults are occupied. To pin ports, pass distinct `--web-port`, `--api-port`, and `--collaboration-port` values to `dev:local`; use `--public-origin` when the browser address differs (for example, an SSH tunnel). See the [local setup examples](../README.md#run-without-docker).
+Use `pnpm run dev:status` to see the current worktree’s browser address, service URLs, and live health. Startup prints `Ready` only after all three services respond successfully; failed startup health checks time out after two minutes and stop the services.
 Stop local mode with Ctrl+C or `pnpm run dev:stop` from the same checkout.
 Local data stays under `.local/`.
 Docker data stays in its named volumes.

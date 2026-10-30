@@ -13,6 +13,7 @@ import {
   controlSocketPath,
   listenForStop,
   requestStop,
+  requestStatus,
 } from '../../scripts/development-control.mjs';
 
 async function until(check) {
@@ -75,6 +76,7 @@ test('stop control is scoped to its socket and rejects duplicate launchers', asy
   t.after(() => rm(directory, { recursive: true, force: true }));
   const socket = resolve(directory, 'dev.sock');
   assert.equal(await requestStop(socket), false);
+  assert.equal(await requestStatus(socket), null);
   let stopped = false;
   const close = await listenForStop(socket, async () => {
     stopped = true;
@@ -89,94 +91,222 @@ test('stop control is scoped to its socket and rejects duplicate launchers', asy
   assert.equal(stopped, true);
 });
 
-for (const method of ['SIGINT', 'command']) {
-  test(`local launcher stops all services via ${method}`, { timeout: 20000 }, async (t) => {
-    const parent = await mkdtemp(resolve(tmpdir(), 'polycolab-launcher-'));
-    const directory = method === 'command' ? resolve(parent, 'long-checkout-'.repeat(12)) : parent;
-    await mkdir(directory, { recursive: true });
-    await cp(new URL('../../scripts/', import.meta.url), resolve(directory, 'scripts'), {
-      recursive: true,
-    });
-    // Use ephemeral ports for preflight so a developer's running app is unaffected.
-    const launcherPath = resolve(directory, 'scripts/development.mjs');
-    await writeFile(
-      launcherPath,
-      (await readFile(launcherPath, 'utf8')).replace(
-        /await checkPort\(\d+\)/g,
-        'await checkPort(0)',
-      ),
-    );
-    await mkdir(resolve(directory, 'deploy/docker'), { recursive: true });
-    await mkdir(resolve(directory, 'bin'));
-    await writeFile(resolve(directory, 'deploy/docker/.env'), 'REGISTRATION_MODE=open\n');
-    // Replace only the service commands; exercise the real launcher and stop CLI.
-    const fake = `#!${process.execPath}
+let nextTestPort = 20000;
+
+test(
+  'checkouts run concurrently with explicit and automatic ports',
+  { concurrency: true },
+  async (suite) => {
+    await Promise.all(
+      ['SIGINT', 'command', 'automatic', 'cancel-startup', 'service-exit'].map((method) =>
+        suite.test(
+          `local launcher stops all services via ${method}`,
+          { timeout: 20000 },
+          async (t) => {
+            const parent = await mkdtemp(resolve(tmpdir(), 'polycolab-launcher-'));
+            const directory =
+              method === 'command' ? resolve(parent, 'long-checkout-'.repeat(12)) : parent;
+            await mkdir(directory, { recursive: true });
+            await cp(new URL('../../scripts/', import.meta.url), resolve(directory, 'scripts'), {
+              recursive: true,
+            });
+            const reservations = await Promise.all(
+              [0, 1, 2].map(async () => {
+                // Keep explicit fixture ports outside the ephemeral range used by
+                // automatic selection and HTTP clients in concurrent test processes.
+                while (nextTestPort < 30000) {
+                  const server = net.createServer();
+                  server.listen(nextTestPort++, '127.0.0.1');
+                  try {
+                    await once(server, 'listening');
+                    return server;
+                  } catch (error) {
+                    if (error.code !== 'EADDRINUSE') throw error;
+                  }
+                }
+                throw new Error('No free fixture port');
+              }),
+            );
+            let [webPort, apiPort, collaborationPort] = reservations.map(
+              (server) => server.address().port,
+            );
+            await Promise.all(
+              reservations.map((server) => new Promise((accept) => server.close(accept))),
+            );
+            await mkdir(resolve(directory, 'deploy/docker'), { recursive: true });
+            await mkdir(resolve(directory, 'bin'));
+            await writeFile(resolve(directory, 'deploy/docker/.env'), 'REGISTRATION_MODE=open\n');
+            const unready = resolve(directory, 'unready');
+            if (['command', 'cancel-startup'].includes(method)) await writeFile(unready, 'wait');
+            // Replace only the service commands; exercise the real launcher and stop CLI.
+            const fake = `#!${process.execPath}
 const fs = require('fs');
 if (process.argv.includes('polycolab.operations.local_development')) process.exit(0);
-fs.appendFileSync(${JSON.stringify(resolve(directory, 'services'))}, String(process.pid) + '\\n');
+fs.appendFileSync(${JSON.stringify(resolve(directory, 'configuration'))}, JSON.stringify({ pid: process.pid, args: process.argv, origin: process.env.PUBLIC_APP_ORIGIN, allowed: JSON.parse(process.env.ALLOWED_ORIGINS), proxy: process.env.POLYCOLAB_API_PROXY_TARGET, collaboration: process.env.COLLABORATION_URL, cookie: process.env.LOCAL_AUTH_COOKIE_NAME }) + '\\n');
+const port = process.argv.includes('--port') ? Number(process.argv[process.argv.indexOf('--port') + 1]) : Number(process.env.COLLABORATION_PORT);
+require('http').createServer((_request, response) => {
+  response.writeHead(fs.existsSync(${JSON.stringify(resolve(directory, 'unready'))}) ? 503 : 200).end('test service');
+}).listen(port, process.env.COLLABORATION_HOST, () => {
+  fs.appendFileSync(${JSON.stringify(resolve(directory, 'services'))}, String(process.pid) + '\\n');
+});
 process.on('SIGTERM', () => { if (!process.argv[1].endsWith('/uv')) process.exit(0); });
 setInterval(() => {}, 1000);
 `;
-    await writeFile(resolve(directory, 'bin/uv'), fake, { mode: 0o755 });
-    for (const path of [
-      'src/collaboration/src/server.ts',
-      'src/web/node_modules/vite/bin/vite.js',
-      'src/web/node_modules/@sveltejs/kit/svelte-kit.js',
-    ]) {
-      const target = resolve(directory, path);
-      await mkdir(resolve(target, '..'), { recursive: true });
-      await writeFile(target, path.endsWith('svelte-kit.js') ? '' : fake);
-    }
-    const launcher = spawn(process.execPath, ['scripts/development.mjs', 'local'], {
-      cwd: directory,
-      env: { ...process.env, PATH: `${directory}/bin:${process.env.PATH}` },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let output = '';
-    launcher.stdout.on('data', (data) => {
-      output += data;
-    });
-    launcher.stderr.on('data', (data) => {
-      output += data;
-    });
-    const exited = once(launcher, 'exit');
-    let pids = [];
-    t.after(async () => {
-      if (launcher.exitCode === null) launcher.kill('SIGTERM');
-      await exited;
-      for (const pid of pids) {
-        try {
-          process.kill(-pid, 'SIGKILL');
-        } catch {}
-      }
-      await rm(parent, { recursive: true, force: true });
-    });
-    await until(async () => {
-      if (launcher.exitCode !== null) throw new Error(output);
-      try {
-        pids = (await readFile(resolve(directory, 'services'), 'utf8'))
-          .trim()
-          .split('\n')
-          .map(Number);
-        return pids.length === 3;
-      } catch (error) {
-        if (error.code !== 'ENOENT') throw error;
-        return false;
-      }
-    });
-    if (method === 'SIGINT') launcher.kill('SIGINT');
-    else {
-      const stop = spawn(process.execPath, ['scripts/development.mjs', 'stop'], {
-        cwd: directory,
-        stdio: 'pipe',
-      });
-      assert.equal((await once(stop, 'exit'))[0], 0);
-    }
-    assert.equal((await exited)[0], 0, output);
-    for (const pid of pids) await until(async () => !(await running(pid)));
-    assert.equal(await requestStop(await controlSocketPath(directory)), false);
-  });
-}
+            await writeFile(resolve(directory, 'bin/uv'), fake, { mode: 0o755 });
+            for (const path of [
+              'src/collaboration/src/server.ts',
+              'src/web/node_modules/vite/bin/vite.js',
+              'src/web/node_modules/@sveltejs/kit/svelte-kit.js',
+            ]) {
+              const target = resolve(directory, path);
+              await mkdir(resolve(target, '..'), { recursive: true });
+              await writeFile(target, path.endsWith('svelte-kit.js') ? '' : fake);
+            }
+            const launcher = spawn(
+              process.execPath,
+              [
+                'scripts/development.mjs',
+                'local',
+                ...(method === 'automatic'
+                  ? []
+                  : [
+                      '--web-port',
+                      String(webPort),
+                      '--api-port',
+                      String(apiPort),
+                      '--collaboration-port',
+                      String(collaborationPort),
+                      '--public-origin',
+                      `http://localhost:${webPort}`,
+                    ]),
+              ],
+              {
+                cwd: directory,
+                env: {
+                  ...process.env,
+                  LOCAL_AUTH_COOKIE_NAME: '',
+                  PUBLIC_APP_ORIGIN: '',
+                  PATH: `${directory}/bin:${process.env.PATH}`,
+                },
+                stdio: ['ignore', 'pipe', 'pipe'],
+              },
+            );
+            let output = '';
+            launcher.stdout.on('data', (data) => {
+              output += data;
+            });
+            launcher.stderr.on('data', (data) => {
+              output += data;
+            });
+            const exited = once(launcher, 'exit');
+            let pids = [];
+            t.after(async () => {
+              if (launcher.exitCode === null) launcher.kill('SIGTERM');
+              await exited;
+              for (const pid of pids) {
+                try {
+                  process.kill(-pid, 'SIGKILL');
+                } catch {}
+              }
+              await rm(parent, { recursive: true, force: true });
+            });
+            await until(async () => {
+              if (launcher.exitCode !== null) throw new Error(output);
+              try {
+                pids = (await readFile(resolve(directory, 'services'), 'utf8'))
+                  .trim()
+                  .split('\n')
+                  .map(Number);
+                return pids.length === 3;
+              } catch (error) {
+                if (error.code !== 'ENOENT') throw error;
+                return false;
+              }
+            });
+            const configurations = (await readFile(resolve(directory, 'configuration'), 'utf8'))
+              .trim()
+              .split('\n')
+              .map((line) => JSON.parse(line));
+            assert.equal(configurations.length, 3);
+            if (method === 'automatic') {
+              webPort = Number(new URL(configurations[0].origin).port);
+              apiPort = Number(new URL(configurations[0].proxy).port);
+              collaborationPort = Number(new URL(configurations[0].collaboration).port);
+              assert.equal(new Set([webPort, apiPort, collaborationPort]).size, 3);
+              assert.ok([webPort, apiPort, collaborationPort].every((port) => port > 0));
+            }
+            for (const config of configurations) {
+              assert.equal(config.origin, `http://localhost:${webPort}`);
+              assert.ok(config.allowed.includes(config.origin));
+              assert.equal(config.proxy, `http://127.0.0.1:${apiPort}`);
+              assert.equal(config.collaboration, `http://127.0.0.1:${collaborationPort}`);
+              assert.equal(
+                config.cookie,
+                webPort === 5174 ? 'polycolab_session' : `polycolab_session_${webPort}`,
+              );
+            }
+            assert.ok(configurations.some((config) => config.args.includes(String(apiPort))));
+            assert.ok(configurations.some((config) => config.args.includes(String(webPort))));
+            const socket = await controlSocketPath(directory);
+            if (['command', 'cancel-startup'].includes(method)) {
+              assert.equal(output.includes('Ready:'), false);
+              const pending = await requestStatus(socket);
+              assert.equal(pending.phase, 'starting');
+              assert.equal(
+                pending.services.every((service) => !service.healthy),
+                true,
+              );
+              if (method === 'command') await rm(unready);
+            }
+            if (method !== 'cancel-startup') {
+              await until(() => output.includes('Ready:'));
+              const healthy = await requestStatus(socket);
+              assert.equal(healthy.phase, 'ready');
+              assert.equal(healthy.origin, `http://localhost:${webPort}`);
+              assert.equal(healthy.services.length, 3);
+              assert.equal(
+                healthy.services.every((service) => service.healthy),
+                true,
+              );
+            }
+            if (method === 'command') {
+              const statusCli = spawn(process.execPath, ['scripts/development.mjs', 'status'], {
+                cwd: directory,
+                stdio: 'pipe',
+              });
+              let text = '';
+              statusCli.stdout.on('data', (data) => {
+                text += data;
+              });
+              assert.equal((await once(statusCli, 'exit'))[0], 0);
+              assert.match(text, /Local mode: ready/);
+              assert.ok(text.includes(`Browser: http://localhost:${webPort}`));
+              assert.match(text, /API: healthy/);
+              await writeFile(unready, 'unhealthy');
+              assert.equal((await requestStatus(socket)).phase, 'degraded');
+            }
+            if (method === 'service-exit') {
+              const api = configurations.find((config) => config.args.includes(String(apiPort)));
+              process.kill(api.pid, 'SIGKILL');
+            } else if (method === 'SIGINT') launcher.kill('SIGINT');
+            else {
+              const stop = spawn(process.execPath, ['scripts/development.mjs', 'stop'], {
+                cwd: directory,
+                stdio: 'pipe',
+              });
+              assert.equal((await once(stop, 'exit'))[0], 0);
+            }
+            assert.equal((await exited)[0], method === 'service-exit' ? 1 : 0, output);
+            if (method === 'service-exit') assert.match(output, /API:.*SIGKILL/);
+            if (method === 'cancel-startup') assert.equal(output.includes('Ready:'), false);
+            for (const pid of pids) await until(async () => !(await running(pid)));
+            assert.equal(await requestStop(await controlSocketPath(directory)), false);
+          },
+        ),
+      ),
+    );
+  },
+);
 
 test(
   'real collaboration server releases its port across repeated launches',
