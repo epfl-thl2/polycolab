@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import net from 'node:net';
 import { once } from 'node:events';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { localOptions, selectLocalPorts } from '../../scripts/development-options.mjs';
 
 test('local defaults and overrides keep the browser origin aligned with its port', () => {
@@ -113,4 +115,34 @@ test('selected ports stay reserved during setup and release on request', async (
   });
   assert.equal(reused.web, first.web);
   await first.releasePorts();
+});
+
+test('browser connections during setup cannot block reserved port release', async () => {
+  // Isolate the regression: a reservation retaining the socket would otherwise
+  // leave this test runner alive even after a test timeout.
+  const moduleUrl = new URL('../../scripts/development-options.mjs', import.meta.url).href;
+  await promisify(execFile)(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `
+import net from 'node:net';
+import { once } from 'node:events';
+import { localOptions, selectLocalPorts } from ${JSON.stringify(moduleUrl)};
+const selected = await selectLocalPorts({
+  ...localOptions([], {}), web: 0, api: 0, collaboration: 0,
+}, true);
+for (const port of [selected.web, selected.api, selected.collaboration]) {
+  const client = net.connect(port, '127.0.0.1');
+  client.on('error', () => {});
+  await once(client, 'connect');
+  client.write('GET / HTTP/1.1\\r\\nHost: localhost\\r\\n');
+}
+await selected.releasePorts();
+await selectLocalPorts({ ...selected, explicitPorts: ['web', 'api', 'collaboration'] });
+`,
+    ],
+    { timeout: 5000 },
+  );
 });

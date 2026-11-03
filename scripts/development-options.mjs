@@ -54,7 +54,9 @@ export async function selectLocalPorts(options, holdUntilStart = false) {
       reservations.splice(0).map((server) => new Promise((accept) => server.close(accept))),
     );
   async function reserve(port) {
-    const server = net.createServer();
+    // These sockets reserve ports, not serve requests. A browser reconnecting
+    // during setup must not keep server.close() waiting when services start.
+    const server = net.createServer((socket) => socket.destroy());
     await new Promise((accept, reject) => {
       server.once('error', reject);
       server.listen(port, '127.0.0.1', accept);
