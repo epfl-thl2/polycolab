@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import UTC
 from typing import cast
+from urllib.parse import urlsplit
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response, status
@@ -50,7 +51,7 @@ from polycolab.entities.accounts import RegistrationInvitation as RegistrationIn
 from polycolab.entities.enums import InvitationStatus, SocialAuthPurpose, SocialProviderKind
 from polycolab.entities.time import utc_now
 from polycolab.execution.limits import enforce_login_username_limit
-from polycolab.platform.config import AuthMode, RegistrationMode
+from polycolab.platform.config import AuthMode, Environment, RegistrationMode
 
 
 class AccountCredentials(BaseModel):
@@ -113,11 +114,20 @@ def _clear_session_cookie(request: Request, response: Response) -> None:
 
 
 def _require_same_origin(request: Request) -> None:
+    settings = request.app.state.settings
     try:
-        expected = request.app.state.settings.public_origin
+        expected = settings.public_origin
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND) from exc
-    if request.headers.get("Origin") != expected:
+    allowed = {expected}
+    if settings.app_env is Environment.LOCAL:
+        # Vite and local browser launchers advertise either loopback spelling.
+        # Keep the configured scheme and port; other local services are not trusted.
+        parsed = urlsplit(expected)
+        if parsed.hostname in {"localhost", "127.0.0.1"}:
+            port = f":{parsed.port}" if parsed.port is not None else ""
+            allowed.update(f"{parsed.scheme}://{host}{port}" for host in ("localhost", "127.0.0.1"))
+    if request.headers.get("Origin") not in allowed:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="origin_mismatch")
 
 
@@ -286,7 +296,7 @@ def register(
         return _account_read(account)
     except ValueError as exc:
         session.rollback()
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY) from exc
+        raise RegistrationRequestInvalid from exc
     finally:
         session.close()
 

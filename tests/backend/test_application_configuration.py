@@ -49,7 +49,7 @@ def test_workspace_agents_are_discoverable_without_enabling_hosted_execution(
     assert {agent["version"] for agent in available.json()} == {3}
     project = create_project(client)
     response = client.post(
-        "/api/v1/agent-sessions",
+        "/api/v1/sessions",
         headers=headers(),
         json={
             "project_id": project["id"],

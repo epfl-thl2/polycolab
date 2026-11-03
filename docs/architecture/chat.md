@@ -1,44 +1,134 @@
-# Direct provider chat
+# Saved conversations
 
-The `chat` capability serves authenticated humans at `/api/v1/chat`.
-Standalone conversations have no project ID; project conversations require current membership.
-Only the creator can list or read a conversation, including in public projects.
-Sending requires an active contributor or owner role for a project conversation.
-Agent credentials cannot call these human routes.
+Application snapshots live in `entities/conversation.py`.
+A public session's identity is its conversation UUID; there is no second session entity.
+`Conversation` holds ownership, optional project scope, lifecycle, sharing, pinned
+configuration, working context, and hierarchy. Transcript pages are separate values.
+Execution and usage summaries remain explicitly absent when not loaded.
 
-`chat_conversations` stores ownership, optional project scope, title, ordering, and a finite active request lease.
-`chat_turns` stores each user's text, the selected profile and model, reply or stable failure, and token observations.
-The PostgreSQL and SQLite Alembic revisions share frozen DDL.
-No chat row creates a research revision, execution run, tool capability, or worktree binding.
+## Persistence
 
-Admission atomically claims the conversation and commits the user turn before provider I/O.
-Database transactions do not remain open during credential decryption or provider inference.
-One conversation permits one in-flight request.
-A client request UUID identifies an exact message/profile pair.
-Repeating it returns the saved pending or terminal turn; changed input with the same UUID conflicts.
-Ambiguous provider requests are not replayed automatically.
-After an interrupted process, an expired lease becomes a durable failed turn on history refresh or the next admission.
-A stale completion cannot overwrite a recovered turn or release a successor's lease.
+`conversations` and `conversation_items` store canonical metadata and typed transcript
+entries. `conversation_configurations` stores the immutable pinned agent identity,
+harness identity/version, optional connection protocol, and private prompt override.
+Runs, event streams, usage, grants, leases, and private runtime bindings remain separate.
+Private runtime references are never fields on conversation snapshots.
 
-The model gateway reads only the requesting user's encrypted credential.
-It honors the profile's `wire_api`: Responses or Chat Completions.
-Both protocols send the complete successful conversation history and current user message, with no tools.
-Responses uses `store: false`.
-Provider-generated tool calls, truncated responses, missing usage, and empty output fail safely.
-Provider failures expose stable codes rather than raw response bodies or credentials.
-The configured pinned transport retains DNS/egress checks and finite I/O bounds.
-Direct chat additionally bounds total stream duration, chunks, bytes, output tokens, and estimated request cost.
+Converters explicitly reconstruct typed immutable values and normalize UTC timestamps.
+Store methods return materialized snapshots, allocate sequences atomically, and never
+commit their caller's transaction. They validate parent/root/project consistency and
+spawning references. Parentage and configuration have no update operation.
+Configuration is additionally immutable in migrated PostgreSQL and SQLite databases.
+There is no public child-creation operation.
 
-Chat consumes configured per-user and per-project request windows.
-Daily chat admission uses the execution settings' token and cost ceilings, counted against conservative chat reservations.
-Reservations remain charged for failed or ambiguous requests.
-These daily chat counters are separate from hosted execution usage.
+Transcript items distinguish human, agent, tool, and system authorship; message,
+tool-call, tool-result, and safe-error payloads; completion/interruption state; and
+user-visible versus model-only content. Unknown historical call IDs, arguments,
+outputs, observed models, and token counts remain unknown. Reservations are distinct
+from observed usage. Agent items retain pinned agent-version attribution.
 
-Direct provider chat has no browser page or navigation entry.
-The browser's existing project conversations use agent sessions, with their own worktree context and execution requirements.
-`ChatComposer.svelte` remains shared UI infrastructure for those sessions.
-The direct chat API includes only explicit conversation text, without automatically attaching research or files.
+Execution events and their semantic items commit atomically. Deterministic item IDs
+prevent replay from duplicating tool/error entries. Prompt construction selects only
+visible messages within the run's pinned input boundary; storing tool/error entries
+does not make them additional model input.
 
-Deterministic API tests exercise both protocols, saved follow-ups, retry identity, failures, ownership, and recovery against SQLite.
-Mocked browser journeys check that retired Chat entry points do not load direct-chat conversations and that the existing project workflow remains accessible.
-These checks do not establish live-provider conformance, PostgreSQL contention, or target-deployment acceptance.
+## Historical cutover
+
+The session and workspace-only migration branches join at a merge revision; either
+previous branch head can upgrade without stamping or rewriting its history.
+Paired forward migrations rename agent tables in place, preserving their IDs and
+dependent foreign keys. A causal merge preserves message order and each run's event
+order, using timestamps and source IDs only for unconstrained ties. It translates
+run input boundaries to the new item sequences. Committed event IDs, cursors, and
+payloads remain unchanged. Backfill runs online; offline SQL is for schema inspection.
+
+Direct-provider histories become private `legacy_direct` conversations. Their saved
+request and response text becomes transcript items, and their original turn UUIDs
+become immutable `legacy_conversation_executions` identities. Request IDs, selected
+profiles/models, recorded failures, token observations, and reservations are retained.
+Pending requests become interrupted with a stable failure code. Copy verification
+precedes removal of the superseded direct-chat tables.
+
+Direct inference routes and wiring are retired; `/api/v1/chat/conversations` has no
+compatibility API. Shared model-gateway infrastructure remains available to agents.
+Legacy history permits owner reads and title/archive changes, but no new execution,
+resumption, sharing expansion, or conversion into an agent conversation.
+
+## Session API and participation
+
+`/api/v1/sessions` is the single human session API. Creating a session requires a
+project and current contributor or owner membership. Agent version, harness and
+prompt configuration are fixed at creation. The server admits supported execution
+capabilities; storing an arbitrary harness identifier does not enable it.
+
+| Operation                                           | Endpoint                                                 |
+| --------------------------------------------------- | -------------------------------------------------------- |
+| Create or list accessible sessions                  | `POST/GET /api/v1/sessions`                              |
+| Read metadata; owner changes title or archive state | `GET/PATCH /api/v1/sessions/{id}`                        |
+| Paginated typed transcript                          | `GET /api/v1/sessions/{id}/items`                        |
+| Authorized immediate children                       | `GET /api/v1/sessions/{id}/child_sessions`               |
+| Submit a human message or interrupt one named run   | `POST /api/v1/sessions/{id}/events`                      |
+| Committed updates and reconnect                     | `GET /api/v1/sessions/{id}/stream`                       |
+| Read sharing; owner changes sharing                 | `GET/PATCH /api/v1/sessions/{id}/sharing`                |
+| Paginated run history                               | `GET /api/v1/sessions/{id}/runs`                         |
+| Inspect a run or explicitly queue a successor       | `GET /api/v1/runs/{id}`, `POST /api/v1/runs/{id}/resume` |
+
+Session listings filter by project, archive state and origin. Transcript pages use
+an opaque sequence cursor in `next_cursor`; session, child and run listings return
+`X-Next-Cursor` when another page exists. Metadata does not embed transcript pages.
+The former agent-session and agent-run APIs have no compatibility routes.
+Run inspection and resumption use human authentication. External agent keys retain
+their separate delegated project-file APIs.
+
+Private sessions remain owner-only even when another user owns the project.
+Project-readable sharing permits current members to read. Project-contributable
+sharing additionally permits contributors and owners to submit messages. Child
+sharing is independent; neither hierarchy links nor child listings reveal
+inaccessible descendants.
+
+Message acceptance commits a human item and queued execution together, then returns
+202 with their stable identities. Exact retries return the original admission
+receipt, including after archival; changed content or authority conflicts. The
+receipt describes acceptance; run reads supply current execution state. A retry
+still requires current read access and the original sender. New admissions use the
+sender's provider profile, quota and delegated authority. Human events cannot append
+worker output or impersonate transcript authors.
+
+The sender can interrupt their own runs; the session owner can interrupt any run.
+Interrupting a terminal run does not affect its successor. Resuming private context
+and authority is restricted to the original sender. Claims, model dispatch, tools,
+workspace operations, transcript output and completion recheck current membership
+and sharing. Revoked workers may settle observed usage and report termination.
+Context manifests are worker-only; private output artifacts remain restricted to the run sender;
+transcript access does not grant those inputs and outputs.
+
+SSE reconnects use `Last-Event-ID: run_sequence:event_cursor` and replay committed
+events. An unfinished earlier run holds back later-run events so a later cancellation
+cannot advance the cursor past earlier output. Completion events reference the saved
+assistant item; they do not duplicate its Markdown. Authorization is rechecked while
+streaming. Responses omit model-only items, private runtime references and tool
+arguments/results. Share previews use the same visible transcript projection. Only
+the owner receives the private system-prompt override.
+
+The browser retains project conversation URLs, renders typed items and attributable
+participants, exposes sharing and per-run interruption controls, and clears its
+transcript after access revocation. Retired direct histories are available under
+**Settings → Saved chat history**, including standalone conversations. They offer
+reads, rename and archive/restore without execution controls.
+
+## Maintenance cutover
+
+Stop new admissions, drain or explicitly terminate active work, then stop all
+writers. Back up the database and its matching artifacts. Apply the online migration,
+deploy matching backend/browser/workers, smoke-test history and execution, then reopen
+admissions. Rollback restores the matching backup and application version; there is
+no mixed-version compatibility window. See the [rollout gates](../roadmap.md#unified-sessions).
+
+## Verification
+
+Deterministic tests cover SQLite schema parity, populated mixed-history migration,
+causal ordering, exact text and execution accounting, preserved runtime references,
+store materialization and rollback, hierarchy consistency, and session access policy.
+PostgreSQL equivalents require `M0_POSTGRES_TEST_URL`. Compilation of offline SQL does
+not establish migration acceptance against a populated PostgreSQL database.
+Native/provider and target-deployment acceptance remain separate release gates.

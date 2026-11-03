@@ -12,11 +12,11 @@ from uuid import UUID
 from sqlalchemy import exists, func, select, text
 from sqlalchemy.orm import Session, aliased
 
-from polycolab.access.authorization import ProjectAction, project_policy
 from polycolab.agents.runtime.spec import RuntimeSpec
+from polycolab.conversations.service import can_execute
 from polycolab.db.models import (
     SqlAgentRun,
-    SqlAgentSession,
+    SqlConversation,
     SqlExecutionClassState,
     SqlExecutionFairnessState,
     SqlExecutionSlotLease,
@@ -180,7 +180,7 @@ def _candidate(
     return session.scalar(
         select(SqlAgentRun)
         .join(SqlExecutionWorkItem, SqlExecutionWorkItem.agent_run_id == SqlAgentRun.id)
-        .join(SqlAgentSession, SqlAgentSession.id == SqlAgentRun.session_id)
+        .join(SqlConversation, SqlConversation.id == SqlAgentRun.session_id)
         .outerjoin(
             user,
             (user.workload_class == AGENT)
@@ -204,7 +204,7 @@ def _candidate(
                 else []
             ),
             SqlAgentRun.status == AgentRunStatus.QUEUED,
-            SqlAgentSession.status == AgentSessionStatus.ACTIVE,
+            SqlConversation.status == AgentSessionStatus.ACTIVE,
             SqlExecutionWorkItem.policy_version == POLICY.version,
             ~occupied,
             count_scope(True) < tenant_capacity,
@@ -327,9 +327,7 @@ def claim(
                 select(SqlAgentRun).where(SqlAgentRun.id == run_id).with_for_update()
             )
             assert run is not None
-            if not project_policy.can(
-                SqlAlchemyTransaction(session), project_id, user_id, ProjectAction.RUN_AGENTS
-            ):
+            if not can_execute(SqlAlchemyTransaction(session), run.session_id, user_id):
                 run.status = AgentRunStatus.FAILED
                 run.failure_code = "authorization_revoked"
                 run.finished_at = now

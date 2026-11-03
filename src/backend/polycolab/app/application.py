@@ -50,6 +50,7 @@ from polycolab.agents.external import (
 )
 from polycolab.app.maintenance import maintenance_lifespan
 from polycolab.app.reference import arrange_reference
+from polycolab.conversations.service import ConversationStateError
 from polycolab.db.session import database_is_ready, make_engine, make_session_factory
 from polycolab.db.transaction import make_transaction_factory
 from polycolab.entities.document_builds import BuildError
@@ -90,6 +91,7 @@ EXPOSED_HTTP_ERROR_CODES = frozenset(
         "artifact_upload_timeout",
         "invalid_agent_credential",
         "invalid_cursor",
+        "origin_mismatch",
         "agent_write_headers_required",
         "public_projects_disabled",
         "unsupported_agent_object_kind",
@@ -607,6 +609,12 @@ def create_app(
     async def project_not_found_handler(request: Request, _: ProjectNotFound) -> JSONResponse:
         return error_response(404, "not_found", request)
 
+    @app.exception_handler(ConversationStateError)
+    async def conversation_state_handler(
+        request: Request, _: ConversationStateError
+    ) -> JSONResponse:
+        return error_response(409, "session_state_conflict", request)
+
     @app.exception_handler(AuthorizationDenied)
     async def authorization_denied_handler(
         request: Request, _: AuthorizationDenied
@@ -971,10 +979,11 @@ def create_app(
                         "description": "Opaque cursor for the next page, omitted at the end.",
                         "schema": {"type": "string"},
                     }
-                    headers["X-Total-Count"] = {
-                        "description": "Total items matching the stable listing order.",
-                        "schema": {"type": "integer", "minimum": 0},
-                    }
+                    if operation_id not in {"listSessions", "listSessionRuns", "listChildSessions"}:
+                        headers["X-Total-Count"] = {
+                            "description": "Total items matching the stable listing order.",
+                            "schema": {"type": "integer", "minimum": 0},
+                        }
                 if operation_id == "acceptInvitation":
                     responses["400"] = _error_response_reference("Invalid invitation")
                 if operation_id == "createProjectInvitation":

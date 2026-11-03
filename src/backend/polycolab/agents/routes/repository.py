@@ -120,6 +120,10 @@ def require_authority(
         SqlAlchemyTransaction(db), project_id, user_id, ProjectAction.RUN_AGENTS
     )
     current = _locked_run(db, run_id)
+    from polycolab.conversations.service import can_execute
+
+    if not can_execute(SqlAlchemyTransaction(db), current.session_id, user_id):
+        raise RuntimeApiConflict("authorization_revoked")
     try:
         _require_live_lease(
             current,

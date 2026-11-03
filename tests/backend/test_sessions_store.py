@@ -13,8 +13,8 @@ from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from polycolab.access.authorization import ProjectNotFound
 from polycolab.agents.runtime.messages import model_messages
-from polycolab.agents.schemas import AgentSessionCreate
 from polycolab.agents.sessions import (
     CRITIC_VERSION_ID,
     RESEARCHER_VERSION_ID,
@@ -36,11 +36,13 @@ from polycolab.agents.sessions import (
     resume_run,
     start_claimed_run,
 )
+from polycolab.conversations.routes.schemas import SessionCreate
 from polycolab.db.models import (
-    SqlAgentMessage,
     SqlAgentRun,
     SqlAgentRunEvent,
+    SqlConversationItem,
     SqlGatewayProfile,
+    SqlMembership,
     SqlProject,
     SqlUser,
 )
@@ -48,6 +50,7 @@ from polycolab.entities.enums import (
     AgentRunEventKind,
     AgentRunStatus,
     PlatformAgentKind,
+    ProjectRole,
     ProjectVisibility,
     RuntimeBindingStatus,
     UsageSource,
@@ -69,6 +72,7 @@ def _domain_setup(
     )
     session.add(project)
     session.commit()
+    session.add(SqlMembership(project_id=project.id, user_id=user.id, role=ProjectRole.OWNER))
     profile = SqlGatewayProfile(
         user_id=user.id,
         display_name="Test profile",
@@ -161,7 +165,7 @@ def test_custom_session_requires_a_harness_and_nonblank_prompt() -> None:
         {"harness": "codex", "system_prompt": "  "},
     ):
         with pytest.raises(ValueError):
-            AgentSessionCreate.model_validate({**base, **fields})
+            SessionCreate.model_validate({**base, **fields})
 
 
 def test_message_and_run_are_ordered_atomically_and_profile_is_snapshotted(
@@ -216,9 +220,9 @@ def test_message_and_run_are_ordered_atomically_and_profile_is_snapshotted(
         assert next_claim is not None and next_claim.id == run_two.id
         messages = list(
             session.scalars(
-                select(SqlAgentMessage)
-                .where(SqlAgentMessage.session_id == agent_session.id)
-                .order_by(SqlAgentMessage.sequence)
+                select(SqlConversationItem)
+                .where(SqlConversationItem.session_id == agent_session.id)
+                .order_by(SqlConversationItem.sequence)
             )
         )
         assert [message.content_md for message in messages] == [
@@ -251,21 +255,21 @@ def test_transaction_compatible_claim_can_roll_back_without_leaking_a_lease(
         session.close()
 
 
-def test_private_session_creator_must_match_the_run_requester(
+def test_private_session_is_concealed_from_other_run_requesters(
     client: TestClient,
 ) -> None:
     session, owner, project, _ = _domain_setup(client)
     try:
-        reader = SqlUser(
-            issuer="https://issuer.example", subject="read-only-creator", email="r@test"
-        )
-        contributor = SqlUser(
-            issuer="https://issuer.example",
-            subject="contributor-requester",
-            email="c@test",
-        )
-        session.add_all((reader, contributor))
+        contributor = SqlUser(issuer="https://issuer.example", subject="other-requester")
+        session.add(contributor)
         session.flush()
+        session.add(
+            SqlMembership(
+                project_id=project.id,
+                user_id=contributor.id,
+                role=ProjectRole.CONTRIBUTOR,
+            )
+        )
         profile = SqlGatewayProfile(
             user_id=contributor.id,
             display_name="contributor profile",
@@ -281,10 +285,10 @@ def test_private_session_creator_must_match_the_run_requester(
         private_session = create_agent_session(
             session,
             project_id=project.id,
-            created_by_user_id=reader.id,
+            created_by_user_id=owner.id,
             agent_kind=PlatformAgentKind.RESEARCHER,
         )
-        with pytest.raises(SessionStateError, match="private session creator"):
+        with pytest.raises(ProjectNotFound):
             append_user_message_and_queue_run(
                 session,
                 session_id=private_session.id,
@@ -477,3 +481,87 @@ def test_postgresql_migration_compiles_runtime_integrity_and_immutable_history()
         "agent_run_usage",
     ):
         assert f"CREATE TRIGGER {table}_immutable BEFORE UPDATE OR DELETE ON {table}" in compiled
+
+
+def test_semantic_items_commit_with_events_and_do_not_become_model_inputs(
+    client: TestClient,
+) -> None:
+    from uuid import uuid5
+
+    from polycolab.db.stores.conversations import SqlConversationStore
+    from polycolab.entities.conversation import (
+        AgentAuthor,
+        ToolCallData,
+        ToolResultData,
+    )
+
+    session, _, _, run_id = _new_run(client)
+    try:
+        claim = claim_next_run(session, worker_id="semantic", lease_for=timedelta(seconds=30))
+        assert claim is not None
+        start_claimed_run(
+            session,
+            run_id=run_id,
+            worker_id="semantic",
+            lease_generation=claim.lease_generation,
+        )
+        event = append_worker_event(
+            session,
+            run_id=run_id,
+            worker_id="semantic",
+            lease_generation=claim.lease_generation,
+            idempotency_key="call",
+            kind=AgentRunEventKind.TOOL_REQUESTED,
+            payload={"tool_name": "search", "round": 1},
+        )
+        replay = append_worker_event(
+            session,
+            run_id=run_id,
+            worker_id="semantic",
+            lease_generation=claim.lease_generation,
+            idempotency_key="call",
+            kind=AgentRunEventKind.TOOL_REQUESTED,
+            payload={"tool_name": "search", "round": 1},
+        )
+        assert replay.id == event.id
+        append_worker_event(
+            session,
+            run_id=run_id,
+            worker_id="semantic",
+            lease_generation=claim.lease_generation,
+            idempotency_key="result",
+            kind=AgentRunEventKind.TOOL_RESULT,
+            payload={"tool_name": "search", "round": 1, "outcome": "ok"},
+        )
+        finish_run(
+            session,
+            run_id=run_id,
+            worker_id="semantic",
+            lease_generation=claim.lease_generation,
+            status=AgentRunStatus.COMPLETED,
+            final_message_md="Final answer",
+        )
+        store = SqlConversationStore(session)
+        items = store.items(claim.session_id)
+        assert [item.type for item in items] == [
+            "message",
+            "tool_call",
+            "tool_result",
+            "message",
+        ]
+        assert items[1].id == uuid5(event.id, "conversation-item")
+        assert items[1].data == ToolCallData(call_id=None, name="search")
+        assert items[2].data == ToolResultData(call_id=None, name="search", outcome="ok")
+        assert items[3].author == AgentAuthor(claim.agent_version_id)
+        assert all(item.execution_id == run_id for item in items)
+        assert [item.sequence for item in items] == [1, 2, 3, 4]
+        assert store.items(claim.session_id, after=2, limit=1) == [items[2]]
+        # Prompt construction remains limited to the run's originally selected message boundary.
+        assert [item["content"] for item in model_messages(session, claim)][
+            -1
+        ] == "Explore the claim"
+        assert len(model_messages(session, claim)) == 2
+        session.close()
+        assert items[3].data.content_md == "Final answer"  # type: ignore[union-attr]
+    finally:
+        session.close()

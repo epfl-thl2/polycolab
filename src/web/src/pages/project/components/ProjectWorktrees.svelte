@@ -68,8 +68,8 @@
     sessions
       .filter(
         (session) =>
-          (session.worktree_id ||
-            session.task_id ||
+          (session.working_context.worktree_id ||
+            session.working_context.task_id ||
             worktrees.find((tree) => tree.branch === 'main')?.id) === id,
       )
       .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
@@ -337,13 +337,13 @@
     {#if open}<div class="conversations">
         {#each chats as session (session.id)}<button
             class="conversation"
-            aria-label={`${session.title || 'Untitled conversation'} ${session.agent_display_name} ${session.latest_run?.status.toLowerCase().replaceAll('_', ' ') || 'Ready'}`}
+            aria-label={`${session.title || 'Untitled conversation'} ${session.configuration?.display_name} ${session.latest_execution?.status.toLowerCase().replaceAll('_', ' ') || 'Ready'}`}
             class:active={session.id === activeSessionId}
             aria-current={session.id === activeSessionId ? 'true' : undefined}
             onclick={() => onOpenSession(session.id)}
           >
             <span>{session.title || 'Untitled conversation'}</span><small
-              >{session.agent_display_name} · {session.latest_run?.status
+              >{session.configuration?.display_name} · {session.latest_execution?.status
                 .toLowerCase()
                 .replaceAll('_', ' ') || 'Ready'}</small
             >

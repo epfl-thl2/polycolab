@@ -13,6 +13,7 @@ from sqlalchemy import select
 from starlette.concurrency import run_in_threadpool
 
 from polycolab.access.authorization import ProjectAction
+from polycolab.agents.access import _run_scope
 from polycolab.agents.context import manifest_artifacts, manifest_for_run
 from polycolab.agents.exports import reserve_export, verify_export
 from polycolab.agents.routes.runtime import (
@@ -21,7 +22,6 @@ from polycolab.agents.routes.runtime import (
     _authorize_worker,
     _lease_or_conflict,
 )
-from polycolab.agents.routes.sessions import _run_scope
 from polycolab.agents.runtime.artifacts import ExportDeclaration, UploadRequest
 from polycolab.agents.sessions import LeaseLost
 from polycolab.app.dependencies import CurrentUser, DbSession
@@ -120,7 +120,7 @@ class HostedArtifactRead(ExportDeclaration):
 
 
 @router.get(
-    "/api/v1/agent-runs/{run_id}/artifacts",
+    "/api/v1/runs/{run_id}/artifacts",
     response_model=list[HostedArtifactRead],
     operation_id="listHostedRunArtifacts",
 )
@@ -151,7 +151,7 @@ def list_exports(run_id: UUID, db: DbSession, user: CurrentUser) -> list[HostedA
 
 
 @router.get(
-    "/api/v1/agent-runs/{run_id}/artifacts/{artifact_id}/content",
+    "/api/v1/runs/{run_id}/artifacts/{artifact_id}/content",
     response_class=Response,
     operation_id="downloadHostedRunArtifact",
 )

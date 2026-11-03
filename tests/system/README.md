@@ -57,6 +57,20 @@ POLYCOLAB_INTEGRATION_REGISTRATION=1 \
 tests/system/run-local.sh --grep "built-in open registration"
 ```
 
+Run the unified session journey with:
+
+```sh
+tests/system/run-local.sh --grep "unified sessions"
+```
+
+It creates and reloads a session in the browser, changes sharing, and lets a
+second contributor submit using their own provider profile. Independent member
+contexts verify read-only access, private context isolation, concurrent admission,
+run-specific cancellation, archival, replay cursors, and revocation. A bounded
+deterministic-provider hold makes cancellation reproducible. This establishes
+local PostgreSQL, API, built-in worker, and browser integration; the native Codex
+gate below remains separate.
+
 The test-only API entrypoint is outside `src/backend` and cannot be selected by application configuration.
 Its `MappingIdentityVerifier` accepts only the fixed `owner`, `contributor`, `reader`, and `outsider` tokens.
 Its provider transport forwards a policy-validated provider request to the local fake server.

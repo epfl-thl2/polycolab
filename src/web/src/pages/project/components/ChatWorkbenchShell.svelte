@@ -155,8 +155,8 @@
           {href}
           aria-current={entity === session.id && section === 'sessions' ? 'page' : undefined}
           onclick={(event) => openChat(event, href)}
-          ><span>{$titles[session.id] || session.title || session.agent_display_name}</span
-          >{#if session.is_shared}<small>Shared</small>{/if}</a
+          ><span>{$titles[session.id] || session.title || session.configuration?.display_name}</span
+          >{#if session.sharing !== 'private'}<small>Shared</small>{/if}</a
         >
       {/each}
       {#if chatsLoaded && !draftChats.length && !sessions.length}<p class="muted">

@@ -44,7 +44,7 @@ def test_openapi_has_versioned_operations_security_and_error_envelopes(
             assert operation["tags"]
             assert "$ref" in operation["responses"]["404"]["content"]["application/json"]["schema"]
             assert "security" in operation
-            if path.startswith("/api/v1/runs"):
+            if path in {"/api/v1/runs", "/api/v1/runs/{run_id}/outputs"}:
                 assert operation["security"] == [{"ExternalAgentBearer": []}]
             if (
                 operation["operationId"].startswith("list")
@@ -56,8 +56,18 @@ def test_openapi_has_versioned_operations_security_and_error_envelopes(
                 == "array"
             ):
                 headers = operation["responses"]["200"]["headers"]
-                assert {"X-Next-Cursor", "X-Total-Count"} <= set(headers)
+                assert "X-Next-Cursor" in headers
+                if operation["operationId"] not in {
+                    "listSessions",
+                    "listSessionRuns",
+                    "listChildSessions",
+                }:
+                    assert "X-Total-Count" in headers
     assert len(operation_ids) == len(set(operation_ids))
+    assert document["paths"]["/api/v1/runs/{run_id}"]["get"]["security"] == [
+        {"BearerAuth": []},
+        {"SessionCookie": []},
+    ]
     normalized_paths = [re.sub(r"\{[^}]+\}", "{}", path) for path in document["paths"]]
     assert len(normalized_paths) == len(set(normalized_paths))
     assert "400" in document["paths"]["/api/v1/invitations/accept"]["post"]["responses"]
@@ -99,7 +109,7 @@ def test_openapi_tags_match_resource_boundaries() -> None:
     assert paths["/api/v1/me"]["get"]["tags"] == ["identity"]
     assert paths["/api/v1/account/agent-keys"]["post"]["tags"] == ["agent-keys"]
     assert "/api/v1/runs" not in paths
-    assert paths["/api/v1/agent-runs/{run_id}"]["get"]["tags"] == ["agent-runs"]
+    assert paths["/api/v1/runs/{run_id}"]["get"]["tags"] == ["runs"]
     assert paths["/api/v1/projects"]["get"]["tags"] == ["projects"]
     assert paths["/api/v1/projects"]["post"]["tags"] == ["projects"]
     assert "Human authentication required" in paths["/api/v1/projects"]["post"]["description"]

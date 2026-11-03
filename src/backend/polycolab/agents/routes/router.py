@@ -7,8 +7,8 @@ from polycolab.agents.routes.keys import router as keys_router
 from polycolab.agents.routes.library import router as library_router
 from polycolab.agents.routes.repository import router as repository_router
 from polycolab.agents.routes.runtime import router as runtime_router
-from polycolab.agents.routes.sessions import router as sessions_router
 from polycolab.agents.routes.tools import router as tools_router
+from polycolab.conversations.routes.router import router as sessions_router
 
 router = APIRouter()
 router.include_router(library_router)

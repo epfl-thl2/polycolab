@@ -9,24 +9,17 @@ REFERENCE_GROUPS = [
     {"name": "Access", "tags": ["identity", "agent-identities", "agent-keys"]},
     {"name": "Projects", "tags": ["projects", "agent-library"]},
     {"name": "Artifacts", "tags": ["artifacts"]},
-    {"name": "Chat", "tags": ["chat"]},
     {
         "name": "Human administration",
         "tags": ["memberships", "invitations", "users", "account recovery"],
     },
     {
         "name": "Optional hosted services",
-        "tags": ["agents", "agent-sessions", "agent-runs", "gateway-profiles"],
+        "tags": ["agents", "sessions", "runs", "gateway-profiles"],
     },
 ]
 
 REFERENCE_TAGS = {
-    "chat": {
-        "name": "chat",
-        "x-displayName": "Private chat",
-        "description": "Creator-private text conversations with a configured provider; no "
-        "execution worker required.",
-    },
     "agent-library": {
         "name": "agent-library",
         "x-displayName": "Agent library",
@@ -88,16 +81,17 @@ REFERENCE_TAGS = {
         "description": "Optional platform-managed agents, distinct from external agents "
         "using account keys.",
     },
-    "agent-sessions": {
-        "name": "agent-sessions",
-        "x-displayName": "Hosted sessions",
-        "description": "Optional contributor conversations and session activity.",
+    "sessions": {
+        "name": "sessions",
+        "x-displayName": "Sessions",
+        "description": (
+            "Saved project conversations, shared participation, and read-only historical sessions."
+        ),
     },
-    "agent-runs": {
-        "name": "agent-runs",
+    "runs": {
+        "name": "runs",
         "x-displayName": "Hosted runs",
-        "description": "Optional platform-managed execution, context and events; "
-        "distinct from /api/v1/runs.",
+        "description": "Session executions scoped to the user and project permissions.",
     },
     "gateway-profiles": {
         "name": "gateway-profiles",
@@ -107,10 +101,6 @@ REFERENCE_TAGS = {
 }
 
 OPERATION_SECTIONS = {
-    "createChatConversation": "chat",
-    "listChatConversations": "chat",
-    "listChatTurns": "chat",
-    "sendChatTurn": "chat",
     "listAgentLibrary": "agent-library",
     "listOwnedAgentLibrary": "agent-library",
     "createAgentLibraryEntry": "agent-library",
@@ -127,7 +117,7 @@ OPERATION_SECTIONS = {
     "downloadAgentLibrarySkill": "agent-library",
     "previewLinearConversion": "projects",
     "convertProjectToLinear": "projects",
-    "setAgentSessionVisibility": "agent-sessions",
+    "setSessionSharing": "sessions",
     "listLinearBatches": "projects",
     "retryLinearBatch": "projects",
     "resolveLinearBatch": "projects",
@@ -183,21 +173,21 @@ OPERATION_SECTIONS = {
     "getAccountEmail": "account recovery",
     "changeAccountEmail": "account recovery",
     "resendAccountEmailVerification": "account recovery",
-    "getAgentRun": "agent-runs",
-    "getAgentCapabilities": "agent-runs",
-    "listHostedRunArtifacts": "agent-runs",
-    "downloadHostedRunArtifact": "agent-runs",
-    "cancelAgentRun": "agent-runs",
-    "streamAgentRunEvents": "agent-runs",
-    "resumeAgentRun": "agent-runs",
-    "listAgentSessions": "agent-sessions",
-    "createAgentSession": "agent-sessions",
-    "getAgentSession": "agent-sessions",
-    "archiveAgentSession": "agent-sessions",
-    "streamAgentSessionEvents": "agent-sessions",
-    "listAgentSessionRuns": "agent-sessions",
-    "listAgentSessionMessages": "agent-sessions",
-    "queueAgentSessionTurn": "agent-sessions",
+    "getRun": "runs",
+    "getAgentCapabilities": "runs",
+    "listHostedRunArtifacts": "runs",
+    "downloadHostedRunArtifact": "runs",
+    "resumeRun": "runs",
+    "listSessions": "sessions",
+    "createSession": "sessions",
+    "getSession": "sessions",
+    "getSessionSharing": "sessions",
+    "listChildSessions": "sessions",
+    "updateSession": "sessions",
+    "streamSession": "sessions",
+    "listSessionRuns": "sessions",
+    "listSessionItems": "sessions",
+    "submitSessionEvent": "sessions",
     "readArtifact": "artifacts",
     "downloadArtifact": "artifacts",
     "listGatewayProfiles": "gateway-profiles",
@@ -270,8 +260,8 @@ def arrange_reference(schema: dict[str, Any]) -> None:
             notes = [operation.get("description", ""), "**Access:** " + access]
             if section in {
                 "agents",
-                "agent-sessions",
-                "agent-runs",
+                "sessions",
+                "runs",
                 "gateway-profiles",
                 "account recovery",
             }:

@@ -20,7 +20,7 @@ from polycolab.access.authorization import (
     require_project_management,
 )
 from polycolab.accounts.schemas import UserRead
-from polycolab.agents.sessions import archive_project_agent_sessions
+from polycolab.agents.sessions import archive_project_conversations
 from polycolab.app.dependencies import CurrentActor, CurrentUser, DbSession, Page, paginated
 from polycolab.db.converters.projects import invitation as invitation_entity
 from polycolab.db.models import (
@@ -305,7 +305,7 @@ def patch_project(
         archived_at=project.archived_at,
     )
     if archived:
-        archive_project_agent_sessions(session, project_id=project.id)
+        archive_project_conversations(session, project_id=project.id)
     transaction.commit()
     return _member_read(
         project, scope.membership, member_counts(transaction, [project.id])[project.id]
@@ -324,7 +324,7 @@ def delete_project(project_id: UUID, session: DbSession, user: CurrentUser) -> R
         SqlAlchemyTransaction(session), project_id, user.id, ProjectAction.DELETE
     ).project
     SqlAlchemyTransaction(session).projects.mark_deleted(project.id, at=utc_now())
-    archive_project_agent_sessions(session, project_id=project.id)
+    archive_project_conversations(session, project_id=project.id)
     session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

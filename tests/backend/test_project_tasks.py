@@ -49,7 +49,7 @@ def task_chat(
     client: TestClient, project_id: str, task_id: str, token: str = "owner"
 ) -> dict[str, Any]:
     response = client.post(
-        "/api/v1/agent-sessions",
+        "/api/v1/sessions",
         headers=headers(token),
         json={
             "project_id": project_id,
@@ -87,12 +87,11 @@ def test_task_working_copy_retry_archive_and_member_privacy(
     assert repo.json()["writable"]
     app.state.settings.feature_agent_execution_enabled = True
     chat = task_chat(client, project_id, task["id"])
-    assert chat["task_id"] == task["id"]
+    assert chat["working_context"]["task_id"] == task["id"]
     add_member(client, project_id, "reader", "READ_ONLY")
     assert client.get(url, headers=headers("reader")).json() == [task]
     assert (
-        client.get(f"/api/v1/agent-sessions/{chat['id']}", headers=headers("reader")).status_code
-        == 403
+        client.get(f"/api/v1/sessions/{chat['id']}", headers=headers("reader")).status_code == 404
     )
     assert "Private secret conversation" not in client.get(url, headers=headers("reader")).text
     assert client.get(url, headers=headers("outsider")).status_code == 404
@@ -122,7 +121,7 @@ def test_task_working_copy_retry_archive_and_member_privacy(
     ).json()["writable"]
     assert (
         client.post(
-            "/api/v1/agent-sessions",
+            "/api/v1/sessions",
             headers=headers("owner"),
             json={
                 "project_id": project_id,
@@ -145,12 +144,17 @@ def test_task_serializes_runs_across_private_chats_and_pins_shared_branch(
     runs = []
     for chat in chats:
         response = client.post(
-            f"/api/v1/agent-sessions/{chat['id']}/messages",
+            f"/api/v1/sessions/{chat['id']}/events",
             headers=headers("owner"),
             json={
-                "client_request_id": str(uuid4()),
-                "content_md": "Work on task",
-                "gateway_profile_id": profile["id"],
+                "type": "message",
+                **(
+                    {
+                        "client_request_id": str(uuid4()),
+                        "content_md": "Work on task",
+                        "gateway_profile_id": profile["id"],
+                    }
+                ),
             },
         )
         assert response.status_code == 202, response.text
@@ -239,7 +243,7 @@ def test_task_disabled_and_foreign_attachment(client: TestClient, tmp_path: Path
     other = str(create_project(client)["id"])
     assert (
         client.post(
-            "/api/v1/agent-sessions",
+            "/api/v1/sessions",
             headers=headers("owner"),
             json={
                 "project_id": other,
@@ -322,7 +326,7 @@ def test_sqlite_task_migration_preserves_legacy_working_copies_and_private_title
         with engine.connect() as db:
             row = db.exec_driver_sql("SELECT id,title,branch FROM project_tasks").one()
             assert row == (sid, "Saved agent working copy", f"sessions/{UUID(sid)}")
-            assert db.exec_driver_sql("SELECT task_id,title FROM agent_sessions").one() == (
+            assert db.exec_driver_sql("SELECT task_id,title FROM conversations").one() == (
                 sid,
                 "Private secret",
             )

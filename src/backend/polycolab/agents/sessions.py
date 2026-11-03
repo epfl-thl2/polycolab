@@ -8,17 +8,25 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 from typing import Literal
-from uuid import UUID, uuid4
+from uuid import UUID, uuid4, uuid5
 
 from sqlalchemy import and_, exists, or_, select, update
 from sqlalchemy.orm import Session, aliased
 
+from polycolab.access.authorization import ProjectAction, project_policy
+from polycolab.conversations.service import (
+    ConversationStateError,
+    can_execute,
+    require_owner,
+    require_submit,
+)
 from polycolab.db.models import (
-    SqlAgentMessage,
     SqlAgentRun,
     SqlAgentRunEvent,
     SqlAgentRunUsage,
-    SqlAgentSession,
+    SqlConversation,
+    SqlConversationConfiguration,
+    SqlConversationItem,
     SqlGatewayProfile,
     SqlPlatformAgentVersion,
     SqlRuntimeRunBinding,
@@ -27,6 +35,8 @@ from polycolab.db.models import (
 )
 from polycolab.db.models.project_tasks import SqlProjectTask
 from polycolab.db.models.projects import SqlProject
+from polycolab.db.transaction import SqlAlchemyTransaction
+from polycolab.entities.conversation import Conversation, ConversationStatus
 from polycolab.entities.enums import (
     AgentMessageRole,
     AgentRunEventKind,
@@ -42,9 +52,7 @@ from polycolab.entities.time import utc_now
 from polycolab.execution.limits import ExecutionLimits, enforce_execution_limits
 from polycolab.platform.observability import increment_durable, metrics, observe_durable
 
-
-class SessionStateError(Exception):
-    """A session/run transition would violate canonical lifecycle state."""
+SessionStateError = ConversationStateError
 
 
 class SessionNotFound(Exception):
@@ -57,6 +65,10 @@ class LeaseLost(SessionStateError):
 
 class IdempotencyConflict(SessionStateError):
     """An idempotency key was reused for a different immutable operation."""
+
+
+class ExecutionAuthorityLost(SessionStateError):
+    """The sender can no longer execute in the session."""
 
 
 RESEARCHER_VERSION_ID = UUID("a0000000-0000-4000-8000-000000000001")
@@ -200,9 +212,13 @@ def create_agent_session(
     harness: Literal["codex"] | None = None,
     system_prompt: str | None = None,
     task_id: UUID | None = None,
-) -> SqlAgentSession:
-    """Create a shared project session pinned to a platform v1 agent definition."""
+) -> SqlConversation:
+    """Create a private project session pinned to an eligible agent definition."""
 
+    agent_version = platform_agent_version(session, agent_kind=agent_kind, version=version)
+    project_policy.require_scope(
+        SqlAlchemyTransaction(session), project_id, created_by_user_id, ProjectAction.RUN_AGENTS
+    )
     project = session.get(SqlProject, project_id)
     if project is not None and project.workspace_mode in {"linear", "default"}:
         task_id = None
@@ -222,15 +238,19 @@ def create_agent_session(
             raise RepositoryError("project_task_not_found", 404)
         if task.archived_at is not None:
             raise RepositoryError("task_archived")
-    agent_version = platform_agent_version(session, agent_kind=agent_kind, version=version)
-    result = SqlAgentSession(
+    result = SqlConversation(
         task_id=task_id,
         project_id=project_id,
-        agent_version_id=agent_version.id,
+        configuration=SqlConversationConfiguration(
+            agent_version_id=agent_version.id,
+            agent_display_name=agent_version.display_name,
+            agent_kind=agent_version.agent_kind.value,
+            agent_version=agent_version.version,
+            harness=harness or "platform",
+            system_prompt=system_prompt,
+        ),
         created_by_user_id=created_by_user_id,
         title=title,
-        harness=harness,
-        system_prompt=system_prompt,
     )
     session.add(result)
     _commit(session)
@@ -238,9 +258,9 @@ def create_agent_session(
     return result
 
 
-def _locked_session(session: Session, session_id: UUID) -> SqlAgentSession:
+def _locked_session(session: Session, session_id: UUID) -> SqlConversation:
     task_id = session.scalar(
-        select(SqlAgentSession.task_id).where(SqlAgentSession.id == session_id)
+        select(SqlConversation.task_id).where(SqlConversation.id == session_id)
     )
     if task_id is not None:
         session.scalar(
@@ -250,8 +270,8 @@ def _locked_session(session: Session, session_id: UUID) -> SqlAgentSession:
             .execution_options(populate_existing=True)
         )
     result = session.scalar(
-        select(SqlAgentSession)
-        .where(SqlAgentSession.id == session_id)
+        select(SqlConversation)
+        .where(SqlConversation.id == session_id)
         .with_for_update()
         .execution_options(populate_existing=True)
     )
@@ -275,6 +295,39 @@ def _active_profile(session: Session, *, profile_id: UUID, user_id: UUID) -> Sql
     return profile
 
 
+def accepted_user_message(
+    session: Session,
+    *,
+    session_id: UUID,
+    requested_by_user_id: UUID,
+    gateway_profile_id: UUID,
+    content_md: str,
+    context_artifact_ids: list[UUID] | None,
+    client_request_id: UUID,
+) -> tuple[SqlConversationItem, SqlAgentRun] | None:
+    """Read a matching durable admission. The caller first checks current read access."""
+    existing_run = session.scalar(
+        select(SqlAgentRun).where(
+            SqlAgentRun.session_id == session_id,
+            SqlAgentRun.client_request_id == client_request_id,
+        )
+    )
+    if existing_run is not None:
+        existing_message = session.get(SqlConversationItem, existing_run.request_message_id)
+        if (
+            existing_message is None
+            or existing_run.requested_by_user_id != requested_by_user_id
+            or existing_run.gateway_profile_id != gateway_profile_id
+            or existing_message.content_md != content_md
+            or existing_run.requested_context_artifact_ids
+            != [str(value) for value in context_artifact_ids or []]
+        ):
+            session.rollback()
+            raise SessionStateError("idempotency key reused with different turn")
+        return existing_message, existing_run
+    return None
+
+
 def append_user_message_and_queue_run(
     session: Session,
     *,
@@ -288,7 +341,7 @@ def append_user_message_and_queue_run(
     execution_limits: ExecutionLimits | None = None,
     now: datetime | None = None,
     runtime_spec: dict[str, object] | None = None,
-) -> tuple[SqlAgentMessage, SqlAgentRun]:
+) -> tuple[SqlConversationItem, SqlAgentRun]:
     """Append a human message and its ordered run atomically.
 
     The requester-owned profile's model and credential version are copied to the
@@ -297,11 +350,19 @@ def append_user_message_and_queue_run(
 
     if not content_md.strip():
         raise SessionStateError("message must not be empty")
+    require_submit(SqlAlchemyTransaction(session), session_id, requested_by_user_id)
     parent = _locked_session(session, session_id)
+    require_submit(SqlAlchemyTransaction(session), session_id, requested_by_user_id)
+    if parent.origin != "agent" or parent.project_id is None:
+        raise SessionStateError("legacy history is read-only")
+    if parent.configuration is None or parent.configuration.harness not in {"platform", "codex"}:
+        raise SessionStateError("unsupported harness")
     from polycolab.db.stores.linear import SqlLinearStore
 
     linear_project = session.get(SqlProject, parent.project_id)
-    if SqlLinearStore(session).conversion_pending(parent.project_id):
+    if parent.project_id is not None and SqlLinearStore(session).conversion_pending(
+        parent.project_id
+    ):
         raise RepositoryError("linear_conversion_in_progress")
     if parent.status is not AgentSessionStatus.ACTIVE:
         raise SessionStateError("session is archived")
@@ -311,29 +372,19 @@ def append_user_message_and_queue_run(
         task = session.get(SqlProjectTask, parent.task_id)
         if task is None or task.archived_at is not None:
             raise RepositoryError("task_archived")
-    if parent.created_by_user_id != requested_by_user_id:
-        raise SessionStateError("only the private session creator may request a run")
     request_id = client_request_id or uuid4()
-    existing_run = session.scalar(
-        select(SqlAgentRun).where(
-            SqlAgentRun.session_id == parent.id,
-            SqlAgentRun.client_request_id == request_id,
-        )
+    accepted = accepted_user_message(
+        session,
+        session_id=parent.id,
+        requested_by_user_id=requested_by_user_id,
+        gateway_profile_id=gateway_profile_id,
+        content_md=content_md,
+        context_artifact_ids=context_artifact_ids,
+        client_request_id=request_id,
     )
-    if existing_run is not None:
-        existing_message = session.get(SqlAgentMessage, existing_run.request_message_id)
-        if (
-            existing_message is None
-            or existing_run.requested_by_user_id != requested_by_user_id
-            or existing_run.gateway_profile_id != gateway_profile_id
-            or existing_message.content_md != content_md
-            or existing_run.requested_context_artifact_ids
-            != [str(value) for value in context_artifact_ids or []]
-        ):
-            session.rollback()
-            raise SessionStateError("idempotency key reused with different turn")
+    if accepted is not None:
         session.commit()
-        return existing_message, existing_run
+        return accepted
     if execution_limits is not None:
         enforce_execution_limits(
             session,
@@ -345,18 +396,21 @@ def append_user_message_and_queue_run(
     profile = _active_profile(session, profile_id=gateway_profile_id, user_id=requested_by_user_id)
     if runtime_spec is not None and profile.wire_api != "responses":
         raise SessionStateError("provider_protocol_incompatible")
+    run_id = uuid4()
     parent.next_message_sequence += 1
     parent.next_run_sequence += 1
-    message = SqlAgentMessage(
+    message = SqlConversationItem(
         session_id=parent.id,
         sequence=parent.next_message_sequence,
         role=AgentMessageRole.USER,
+        execution_id=run_id,
         author_user_id=requested_by_user_id,
         content_md=content_md,
     )
     session.add(message)
     session.flush()
     run = SqlAgentRun(
+        id=run_id,
         session_id=parent.id,
         project_id=parent.project_id,
         agent_version_id=parent.agent_version_id,
@@ -382,11 +436,48 @@ def append_user_message_and_queue_run(
     return message, run
 
 
-def archive_agent_session(session: Session, *, session_id: UUID) -> SqlAgentSession:
+def update_session_metadata(
+    session: Session,
+    *,
+    session_id: UUID,
+    user_id: UUID,
+    title: str | None,
+    change_title: bool,
+    archived: bool | None,
+) -> Conversation:
+    transaction = SqlAlchemyTransaction(session)
+    require_owner(transaction, session_id, user_id)
+    parent = _locked_session(session, session_id)
+    current = require_owner(transaction, session_id, user_id)
+    now = utc_now()
+    if archived and parent.origin == "agent":
+        from polycolab.db.stores.linear import SqlLinearStore
+
+        if parent.project_id is not None and SqlLinearStore(session).conversion_pending(
+            parent.project_id
+        ):
+            raise RepositoryError("linear_conversion_in_progress")
+        if parent.status is AgentSessionStatus.ACTIVE:
+            _archive_locked_session(session, parent, archived_at=now)
+    value = transaction.conversations.set_metadata(
+        session_id,
+        title=title if change_title else current.title,
+        status=(ConversationStatus.ARCHIVED if archived else ConversationStatus.ACTIVE)
+        if archived is not None
+        else current.status,
+        updated_at=now,
+    )
+    transaction.commit()
+    return value
+
+
+def archive_agent_session(session: Session, *, session_id: UUID) -> SqlConversation:
     parent = _locked_session(session, session_id)
     from polycolab.db.stores.linear import SqlLinearStore
 
-    if SqlLinearStore(session).conversion_pending(parent.project_id):
+    if parent.project_id is not None and SqlLinearStore(session).conversion_pending(
+        parent.project_id
+    ):
         raise RepositoryError("linear_conversion_in_progress")
     if parent.status is AgentSessionStatus.ACTIVE:
         _archive_locked_session(session, parent, archived_at=utc_now())
@@ -395,7 +486,7 @@ def archive_agent_session(session: Session, *, session_id: UUID) -> SqlAgentSess
 
 
 def _archive_locked_session(
-    session: Session, parent: SqlAgentSession, *, archived_at: datetime
+    session: Session, parent: SqlConversation, *, archived_at: datetime
 ) -> None:
     """Archive a session and make every outstanding run durably non-executable."""
 
@@ -438,16 +529,16 @@ def _archive_locked_session(
             run.status = AgentRunStatus.CANCELLING
 
 
-def archive_project_agent_sessions(session: Session, *, project_id: UUID) -> list[SqlAgentSession]:
+def archive_project_conversations(session: Session, *, project_id: UUID) -> list[SqlConversation]:
     """Project lifecycle hook: atomically stop every session and outstanding run."""
 
     archived_at = utc_now()
     parents = list(
         session.scalars(
-            select(SqlAgentSession)
+            select(SqlConversation)
             .where(
-                SqlAgentSession.project_id == project_id,
-                SqlAgentSession.status == AgentSessionStatus.ACTIVE,
+                SqlConversation.project_id == project_id,
+                SqlConversation.status == AgentSessionStatus.ACTIVE,
             )
             .with_for_update()
         )
@@ -508,6 +599,32 @@ def _append_event_locked(
     )
     session.add(event)
     session.flush()
+    from polycolab.conversations.events import semantic_payload
+    from polycolab.db.stores.conversations import SqlConversationStore
+    from polycolab.entities.conversation import (
+        AgentAuthor,
+        SystemAuthor,
+        ToolAuthor,
+        ToolCallData,
+        ToolResultData,
+    )
+
+    data = semantic_payload(kind, payload)
+    if data is not None:
+        SqlConversationStore(session).append_item(
+            run.session_id,
+            item_id=uuid5(event.id, "conversation-item"),
+            author=(
+                AgentAuthor(run.agent_version_id)
+                if isinstance(data, ToolCallData)
+                else ToolAuthor(data.name, run.agent_version_id)
+                if isinstance(data, ToolResultData)
+                else SystemAuthor()
+            ),
+            data=data,
+            execution_id=run.id,
+            created_at=event.occurred_at,
+        )
     return event
 
 
@@ -545,7 +662,7 @@ def claim_next_run_in_transaction(
         raise ValueError("worker_id and positive lease are required")
     claimed_at = _utc(now or utc_now())
     earlier = aliased(SqlAgentRun)
-    earlier_session = aliased(SqlAgentSession)
+    earlier_session = aliased(SqlConversation)
     earlier_active = exists(
         select(earlier.id)
         .join(earlier_session, earlier_session.id == earlier.session_id)
@@ -557,14 +674,14 @@ def claim_next_run_in_transaction(
                     earlier.queue_sequence < SqlAgentRun.queue_sequence,
                 ),
                 and_(
-                    SqlAgentSession.task_id.is_not(None),
+                    SqlConversation.task_id.is_not(None),
                     ~exists(
                         select(SqlProject.id).where(
                             SqlProject.id == SqlAgentRun.project_id,
                             SqlProject.workspace_mode.in_(["linear", "default"]),
                         )
                     ),
-                    earlier_session.task_id == SqlAgentSession.task_id,
+                    earlier_session.task_id == SqlConversation.task_id,
                     earlier.id != SqlAgentRun.id,
                     or_(
                         earlier.status.in_(
@@ -591,12 +708,12 @@ def claim_next_run_in_transaction(
     )
     query = (
         select(SqlAgentRun)
-        .join(SqlAgentSession, SqlAgentSession.id == SqlAgentRun.session_id)
+        .join(SqlConversation, SqlConversation.id == SqlAgentRun.session_id)
         .where(
             SqlAgentRun.status == AgentRunStatus.QUEUED,
-            SqlAgentSession.status == AgentSessionStatus.ACTIVE,
+            SqlConversation.status == AgentSessionStatus.ACTIVE,
             or_(
-                SqlAgentSession.task_id.is_(None),
+                SqlConversation.task_id.is_(None),
                 exists(
                     select(SqlProject.id).where(
                         SqlProject.id == SqlAgentRun.project_id,
@@ -605,7 +722,7 @@ def claim_next_run_in_transaction(
                 ),
                 exists(
                     select(SqlProjectTask.id).where(
-                        SqlProjectTask.id == SqlAgentSession.task_id,
+                        SqlProjectTask.id == SqlConversation.task_id,
                         SqlProjectTask.archived_at.is_(None),
                     )
                 ),
@@ -766,6 +883,10 @@ def append_worker_event(
         _require_live_lease(
             run, worker_id=worker_id, lease_generation=lease_generation, now=observed_at
         )
+        if not can_execute(
+            SqlAlchemyTransaction(session), run.session_id, run.requested_by_user_id
+        ):
+            raise ExecutionAuthorityLost
         event = _append_event_locked(
             session,
             run=run,
@@ -939,6 +1060,10 @@ def finish_run(
         _require_live_lease(
             run, worker_id=worker_id, lease_generation=lease_generation, now=finished_at
         )
+        if status is AgentRunStatus.COMPLETED and not can_execute(
+            SqlAlchemyTransaction(session), run.session_id, run.requested_by_user_id
+        ):
+            raise ExecutionAuthorityLost
         if status is AgentRunStatus.COMPLETED and run.status is not AgentRunStatus.RUNNING:
             raise SessionStateError("only a running run can complete")
         if run.status is AgentRunStatus.CANCELLING and status not in {
@@ -978,10 +1103,12 @@ def finish_run(
         if final_message_md:
             parent = _locked_session(session, run.session_id)
             parent.next_message_sequence += 1
-            message = SqlAgentMessage(
+            message = SqlConversationItem(
                 session_id=parent.id,
                 sequence=parent.next_message_sequence,
                 role=AgentMessageRole.AGENT,
+                execution_id=run.id,
+                agent_version_id=run.agent_version_id,
                 author_user_id=None,
                 content_md=final_message_md,
             )
@@ -1123,14 +1250,23 @@ def resume_run(
 ) -> SqlAgentRun:
     """Resume creates a successor intent; historical terminal runs never reopen."""
 
+    previous = session.get(SqlAgentRun, run_id)
+    if previous is None:
+        raise SessionNotFound
+    require_submit(SqlAlchemyTransaction(session), previous.session_id, requested_by_user_id)
     previous = _locked_run(session, run_id)
     if previous.status not in _TERMINAL:
         raise SessionStateError("only terminal runs can be resumed")
     parent = _locked_session(session, previous.session_id)
+    if parent.project_id is None:
+        raise SessionStateError("legacy history is read-only")
+    require_submit(SqlAlchemyTransaction(session), parent.id, requested_by_user_id)
     linear_project = session.get(SqlProject, parent.project_id)
     from polycolab.db.stores.linear import SqlLinearStore
 
-    if SqlLinearStore(session).conversion_pending(parent.project_id):
+    if parent.project_id is not None and SqlLinearStore(session).conversion_pending(
+        parent.project_id
+    ):
         raise RepositoryError("linear_conversion_in_progress")
     if parent.status is not AgentSessionStatus.ACTIVE:
         raise SessionStateError("session is archived")
@@ -1140,11 +1276,8 @@ def resume_run(
         task = session.get(SqlProjectTask, parent.task_id)
         if task is None or task.archived_at is not None:
             raise RepositoryError("task_archived")
-    if (
-        parent.created_by_user_id != requested_by_user_id
-        or previous.requested_by_user_id != requested_by_user_id
-    ):
-        raise SessionStateError("only the private session creator may resume a run")
+    if previous.requested_by_user_id != requested_by_user_id:
+        raise SessionStateError("only the run sender may resume its private context and authority")
     request_id = client_request_id or uuid4()
     existing = session.scalar(
         select(SqlAgentRun).where(

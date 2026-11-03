@@ -1,3 +1,4 @@
+import { sessionFixture } from './session-fixtures';
 import { QueryClient } from '@tanstack/svelte-query';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
@@ -5,13 +6,13 @@ import ProjectWorktrees from '../../../src/web/src/pages/project/components/Proj
 import { contextKey } from '../../../src/web/src/svelte-lib/context';
 
 const tree = { id: 'proof', title: 'Proof', branch: 'tasks/proof', archived_at: null };
-const chat = (id: string, task_id: string | null) => ({
-  id,
-  task_id,
-  title: id,
-  agent_display_name: 'Researcher',
-  updated_at: '2026-01-01',
-});
+const chat = (id: string, task_id: string | null) =>
+  sessionFixture({
+    id,
+    title: id,
+    working_context: { task_id, worktree_id: task_id },
+    updated_at: '2026-01-01',
+  });
 const clients: QueryClient[] = [];
 afterEach(() => {
   cleanup();

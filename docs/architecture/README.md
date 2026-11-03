@@ -21,6 +21,6 @@ FastAPI owns authorization and production PostgreSQL state. SQLite has a separat
 | [Hosted failures](hosted-failures.md)         | Recovery behavior                                |
 | [Model gateway](model-gateway.md)             | Provider keys and inference requests             |
 | [Agent library](agent-library.md)             | Reusable instructions and plugin listings        |
-| [Direct chat](chat.md)                        | Provider chat without a worker                   |
+| [Saved conversations](chat.md)                | Unified sessions, typed transcripts, and sharing |
 
 Research-object storage, catalogue, commons, publication, and verification services have been removed. Historical migrations remain so existing installations can upgrade.

@@ -9,6 +9,10 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from polycolab.accounts.authentication import AuthenticationRequired, bearer_token
+from polycolab.conversations.service import can_execute
+from polycolab.db.models import SqlAgentRun
+from polycolab.db.transaction import SqlAlchemyTransaction
+from polycolab.entities.enums import AgentRunStatus
 from polycolab.model_gateway.service import GrantInvalid, ProviderFailure, stream_model
 from polycolab.model_gateway.stream import encode_error_sse
 from polycolab.platform.observability import increment_durable
@@ -33,6 +37,15 @@ def stream_chat_completions(payload: ModelStreamRequest, request: Request) -> St
         raise AuthenticationRequired
     session = request.app.state.session_factory()
     try:
+        run = session.get(SqlAgentRun, payload.run_id)
+        if (
+            run is None
+            or run.status is not AgentRunStatus.RUNNING
+            or not can_execute(
+                SqlAlchemyTransaction(session), run.session_id, run.requested_by_user_id
+            )
+        ):
+            raise GrantInvalid
         stream = stream_model(
             session,
             wrapper=request.app.state.credential_wrapper,

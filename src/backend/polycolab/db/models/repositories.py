@@ -36,7 +36,7 @@ class SqlRepositoryMutation(Base):
 
 class SqlRepositorySession(Base):
     __tablename__ = "repository_sessions"
-    session_id: Mapped[UUID] = mapped_column(ForeignKey("agent_sessions.id"), primary_key=True)
+    session_id: Mapped[UUID] = mapped_column(ForeignKey("conversations.id"), primary_key=True)
     project_id: Mapped[UUID] = mapped_column(
         ForeignKey("project_repositories.project_id"), index=True
     )

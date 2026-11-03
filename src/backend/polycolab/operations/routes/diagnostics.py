@@ -16,7 +16,7 @@ from polycolab.db.models import (
     SqlAgentRun,
     SqlAgentRunEvent,
     SqlAgentRunUsage,
-    SqlAgentSession,
+    SqlConversation,
     SqlOperatorDiagnosticAccess,
     SqlPlatformAgentVersion,
     SqlRuntimeRunBinding,
@@ -78,7 +78,7 @@ def get_operator_run_diagnostics(run_id: UUID, request: Request) -> OperatorRunD
         run = session.get(SqlAgentRun, run_id)
         if run is None:
             raise ProjectNotFound
-        run_session = session.get(SqlAgentSession, run.session_id)
+        run_session = session.get(SqlConversation, run.session_id)
         if run_session is None:
             raise ProjectNotFound
         agent = session.get(SqlPlatformAgentVersion, run.agent_version_id)

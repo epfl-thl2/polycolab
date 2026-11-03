@@ -19,6 +19,33 @@ from test_hosted_scheduler import (
 )
 from test_sessions_api import add_member, headers
 
+from polycolab.accounts.authentication import MappingIdentityVerifier
+from polycolab.app.application import create_app
+from polycolab.operations.local_development import upgrade_database
+from polycolab.platform.config import Environment, Settings
+
+
+@pytest.fixture
+def client(tmp_path: Path, identity_verifier: MappingIdentityVerifier) -> Iterator[TestClient]:
+    # WebSocket polling and HTTP revocation need independent SQLite connections.
+    # A single in-memory StaticPool connection cannot own both transactions.
+    database = tmp_path / "linear.db"
+    upgrade_database(database)
+    app = create_app(
+        Settings(
+            app_env=Environment.LOCAL,
+            feature_agent_execution_enabled=True,
+            database_url=f"sqlite+pysqlite:///{database}",
+            web_dist_dir=str(tmp_path / "missing-web-dist"),
+        ),
+        identity_verifier,
+    )
+    try:
+        with TestClient(app) as value:
+            yield value
+    finally:
+        app.state.engine.dispose()
+
 
 @pytest.fixture(scope="module")
 def collaboration_url() -> Iterator[str]:
@@ -205,11 +232,13 @@ def test_shared_chat_read_access_and_unshare(
     add_member(client, project, "reader", "READ_ONLY")
     add_member(client, project, "contributor", "CONTRIBUTOR")
     chat = create_session(client, project)
-    url = f"/api/v1/agent-sessions/{chat['id']}"
-    listing = f"/api/v1/agent-sessions?project_id={project}"
+    url = f"/api/v1/sessions/{chat['id']}"
+    listing = f"/api/v1/sessions?project_id={project}"
     assert client.get(listing, headers=headers("reader")).json() == []
     assert client.get(url, headers=headers("contributor")).status_code == 404
-    shared = client.patch(url + "/visibility", headers=headers("owner"), json={"is_shared": True})
+    shared = client.patch(
+        url + "/sharing", headers=headers("owner"), json={"mode": "project_readable"}
+    )
     assert shared.status_code == 200, shared.text
     assert [item["id"] for item in client.get(listing, headers=headers("reader")).json()] == [
         chat["id"]
@@ -217,16 +246,16 @@ def test_shared_chat_read_access_and_unshare(
     for viewer in ("reader", "contributor"):
         response = client.get(url, headers=headers(viewer))
         assert response.status_code == 200, response.text
-        assert response.json()["can_control"] is False
-        assert response.json()["system_prompt"] is None
-        assert client.get(url + "/messages", headers=headers(viewer)).status_code == 200
+        assert response.json()["capabilities"]["can_manage"] is False
+        assert response.json()["configuration"]["system_prompt_override"] is None
+        assert client.get(url + "/items", headers=headers(viewer)).status_code == 200
         assert client.patch(
-            url + "/visibility", headers=headers(viewer), json={"is_shared": False}
+            url + "/sharing", headers=headers(viewer), json={"mode": "private"}
         ).status_code in (403, 404)
     assert client.get(url, headers=headers("outsider")).status_code == 404
     assert (
         client.patch(
-            url + "/visibility", headers=headers("owner"), json={"is_shared": False}
+            url + "/sharing", headers=headers("owner"), json={"mode": "private"}
         ).status_code
         == 200
     )

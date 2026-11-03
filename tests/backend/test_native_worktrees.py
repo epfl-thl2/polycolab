@@ -35,7 +35,11 @@ def test_worktree_save_survives_account_write_during_git_preparation(
     original = WorktreeStorage.snapshot
 
     def snapshot(
-        storage: WorktreeStorage, identifier: UUID, tree: str, head: str, previous: str | None
+        storage: WorktreeStorage,
+        identifier: UUID,
+        tree: str,
+        head: str,
+        previous: str | None,
     ) -> str:
         # Browser polling can touch account state while Git prepares a saved revision.
         # A retained SQLite read transaction cannot then be promoted to a writer.
@@ -222,7 +226,7 @@ def test_main_protection_missing_checkout_and_conflicting_alias(
     assert restored.json()["revision"] == save["revision"]
     assert (WorktreeStorage(git).path(UUID(main["id"])) / "a").read_text() == "a"
     mismatch = client.post(
-        "/api/v1/agent-sessions",
+        "/api/v1/sessions",
         headers=auth,
         json={
             "project_id": project,

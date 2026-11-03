@@ -38,19 +38,20 @@
   let actionError = $state<{ sessionId: string; message: string }>();
   let cancelling = $state('');
   const cancellable = (session: AgentSession) =>
-    session.latest_run &&
-    ['QUEUED', 'CLAIMED', 'RUNNING'].includes(session.latest_run.status) &&
-    !session.latest_run.cancel_requested_at;
+    session.latest_execution?.can_interrupt &&
+    ['QUEUED', 'CLAIMED', 'RUNNING'].includes(session.latest_execution.status) &&
+    !session.latest_execution.cancel_requested_at;
   const resumable = (session: AgentSession) =>
-    session.status !== 'ARCHIVED' &&
-    session.latest_run &&
-    ['CANCELLED', 'FAILED', 'TIMED_OUT'].includes(session.latest_run.status);
+    session.status !== 'archived' &&
+    session.capabilities.can_send &&
+    session.latest_execution &&
+    ['CANCELLED', 'FAILED', 'TIMED_OUT'].includes(session.latest_execution.status);
   const title = (session: AgentSession) => session.title?.trim() || 'Untitled chat';
   const status = (session: AgentSession) =>
-    session.latest_run?.cancel_requested_at &&
-    ['QUEUED', 'CLAIMED', 'RUNNING', 'CANCELLING'].includes(session.latest_run.status)
+    session.latest_execution?.cancel_requested_at &&
+    ['QUEUED', 'CLAIMED', 'RUNNING', 'CANCELLING'].includes(session.latest_execution.status)
       ? 'Cancelling'
-      : (session.latest_run?.status ?? session.status).toLowerCase().replaceAll('_', ' ');
+      : (session.latest_execution?.status ?? session.status).toLowerCase().replaceAll('_', ' ');
   const visible = $derived(
     [...sessions].sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at)),
   );
@@ -61,7 +62,7 @@
     cancelling = session.id;
     actionError = undefined;
     try {
-      await agents.cancelRun(session.latest_run!.id);
+      await agents.cancelRun(session.id, session.latest_execution!.id);
       if (id !== projectId) return;
       await query.invalidateQueries({ queryKey: ['session-runs', session.id] });
       await invalidateSession(query, id, session.id);
@@ -104,12 +105,14 @@
           aria-current={session.id === activeSessionId ? 'true' : undefined}
         >
           <span class="session-title">{title(session)}</span>
-          <span class="agent-name">{session.agent_display_name}</span>
+          <span class="agent-name">{session.configuration?.display_name}</span>
           <span
             class="run-status"
             class:running={Boolean(
-              session.latest_run &&
-              ['QUEUED', 'CLAIMED', 'RUNNING', 'CANCELLING'].includes(session.latest_run.status),
+              session.latest_execution &&
+              ['QUEUED', 'CLAIMED', 'RUNNING', 'CANCELLING'].includes(
+                session.latest_execution.status,
+              ),
             )}><span class="status-dot"></span>{status(session)}</span
           >
         </button>

@@ -20,7 +20,7 @@ from polycolab.agents.sessions import (
 from polycolab.db.models import (
     SqlAgentRun,
     SqlAgentRunEvent,
-    SqlAgentSession,
+    SqlConversation,
     SqlHostedCompletion,
     SqlHostedModelRequest,
 )
@@ -44,7 +44,7 @@ def lock_run(session: Session, run_id: UUID) -> SqlAgentRun:
         raise LeaseLost
     _lock_scopes(session, user_id=initial.requested_by_user_id, project_id=initial.project_id)
     session.execute(
-        select(SqlAgentSession).where(SqlAgentSession.id == initial.session_id).with_for_update()
+        select(SqlConversation).where(SqlConversation.id == initial.session_id).with_for_update()
     )
     run = session.scalar(
         select(SqlAgentRun)

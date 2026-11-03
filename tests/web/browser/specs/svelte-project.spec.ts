@@ -1,3 +1,4 @@
+import { messageItemFixture, runFixture, sessionFixture } from '../../unit/session-fixtures';
 import { plainFileEditor } from '../helpers/project-editor';
 import { test, expect, type Page } from '../fixtures';
 const projectId = '11111111-1111-4111-8111-111111111111';
@@ -23,20 +24,14 @@ function unsignedJwt(payload: Record<string, unknown>) {
   return `${encode({ alg: 'none', typ: 'JWT' })}.${encode(payload)}.`;
 }
 
-const session = {
+const session = sessionFixture({
   id: sessionId,
   project_id: projectId,
-  agent_version_id: 'agent-1',
-  agent_kind: 'RESEARCHER',
-  agent_version: 1,
-  agent_display_name: 'Researcher',
-  created_by_user_id: 'author-1',
+  owner_id: 'author-1',
   title: 'Gap investigation',
-  status: 'ACTIVE',
-  archived_at: null,
   created_at: createdAt,
   updated_at: createdAt,
-};
+});
 async function mock(
   page: Page,
   role = 'OWNER',
@@ -176,11 +171,24 @@ async function mock(
       return route.fulfill({
         json: [{ id: 'agent-1', agent_kind: 'RESEARCHER', version: 1, display_name: 'Researcher' }],
       });
-    if (path === '/api/v1/agent-sessions')
+    if (path === '/api/v1/sessions')
       return route.fulfill({ json: request.method() === 'POST' ? session : agentSessions });
-    if (path.endsWith(`/agent-sessions/${sessionId}`)) return route.fulfill({ json: session });
-    if (path.endsWith('/messages')) return route.fulfill({ json: [] });
-    if (path.endsWith('/events'))
+    if (path.endsWith(`/sessions/${sessionId}`)) return route.fulfill({ json: session });
+    if (path.endsWith('/items')) return route.fulfill({ json: { items: [], next_cursor: null } });
+    if (path.endsWith('/events') && request.method() === 'POST')
+      return route.fulfill({
+        status: 202,
+        json: {
+          type: 'message',
+          item: messageItemFixture({
+            session_id: sessionId,
+            data: { role: 'user', content_md: request.postDataJSON().content_md },
+          }),
+          run: runFixture({ id: runId, session_id: sessionId }),
+        },
+      });
+    if (path.endsWith('/runs')) return route.fulfill({ json: [] });
+    if (path.endsWith('/stream'))
       return route.fulfill({ contentType: 'text/event-stream', body: '' });
     return route.fulfill({ status: 404, json: { error: { code: 'not_found' } } });
   });
@@ -1256,7 +1264,7 @@ test('new chat customizes the hosted prompt and model endpoint', async ({ page }
   await page.getByLabel('Message the agent').fill('Examine this conjecture.');
   const createRequest = page.waitForRequest(
     (request) =>
-      request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/agent-sessions',
+      request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/sessions',
   );
   await page.getByRole('button', { name: 'Send message' }).click();
   expect((await createRequest).postDataJSON()).toMatchObject({
@@ -1356,7 +1364,7 @@ test('chat composers grow only after overflow and send with Enter', async ({ pag
   await nextInput.press('Shift+Enter');
   await expect(nextInput).toHaveValue('Follow-up\n');
   const nextTurn = page.waitForRequest(
-    (request) => request.method() === 'POST' && request.url().endsWith('/messages'),
+    (request) => request.method() === 'POST' && request.url().endsWith('/events'),
   );
   await nextInput.press('Enter');
   expect((await nextTurn).postDataJSON().content_md).toBe('Follow-up');
@@ -1367,15 +1375,22 @@ test('new chat keeps its first message and session when the first send fails', a
   let creations = 0;
   const requestIds: string[] = [];
   page.on('request', (request) => {
-    if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/agent-sessions')
+    if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/sessions')
       creations += 1;
   });
-  await page.route('**/api/v1/agent-sessions/*/messages', (route) => {
+  await page.route('**/api/v1/sessions/*/events', (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
     requestIds.push(route.request().postDataJSON().client_request_id);
     if (requestIds.length === 1)
       return route.fulfill({ status: 503, json: { error: { code: 'temporarily_unavailable' } } });
-    return route.fulfill({ json: { message: {}, run: {} } });
+    return route.fulfill({
+      status: 202,
+      json: {
+        type: 'message',
+        item: messageItemFixture({ session_id: sessionId }),
+        run: runFixture({ id: runId, session_id: sessionId }),
+      },
+    });
   });
   await page.goto(`/projects/${projectId}/sessions/new`);
   const reason = page.locator('.project-chat-start-footer .project-chat-send-reason');
@@ -1407,7 +1422,7 @@ test('failed agent message remains editable and successful retry uses the same r
 }) => {
   await mock(page);
   const bodies: Record<string, unknown>[] = [];
-  await page.route('**/api/v1/agent-sessions/*/messages', async (route) => {
+  await page.route('**/api/v1/sessions/*/events', async (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
     const body = route.request().postDataJSON();
     bodies.push(body);
@@ -1415,14 +1430,12 @@ test('failed agent message remains editable and successful retry uses the same r
       return route.fulfill({ status: 503, json: { error: { code: 'temporarily_unavailable' } } });
     return route.fulfill({
       json: {
-        message: {
-          id: 'message-1',
+        type: 'message',
+        item: messageItemFixture({
           session_id: sessionId,
-          role: 'USER',
-          content_md: body.content_md,
-          sequence: 1,
-        },
-        run: { id: runId, status: 'QUEUED' },
+          data: { role: 'user', content_md: body.content_md },
+        }),
+        run: runFixture({ id: runId, session_id: sessionId }),
       },
     });
   });
@@ -1463,17 +1476,38 @@ test('streams committed agent events, reconnects from cursor and cancels the run
   let connections = 0;
   const cursors: (string | undefined)[] = [];
   let cancelled = false;
-  await page.route('**/api/v1/agent-sessions/*/runs*', (route) =>
-    route.fulfill({ json: [{ id: runId, status: cancelled ? 'CANCELLED' : 'RUNNING' }] }),
+  await page.route('**/api/v1/sessions/*/runs*', (route) =>
+    route.fulfill({
+      json: [
+        runFixture({
+          id: runId,
+          session_id: sessionId,
+          status: cancelled ? 'CANCELLED' : 'RUNNING',
+          can_interrupt: !cancelled,
+        }),
+      ],
+    }),
   );
-  await page.route('**/api/v1/agent-runs/*', (route) =>
-    route.fulfill({ json: { id: runId, status: 'RUNNING' } }),
+  await page.route('**/api/v1/runs/*', (route) =>
+    route.fulfill({ json: runFixture({ id: runId, session_id: sessionId, status: 'RUNNING' }) }),
   );
-  await page.route('**/api/v1/agent-runs/*/cancel', (route) => {
+  await page.route('**/api/v1/sessions/*/events', (route) => {
+    expect(route.request().postDataJSON()).toEqual({ type: 'interrupt', run_id: runId });
     cancelled = true;
-    return route.fulfill({ json: { id: runId, status: 'CANCELLED' } });
+    return route.fulfill({
+      status: 202,
+      json: {
+        type: 'interrupt',
+        run: runFixture({
+          id: runId,
+          session_id: sessionId,
+          status: 'CANCELLED',
+          can_interrupt: false,
+        }),
+      },
+    });
   });
-  await page.route('**/api/v1/agent-sessions/*/events', (route) => {
+  await page.route('**/api/v1/sessions/*/stream', (route) => {
     cursors.push(route.request().headers()['last-event-id']);
     connections++;
     const event = {
@@ -1513,20 +1547,24 @@ test('revoked session access clears private messages and stops event reconnects'
 }) => {
   await mock(page);
   let eventRequests = 0;
-  await page.route('**/api/v1/agent-sessions/*/messages', (route) =>
+  await page.route('**/api/v1/sessions/*/items*', (route) =>
     route.fulfill({
-      json: [
-        {
-          id: 'private-message-1',
-          session_id: sessionId,
-          role: 'USER',
-          content_md: 'Private draft that must be cleared after revocation.',
-          created_at: createdAt,
-        },
-      ],
+      json: {
+        items: [
+          messageItemFixture({
+            id: 'private-message-1',
+            session_id: sessionId,
+            data: {
+              role: 'user',
+              content_md: 'Private draft that must be cleared after revocation.',
+            },
+          }),
+        ],
+        next_cursor: null,
+      },
     }),
   );
-  await page.route('**/api/v1/agent-sessions/*/events', (route) => {
+  await page.route('**/api/v1/sessions/*/stream', (route) => {
     eventRequests += 1;
     return route.fulfill({
       status: 403,
@@ -2059,25 +2097,21 @@ test('hosted run history keeps prior files and offers explicit resume after lost
       },
     }),
   );
-  await page.route('**/api/v1/agent-sessions/*/runs*', (route) =>
+  await page.route('**/api/v1/sessions/*/runs*', (route) =>
     route.fulfill({
       json: [
-        {
-          id: 'completed-run',
-          status: 'COMPLETED',
-          created_at: createdAt,
-          failure_code: null,
-        },
-        {
+        runFixture({ id: 'completed-run', status: 'COMPLETED', can_interrupt: false }),
+        runFixture({
           id: 'lost-run',
           status: 'FAILED',
-          created_at: createdAt,
+          can_interrupt: false,
+          can_resume: true,
           failure_code: 'runner_lost_resume_required',
-        },
+        }),
       ],
     }),
   );
-  await page.route('**/api/v1/agent-runs/completed-run/artifacts', (route) =>
+  await page.route('**/api/v1/runs/completed-run/artifacts', (route) =>
     route.fulfill({ json: [{ artifact_id: 'saved-file', display_name: 'Saved result.txt' }] }),
   );
   await page.goto(`/projects/${projectId}/sessions/${sessionId}`);
@@ -2867,21 +2901,22 @@ test('agent workbench retains chat and file drafts across unified tabs and mobil
     route.fulfill({ json: [] }),
   );
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.route('**/api/v1/agent-sessions*', async (route) => {
+  await page.route('**/api/v1/sessions*', async (route) => {
     const path = new URL(route.request().url()).pathname;
-    if (path === '/api/v1/agent-sessions')
+    if (path === '/api/v1/sessions')
       return route.fulfill({
         json: [
-          { ...session, latest_run: { id: runId, status: 'RUNNING', cancel_requested_at: null } },
+          {
+            ...session,
+            latest_execution: runFixture({ id: runId, status: 'RUNNING' }),
+          },
           second,
         ],
       });
     return route.fallback();
   });
-  await page.route(`**/api/v1/agent-sessions/${secondId}`, (route) =>
-    route.fulfill({ json: second }),
-  );
-  await page.route('**/api/v1/agent-sessions/*/runs*', (route) => route.fulfill({ json: [] }));
+  await page.route(`**/api/v1/sessions/${secondId}`, (route) => route.fulfill({ json: second }));
+  await page.route('**/api/v1/sessions/*/runs*', (route) => route.fulfill({ json: [] }));
   await page.route(`**/api/v1/projects/${projectId}/repository**`, (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.endsWith('/file'))
@@ -3057,18 +3092,18 @@ test('retained chat tabs pause streams and resume with their cursor and draft', 
     title: `Stream investigation ${index + 1}`,
   }));
   const requests = await mock(page, 'OWNER', 0, chats);
-  await page.route('**/api/v1/agent-sessions/*', (route) => {
+  await page.route('**/api/v1/sessions/*', (route) => {
     const id = new URL(route.request().url()).pathname.split('/').at(-1);
     return route.fulfill({ json: chats.find((chat) => chat.id === id) });
   });
-  await page.route('**/api/v1/agent-sessions/*/runs*', (route) => route.fulfill({ json: [] }));
+  await page.route('**/api/v1/sessions/*/runs*', (route) => route.fulfill({ json: [] }));
   await page.addInitScript(() => {
     const originalFetch = window.fetch.bind(window);
     const monitor = { active: 0, maximum: 0, aborted: 0, cursors: [] as string[] };
     Object.assign(window, { chatStreamMonitor: monitor });
     window.fetch = async (input, init) => {
       const request = new Request(input, init);
-      if (!/\/agent-sessions\/[^/]+\/events$/.test(new URL(request.url).pathname))
+      if (!/\/sessions\/[^/]+\/stream$/.test(new URL(request.url).pathname))
         return originalFetch(input, init);
       monitor.active++;
       monitor.maximum = Math.max(monitor.maximum, monitor.active);
@@ -3133,7 +3168,7 @@ test('retained chat tabs pause streams and resume with their cursor and draft', 
   await expect.poll(async () => (await monitor()).aborted).toBeGreaterThanOrEqual(7);
   expect((await monitor()).maximum).toBe(1);
   const beforeRefresh = requests.filter((request) =>
-    request.endsWith(`/${chats[0]!.id}/messages`),
+    request.endsWith(`/${chats[0]!.id}/items`),
   ).length;
   await page.getByRole('tab', { name: /^Stream investigation 1(?: Unsaved changes)?$/ }).click();
   await expect(
@@ -3141,7 +3176,7 @@ test('retained chat tabs pause streams and resume with their cursor and draft', 
   ).toHaveValue('Keep this draft');
   await expect.poll(async () => (await monitor()).cursors.at(-1)).toBe('1:1');
   await expect
-    .poll(() => requests.filter((request) => request.endsWith(`/${chats[0]!.id}/messages`)).length)
+    .poll(() => requests.filter((request) => request.endsWith(`/${chats[0]!.id}/items`)).length)
     .toBeGreaterThan(beforeRefresh);
   await page
     .getByRole('complementary', { name: 'Project navigation', exact: true })
@@ -3154,9 +3189,16 @@ test('middle panel plus creates independent new chat tabs and preserves their dr
   page,
 }) => {
   const requests = await mock(page);
-  await page.route(`**/api/v1/agent-sessions/${sessionId}/messages`, (route) =>
+  await page.route(`**/api/v1/sessions/${sessionId}/events`, (route) =>
     route.request().method() === 'POST'
-      ? route.fulfill({ json: { id: runId, session_id: sessionId, status: 'QUEUED' } })
+      ? route.fulfill({
+          status: 202,
+          json: {
+            type: 'message',
+            item: messageItemFixture({ session_id: sessionId }),
+            run: runFixture({ id: runId, session_id: sessionId }),
+          },
+        })
       : route.fallback(),
   );
   await page.goto(`/projects/${projectId}/sessions/new`);
@@ -3175,7 +3217,7 @@ test('middle panel plus creates independent new chat tabs and preserves their dr
   await expect(composer).toHaveValue('');
   await expect(page).not.toHaveURL(secondUrl);
   await composer.fill('Third draft');
-  expect(requests.filter((request) => request === 'POST /api/v1/agent-sessions')).toHaveLength(0);
+  expect(requests.filter((request) => request === 'POST /api/v1/sessions')).toHaveLength(0);
 
   await tabs.nth(0).click();
   await expect(composer).toHaveValue('First draft');
@@ -3217,9 +3259,14 @@ function workbenchTask(id: string, title: string) {
 }
 async function mockTaskWorkbench(page: Page) {
   const secondChatId = '99999999-9999-4999-8999-999999999999';
-  const chats: Array<typeof session & { task_id: string | null }> = [
-    { ...session, task_id: workbenchTaskId },
-    { ...session, id: secondChatId, title: 'Second proof conversation', task_id: workbenchTaskId },
+  const chats: Array<typeof session> = [
+    { ...session, working_context: { task_id: workbenchTaskId, worktree_id: workbenchTaskId } },
+    {
+      ...session,
+      id: secondChatId,
+      title: 'Second proof conversation',
+      working_context: { task_id: workbenchTaskId, worktree_id: workbenchTaskId },
+    },
   ];
   await mock(page, 'OWNER', 0, chats);
   const tasks = [
@@ -3254,31 +3301,38 @@ async function mockTaskWorkbench(page: Page) {
     }
     return route.fulfill({ json: id ? tasks.find((task) => task.id === id) : tasks });
   });
-  await page.route('**/api/v1/agent-sessions', (route) => {
+  await page.route('**/api/v1/sessions', (route) => {
     if (route.request().method() === 'POST') {
       sessionCreate = route.request().postDataJSON();
       const created = {
         ...session,
         id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
         title: 'New conversation',
-        task_id: sessionCreate!.worktree_id as string,
+        working_context: {
+          task_id: sessionCreate!.worktree_id as string,
+          worktree_id: sessionCreate!.worktree_id as string,
+        },
       };
       chats.push(created);
       return route.fulfill({ json: created });
     }
     return route.fulfill({ json: chats });
   });
-  await page.route('**/api/v1/agent-sessions/*', (route) => {
+  await page.route('**/api/v1/sessions/*', (route) => {
     const id = new URL(route.request().url()).pathname.split('/').at(-1);
     const chat = chats.find((item) => item.id === id);
     return chat ? route.fulfill({ json: chat }) : route.fallback();
   });
-  await page.route('**/api/v1/agent-sessions/*/runs*', (route) => route.fulfill({ json: [] }));
-  await page.route('**/api/v1/agent-sessions/*/messages', (route) =>
+  await page.route('**/api/v1/sessions/*/runs*', (route) => route.fulfill({ json: [] }));
+  await page.route('**/api/v1/sessions/*/events', (route) =>
     route.fulfill({
       json:
         route.request().method() === 'POST'
-          ? { id: runId, session_id: chats.at(-1)!.id, status: 'QUEUED' }
+          ? {
+              type: 'message',
+              item: messageItemFixture({ session_id: chats.at(-1)!.id }),
+              run: runFixture({ id: runId, session_id: chats.at(-1)!.id }),
+            }
           : [],
     }),
   );
@@ -3443,7 +3497,12 @@ test('worktrees group conversations and switch saved files on desktop and mobile
 test('conversation navigation ignores a delayed legacy working-copy response', async ({ page }) => {
   const fixture = await mockTaskWorkbench(page);
   const sharedId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-  fixture.chats.push({ ...session, id: sharedId, title: 'Shared conversation', task_id: null });
+  fixture.chats.push({
+    ...session,
+    id: sharedId,
+    title: 'Shared conversation',
+    working_context: { task_id: null, worktree_id: null },
+  });
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   let release: () => void = () => {};

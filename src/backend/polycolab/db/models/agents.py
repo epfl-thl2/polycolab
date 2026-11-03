@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
@@ -21,10 +20,12 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
-    false,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.engine.default import DefaultExecutionContext
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.sql.elements import ColumnElement
 
 from polycolab.db.base import Base
 from polycolab.entities.enums import (
@@ -39,6 +40,11 @@ from polycolab.entities.enums import (
     UsageSource,
 )
 from polycolab.entities.time import utc_now
+
+
+def _root_id(context: DefaultExecutionContext) -> UUID:
+    assert context.current_parameters is not None
+    return UUID(str(context.current_parameters["id"]))
 
 
 class SqlPlatformAgentVersion(Base):
@@ -71,35 +77,65 @@ class SqlPlatformAgentVersion(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
-class SqlAgentSession(Base):
+class SqlConversation(Base):
     """Long-lived project chat state, distinct from transient worker executions."""
 
-    __tablename__ = "agent_sessions"
+    __tablename__ = "conversations"
     __table_args__ = (
         UniqueConstraint("id", "project_id", name="uq_agent_sessions_id_project"),
+        CheckConstraint("origin IN ('agent', 'legacy_direct')", name="ck_conversations_origin"),
+        CheckConstraint(
+            "sharing IN ('private', 'project_readable', 'project_contributable')",
+            name="ck_conversations_sharing",
+        ),
+        CheckConstraint(
+            "(parent_id IS NULL AND root_id = id) OR "
+            "(parent_id IS NOT NULL AND parent_id != id AND root_id != id)",
+            name="ck_conversations_hierarchy",
+        ),
         CheckConstraint("next_message_sequence >= 0", name="ck_agent_sessions_message_sequence"),
         CheckConstraint("next_run_sequence >= 0", name="ck_agent_sessions_run_sequence"),
         CheckConstraint("status IN ('ACTIVE', 'ARCHIVED')", name="ck_agent_sessions_status"),
-        CheckConstraint(
-            "(harness IS NULL AND system_prompt IS NULL) OR "
-            "(harness = 'codex' AND system_prompt IS NOT NULL)",
-            name="ck_agent_sessions_custom_configuration",
-        ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), index=True)
+    project_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("projects.id"), index=True, nullable=True
+    )
     task_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("project_tasks.id"), nullable=True, index=True
     )
-    agent_version_id: Mapped[UUID] = mapped_column(
-        ForeignKey("platform_agent_versions.id"), index=True
-    )
     created_by_user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
-    is_shared: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    origin: Mapped[str] = mapped_column(String(24), default="agent", server_default="agent")
+    sharing: Mapped[str] = mapped_column(String(24), default="private", server_default="private")
+    root_id: Mapped[UUID] = mapped_column(ForeignKey("conversations.id"), default=_root_id)
+    parent_id: Mapped[UUID | None] = mapped_column(ForeignKey("conversations.id"))
+    spawning_run_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    spawning_item_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    delegated_task: Mapped[str | None] = mapped_column(Text)
     title: Mapped[str | None] = mapped_column(String(300), nullable=True)
-    harness: Mapped[Literal["codex"] | None] = mapped_column(String(32), nullable=True)
-    system_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    configuration: Mapped[SqlConversationConfiguration | None] = relationship(
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+
+    @property
+    def agent_version_id(self) -> UUID:
+        if self.configuration is None:
+            raise ValueError("conversation has no agent configuration")
+        return self.configuration.agent_version_id
+
+    @property
+    def harness(self) -> str | None:
+        if self.configuration is None or self.configuration.harness == "platform":
+            return None
+        return self.configuration.harness
+
+    @property
+    def system_prompt(self) -> str | None:
+        return self.configuration.system_prompt if self.configuration else None
+
     status: Mapped[AgentSessionStatus] = mapped_column(
         Enum(AgentSessionStatus, native_enum=False, length=16), default=AgentSessionStatus.ACTIVE
     )
@@ -111,25 +147,74 @@ class SqlAgentSession(Base):
     )
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    @hybrid_property
+    def is_shared(self) -> bool:
+        return self.sharing in {"project_readable", "project_contributable"}
 
-class SqlAgentMessage(Base):
+    @is_shared.inplace.setter
+    def _set_shared(self, value: bool) -> None:
+        self.sharing = "project_readable" if value else "private"
+
+    @is_shared.inplace.expression
+    @classmethod
+    def _shared_expression(cls) -> ColumnElement[bool]:
+        return cls.sharing != "private"
+
+
+class SqlConversationConfiguration(Base):
+    """Pinned creation-time identity and harness selection, separate from execution state."""
+
+    __tablename__ = "conversation_configurations"
+    conversation_id: Mapped[UUID] = mapped_column(ForeignKey("conversations.id"), primary_key=True)
+    agent_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("platform_agent_versions.id"), index=True
+    )
+    agent_display_name: Mapped[str] = mapped_column(String(200))
+    agent_kind: Mapped[str] = mapped_column(String(32))
+    agent_version: Mapped[int] = mapped_column(Integer)
+    harness: Mapped[str] = mapped_column(String(100))
+    harness_version: Mapped[str | None] = mapped_column(String(100))
+    connection_protocol: Mapped[str | None] = mapped_column(String(100))
+    system_prompt: Mapped[str | None] = mapped_column(Text)
+
+
+class SqlConversationItem(Base):
     """Append-only product-visible message transcript entry."""
 
-    __tablename__ = "agent_messages"
+    __tablename__ = "conversation_items"
     __table_args__ = (
         UniqueConstraint("id", "session_id", name="uq_agent_messages_id_session"),
         UniqueConstraint("session_id", "sequence", name="uq_agent_messages_session_sequence"),
         CheckConstraint("sequence > 0", name="ck_agent_messages_sequence"),
+        CheckConstraint(
+            "item_type IN ('message', 'tool_call', 'tool_result', 'error')",
+            name="ck_conversation_items_type",
+        ),
+        CheckConstraint(
+            "status IN ('completed', 'interrupted', 'in_progress')",
+            name="ck_conversation_items_status",
+        ),
+        CheckConstraint(
+            "visibility IN ('user_visible', 'model_only')", name="ck_conversation_items_visibility"
+        ),
         CheckConstraint("role IN ('USER', 'AGENT', 'SYSTEM')", name="ck_agent_messages_role"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    session_id: Mapped[UUID] = mapped_column(ForeignKey("agent_sessions.id"), index=True)
+    session_id: Mapped[UUID] = mapped_column(ForeignKey("conversations.id"), index=True)
     sequence: Mapped[int] = mapped_column(Integer)
     role: Mapped[AgentMessageRole] = mapped_column(
         Enum(AgentMessageRole, native_enum=False, length=16)
     )
     author_user_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    agent_version_id: Mapped[UUID | None] = mapped_column(ForeignKey("platform_agent_versions.id"))
+    execution_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    item_type: Mapped[str] = mapped_column(String(16), default="message", server_default="message")
+    status: Mapped[str] = mapped_column(String(16), default="completed", server_default="completed")
+    visibility: Mapped[str] = mapped_column(
+        String(16), default="user_visible", server_default="user_visible"
+    )
+    payload: Mapped[dict[str, object] | None] = mapped_column(JSON)
     content_md: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
@@ -160,12 +245,12 @@ class SqlAgentRun(Base):
         UniqueConstraint("session_id", "queue_sequence", name="uq_agent_runs_session_queue"),
         ForeignKeyConstraint(
             ["session_id", "project_id"],
-            ["agent_sessions.id", "agent_sessions.project_id"],
+            ["conversations.id", "conversations.project_id"],
             name="fk_agent_runs_session_project",
         ),
         ForeignKeyConstraint(
             ["request_message_id", "session_id"],
-            ["agent_messages.id", "agent_messages.session_id"],
+            ["conversation_items.id", "conversation_items.session_id"],
             name="fk_agent_runs_request_message_session",
         ),
         CheckConstraint("queue_sequence > 0", name="ck_agent_runs_queue_sequence"),
@@ -384,7 +469,7 @@ class SqlRuntimeSessionBinding(Base):
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    session_id: Mapped[UUID] = mapped_column(ForeignKey("agent_sessions.id"), index=True)
+    session_id: Mapped[UUID] = mapped_column(ForeignKey("conversations.id"), index=True)
     adapter_name: Mapped[str] = mapped_column(String(100))
     opaque_runtime_ref: Mapped[str | None] = mapped_column(String(500), nullable=True)
     status: Mapped[RuntimeBindingStatus] = mapped_column(
@@ -505,7 +590,7 @@ class SqlRunToolCapability(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     token_digest: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     run_id: Mapped[UUID] = mapped_column(ForeignKey("agent_runs.id"), index=True)
-    session_id: Mapped[UUID] = mapped_column(ForeignKey("agent_sessions.id"), index=True)
+    session_id: Mapped[UUID] = mapped_column(ForeignKey("conversations.id"), index=True)
     project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), index=True)
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
     agent_version_id: Mapped[UUID] = mapped_column(ForeignKey("platform_agent_versions.id"))
@@ -519,8 +604,8 @@ class SqlRunToolCapability(Base):
 
 __all__ = [
     "SqlPlatformAgentVersion",
-    "SqlAgentSession",
-    "SqlAgentMessage",
+    "SqlConversation",
+    "SqlConversationItem",
     "SqlAgentRun",
     "SqlAgentRunEvent",
     "SqlAgentRunUsage",

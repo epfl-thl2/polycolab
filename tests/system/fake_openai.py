@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from threading import Event
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -15,6 +16,7 @@ def event(payload: dict[str, object]) -> bytes:
 
 class ProviderHandler(BaseHTTPRequestHandler):
     calls: list[dict[str, Any]] = []
+    held = Event()
 
     def do_GET(self) -> None:  # noqa: N802
         if self.path != "/__test__/calls":
@@ -28,12 +30,19 @@ class ProviderHandler(BaseHTTPRequestHandler):
         self.wfile.write(encoded)
 
     def do_POST(self) -> None:  # noqa: N802
+        if self.path in {"/__test__/hold", "/__test__/release"}:
+            self.held.clear() if self.path.endswith("hold") else self.held.set()
+            self.send_response(HTTPStatus.NO_CONTENT)
+            self.end_headers()
+            return
         if self.path != "/v1/chat/completions":
             self.send_error(HTTPStatus.NOT_FOUND)
             return
         size = int(self.headers.get("Content-Length", "0"))
         body = json.loads(self.rfile.read(size))
         self.calls.append(body)
+        if body.get("model") == "integration-held":
+            self.held.wait(timeout=20)
         if body.get("model") == "integration-provider-error":
             self.send_response(HTTPStatus.SERVICE_UNAVAILABLE)
             self.send_header("Content-Length", "0")

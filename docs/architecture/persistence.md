@@ -106,6 +106,12 @@ The following operations have application boundaries:
 
 Artifacts use immutable application values and a shared byte-integrity converter.
 
+Conversation metadata and transcript pages use immutable typed snapshots and a
+`ConversationStore`. Its explicit converters perform no queries, and its append
+operations allocate sequences while holding the conversation lock. Execution services
+still compose SQL-backed run, grant, lease and accounting operations with the same
+transaction. See [saved conversations](chat.md) for the session resource and cutover.
+
 Artifact cleanup is a complete converted workflow.
 `artifacts/cleanup.py` owns expiry policy, lifecycle transitions, and transaction completion through `Transaction.artifacts`.
 `db/stores/artifacts.py` loads locked rows and performs writes, returning immutable artifact values.

@@ -287,7 +287,7 @@
                   queryFn: () => agents.getSession(sessionId),
                   staleTime: 5000,
                 })
-              ).task_id;
+              ).working_context.task_id;
         targetBranch = taskId ? (await readTask(taskId)).branch : 'main';
       } else if (url.pathname.endsWith('/files')) {
         targetBranch = url.searchParams.get('branch') || workingBranch;
@@ -611,7 +611,7 @@
             <ProjectWorktrees
               {projectId}
               activeSessionId={section === 'sessions' ? entity : undefined}
-              canReadChats={canWrite}
+              canReadChats={Boolean(project.current_user_role)}
               {canChat}
               onNewChat={newWorktreeChat}
               activeWorktreeId={selectedWorktree?.id}

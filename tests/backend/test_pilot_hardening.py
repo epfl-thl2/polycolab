@@ -14,17 +14,16 @@ from pydantic import SecretStr
 from sqlalchemy import select
 
 import polycolab.execution.limits as execution_limits
-from polycolab.agents.routes.sessions import (
-    _last_run_cursor,
-    _last_session_cursor,
-    _run_event_stream,
-)
 from polycolab.agents.sessions import (
     append_worker_event,
     claim_next_run,
     finish_run,
     record_usage,
     start_claimed_run,
+)
+from polycolab.conversations.routes.router import (
+    _last_session_cursor,
+    _session_event_stream,
 )
 from polycolab.db.models import (
     SqlAgentRun,
@@ -104,7 +103,7 @@ def _profile(client: TestClient) -> dict[str, object]:
 
 def _session(client: TestClient, project_id: str) -> dict[str, object]:
     response = client.post(
-        "/api/v1/agent-sessions",
+        "/api/v1/sessions",
         headers=_headers("owner"),
         json={"project_id": project_id, "agent_kind": "RESEARCHER"},
     )
@@ -126,7 +125,7 @@ def test_public_projects_are_available_while_hosted_execution_is_disabled(
 
     _app(client).state.settings.feature_agent_execution_enabled = False
     response = client.post(
-        "/api/v1/agent-sessions",
+        "/api/v1/sessions",
         headers=_headers("owner"),
         json={"project_id": project["id"], "agent_kind": "RESEARCHER"},
     )
@@ -167,38 +166,52 @@ def test_sse_cursor_reconnects_are_rate_limited_after_authorization(
     profile = _profile(client)
     agent_session = _session(client, str(project["id"]))
     queued = client.post(
-        f"/api/v1/agent-sessions/{agent_session['id']}/messages",
+        f"/api/v1/sessions/{agent_session['id']}/events",
         headers=_headers("owner"),
         json={
-            "gateway_profile_id": profile["id"],
-            "content_md": "Rate limit reconnects.",
-            "client_request_id": str(uuid4()),
+            "type": "message",
+            **(
+                {
+                    "gateway_profile_id": profile["id"],
+                    "content_md": "Rate limit reconnects.",
+                    "client_request_id": str(uuid4()),
+                }
+            ),
         },
     )
     assert queued.status_code == 202
     run_id = queued.json()["run"]["id"]
-    cancelled = client.post(f"/api/v1/agent-runs/{run_id}/cancel", headers=_headers("owner"))
+    cancelled = client.post(
+        f"/api/v1/sessions/{agent_session['id']}/events",
+        headers=_headers("owner"),
+        json={"type": "interrupt", "run_id": str(run_id)},
+    )
     assert cancelled.status_code == 202
+    client.patch(
+        f"/api/v1/sessions/{agent_session['id']}",
+        headers=_headers("owner"),
+        json={"archived": True},
+    )
     _app(client).state.settings.sse_reconnects_per_minute = 1
     # Keep both requests in one rate bucket even when the wall clock crosses a minute.
     now = datetime(2026, 9, 9, 12, 0, 59, tzinfo=UTC)
-    monkeypatch.setattr("polycolab.agents.routes.sessions.utc_now", lambda: now)
+    monkeypatch.setattr("polycolab.conversations.routes.router.utc_now", lambda: now)
 
     first = client.get(
-        f"/api/v1/agent-runs/{run_id}/events",
-        headers={**_headers("owner"), "Last-Event-ID": "1"},
+        f"/api/v1/sessions/{agent_session['id']}/stream",
+        headers={**_headers("owner"), "Last-Event-ID": "1:1"},
     )
     assert first.status_code == 200
     limited = client.get(
-        f"/api/v1/agent-runs/{run_id}/events",
-        headers={**_headers("owner"), "Last-Event-ID": "1"},
+        f"/api/v1/sessions/{agent_session['id']}/stream",
+        headers={**_headers("owner"), "Last-Event-ID": "1:1"},
     )
     assert limited.status_code == 429
     assert limited.json()["error"]["code"] == "sse_reconnect_rate_limited"
     now += timedelta(seconds=1)
     renewed = client.get(
-        f"/api/v1/agent-runs/{run_id}/events",
-        headers={**_headers("owner"), "Last-Event-ID": "1"},
+        f"/api/v1/sessions/{agent_session['id']}/stream",
+        headers={**_headers("owner"), "Last-Event-ID": "1:1"},
     )
     assert renewed.status_code == 200
 
@@ -216,15 +229,15 @@ def test_execution_concurrency_quota_and_operator_metrics_are_enforced(
         "content_md": "Bound this pilot turn.",
     }
     accepted = client.post(
-        f"/api/v1/agent-sessions/{agent_session['id']}/messages",
+        f"/api/v1/sessions/{agent_session['id']}/events",
         headers=_headers("owner"),
-        json={**payload, "client_request_id": str(uuid4())},
+        json={"type": "message", **({**payload, "client_request_id": str(uuid4())})},
     )
     assert accepted.status_code == 202, accepted.text
     limited = client.post(
-        f"/api/v1/agent-sessions/{agent_session['id']}/messages",
+        f"/api/v1/sessions/{agent_session['id']}/events",
         headers=_headers("owner"),
-        json={**payload, "client_request_id": str(uuid4())},
+        json={"type": "message", **({**payload, "client_request_id": str(uuid4())})},
     )
     assert limited.status_code == 429
     assert limited.json()["error"]["code"] == "execution_concurrent_user_quota_exceeded"
@@ -247,12 +260,17 @@ def test_operator_run_diagnostics_are_redacted_audited_and_cross_process_observa
     profile = _profile(client)
     agent_session = _session(client, str(project["id"]))
     queued = client.post(
-        f"/api/v1/agent-sessions/{agent_session['id']}/messages",
+        f"/api/v1/sessions/{agent_session['id']}/events",
         headers=_headers("owner"),
         json={
-            "gateway_profile_id": profile["id"],
-            "content_md": "This private prompt must never enter diagnostics.",
-            "client_request_id": str(uuid4()),
+            "type": "message",
+            **(
+                {
+                    "gateway_profile_id": profile["id"],
+                    "content_md": "This private prompt must never enter diagnostics.",
+                    "client_request_id": str(uuid4()),
+                }
+            ),
         },
     )
     assert queued.status_code == 202
@@ -385,9 +403,9 @@ def test_rate_windows_enforce_a_minute_and_roll_over_at_utc_boundary(
 
 
 def test_sse_cursor_anomalies_are_rejected_or_clamped_without_raw_cursor_labels() -> None:
-    assert _last_run_cursor("3", 4) == 4
+    assert _last_session_cursor("3:4") == (3, 4)
     with pytest.raises(HTTPException):
-        _last_run_cursor("bad", 0)
+        _last_session_cursor("bad")
     with pytest.raises(HTTPException):
         _last_session_cursor("-1:0")
 
@@ -399,12 +417,17 @@ def test_sse_connection_gauge_tracks_open_generators_and_closes_without_leaks(
     profile = _profile(client)
     agent_session = _session(client, str(project["id"]))
     queued = client.post(
-        f"/api/v1/agent-sessions/{agent_session['id']}/messages",
+        f"/api/v1/sessions/{agent_session['id']}/events",
         headers=_headers("owner"),
         json={
-            "gateway_profile_id": profile["id"],
-            "content_md": "Open a stream.",
-            "client_request_id": str(uuid4()),
+            "type": "message",
+            **(
+                {
+                    "gateway_profile_id": profile["id"],
+                    "content_md": "Open a stream.",
+                    "client_request_id": str(uuid4()),
+                }
+            ),
         },
     )
     assert queued.status_code == 202
@@ -429,11 +452,11 @@ def test_sse_connection_gauge_tracks_open_generators_and_closes_without_leaks(
     async def check() -> None:
         released = asyncio.Event()
         streams = [
-            _run_event_stream(
+            _session_event_stream(
                 cast(Any, BlockingRequest(_app(client), released)),
-                run_id=run_id,
+                session_id=UUID(str(agent_session["id"])),
                 user_id=user_id,
-                cursor=0,
+                cursor=(0, 0),
             )
             for _ in range(2)
         ]
@@ -503,12 +526,17 @@ def test_nullable_usage_is_conservatively_aggregated_and_charged(
     profile = _profile(client)
     agent_session = _session(client, str(project["id"]))
     queued = client.post(
-        f"/api/v1/agent-sessions/{agent_session['id']}/messages",
+        f"/api/v1/sessions/{agent_session['id']}/events",
         headers=_headers("owner"),
         json={
-            "gateway_profile_id": profile["id"],
-            "content_md": "Account nullable usage.",
-            "client_request_id": str(uuid4()),
+            "type": "message",
+            **(
+                {
+                    "gateway_profile_id": profile["id"],
+                    "content_md": "Account nullable usage.",
+                    "client_request_id": str(uuid4()),
+                }
+            ),
         },
     )
     assert queued.status_code == 202
@@ -609,12 +637,17 @@ def test_resume_and_next_round_budget_fail_closed_when_ceiling_is_tight(
     profile = _profile(client)
     agent_session = _session(client, str(project["id"]))
     queued = client.post(
-        f"/api/v1/agent-sessions/{agent_session['id']}/messages",
+        f"/api/v1/sessions/{agent_session['id']}/events",
         headers=_headers("owner"),
         json={
-            "gateway_profile_id": profile["id"],
-            "content_md": "Reserve a multi-round turn.",
-            "client_request_id": str(uuid4()),
+            "type": "message",
+            **(
+                {
+                    "gateway_profile_id": profile["id"],
+                    "content_md": "Reserve a multi-round turn.",
+                    "client_request_id": str(uuid4()),
+                }
+            ),
         },
     )
     assert queued.status_code == 202
@@ -630,12 +663,16 @@ def test_resume_and_next_round_budget_fail_closed_when_ceiling_is_tight(
     finally:
         db.close()
     assert (
-        client.post(f"/api/v1/agent-runs/{run_id}/cancel", headers=_headers("owner")).status_code
+        client.post(
+            f"/api/v1/sessions/{agent_session['id']}/events",
+            headers=_headers("owner"),
+            json={"type": "interrupt", "run_id": str(run_id)},
+        ).status_code
         == 202
     )
     _app(client).state.settings.execution_user_daily_tokens = 1
     resumed = client.post(
-        f"/api/v1/agent-runs/{run_id}/resume",
+        f"/api/v1/runs/{run_id}/resume",
         headers=_headers("owner"),
         json={"gateway_profile_id": profile["id"], "client_request_id": str(uuid4())},
     )

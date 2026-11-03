@@ -496,6 +496,13 @@ def stream_model(
     ):
         raise ProviderFailure("gateway_cost_limit_exceeded")
     grant = exchange_run_grant_for_model(session, token=token, run_id=run_id, model_id=model_id)
+    if (
+        run is None
+        or run.requested_by_user_id != grant.user_id
+        or run.gateway_profile_id != grant.profile_id
+        or run.gateway_credential_version != grant.credential_version
+    ):
+        raise GrantInvalid
     profile = profile_for_user(session, profile_id=grant.profile_id, user_id=grant.user_id)
     try:
         credential = decrypt_credential(

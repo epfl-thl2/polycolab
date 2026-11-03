@@ -10,6 +10,7 @@ export default defineConfig({
     'application-configuration.spec.ts',
     'svelte-project.spec.ts',
     'agent-session-workflow.spec.ts',
+    'session-history-participation.spec.ts',
     'discovery-states.spec.ts',
   ],
   timeout: 30000,

@@ -5,7 +5,7 @@ import path from 'node:path';
 import { expect, test, type APIRequestContext } from '@playwright/test';
 
 const apiBaseUrl = process.env.POLYCOLAB_INTEGRATION_API_URL ?? 'http://127.0.0.1:18000';
-const composeFile = path.resolve(process.cwd(), 'tests/system/compose.yaml');
+const composeFile = path.resolve(__dirname, '../compose.yaml');
 
 function headers(token = 'owner') {
   return { Authorization: `Bearer ${token}` };
@@ -13,7 +13,7 @@ function headers(token = 'owner') {
 
 async function call<T>(
   request: APIRequestContext,
-  method: 'get' | 'post',
+  method: 'get' | 'post' | 'patch',
   pathValue: string,
   input: { token?: string; data?: unknown } = {},
 ): Promise<{ status: number; body: T }> {
@@ -25,12 +25,11 @@ async function call<T>(
   return { status: response.status(), body: (text ? JSON.parse(text) : undefined) as T };
 }
 
-function eventIds(body: string): number[] {
+function eventIds(body: string): string[] {
   return body
     .split('\n')
     .filter((line) => line.startsWith('id: '))
-    .map((line) => Number(line.slice(4)))
-    .filter((value) => Number.isInteger(value));
+    .map((line) => line.slice(4));
 }
 
 function compose(...args: string[]): void {
@@ -57,15 +56,16 @@ test('concurrent SSE reconnects replay one ordered suffix without duplication', 
       api_key: 'integration-secret',
     },
   });
-  const session = await call<{ id: string }>(request, 'post', '/api/v1/agent-sessions', {
+  const session = await call<{ id: string }>(request, 'post', '/api/v1/sessions', {
     data: { project_id: project.body.id, agent_kind: 'RESEARCHER' },
   });
   const queued = await call<{ run: { id: string } }>(
     request,
     'post',
-    `/api/v1/agent-sessions/${session.body.id}/messages`,
+    `/api/v1/sessions/${session.body.id}/events`,
     {
       data: {
+        type: 'message',
         client_request_id: randomUUID(),
         content_md: 'Generate a bounded sequence for reconnect testing.',
         gateway_profile_id: profile.body.id,
@@ -74,21 +74,36 @@ test('concurrent SSE reconnects replay one ordered suffix without duplication', 
   );
   expect(queued.status).toBe(202);
 
-  const initial = await request.get(
-    `${apiBaseUrl}/api/v1/agent-runs/${queued.body.run.id}/events`,
-    {
-      headers: headers(),
-    },
-  );
+  await expect
+    .poll(
+      async () => {
+        const result = await call<{ status: string }>(
+          request,
+          'get',
+          `/api/v1/runs/${queued.body.run.id}`,
+        );
+        return result.body.status;
+      },
+      { timeout: 30_000 },
+    )
+    .toBe('COMPLETED');
+  // An archived session closes its stream after replaying all committed events.
+  const archived = await call(request, 'patch', `/api/v1/sessions/${session.body.id}`, {
+    data: { archived: true },
+  });
+  expect(archived.status).toBe(200);
+  const initial = await request.get(`${apiBaseUrl}/api/v1/sessions/${session.body.id}/stream`, {
+    headers: headers(),
+  });
   expect(initial.status()).toBe(200);
   const initialIds = eventIds(await initial.text());
   expect(initialIds.length).toBeGreaterThanOrEqual(2);
   const cursor = initialIds[0];
-  const expectedSuffix = initialIds.filter((value) => value > cursor);
+  const expectedSuffix = initialIds.slice(1);
 
   const reconnects = await Promise.all(
     Array.from({ length: 8 }, () =>
-      request.get(`${apiBaseUrl}/api/v1/agent-runs/${queued.body.run.id}/events`, {
+      request.get(`${apiBaseUrl}/api/v1/sessions/${session.body.id}/stream`, {
         headers: { ...headers(), 'Last-Event-ID': String(cursor) },
       }),
     ),
@@ -106,36 +121,51 @@ test('concurrent revision writes accept one base and reject stale writers', asyn
     data: { name: `Edit contention ${Date.now()}` },
   });
   expect(project.status).toBe(201);
-  const object = await call<{ id: string; current_revision_id: string }>(
-    request,
-    'post',
-    `/api/v1/projects/${project.body.id}/objects`,
-    { data: { kind: 'CLAIM', title: 'Shared base', content_md: 'r1' } },
-  );
-  expect(object.status).toBe(201);
-
+  const snapshot = (title: string, content_md: string) => ({
+    kind: 'STATEMENT',
+    content: {
+      title,
+      content_md,
+      assumptions_md: 'None stated',
+      reported_outcome: null,
+      explanation_md: null,
+    },
+    structural_relationships: [],
+  });
+  const created = await request.post(`${apiBaseUrl}/api/v1/objects`, {
+    headers: { ...headers(), 'Idempotency-Key': randomUUID() },
+    data: {
+      destination: { kind: 'project', project_id: project.body.id },
+      snapshot: snapshot('Shared base', 'r1'),
+    },
+  });
+  expect(created.status()).toBe(201);
+  const outputs = (await created.json()).outputs as Array<{
+    entity_type: string;
+    entity_id: string;
+  }>;
+  const objectId = outputs.find((value) => value.entity_type === 'RESEARCH_OBJECT')!.entity_id;
+  const revisionId = outputs.find((value) => value.entity_type === 'OBJECT_VERSION')!.entity_id;
   const writes = await Promise.all(
     Array.from({ length: 8 }, (_, index) =>
-      request.post(`${apiBaseUrl}/api/v1/objects/${object.body.id}/revisions`, {
-        headers: headers(),
+      request.post(`${apiBaseUrl}/api/v1/objects/${objectId}/versions`, {
+        headers: { ...headers(), 'Idempotency-Key': randomUUID() },
         data: {
-          base_revision_id: object.body.current_revision_id,
-          title: `Concurrent r2 writer ${index}`,
-          content_md: `writer ${index}`,
+          expected_current_object_version_id: revisionId,
+          snapshot: snapshot(`Concurrent r2 writer ${index}`, `writer ${index}`),
         },
       }),
     ),
   );
   expect(writes.filter((response) => response.status() === 201)).toHaveLength(1);
   expect(writes.filter((response) => response.status() === 409)).toHaveLength(7);
-
-  const history = await call<Array<{ number: number }>>(
+  const history = await call<{ items: Array<{ number: number }> }>(
     request,
     'get',
-    `/api/v1/objects/${object.body.id}/revisions`,
+    `/api/v1/objects/${objectId}/versions`,
   );
   expect(history.status).toBe(200);
-  expect(history.body.map((revision) => revision.number)).toEqual([2, 1]);
+  expect(history.body.items.map((version) => version.number)).toEqual([2, 1]);
 });
 
 test('PostgreSQL outage makes readiness fail and recovers durable writes and worker runs', async ({
@@ -172,15 +202,16 @@ test('PostgreSQL outage makes readiness fail and recovers durable writes and wor
       api_key: 'integration-secret',
     },
   });
-  const session = await call<{ id: string }>(request, 'post', '/api/v1/agent-sessions', {
+  const session = await call<{ id: string }>(request, 'post', '/api/v1/sessions', {
     data: { project_id: project.body.id, agent_kind: 'CRITIC' },
   });
   const queued = await call<{ run: { id: string } }>(
     request,
     'post',
-    `/api/v1/agent-sessions/${session.body.id}/messages`,
+    `/api/v1/sessions/${session.body.id}/events`,
     {
       data: {
+        type: 'message',
         client_request_id: randomUUID(),
         content_md: 'Verify the recovered worker can persist a run.',
         gateway_profile_id: profile.body.id,
@@ -195,7 +226,7 @@ test('PostgreSQL outage makes readiness fail and recovers durable writes and wor
         const run = await call<{ status: string }>(
           request,
           'get',
-          `/api/v1/agent-runs/${queued.body.run.id}`,
+          `/api/v1/runs/${queued.body.run.id}`,
         );
         return run.body.status;
       },

@@ -36,7 +36,7 @@
     role={project.current_user_role}
   />
 {:else if section === 'sessions'}
-  {#if canWrite || ['linear', 'default'].includes(project.workspace_mode)}{#await import('./sections/Sessions.svelte')}<LoadingState
+  {#if canWrite || (project.current_user_role && selectedId !== 'new')}{#await import('./sections/Sessions.svelte')}<LoadingState
       >
         Opening private sessions…
       </LoadingState>{:then module}{#key selectedId}<module.default

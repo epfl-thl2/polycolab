@@ -34,10 +34,10 @@ from polycolab.agents.sessions import (
 )
 from polycolab.agents.tools import issue_tool_capability
 from polycolab.db.models import (
-    SqlAgentMessage,
     SqlAgentRun,
     SqlAgentRunEvent,
-    SqlAgentSession,
+    SqlConversation,
+    SqlConversationItem,
     SqlGatewayProfile,
     SqlMembership,
     SqlProject,
@@ -313,9 +313,9 @@ def test_builtin_worker_commits_normalized_turn_before_exposing_it(
             AgentRunEventKind.RUN_COMPLETED,
         ]
         messages = list(
-            session.query(SqlAgentMessage)
-            .filter(SqlAgentMessage.session_id == run.session_id)
-            .order_by(SqlAgentMessage.sequence)
+            session.query(SqlConversationItem)
+            .filter(SqlConversationItem.session_id == run.session_id)
+            .order_by(SqlConversationItem.sequence)
         )
         assert messages[-1].content_md == "The base case holds."
         assert gateway.grants[0] not in str([event.payload for event in events])
@@ -643,7 +643,7 @@ def test_internal_tool_gateway_rejects_private_creator_scope_mismatch(
         )
         session.add(other)
         session.flush()
-        parent = session.get(SqlAgentSession, run.session_id)
+        parent = session.get(SqlConversation, run.session_id)
         assert parent is not None
         parent.created_by_user_id = other.id
         session.commit()

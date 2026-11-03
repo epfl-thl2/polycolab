@@ -12,7 +12,7 @@ from test_codex_runtime import spec
 from test_hosted_artifacts import OWNER, WORKER
 from test_runtime_api import _queue_run
 
-from polycolab.db.models import SqlAgentRun, SqlAgentSession, SqlUser
+from polycolab.db.models import SqlAgentRun, SqlConversation, SqlUser
 from polycolab.entities.enums import AgentRunStatus
 from polycolab.entities.time import utc_now
 from polycolab.execution import guest_repository
@@ -46,7 +46,7 @@ def repository_claim(
         from uuid import UUID
 
         with app.state.session_factory() as db:
-            db.get(SqlAgentSession, session_id).task_id = UUID(task.json()["id"])
+            db.get(SqlConversation, session_id).task_id = UUID(task.json()["id"])
             db.commit()
     enabled = client.put(f"{url}/sessions/{session_id}", headers=OWNER)
     assert enabled.status_code == 200, enabled.text
@@ -70,7 +70,7 @@ def repository_claim(
             with instance.open():
                 instance.materialize()
                 main = instance.task_for_branch("main")
-                db.get(SqlAgentSession, session_id).task_id = main.id
+                db.get(SqlConversation, session_id).task_id = main.id
                 db.commit()
         trees_url = url.removesuffix("/repository") + "/worktrees"
         tree = client.get(f"{trees_url}/{main.id}", headers=OWNER).json()

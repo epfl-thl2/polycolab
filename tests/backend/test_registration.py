@@ -25,7 +25,7 @@ from polycolab.db.models import (
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.enums import InvitationStatus
 from polycolab.entities.time import utc_now
-from polycolab.platform.config import AuthMode, RegistrationMode, Settings
+from polycolab.platform.config import AuthMode, Environment, RegistrationMode, Settings
 
 ORIGIN = "https://registration.example"
 PASSWORD = "correct horse battery staple"
@@ -172,9 +172,37 @@ def test_registration_rejects_privilege_email_terms_and_invalid_credentials(
         json={"username": "alice", "password": "too short"},
     )
     assert weak.status_code == 422
+    assert weak.json()["error"]["code"] == "registration_request_invalid"
     duplicate = _register(open_client, "admin")
     assert duplicate.status_code == 409
     assert duplicate.json()["error"]["code"] == "registration_conflict"
+
+
+@pytest.mark.parametrize("environment", [Environment.LOCAL, Environment.PRODUCTION])
+@pytest.mark.parametrize("configured_host", ["localhost", "127.0.0.1"])
+def test_registration_loopback_alias_requires_local_mode_and_same_port(
+    open_client: TestClient, environment: Environment, configured_host: str
+) -> None:
+    app = cast(FastAPI, open_client.app)
+    app.state.settings.app_env = environment
+    app.state.settings.public_app_origin = AnyUrl(f"http://{configured_host}:5174")
+    alias = "127.0.0.1" if configured_host == "localhost" else "localhost"
+    response = _register(open_client, "alice", origin=f"http://{alias}:5174")
+    assert response.status_code == (201 if environment is Environment.LOCAL else 403)
+    if environment is Environment.PRODUCTION:
+        assert response.json()["error"]["code"] == "origin_mismatch"
+
+    for origin in (
+        None,
+        "null",
+        f"http://{alias}:8000",
+        f"https://{alias}:5174",
+        "http://localhost.attacker.example:5174",
+        "http://127.0.0.2:5174",
+    ):
+        rejected = _register(open_client, "bob", origin=origin)
+        assert rejected.status_code == 403
+        assert rejected.json()["error"]["code"] == "origin_mismatch"
 
 
 def test_registration_body_and_durable_address_rate_are_enforced_before_hashing(

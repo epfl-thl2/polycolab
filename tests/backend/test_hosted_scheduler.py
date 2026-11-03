@@ -251,7 +251,7 @@ def test_merge_upgrade_preserves_existing_branch_data(
         assert retained is not None and retained.subject == "retained-account"
     from alembic.script import ScriptDirectory
 
-    assert ScriptDirectory.from_config(config).get_heads() == ["20261029_workspace_only"]
+    assert ScriptDirectory.from_config(config).get_heads() == ["20261103_session_workspace"]
 
 
 def test_claim_requires_frozen_backend_version_and_image(

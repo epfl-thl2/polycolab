@@ -97,7 +97,7 @@ A failed journal write during failed cleanup cannot acknowledge successful termi
 
 Sessions polls canonical run history, offers explicit resume for failed/timed-out runs, and lets users select files from older completed runs.
 Readiness disables new execution without hiding history.
-The generated client includes the bounded `GET /api/v1/agent-sessions/{session_id}/runs` listing and `execution_available`.
+The generated client includes the bounded `GET /api/v1/sessions/{session_id}/runs` listing and `execution_available`.
 Customized Hosted Codex sessions persist a selected harness and additional system prompt on the session.
 Every run in that session includes the prompt after the pinned platform agent instructions.
 The selected gateway profile still supplies the model endpoint and remains a per-turn credential boundary.

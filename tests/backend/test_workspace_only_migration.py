@@ -21,7 +21,6 @@ from polycolab.agents.sessions import (
     claim_next_run_in_transaction,
     start_claimed_run,
 )
-
 from polycolab.db.base import Base
 from polycolab.entities.time import utc_now
 from polycolab.operations.local_development import MIGRATIONS, upgrade_database
@@ -37,9 +36,7 @@ def populate(connection: Connection) -> dict[str, Any]:
 
     def insert(table_name: str, **values: Any) -> None:
         if connection.dialect.name == "sqlite":
-            values = {
-                k: v.hex if isinstance(v, type(user)) else v for k, v in values.items()
-            }
+            values = {k: v.hex if isinstance(v, type(user)) else v for k, v in values.items()}
         connection.execute(metadata.tables[table_name].insert().values(**values))
 
     insert(
@@ -359,9 +356,7 @@ def verify(connection: Connection, ids: dict[str, Any]) -> None:
         assert run.lease_owner is None and run.lease_expires_at is None
         assert run.lease_generation == 8 and run.next_event_cursor == 2
         history = connection.execute(
-            sa.select(events)
-            .where(events.c.run_id == stored_id)
-            .order_by(events.c.cursor)
+            sa.select(events).where(events.c.run_id == stored_id).order_by(events.c.cursor)
         ).all()
         assert len(history) == 2
         assert history[0].idempotency_key == "existing-event"
@@ -382,45 +377,30 @@ def verify(connection: Connection, ids: dict[str, Any]) -> None:
                     session, run_id=run_id, worker_id="old-worker", lease_generation=7
                 )
     assert (
-        connection.scalar(sa.select(runs.c.status).where(runs.c.id == key("ungranted")))
-        == "QUEUED"
+        connection.scalar(sa.select(runs.c.status).where(runs.c.id == key("ungranted"))) == "QUEUED"
     )
     artifacts = metadata.tables["artifacts"]
-    saved = connection.execute(
-        sa.select(artifacts).where(artifacts.c.id == key("artifact"))
-    ).one()
+    saved = connection.execute(sa.select(artifacts).where(artifacts.c.id == key("artifact"))).one()
     assert saved.project_id == key("project") and saved.state == "COMMITTED"
     assert saved.storage_key == "staging/retained" and saved.byte_length == 10
-    orphan = connection.execute(
-        sa.select(artifacts).where(artifacts.c.id == key("orphan"))
-    ).one()
-    assert (
-        orphan.project_id is None
-        and orphan.state == "DELETING"
-        and orphan.committed_at is None
-    )
+    orphan = connection.execute(sa.select(artifacts).where(artifacts.c.id == key("orphan"))).one()
+    assert orphan.project_id is None and orphan.state == "DELETING" and orphan.committed_at is None
     credentials = metadata.tables["external_agent_credentials"]
     credential = connection.execute(
         sa.select(credentials).where(credentials.c.id == key("key"))
     ).one()
-    assert credential.token_digest == "a" * 64 and credential.fixed_rights == [
-        "PROJECT_WRITE"
-    ]
+    assert credential.token_digest == "a" * 64 and credential.fixed_rights == ["PROJECT_WRITE"]
     assert credential.encrypted_secret == b"keep ciphertext"
     assert credential.request_count == 7 and credential.mutation_count == 2
-    messages = metadata.tables["agent_messages"]
+    messages = metadata.tables["conversation_items"]
     assert (
-        connection.scalar(
-            sa.select(messages.c.content_md).where(messages.c.id == key("message"))
-        )
+        connection.scalar(sa.select(messages.c.content_md).where(messages.c.id == key("message")))
         == "Keep this conversation"
     )
     profiles = metadata.tables["gateway_profiles"]
     assert (
         connection.scalar(
-            sa.select(profiles.c.encrypted_credential).where(
-                profiles.c.id == key("profile")
-            )
+            sa.select(profiles.c.encrypted_credential).where(profiles.c.id == key("profile"))
         )
         == b"keep provider ciphertext"
     )
@@ -442,15 +422,14 @@ def verify(connection: Connection, ids: dict[str, Any]) -> None:
     capabilities = metadata.tables["run_tool_capabilities"]
     assert (
         connection.scalar(
-            sa.select(capabilities.c.revoked).where(
-                capabilities.c.id == key("capability")
-            )
+            sa.select(capabilities.c.revoked).where(capabilities.c.id == key("capability"))
         )
         is True
     )
 
 
-def test_populated_sqlite_upgrade(tmp_path: Path) -> None:
+@pytest.mark.parametrize("first", ["20261029_workspace_only", "20261030_conversations"])
+def test_populated_sqlite_upgrade(tmp_path: Path, first: str) -> None:
     path = tmp_path / "workspace.db"
     config = Config()
     config.set_main_option("script_location", str(MIGRATIONS))
@@ -459,6 +438,7 @@ def test_populated_sqlite_upgrade(tmp_path: Path) -> None:
         config.attributes["connection"] = connection
         command.upgrade(config, "local_20261028_chat_latex")
         ids = populate(connection)
+        command.upgrade(config, "local_" + first)
     workspace_file = tmp_path / "project.txt"
     workspace_file.write_bytes(b"keep workspace file")
     upgrade_database(path)
@@ -470,11 +450,13 @@ def test_populated_sqlite_upgrade(tmp_path: Path) -> None:
     engine.dispose()
 
 
-def test_populated_postgresql_upgrade(pg_schema: Any) -> None:
+@pytest.mark.parametrize("first", ["20261029_workspace_only", "20261030_conversations"])
+def test_populated_postgresql_upgrade(pg_schema: Any, first: str) -> None:
     engine, config, _ = pg_schema
     command.upgrade(config, "20261028_chat_latex")
     with engine.begin() as connection:
         ids = populate(connection)
+    command.upgrade(config, first)
     command.upgrade(config, "head")
     with engine.connect() as connection:
         verify(connection, ids)

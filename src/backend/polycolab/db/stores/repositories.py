@@ -7,7 +7,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from polycolab.db.errors import persistence_boundary
-from polycolab.db.models import SqlAgentRun, SqlAgentSession
+from polycolab.db.models import SqlAgentRun, SqlConversation
 from polycolab.db.models.project_tasks import SqlProjectTask
 from polycolab.db.models.repositories import (
     SqlProjectRepository,
@@ -85,11 +85,11 @@ class SqlRepositoryStore:
         for task in self.tasks(project_id, True):
             if task.branch.startswith("sessions/"):
                 self.db.execute(
-                    update(SqlAgentSession)
+                    update(SqlConversation)
                     .where(
-                        SqlAgentSession.project_id == project_id,
-                        SqlAgentSession.id == UUID(task.branch[9:]),
-                        SqlAgentSession.task_id.is_(None),
+                        SqlConversation.project_id == project_id,
+                        SqlConversation.id == UUID(task.branch[9:]),
+                        SqlConversation.task_id.is_(None),
                     )
                     .values(task_id=task.id)
                 )
@@ -99,8 +99,8 @@ class SqlRepositoryStore:
             )
         )
         self.db.execute(
-            update(SqlAgentSession)
-            .where(SqlAgentSession.project_id == project_id, SqlAgentSession.task_id.is_(None))
+            update(SqlConversation)
+            .where(SqlConversation.project_id == project_id, SqlConversation.task_id.is_(None))
             .values(task_id=main_id)
         )
         row.native_worktrees = True
@@ -159,7 +159,7 @@ class SqlRepositoryStore:
 
     @persistence_boundary
     def session_active(self, project_id: UUID, session_id: UUID) -> bool:
-        row = self.db.get(SqlAgentSession, session_id)
+        row = self.db.get(SqlConversation, session_id)
         if row is None or row.project_id != project_id:
             raise RepositoryError("repository_branch_not_found", 404)
         return (
@@ -176,7 +176,7 @@ class SqlRepositoryStore:
 
     @persistence_boundary
     def session(self, project_id: UUID, session_id: UUID) -> RepositorySession:
-        row = self.db.get(SqlAgentSession, session_id)
+        row = self.db.get(SqlConversation, session_id)
         if row is None or row.project_id != project_id:
             raise RepositoryError("repository_session_not_found", 404)
         return RepositorySession(
@@ -303,9 +303,9 @@ class SqlRepositoryStore:
         return (
             self.db.scalar(
                 select(SqlAgentRun.id)
-                .join(SqlAgentSession, SqlAgentSession.id == SqlAgentRun.session_id)
+                .join(SqlConversation, SqlConversation.id == SqlAgentRun.session_id)
                 .where(
-                    SqlAgentSession.task_id == task.id,
+                    SqlConversation.task_id == task.id,
                     SqlAgentRun.status.in_(["QUEUED", "CLAIMED", "RUNNING", "CANCELLING"]),
                 )
                 .limit(1)

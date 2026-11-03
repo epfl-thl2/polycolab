@@ -150,6 +150,8 @@ const authenticationErrorMessage = (status: number, code?: string) => {
     registration_request_too_large: 'The registration request is too large.',
     registration_rate_limited: 'Too many registration attempts. Please wait and retry.',
     login_rate_limited: 'Too many sign-in attempts. Please wait and retry.',
+    origin_mismatch:
+      'This address is not configured for authentication. Open the application’s configured URL and retry.',
   };
   if (code && registrationErrors[code]) return registrationErrors[code];
   return status === 401

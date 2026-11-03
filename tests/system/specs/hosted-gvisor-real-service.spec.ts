@@ -57,7 +57,7 @@ test('native gVisor chat completes and survives reload', async ({ page }) => {
   const sessionId = new URL(page.url()).pathname.split('/').at(-1);
   await expect
     .poll(async () => {
-      const response = await page.request.get(`/api/v1/agent-sessions/${sessionId}/runs`);
+      const response = await page.request.get(`/api/v1/sessions/${sessionId}/runs`);
       return (await response.json())[0]?.status;
     })
     .toBe('COMPLETED');
@@ -83,7 +83,7 @@ test('native gVisor chat completes and survives reload', async ({ page }) => {
   );
   await expect
     .poll(async () => {
-      const response = await page.request.get(`/api/v1/agent-sessions/${sessionId}/runs`);
+      const response = await page.request.get(`/api/v1/sessions/${sessionId}/runs`);
       const runs: { status: string }[] = await response.json();
       return runs.filter((run) => run.status === 'COMPLETED').length;
     })

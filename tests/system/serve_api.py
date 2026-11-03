@@ -110,6 +110,7 @@ def main() -> None:
     registration_mode = RegistrationMode(args.registration_mode)
     settings = Settings(
         app_env=Environment.LOCAL,
+        feature_agent_execution_enabled=True,
         auth_mode=AuthMode.LOCAL,
         registration_mode=registration_mode,
         registration_requests_per_minute=20,

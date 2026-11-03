@@ -1,3 +1,4 @@
+import { runFixture, sessionFixture } from './session-fixtures';
 import { QueryClient } from '@tanstack/svelte-query';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
@@ -10,14 +11,13 @@ afterEach(() => {
   for (const client of clients.splice(0)) client.clear();
   vi.restoreAllMocks();
 });
-const session = (id: string, status = 'RUNNING') => ({
-  id,
-  title: `Chat ${id}`,
-  agent_display_name: 'Researcher',
-  status: 'ACTIVE',
-  updated_at: id === 'older' ? '2026-01-01' : '2026-02-01',
-  latest_run: { id: `run-${id}`, status, cancel_requested_at: null as string | null },
-});
+const session = (id: string, status: ReturnType<typeof runFixture>['status'] = 'RUNNING') =>
+  sessionFixture({
+    id,
+    title: `Chat ${id}`,
+    updated_at: id === 'older' ? '2026-01-01' : '2026-02-01',
+    latest_execution: runFixture({ id: `run-${id}`, status }),
+  });
 function setup(
   items: Array<ReturnType<typeof session> & { task_id?: string }> = [
     session('recent'),
@@ -79,7 +79,7 @@ it('loads the next cursor and reports cancel failures in a dismissible toast', a
   expect(failure.closest('.session')).toBeNull();
   await fireEvent.click(screen.getByRole('button', { name: 'Dismiss notification' }));
   expect(screen.queryByRole('alert')).toBeNull();
-  expect(agents.cancelRun).toHaveBeenCalledWith('run-next');
+  expect(agents.cancelRun).toHaveBeenCalledWith('next', 'run-next');
 });
 it('shows list failures and supports retry', async () => {
   const { agents } = setup();
@@ -90,7 +90,7 @@ it('shows list failures and supports retry', async () => {
   await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
   await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
 });
-it('does not fetch private conversations for read-only members', async () => {
+it('does not fetch conversations without project membership', async () => {
   const { agents } = setup([], false);
   expect(agents.listSessions).not.toHaveBeenCalled();
   expect(screen.getByText('Conversations are unavailable for your role.')).toBeTruthy();
@@ -99,7 +99,12 @@ it('does not offer cancel for an already requested cancellation', async () => {
   setup([
     {
       ...session('recent'),
-      latest_run: { id: 'run-recent', status: 'RUNNING', cancel_requested_at: '2026-02-01' },
+      latest_execution: {
+        ...runFixture(),
+        id: 'run-recent',
+        status: 'RUNNING',
+        cancel_requested_at: '2026-02-01',
+      },
     },
   ]);
   await screen.findByRole('button', { name: /Chat recent Researcher Cancelling/ });

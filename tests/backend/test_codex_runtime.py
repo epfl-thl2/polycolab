@@ -6,7 +6,8 @@ import asyncio
 import json
 from collections import deque
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
+from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
@@ -351,32 +352,63 @@ def test_guest_model_bridge_does_not_accept_duplicate_requests() -> None:
 def test_private_responses_broker_records_provider_usage(
     client: TestClient, monkeypatch: Any, provider_fails: bool, lose_lease: bool
 ) -> None:
-    from test_runtime_api import _queue_run
-
-    app, run_id = _queue_run(client)
-    session = app.state.session_factory()
-    row = session.get(SqlAgentRun, run_id)
-    row.runtime_spec = spec().model_dump(mode="json")
     from datetime import UTC, datetime, timedelta
 
-    from polycolab.execution.allocator import admit
+    from test_sessions_api import create_profile, create_project, send
 
-    row.deadline_at = datetime.now(UTC) + timedelta(seconds=60)
-    admit(session, row)
-    session.commit()
-    session.close()
+    app = cast(Any, client.app)
+    app.state.settings.runtime_codex_image = spec().image
+    app.state.settings.execution_max_input_tokens_per_round = spec().max_input_tokens
+    app.state.settings.gateway_max_output_tokens = spec().max_output_tokens
     headers = {"Authorization": "Bearer polycolab-local-runtime-worker-token"}
+    readiness = client.post(
+        "/internal/v1/runtime/executors/readiness",
+        headers=headers,
+        json={
+            "worker_id": "codex",
+            "engine": "codex",
+            "image_digest": spec().image.rsplit(":", 1)[-1],
+            "incarnation": "session-api-test",
+            "slot_states": {"0": "AVAILABLE"},
+            "capacity": 1,
+        },
+    )
+    assert readiness.status_code == 204, readiness.text
+    project = create_project(client)
+    profile = create_profile(client, "owner")
+    created = client.post(
+        "/api/v1/sessions",
+        headers={"Authorization": "Bearer owner"},
+        json={
+            "project_id": project["id"],
+            "agent_kind": "RESEARCHER",
+            "harness": "codex",
+            "system_prompt": "Private Codex session instructions.",
+        },
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["configuration"]["harness"] == "codex"
+    accepted = send(client, created.json()["id"], str(profile["id"]))
+    assert accepted.status_code == 202, accepted.text
+    run_id = UUID(accepted.json()["run"]["id"])
     legacy = client.post(
         "/internal/v1/runtime/claims",
         headers=headers,
         json={"worker_id": "legacy", "engine": "builtin"},
     )
     assert legacy.status_code == 204
-    claim = client.post(
+    claimed = client.post(
         "/internal/v1/runtime/claims",
         headers=headers,
-        json={"worker_id": "codex", "engine": "codex"},
-    ).json()
+        json={
+            "worker_id": "codex",
+            "engine": "codex",
+            "incarnation": "session-api-test",
+            "slot_id": 0,
+        },
+    )
+    assert claimed.status_code == 200, claimed.text
+    claim = claimed.json()
     assert claim["tools"]
     requests = []
 

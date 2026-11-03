@@ -16,16 +16,16 @@ from polycolab.access.authorization import (
     AuthorizationDenied,
     ProjectAction,
     lock_project_authorization,
-    project_policy,
 )
 from polycolab.agents.context import (
     ContextInvalid,
     manifest_artifacts,
 )
+from polycolab.conversations.service import can_execute
 from polycolab.db.models import (
     SqlAgentRun,
-    SqlAgentSession,
     SqlContextManifest,
+    SqlConversation,
     SqlRunToolCapability,
 )
 from polycolab.db.transaction import SqlAlchemyTransaction
@@ -107,13 +107,14 @@ def issue_tool_capability(
     lease_generation: int | None = None,
 ) -> str:
     lease_generation = run.lease_generation if lease_generation is None else lease_generation
-    parent = session.get(SqlAgentSession, run.session_id)
+    parent = session.get(SqlConversation, run.session_id)
     if ttl_seconds < 1 or ttl_seconds > 300:
         raise ToolCapabilityInvalid
     if (
         run.session_id is None
         or parent is None
-        or parent.created_by_user_id != run.requested_by_user_id
+        or parent.project_id != run.project_id
+        or parent.agent_version_id != run.agent_version_id
         or manifest.run_id != run.id
         or manifest.project_id != run.project_id
         or manifest.requested_by_user_id != run.requested_by_user_id
@@ -123,12 +124,7 @@ def issue_tool_capability(
         or run.lease_owner is None
         or run.lease_expires_at is None
         or _expired(run.lease_expires_at)
-        or not project_policy.can(
-            SqlAlchemyTransaction(session),
-            run.project_id,
-            run.requested_by_user_id,
-            ProjectAction.RUN_AGENTS,
-        )
+        or not can_execute(SqlAlchemyTransaction(session), run.session_id, run.requested_by_user_id)
     ):
         raise ToolCapabilityInvalid
     for prior in session.scalars(
@@ -191,8 +187,8 @@ def authorize_tool(
         SqlAlchemyTransaction(session), project_id=candidate.project_id, user_id=candidate.user_id
     )
     parent = session.scalar(
-        select(SqlAgentSession)
-        .where(SqlAgentSession.id == candidate.session_id)
+        select(SqlConversation)
+        .where(SqlConversation.id == candidate.session_id)
         .with_for_update()
         .execution_options(populate_existing=True)
     )
@@ -230,8 +226,6 @@ def authorize_tool(
         or run.project_id != capability.project_id
         or run.agent_version_id != capability.agent_version_id
         or run.requested_by_user_id != capability.user_id
-        or parent.created_by_user_id != run.requested_by_user_id
-        or parent.created_by_user_id != capability.user_id
         or parent.project_id != run.project_id
         or parent.agent_version_id != run.agent_version_id
         or run.status is not AgentRunStatus.RUNNING
@@ -250,12 +244,7 @@ def authorize_tool(
             user_id=run.requested_by_user_id,
             action=ProjectAction.RUN_AGENTS,
         )
-        or not _locked_current_scope(
-            session,
-            project_id=run.project_id,
-            user_id=parent.created_by_user_id,
-            action=ProjectAction.VIEW,
-        )
+        or not can_execute(SqlAlchemyTransaction(session), run.session_id, run.requested_by_user_id)
     ):
         raise ToolCapabilityInvalid
     return capability, run, manifest

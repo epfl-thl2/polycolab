@@ -78,7 +78,7 @@ export function sessionTitles(query: QueryClient, projectId: string) {
     return Object.fromEntries(
       [...entries].map(([id, session]) => [
         id,
-        session.title?.trim() || session.agent_display_name || 'Chat',
+        session.title?.trim() || session.configuration?.display_name || 'Chat',
       ]),
     );
   };

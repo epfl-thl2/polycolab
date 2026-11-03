@@ -68,16 +68,14 @@ def test_export_is_private_until_success_and_fenced(client: TestClient) -> None:
         },
     )
     assert finish.status_code == 204, finish.text
-    listing = client.get(f"/api/v1/agent-runs/{run_id}/artifacts", headers=OWNER)
+    listing = client.get(f"/api/v1/runs/{run_id}/artifacts", headers=OWNER)
     assert listing.status_code == 200, listing.text
     assert listing.json()[0]["artifact_id"] == artifact
     assert (
-        client.get(
-            f"/api/v1/agent-runs/{run_id}/artifacts/{artifact}/content", headers=OWNER
-        ).content
+        client.get(f"/api/v1/runs/{run_id}/artifacts/{artifact}/content", headers=OWNER).content
         == data
     )
-    assert client.get(f"/api/v1/agent-runs/{run_id}/artifacts/{artifact}/content").status_code in {
+    assert client.get(f"/api/v1/runs/{run_id}/artifacts/{artifact}/content").status_code in {
         401,
         404,
     }
@@ -114,4 +112,4 @@ def test_readiness_expires_without_hiding_history(client: TestClient) -> None:
         session.get(SqlHostedExecutor, "hosted").expires_at = utc_now() - timedelta(seconds=1)
         session.commit()
     assert not client.get("/api/v1/agent-capabilities", headers=OWNER).json()["hosted_agents"]
-    assert client.get(f"/api/v1/agent-runs/{run_id}", headers=OWNER).status_code == 200
+    assert client.get(f"/api/v1/runs/{run_id}", headers=OWNER).status_code == 200

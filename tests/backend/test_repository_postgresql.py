@@ -102,12 +102,17 @@ def test_project_tasks_postgresql(
                 for _ in range(2):
                     chat = tasks.task_chat(pg_client, project_id, task["id"])
                     response = pg_client.post(
-                        f"/api/v1/agent-sessions/{chat['id']}/messages",
+                        f"/api/v1/sessions/{chat['id']}/events",
                         headers=headers("owner"),
                         json={
-                            "client_request_id": str(uuid4()),
-                            "content_md": "Task intent",
-                            "gateway_profile_id": profile["id"],
+                            "type": "message",
+                            **(
+                                {
+                                    "client_request_id": str(uuid4()),
+                                    "content_md": "Task intent",
+                                    "gateway_profile_id": profile["id"],
+                                }
+                            ),
                         },
                     )
                     assert response.status_code == 202, response.text

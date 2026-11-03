@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   Auth,
+  authRequest,
   authConfigurationCacheKey,
   externalAuthStartUrl,
   readCachedAuthConfiguration,
@@ -11,6 +12,19 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
   sessionStorage.clear();
+});
+
+it('explains a rejected authentication origin without claiming the service is unavailable', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(
+      async () =>
+        new Response(JSON.stringify({ error: { code: 'origin_mismatch' } }), { status: 403 }),
+    ),
+  );
+  await expect(authRequest('/auth/register', { method: 'POST' })).rejects.toThrow(
+    'This address is not configured for authentication.',
+  );
 });
 
 it('does not start silent OIDC sign-in for an anonymous shared API read', async () => {

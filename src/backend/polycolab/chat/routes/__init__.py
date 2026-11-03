@@ -1,1 +1,0 @@
-"""Direct-chat HTTP boundary."""

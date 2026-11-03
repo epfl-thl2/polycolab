@@ -15,9 +15,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
-from polycolab.access.authorization import ProjectAction, project_policy
 from polycolab.agents.runtime.spec import RuntimeSpec
 from polycolab.agents.sessions import _append_event_locked, _require_live_lease
+from polycolab.conversations.service import can_execute
 from polycolab.db.models import (
     SqlAgentRun,
     SqlAgentRunUsage,
@@ -159,11 +159,8 @@ def prepare(
             .with_for_update()
         )
         _require_live_lease(run, worker_id=worker_id, lease_generation=generation, now=utc_now())
-        if run.status != AgentRunStatus.RUNNING or not project_policy.can(
-            SqlAlchemyTransaction(session),
-            run.project_id,
-            run.requested_by_user_id,
-            ProjectAction.RUN_AGENTS,
+        if run.status != AgentRunStatus.RUNNING or not can_execute(
+            SqlAlchemyTransaction(session), run.session_id, run.requested_by_user_id
         ):
             raise ProviderFailure("authorization_revoked")
         spec = RuntimeSpec.model_validate(run.runtime_spec)
@@ -247,11 +244,8 @@ def authorize_delivery(request: Request, run_id: UUID, worker_id: str, generatio
             or profile is None
             or profile.deleted_at is not None
             or profile.credential_version != run.gateway_credential_version
-            or not project_policy.can(
-                SqlAlchemyTransaction(session),
-                run.project_id,
-                run.requested_by_user_id,
-                ProjectAction.RUN_AGENTS,
+            or not can_execute(
+                SqlAlchemyTransaction(session), run.session_id, run.requested_by_user_id
             )
         ):
             raise ProviderFailure("authorization_revoked")

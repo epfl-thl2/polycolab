@@ -20,13 +20,14 @@ from polycolab.db.models.agent_access import (
     SqlExternalAgentCredential as SqlExternalAgentCredential,
 )
 from polycolab.db.models.agent_access import SqlExternalAgentIdentity as SqlExternalAgentIdentity
-from polycolab.db.models.agents import SqlAgentMessage as SqlAgentMessage
 from polycolab.db.models.agents import SqlAgentRun as SqlAgentRun
 from polycolab.db.models.agents import SqlAgentRunEvent as SqlAgentRunEvent
 from polycolab.db.models.agents import SqlAgentRunUsage as SqlAgentRunUsage
-from polycolab.db.models.agents import SqlAgentSession as SqlAgentSession
 from polycolab.db.models.agents import SqlContextManifest as SqlContextManifest
 from polycolab.db.models.agents import SqlContextManifestArtifact as SqlContextManifestArtifact
+from polycolab.db.models.agents import SqlConversation as SqlConversation
+from polycolab.db.models.agents import SqlConversationConfiguration as SqlConversationConfiguration
+from polycolab.db.models.agents import SqlConversationItem as SqlConversationItem
 from polycolab.db.models.agents import SqlExecutionRateWindow as SqlExecutionRateWindow
 from polycolab.db.models.agents import SqlHostedCompletion as SqlHostedCompletion
 from polycolab.db.models.agents import SqlHostedExecutor as SqlHostedExecutor
@@ -127,8 +128,8 @@ __all__ = [
     "SqlMembership",
     "SqlInvitation",
     "SqlPlatformAgentVersion",
-    "SqlAgentSession",
-    "SqlAgentMessage",
+    "SqlConversation",
+    "SqlConversationItem",
     "SqlAgentRun",
     "SqlAgentRunEvent",
     "SqlAgentRunUsage",
@@ -160,8 +161,8 @@ __all__ = [
     "SqlRepositorySession",
     "SqlProjectRepository",
     "SqlProjectTask",
-    "SqlChatConversation",
-    "SqlChatTurn",
+    "SqlLegacyConversationExecution",
+    "SqlConversationConfiguration",
     "SqlDocumentBuild",
     "SqlDocumentBuildQueue",
 ]
@@ -178,8 +179,9 @@ from polycolab.db.models.agent_library import (
 from polycolab.db.models.agent_library import (
     SqlAgentLibraryVersion as SqlAgentLibraryVersion,
 )
-from polycolab.db.models.chat import SqlChatConversation as SqlChatConversation
-from polycolab.db.models.chat import SqlChatTurn as SqlChatTurn
+from polycolab.db.models.conversations import (
+    SqlLegacyConversationExecution as SqlLegacyConversationExecution,
+)
 from polycolab.db.models.document_builds import SqlDocumentBuild as SqlDocumentBuild
 from polycolab.db.models.document_builds import SqlDocumentBuildQueue as SqlDocumentBuildQueue
 from polycolab.db.models.linear import (

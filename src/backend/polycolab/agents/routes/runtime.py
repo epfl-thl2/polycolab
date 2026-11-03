@@ -14,11 +14,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from polycolab.access.authorization import ProjectAction, project_policy
 from polycolab.accounts.authentication import AuthenticationRequired, bearer_token
 from polycolab.agents.context import ContextInvalid, manifest_for_run
 from polycolab.agents.runtime.errors import RuntimeApiConflict as RuntimeApiConflict
 from polycolab.agents.sessions import (
+    ExecutionAuthorityLost,
     IdempotencyConflict,
     LeaseLost,
     SessionNotFound,
@@ -33,6 +33,7 @@ from polycolab.agents.sessions import (
     start_claimed_run,
 )
 from polycolab.agents.tools import ToolCapabilityInvalid, issue_tool_capability
+from polycolab.conversations.service import can_execute
 from polycolab.db.models import SqlAgentRun, SqlRuntimeSessionBinding
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.enums import (
@@ -280,11 +281,8 @@ def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str
                 lease_generation=run.lease_generation,
             )
             _ensure_binding(session, run)
-            if not project_policy.can(
-                SqlAlchemyTransaction(session),
-                run.project_id,
-                run.requested_by_user_id,
-                ProjectAction.RUN_AGENTS,
+            if not can_execute(
+                SqlAlchemyTransaction(session), run.session_id, run.requested_by_user_id
             ):
                 _finish_claim_failure(session, run, payload.worker_id, "authorization_revoked")
                 return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -424,11 +422,8 @@ def heartbeat(run_id: UUID, payload: LeaseRequest, request: Request) -> dict[str
         run = _lease_or_conflict(
             session, run_id, payload, request.app.state.settings.runtime_lease_seconds
         )
-        if run.runtime_spec and not project_policy.can(
-            SqlAlchemyTransaction(session),
-            run.project_id,
-            run.requested_by_user_id,
-            ProjectAction.RUN_AGENTS,
+        if not can_execute(
+            SqlAlchemyTransaction(session), run.session_id, run.requested_by_user_id
         ):
             raise RuntimeApiConflict("authorization_revoked")
         deadline = run.deadline_at
@@ -457,11 +452,8 @@ def issue_model_grant(run_id: UUID, payload: LeaseRequest, request: Request) -> 
     session = request.app.state.session_factory()
     try:
         run = _lease_or_conflict(session, run_id, payload, settings.runtime_lease_seconds)
-        if run.status is not AgentRunStatus.RUNNING or not project_policy.can(
-            SqlAlchemyTransaction(session),
-            run.project_id,
-            run.requested_by_user_id,
-            ProjectAction.RUN_AGENTS,
+        if run.status is not AgentRunStatus.RUNNING or not can_execute(
+            SqlAlchemyTransaction(session), run.session_id, run.requested_by_user_id
         ):
             raise RuntimeApiConflict("authorization_revoked")
         try:
@@ -505,6 +497,8 @@ def append_event(run_id: UUID, payload: EventRequest, request: Request) -> dict[
                 kind=AgentRunEventKind(payload.kind),
                 payload=payload.payload,
             )
+        except ExecutionAuthorityLost as exc:
+            raise RuntimeApiConflict("authorization_revoked") from exc
         except LeaseLost as exc:
             raise RuntimeApiConflict("lease_lost") from exc
         except IdempotencyConflict as exc:
@@ -594,6 +588,8 @@ def finish(run_id: UUID, payload: FinishRequest, request: Request) -> Response:
                 failure_code=payload.failure_code,
                 final_message_md=payload.final_message_md,
             )
+        except ExecutionAuthorityLost as exc:
+            raise RuntimeApiConflict("authorization_revoked") from exc
         except IdempotencyConflict:
             raise RuntimeApiConflict("completion_conflict") from None
         except LeaseLost as exc:

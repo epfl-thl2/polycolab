@@ -10,7 +10,15 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from polycolab.db.models import SqlGatewayRunGrant
+from polycolab.agents.sessions import create_agent_session
+from polycolab.db.models import (
+    SqlAgentRun,
+    SqlGatewayProfile,
+    SqlGatewayRunGrant,
+    SqlMembership,
+    SqlProject,
+)
+from polycolab.entities.enums import AgentRunStatus, PlatformAgentKind, ProjectRole
 from polycolab.model_gateway.service import (
     GrantInvalid,
     exchange_run_grant_for_model,
@@ -69,6 +77,38 @@ def issue_grant(client: TestClient, profile_id: UUID, run_id: UUID) -> str:
     user_id = UUID(client.get("/api/v1/users/me", headers=headers("owner")).json()["id"])
     session = app.state.session_factory()
     try:
+        if session.get(SqlAgentRun, run_id) is None:
+            project = SqlProject(name="Gateway execution", created_by_user_id=user_id)
+            session.add(project)
+            session.flush()
+            session.add(
+                SqlMembership(project_id=project.id, user_id=user_id, role=ProjectRole.OWNER)
+            )
+            session.commit()
+            conversation = create_agent_session(
+                session,
+                project_id=project.id,
+                created_by_user_id=user_id,
+                agent_kind=PlatformAgentKind.RESEARCHER,
+            )
+            profile = session.get(SqlGatewayProfile, profile_id)
+            assert profile is not None
+            session.add(
+                SqlAgentRun(
+                    id=run_id,
+                    session_id=conversation.id,
+                    project_id=project.id,
+                    agent_version_id=conversation.agent_version_id,
+                    requested_by_user_id=user_id,
+                    gateway_profile_id=profile_id,
+                    gateway_credential_version=profile.credential_version,
+                    gateway_model_id="research-model",
+                    queue_sequence=1,
+                    input_message_sequence=1,
+                    status=AgentRunStatus.RUNNING,
+                )
+            )
+            session.commit()
         return issue_run_grant(
             session,
             user_id=user_id,

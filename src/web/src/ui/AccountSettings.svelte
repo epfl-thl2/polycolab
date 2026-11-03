@@ -6,15 +6,17 @@
   let { path }: { path: string } = $props();
   const { auth, capabilities } = projectContext();
   const section = $derived(
-    path === '/settings/api-keys'
-      ? 'agent-keys'
-      : path === '/settings/security'
-        ? 'security'
-        : path === '/settings/recovery'
-          ? 'recovery'
-          : path === '/settings/model-providers'
-            ? 'providers'
-            : 'general',
+    path.startsWith('/settings/session-history')
+      ? 'session-history'
+      : path === '/settings/api-keys'
+        ? 'agent-keys'
+        : path === '/settings/security'
+          ? 'security'
+          : path === '/settings/recovery'
+            ? 'recovery'
+            : path === '/settings/model-providers'
+              ? 'providers'
+              : 'general',
   );
 </script>
 
@@ -24,6 +26,10 @@
     <nav aria-label="Settings sections">
       <a href="/settings" aria-current={section === 'general' ? 'page' : undefined}
         ><UserRound aria-hidden="true" />Profile</a
+      >
+      <a
+        href="/settings/session-history"
+        aria-current={section === 'session-history' ? 'page' : undefined}>Saved chat history</a
       >
       {#if capabilities?.enabled('email_recovery')}<a
           href="/settings/recovery"
@@ -72,6 +78,10 @@
           </div>
         </section>
       {/if}
+    {:else if section === 'session-history'}
+      {#await import('./SessionHistory.svelte') then module}<module.default
+          sessionId={path.split('/')[3]}
+        />{/await}
     {:else if section === 'agent-keys'}
       <AgentApiKeys />
     {:else if section === 'security'}
