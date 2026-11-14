@@ -5,12 +5,12 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import ProjectWorktrees from '../../../src/web/src/pages/project/components/ProjectWorktrees.svelte';
 import { contextKey } from '../../../src/web/src/svelte-lib/context';
 
-const tree = { id: 'proof', title: 'Proof', branch: 'tasks/proof', archived_at: null };
-const chat = (id: string, task_id: string | null) =>
+const tree = { id: 'proof', title: 'Proof', branch: 'worktrees/proof', removed_at: null };
+const chat = (id: string, worktree_id: string | null) =>
   sessionFixture({
     id,
     title: id,
-    working_context: { task_id, worktree_id: task_id },
+    working_context: { worktree_id },
     updated_at: '2026-01-01',
   });
 const clients: QueryClient[] = [];
@@ -20,11 +20,11 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 function setup(options = {}) {
-  const tasks = {
+  const worktrees = {
     list: vi.fn().mockResolvedValue({ items: [tree] }),
     create: vi
       .fn()
-      .mockResolvedValue({ ...tree, id: 'new', title: 'Experiment', branch: 'tasks/new' }),
+      .mockResolvedValue({ ...tree, id: 'new', title: 'Experiment', branch: 'worktrees/new' }),
     update: vi.fn(),
   };
   const agents = {
@@ -50,9 +50,9 @@ function setup(options = {}) {
       onWorktreesChange: vi.fn(),
       ...options,
     },
-    context: new Map([[contextKey, { tasks, agents, query }]]),
+    context: new Map([[contextKey, { worktrees, agents, query }]]),
   });
-  return { tasks, agents, onSelectWorktree, onOpenSession, onNewChat };
+  return { worktrees, agents, onSelectWorktree, onOpenSession, onNewChat };
 }
 it('groups conversations under Main and their saved worktree without search controls', async () => {
   const { onOpenSession, onNewChat } = setup();
@@ -82,8 +82,8 @@ it('waits for draft protection before expanding a selected worktree', async () =
   await screen.findByRole('button', { name: /Approach one Researcher/ });
 });
 it('retains the name and retry identity after a failed worktree creation', async () => {
-  const { tasks, onSelectWorktree } = setup();
-  tasks.create.mockRejectedValueOnce(new Error('Temporary failure'));
+  const { worktrees, onSelectWorktree } = setup();
+  worktrees.create.mockRejectedValueOnce(new Error('Temporary failure'));
   await fireEvent.click(screen.getByRole('button', { name: 'New worktree' }));
   await fireEvent.input(screen.getByLabelText('Worktree name'), {
     target: { value: 'Experiment' },
@@ -95,7 +95,7 @@ it('retains the name and retry identity after a failed worktree creation', async
   await waitFor(() =>
     expect(onSelectWorktree).toHaveBeenCalledWith(expect.objectContaining({ title: 'Experiment' })),
   );
-  expect(tasks.create.mock.calls[0]).toEqual(tasks.create.mock.calls[1]);
+  expect(worktrees.create.mock.calls[0]).toEqual(worktrees.create.mock.calls[1]);
 });
 it('allows read-only members to inspect worktrees without fetching private chats', async () => {
   const { agents } = setup({ canCreate: false, canChat: false, canReadChats: false });

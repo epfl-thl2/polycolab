@@ -49,6 +49,6 @@ class SqlRepositoryRun(Base):
     session_id: Mapped[UUID] = mapped_column(ForeignKey("repository_sessions.session_id"))
     branch: Mapped[str | None] = mapped_column(String(100), nullable=True)
     input_revision: Mapped[str | None] = mapped_column(String(40), nullable=True)
-    worktree_id: Mapped[UUID | None] = mapped_column(ForeignKey("project_tasks.id"), nullable=True)
+    worktree_id: Mapped[UUID | None] = mapped_column(ForeignKey("worktrees.id"), nullable=True)
     input_commit: Mapped[str] = mapped_column(String(40))
     output_commit: Mapped[str | None] = mapped_column(String(40), nullable=True)

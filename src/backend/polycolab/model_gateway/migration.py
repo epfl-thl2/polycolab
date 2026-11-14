@@ -18,7 +18,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from polycolab.db.models import SqlGatewayCredentialRewrapAudit, SqlGatewayProfile
+from polycolab.db.models import SqlGatewayCredentialRewrapAudit, SqlProviderProfile
 from polycolab.model_gateway.credentials import (
     CredentialError,
     EncryptedCredential,
@@ -145,16 +145,16 @@ def rewrap_snapshot_page(
     if not 1 <= limit <= 100:
         raise ValueError("credential migration page limit must be between 1 and 100")
     statement = (
-        select(SqlGatewayProfile)
+        select(SqlProviderProfile)
         .where(
-            SqlGatewayProfile.deleted_at.is_(None),
-            SqlGatewayProfile.encryption_key_version != target_version,
+            SqlProviderProfile.deleted_at.is_(None),
+            SqlProviderProfile.encryption_key_version != target_version,
         )
-        .order_by(SqlGatewayProfile.id)
+        .order_by(SqlProviderProfile.id)
         .limit(limit)
     )
     if after is not None:
-        statement = statement.where(SqlGatewayProfile.id > after)
+        statement = statement.where(SqlProviderProfile.id > after)
     return [
         CredentialEnvelopeSnapshot(
             profile_id=profile.id,
@@ -188,8 +188,8 @@ def commit_rewrap_candidate(
         raise ValueError("rewrap target must differ from the source version")
     try:
         profile = session.scalar(
-            select(SqlGatewayProfile)
-            .where(SqlGatewayProfile.id == snapshot.profile_id)
+            select(SqlProviderProfile)
+            .where(SqlProviderProfile.id == snapshot.profile_id)
             .with_for_update()
         )
         if profile is None or profile.deleted_at is not None or profile.user_id != snapshot.user_id:

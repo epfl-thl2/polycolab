@@ -8,7 +8,7 @@ export type SessionItem = components['schemas']['ItemPage']['items'][number];
 export type SessionSharing = components['schemas']['ConversationSharing'];
 export type AgentRun = components['schemas']['RunRead'];
 export type PlatformAgent = components['schemas']['PlatformAgentRead'];
-export type GatewayProfile = components['schemas']['GatewayProfileRead'];
+export type ProviderProfile = components['schemas']['ProviderProfileRead'];
 export type AgentEvent = {
   run_id: string;
   cursor: number;
@@ -90,7 +90,9 @@ export function createAgentSessionsApi(
       unwrapPage(client.GET('/api/v1/platform-agents', { params: { query: { limit: 25 } } })),
     listProfiles: (cursor?: string) =>
       unwrapPage(
-        client.GET('/api/v1/gateway/profiles', { params: { query: { limit: 25, cursor } } }),
+        client.GET('/api/v1/account/provider-profiles', {
+          params: { query: { limit: 25, cursor } },
+        }),
       ),
     listSessions: (projectId: string, cursor?: string) =>
       unwrapPage(

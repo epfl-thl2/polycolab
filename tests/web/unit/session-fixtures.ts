@@ -26,7 +26,7 @@ export function sessionFixture(overrides: Partial<Session> = {}): Session {
       connection_protocol: null,
       system_prompt_override: null,
     },
-    working_context: { task_id: null, worktree_id: null },
+    working_context: { worktree_id: null },
     hierarchy: {
       root_id: id,
       parent_id: null,

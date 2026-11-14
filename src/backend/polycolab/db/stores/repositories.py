@@ -8,25 +8,25 @@ from sqlalchemy.orm import Session
 
 from polycolab.db.errors import persistence_boundary
 from polycolab.db.models import SqlAgentRun, SqlConversation
-from polycolab.db.models.project_tasks import SqlProjectTask
 from polycolab.db.models.repositories import (
     SqlProjectRepository,
     SqlRepositoryMutation,
     SqlRepositoryRun,
     SqlRepositorySession,
 )
+from polycolab.db.models.worktrees import SqlWorktree
 from polycolab.entities.repositories import (
-    ProjectTask,
     RepositoryError,
     RepositoryReceipt,
     RepositoryRun,
     RepositorySession,
+    Worktree,
 )
 from polycolab.entities.time import utc_now
 
 
-def task_snapshot(row: SqlProjectTask) -> ProjectTask:
-    return ProjectTask(
+def worktree_snapshot(row: SqlWorktree) -> Worktree:
+    return Worktree(
         row.id,
         row.project_id,
         row.title,
@@ -34,9 +34,9 @@ def task_snapshot(row: SqlProjectTask) -> ProjectTask:
         row.created_by_user_id,
         row.created_at.replace(tzinfo=UTC) if row.created_at.tzinfo is None else row.created_at,
         row.updated_at.replace(tzinfo=UTC) if row.updated_at.tzinfo is None else row.updated_at,
-        row.archived_at.replace(tzinfo=UTC)
-        if row.archived_at is not None and row.archived_at.tzinfo is None
-        else row.archived_at,
+        row.removed_at.replace(tzinfo=UTC)
+        if row.removed_at is not None and row.removed_at.tzinfo is None
+        else row.removed_at,
     )
 
 
@@ -82,26 +82,26 @@ class SqlRepositoryStore:
     def activate_native(self, project_id: UUID) -> None:
         row = self.db.get(SqlProjectRepository, project_id)
         assert row is not None
-        for task in self.tasks(project_id, True):
-            if task.branch.startswith("sessions/"):
+        for worktree in self.worktrees(project_id, True):
+            if worktree.branch.startswith("sessions/"):
                 self.db.execute(
                     update(SqlConversation)
                     .where(
                         SqlConversation.project_id == project_id,
-                        SqlConversation.id == UUID(task.branch[9:]),
-                        SqlConversation.task_id.is_(None),
+                        SqlConversation.id == UUID(worktree.branch[9:]),
+                        SqlConversation.worktree_id.is_(None),
                     )
-                    .values(task_id=task.id)
+                    .values(worktree_id=worktree.id)
                 )
         main_id = self.db.scalar(
-            select(SqlProjectTask.id).where(
-                SqlProjectTask.project_id == project_id, SqlProjectTask.branch == "main"
+            select(SqlWorktree.id).where(
+                SqlWorktree.project_id == project_id, SqlWorktree.branch == "main"
             )
         )
         self.db.execute(
             update(SqlConversation)
-            .where(SqlConversation.project_id == project_id, SqlConversation.task_id.is_(None))
-            .values(task_id=main_id)
+            .where(SqlConversation.project_id == project_id, SqlConversation.worktree_id.is_(None))
+            .values(worktree_id=main_id)
         )
         row.native_worktrees = True
         self.db.flush()
@@ -183,9 +183,12 @@ class SqlRepositoryStore:
             session_id,
             project_id,
             row.created_by_user_id,
-            row.task_id is not None or self.db.get(SqlRepositorySession, session_id) is not None,
+            row.worktree_id is not None
+            or self.db.get(SqlRepositorySession, session_id) is not None,
             self.session_active(project_id, session_id),
-            self.task(project_id, row.task_id).branch if row.task_id else f"sessions/{session_id}",
+            self.worktree(project_id, row.worktree_id).branch
+            if row.worktree_id
+            else f"sessions/{session_id}",
         )
 
     @persistence_boundary
@@ -245,56 +248,58 @@ class SqlRepositoryStore:
         self.db.flush()
 
     @persistence_boundary
-    def task(self, project_id: UUID, task_id: UUID, *, lock: bool = False) -> ProjectTask:
-        query = select(SqlProjectTask).where(
-            SqlProjectTask.id == task_id, SqlProjectTask.project_id == project_id
+    def worktree(self, project_id: UUID, worktree_id: UUID, *, lock: bool = False) -> Worktree:
+        query = select(SqlWorktree).where(
+            SqlWorktree.id == worktree_id, SqlWorktree.project_id == project_id
         )
         if lock:
             query = query.with_for_update().execution_options(populate_existing=True)
         row = self.db.scalar(query)
         if row is None:
-            raise RepositoryError("project_task_not_found", 404)
-        return task_snapshot(row)
+            raise RepositoryError("worktree_not_found", 404)
+        return worktree_snapshot(row)
 
     @persistence_boundary
-    def tasks(self, project_id: UUID, include_archived: bool) -> list[ProjectTask]:
-        query = select(SqlProjectTask).where(SqlProjectTask.project_id == project_id)
-        if not include_archived:
-            query = query.where(SqlProjectTask.archived_at.is_(None))
+    def worktrees(self, project_id: UUID, include_removed: bool) -> list[Worktree]:
+        query = select(SqlWorktree).where(SqlWorktree.project_id == project_id)
+        if not include_removed:
+            query = query.where(SqlWorktree.removed_at.is_(None))
         return [
-            task_snapshot(row)
+            worktree_snapshot(row)
             for row in self.db.scalars(
-                query.order_by(SqlProjectTask.updated_at.desc(), SqlProjectTask.id.desc())
+                query.order_by(SqlWorktree.updated_at.desc(), SqlWorktree.id.desc())
             )
         ]
 
     @persistence_boundary
-    def create_task(self, task: ProjectTask) -> None:
+    def create_worktree(self, worktree: Worktree) -> None:
         self.db.add(
-            SqlProjectTask(**{name: getattr(task, name) for name in task.__dataclass_fields__})
+            SqlWorktree(**{name: getattr(worktree, name) for name in worktree.__dataclass_fields__})
         )
         self.db.flush()
 
     @persistence_boundary
-    def update_task(self, task_id: UUID, title: str | None, archived: bool | None) -> ProjectTask:
-        row = self.db.get(SqlProjectTask, task_id)
+    def update_worktree(
+        self, worktree_id: UUID, title: str | None, removed: bool | None
+    ) -> Worktree:
+        row = self.db.get(SqlWorktree, worktree_id)
         assert row is not None
         if title is not None:
             row.title = title
-        if archived is not None:
-            row.archived_at = utc_now() if archived else None
+        if removed is not None:
+            row.removed_at = utc_now() if removed else None
         row.updated_at = utc_now()
         self.db.flush()
-        return task_snapshot(row)
+        return worktree_snapshot(row)
 
     @persistence_boundary
     def branch_active(self, project_id: UUID, branch: str) -> bool:
-        task = self.db.scalar(
-            select(SqlProjectTask).where(
-                SqlProjectTask.project_id == project_id, SqlProjectTask.branch == branch
+        worktree = self.db.scalar(
+            select(SqlWorktree).where(
+                SqlWorktree.project_id == project_id, SqlWorktree.branch == branch
             )
         )
-        if task is None:
+        if worktree is None:
             return (
                 self.session_active(project_id, UUID(branch[9:]))
                 if branch.startswith("sessions/")
@@ -305,7 +310,7 @@ class SqlRepositoryStore:
                 select(SqlAgentRun.id)
                 .join(SqlConversation, SqlConversation.id == SqlAgentRun.session_id)
                 .where(
-                    SqlConversation.task_id == task.id,
+                    SqlConversation.worktree_id == worktree.id,
                     SqlAgentRun.status.in_(["QUEUED", "CLAIMED", "RUNNING", "CANCELLING"]),
                 )
                 .limit(1)
@@ -314,13 +319,13 @@ class SqlRepositoryStore:
         )
 
     @persistence_boundary
-    def branch_archived(self, project_id: UUID, branch: str) -> bool:
+    def branch_removed(self, project_id: UUID, branch: str) -> bool:
         return (
             self.db.scalar(
-                select(SqlProjectTask.id).where(
-                    SqlProjectTask.project_id == project_id,
-                    SqlProjectTask.branch == branch,
-                    SqlProjectTask.archived_at.is_not(None),
+                select(SqlWorktree.id).where(
+                    SqlWorktree.project_id == project_id,
+                    SqlWorktree.branch == branch,
+                    SqlWorktree.removed_at.is_not(None),
                 )
             )
             is not None
@@ -329,11 +334,11 @@ class SqlRepositoryStore:
     @persistence_boundary
     def lock_branch(self, project_id: UUID, branch: str) -> None:
         self.db.scalar(
-            select(SqlProjectTask.id)
-            .where(SqlProjectTask.project_id == project_id, SqlProjectTask.branch == branch)
+            select(SqlWorktree.id)
+            .where(SqlWorktree.project_id == project_id, SqlWorktree.branch == branch)
             .with_for_update()
         )
 
     @persistence_boundary
-    def task_identifier_taken(self, task_id: UUID) -> bool:
-        return self.db.get(SqlProjectTask, task_id) is not None
+    def worktree_identifier_taken(self, worktree_id: UUID) -> bool:
+        return self.db.get(SqlWorktree, worktree_id) is not None

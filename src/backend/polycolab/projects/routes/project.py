@@ -1,4 +1,4 @@
-"""Account, project, membership, and gateway profile endpoints."""
+"""Project and membership endpoints."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from dataclasses import replace
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Header, HTTPException, Request, Response, status
+from fastapi import APIRouter, Header, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -15,11 +15,9 @@ from polycolab.access.authorization import (
     ProjectAction,
     ProjectNotFound,
     project_policy,
-    require_manage_credentials,
     require_manage_members,
     require_project_management,
 )
-from polycolab.accounts.schemas import UserRead
 from polycolab.agents.sessions import archive_project_conversations
 from polycolab.app.dependencies import CurrentActor, CurrentUser, DbSession, Page, paginated
 from polycolab.db.converters.projects import invitation as invitation_entity
@@ -32,21 +30,6 @@ from polycolab.db.models import (
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.projects import Membership as MembershipEntity
 from polycolab.entities.time import utc_now
-from polycolab.model_gateway.schemas import (
-    GatewayProfileCreate,
-    GatewayProfileRead,
-    GatewayProfileRotate,
-)
-from polycolab.model_gateway.service import (
-    GatewayNotFound,
-    ProviderFailure,
-    UnsafeBaseUrl,
-    create_profile,
-    delete_profile,
-    profile_for_user,
-    rotate_profile,
-    validate_profile_credential,
-)
 from polycolab.projects.projections import (
     _member_read as _member_read,
 )
@@ -114,135 +97,6 @@ def _membership_read(
         role=membership.role,
         created_at=membership.created_at,
     )
-
-
-@router.get("/users/me", response_model=UserRead, operation_id="getCurrentUser", tags=["users"])
-def get_current_user(user: CurrentUser, response: Response) -> UserRead:
-    response.headers["Cache-Control"] = "private, no-store"
-    return UserRead.model_validate(user)
-
-
-def _gateway_profile_read(profile) -> GatewayProfileRead:  # type: ignore[no-untyped-def]
-    return GatewayProfileRead.model_validate(profile)
-
-
-@router.post(
-    "/gateway/profiles",
-    response_model=GatewayProfileRead,
-    status_code=status.HTTP_201_CREATED,
-    operation_id="createGatewayProfile",
-    tags=["gateway-profiles"],
-)
-def post_gateway_profile(
-    payload: GatewayProfileCreate, request: Request, session: DbSession, user: CurrentUser
-) -> GatewayProfileRead:
-    require_manage_credentials(human_actor(user.id))
-    wrapper = request.app.state.credential_wrapper
-    try:
-        profile = create_profile(
-            session,
-            user=user,
-            wrapper=wrapper,
-            display_name=payload.display_name,
-            base_url=payload.base_url,
-            model_id=payload.model_id,
-            api_key=payload.api_key.get_secret_value(),
-            wire_api=payload.wire_api,
-            production=request.app.state.settings.app_env.value != "local",
-        )
-    except UnsafeBaseUrl:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT) from None
-    return _gateway_profile_read(profile)
-
-
-@router.get(
-    "/gateway/profiles",
-    response_model=list[GatewayProfileRead],
-    operation_id="listGatewayProfiles",
-    tags=["gateway-profiles"],
-)
-def list_gateway_profiles(
-    response: Response, page: Page, session: DbSession, user: CurrentUser
-) -> list[GatewayProfileRead]:
-    from polycolab.db.models import SqlGatewayProfile
-
-    profiles = [
-        _gateway_profile_read(profile)
-        for profile in session.scalars(
-            select(SqlGatewayProfile)
-            .where(SqlGatewayProfile.user_id == user.id, SqlGatewayProfile.deleted_at.is_(None))
-            .order_by(SqlGatewayProfile.created_at.desc(), SqlGatewayProfile.id.desc())
-        )
-    ]
-    return paginated(profiles, page, response)
-
-
-@router.post(
-    "/gateway/profiles/{profile_id}/rotate",
-    response_model=GatewayProfileRead,
-    operation_id="rotateGatewayProfile",
-    tags=["gateway-profiles"],
-)
-def post_gateway_profile_rotate(
-    profile_id: UUID,
-    payload: GatewayProfileRotate,
-    request: Request,
-    session: DbSession,
-    user: CurrentUser,
-) -> GatewayProfileRead:
-    require_manage_credentials(human_actor(user.id))
-    try:
-        return _gateway_profile_read(
-            rotate_profile(
-                session,
-                profile_id=profile_id,
-                user=user,
-                wrapper=request.app.state.credential_wrapper,
-                api_key=payload.api_key.get_secret_value(),
-            )
-        )
-    except GatewayNotFound:
-        raise ProjectNotFound from None
-
-
-@router.post(
-    "/gateway/profiles/{profile_id}/validate",
-    response_model=GatewayProfileRead,
-    operation_id="validateGatewayProfile",
-    tags=["gateway-profiles"],
-)
-def post_gateway_profile_validate(
-    profile_id: UUID, request: Request, session: DbSession, user: CurrentUser
-) -> GatewayProfileRead:
-    require_manage_credentials(human_actor(user.id))
-    try:
-        profile = profile_for_user(session, profile_id=profile_id, user_id=user.id)
-        validate_profile_credential(
-            profile=profile,
-            user_id=user.id,
-            wrapper=request.app.state.credential_wrapper,
-            transport=request.app.state.provider_transport,
-        )
-    except GatewayNotFound:
-        raise ProjectNotFound from None
-    except UnsafeBaseUrl, ProviderFailure:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT) from None
-    return _gateway_profile_read(profile)
-
-
-@router.delete(
-    "/gateway/profiles/{profile_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    operation_id="deleteGatewayProfile",
-    tags=["gateway-profiles"],
-)
-def remove_gateway_profile(profile_id: UUID, session: DbSession, user: CurrentUser) -> Response:
-    require_manage_credentials(human_actor(user.id))
-    try:
-        delete_profile(session, profile_id=profile_id, user=user)
-    except GatewayNotFound:
-        raise ProjectNotFound from None
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(

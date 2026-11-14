@@ -22,7 +22,7 @@ export async function mockAccount(page: Page, signedIn = false) {
       },
     });
   });
-  await page.route('**/api/v1/users/me', (route) =>
+  await page.route('**/api/v1/account', (route) =>
     state.identityUnavailable
       ? route.fulfill({ status: 503, json: { error: { code: 'temporarily_unavailable' } } })
       : route.fulfill({

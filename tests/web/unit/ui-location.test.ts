@@ -12,3 +12,9 @@ it('keeps retired routes unavailable rather than aliasing them into projects', (
   for (const path of ['/library', '/commons', '/activity', '/profile', '/search'])
     expect(canonicalUiLocation(path, '')).toBe(path);
 });
+
+it('redirects saved identity Connections links to key settings', () => {
+  expect(canonicalUiLocation('/agents/connections', '?from=bookmark')).toBe(
+    '/settings/api-keys?from=bookmark',
+  );
+});

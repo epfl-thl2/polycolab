@@ -37,23 +37,27 @@ def create_task(
     client: TestClient, project_id: str, title: str = "Investigate bound"
 ) -> dict[str, Any]:
     response = client.post(
-        f"/api/v1/projects/{project_id}/tasks",
+        f"/api/v1/projects/{project_id}/worktrees",
         headers=headers("owner"),
-        json={"title": title, "client_request_id": str(uuid4())},
+        json={
+            "title": title,
+            "branch": "proof-" + uuid4().hex,
+            "client_request_id": str(uuid4()),
+        },
     )
     assert response.status_code == 201, response.text
     return cast(dict[str, Any], response.json())
 
 
 def task_chat(
-    client: TestClient, project_id: str, task_id: str, token: str = "owner"
+    client: TestClient, project_id: str, worktree_id: str, token: str = "owner"
 ) -> dict[str, Any]:
     response = client.post(
         "/api/v1/sessions",
         headers=headers(token),
         json={
             "project_id": project_id,
-            "task_id": task_id,
+            "worktree_id": worktree_id,
             "agent_kind": "RESEARCHER",
             "title": "Private secret conversation",
         },
@@ -69,15 +73,19 @@ def test_task_working_copy_retry_archive_and_member_privacy(
     app = cast(FastAPI, client.app)
     app.state.settings.feature_agent_execution_enabled = False
     task = create_task(client, project_id)
-    url = f"/api/v1/projects/{project_id}/tasks"
+    url = f"/api/v1/projects/{project_id}/worktrees"
     retry = client.post(
         url,
         headers=headers("owner"),
-        json={"title": task["title"], "client_request_id": task["id"]},
+        json={
+            "title": task["title"],
+            "client_request_id": task["id"],
+            "branch": task["branch"],
+        },
     )
     assert retry.status_code == 201
     assert retry.json() == task
-    assert client.get(url, headers=headers("owner")).json() == [task]
+    assert task in client.get(url, headers=headers("owner")).json()
     repo = client.get(
         f"/api/v1/projects/{project_id}/repository",
         headers=headers("owner"),
@@ -87,9 +95,9 @@ def test_task_working_copy_retry_archive_and_member_privacy(
     assert repo.json()["writable"]
     app.state.settings.feature_agent_execution_enabled = True
     chat = task_chat(client, project_id, task["id"])
-    assert chat["working_context"]["task_id"] == task["id"]
+    assert chat["working_context"]["worktree_id"] == task["id"]
     add_member(client, project_id, "reader", "READ_ONLY")
-    assert client.get(url, headers=headers("reader")).json() == [task]
+    assert task["id"] in [row["id"] for row in client.get(url, headers=headers("reader")).json()]
     assert (
         client.get(f"/api/v1/sessions/{chat['id']}", headers=headers("reader")).status_code == 404
     )
@@ -104,14 +112,20 @@ def test_task_working_copy_retry_archive_and_member_privacy(
     renamed = client.patch(
         f"{url}/{task['id']}",
         headers=headers("owner"),
-        json={"title": "Updated task", "archived": True},
+        json={"title": "Updated worktree"},
     )
     assert renamed.status_code == 200, renamed.text
-    assert renamed.json()["archived_at"]
-    assert client.get(url, headers=headers("owner")).json() == []
+    assert renamed.json()["title"] == "Updated worktree"
+    removed = client.post(
+        f"{url}/{task['id']}/remove",
+        headers={**headers("owner"), "Idempotency-Key": "remove"},
+        json={"expected_revision": task["revision"]},
+    )
+    assert removed.status_code == 200, removed.text
+    assert removed.json()["removed_at"]
+    assert [row["branch"] for row in client.get(url, headers=headers("owner")).json()] == ["main"]
     assert (
-        len(client.get(url, headers=headers("owner"), params={"include_archived": True}).json())
-        == 1
+        len(client.get(url, headers=headers("owner"), params={"include_removed": True}).json()) == 2
     )
     assert client.get(f"{url}/{task['id']}", headers=headers("reader")).status_code == 200
     assert not client.get(
@@ -125,7 +139,7 @@ def test_task_working_copy_retry_archive_and_member_privacy(
             headers=headers("owner"),
             json={
                 "project_id": project_id,
-                "task_id": task["id"],
+                "worktree_id": task["id"],
                 "agent_kind": "RESEARCHER",
             },
         ).status_code
@@ -152,16 +166,21 @@ def test_task_serializes_runs_across_private_chats_and_pins_shared_branch(
                     {
                         "client_request_id": str(uuid4()),
                         "content_md": "Work on task",
-                        "gateway_profile_id": profile["id"],
+                        "provider_profile_id": profile["id"],
                     }
                 ),
             },
         )
         assert response.status_code == 202, response.text
         runs.append(response.json()["run"])
-    task_url = f"/api/v1/projects/{project_id}/tasks/{task['id']}"
+    task_url = f"/api/v1/projects/{project_id}/worktrees/{task['id']}"
     assert (
-        client.patch(task_url, headers=headers("owner"), json={"archived": True}).status_code == 409
+        client.post(
+            task_url + "/remove",
+            headers={**headers("owner"), "Idempotency-Key": "active"},
+            json={"expected_revision": task["revision"]},
+        ).status_code
+        == 409
     )
     repo_url = f"/api/v1/projects/{project_id}/repository"
     state = client.get(repo_url, headers=headers("owner"), params={"branch": task["branch"]}).json()
@@ -192,7 +211,10 @@ def test_task_serializes_runs_across_private_chats_and_pins_shared_branch(
             first.requested_by_user_id,
         )
         binding = service.pin_run(first.id, first.session_id)
-        assert binding == {"branch": task["branch"], "commit": state["commit"]}
+        assert binding is not None
+        assert binding["branch"] == task["branch"]
+        assert binding["worktree_id"] == task["id"]
+        assert binding["revision"] == task["revision"]
         stored = SqlRepositoryStore(db).run(first.id)
         assert stored is not None and stored.branch == task["branch"]
         request_cancel(db, run_id=first.id)
@@ -206,7 +228,7 @@ def test_task_serializes_runs_across_private_chats_and_pins_shared_branch(
             db,
             run_id=first.id,
             requested_by_user_id=first.requested_by_user_id,
-            gateway_profile_id=first.gateway_profile_id,
+            provider_profile_id=first.provider_profile_id,
             client_request_id=uuid4(),
         )
         assert resumed.session_id == first.session_id
@@ -216,7 +238,7 @@ def test_task_serializes_runs_across_private_chats_and_pins_shared_branch(
             db,
             session_id=first.session_id,
             requested_by_user_id=first.requested_by_user_id,
-            gateway_profile_id=first.gateway_profile_id,
+            provider_profile_id=first.provider_profile_id,
             content_md="Old-timestamp intent",
             client_request_id=uuid4(),
             now=utc_now() - timedelta(hours=1),
@@ -229,14 +251,18 @@ def test_task_serializes_runs_across_private_chats_and_pins_shared_branch(
 
 def test_task_disabled_and_foreign_attachment(client: TestClient, tmp_path: Path) -> None:
     project_id = str(create_project(client)["id"])
-    url = f"/api/v1/projects/{project_id}/tasks"
+    url = f"/api/v1/projects/{project_id}/worktrees"
     assert (
         client.post(
             url,
             headers=headers("owner"),
-            json={"title": "Files", "client_request_id": str(uuid4())},
+            json={
+                "title": "Files",
+                "client_request_id": str(uuid4()),
+                "branch": "files",
+            },
         ).status_code
-        == 409
+        == 503
     )
     cast(FastAPI, client.app).state.settings.project_repository_directory = tmp_path / "repos"
     task = create_task(client, project_id)
@@ -247,7 +273,7 @@ def test_task_disabled_and_foreign_attachment(client: TestClient, tmp_path: Path
             headers=headers("owner"),
             json={
                 "project_id": other,
-                "task_id": task["id"],
+                "worktree_id": task["id"],
                 "agent_kind": "RESEARCHER",
             },
         ).status_code
@@ -255,9 +281,13 @@ def test_task_disabled_and_foreign_attachment(client: TestClient, tmp_path: Path
     )
     assert (
         client.post(
-            f"/api/v1/projects/{other}/tasks",
+            f"/api/v1/projects/{other}/worktrees",
             headers=headers("owner"),
-            json={"title": task["title"], "client_request_id": task["id"]},
+            json={
+                "title": task["title"],
+                "client_request_id": task["id"],
+                "branch": task["branch"],
+            },
         ).status_code
         == 404
     )
@@ -324,9 +354,9 @@ def test_sqlite_task_migration_preserves_legacy_working_copies_and_private_title
     engine = create_engine(f"sqlite:///{path}")
     try:
         with engine.connect() as db:
-            row = db.exec_driver_sql("SELECT id,title,branch FROM project_tasks").one()
+            row = db.exec_driver_sql("SELECT id,title,branch FROM worktrees").one()
             assert row == (sid, "Saved agent working copy", f"sessions/{UUID(sid)}")
-            assert db.exec_driver_sql("SELECT task_id,title FROM conversations").one() == (
+            assert db.exec_driver_sql("SELECT worktree_id,title FROM conversations").one() == (
                 sid,
                 "Private secret",
             )

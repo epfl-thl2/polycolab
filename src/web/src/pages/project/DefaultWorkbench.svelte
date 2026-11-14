@@ -22,7 +22,7 @@
   setContext(contextKey, {
     ...context,
     repository: undefined,
-    tasks: undefined,
+    worktrees: undefined,
     linear: undefined,
     defaultFiles: true,
   });

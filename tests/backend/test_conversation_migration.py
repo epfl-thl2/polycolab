@@ -13,16 +13,13 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from polycolab.db.models import (
-    SqlAgentRun,
     SqlAgentRunEvent,
     SqlArtifact,
     SqlContextManifest,
     SqlContextManifestArtifact,
-    SqlGatewayProfile,
     SqlPlatformAgentVersion,
     SqlProject,
     SqlProjectRepository,
-    SqlProjectTask,
     SqlRepositoryRun,
     SqlRepositorySession,
     SqlRunToolCapability,
@@ -81,19 +78,6 @@ def populate(connection: Connection) -> dict[str, UUID]:
             instructions_digest="a" * 64,
         )
     )
-    connection.execute(
-        insert(SqlGatewayProfile).values(
-            id=ids["profile"],
-            user_id=ids["user"],
-            display_name="Provider",
-            base_url="https://example.test",
-            model_id="model",
-            credential_version=1,
-            encrypted_credential=b"test",
-            wrapped_data_key=b"test",
-            encryption_key_version="test",
-        )
-    )
 
     def old(name: str) -> Table:
         return Table(name, MetaData(), autoload_with=connection)
@@ -102,12 +86,32 @@ def populate(connection: Connection) -> dict[str, UUID]:
         return ids[name].hex if connection.dialect.name == "sqlite" else ids[name]
 
     connection.execute(
-        insert(SqlProjectTask).values(
-            id=ids["task"],
-            project_id=ids["project"],
+        old("gateway_profiles")
+        .insert()
+        .values(
+            id=key("profile"),
+            user_id=key("user"),
+            display_name="Provider",
+            base_url="https://example.test",
+            model_id="model",
+            wire_api="responses",
+            credential_version=1,
+            encrypted_credential=b"test",
+            wrapped_data_key=b"test",
+            encryption_key_version="test",
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    connection.execute(
+        insert(old("project_tasks")).values(
+            id=key("task"),
+            project_id=key("project"),
             title="Saved worktree",
             branch="tasks/history",
-            created_by_user_id=ids["user"],
+            created_at=now,
+            updated_at=now,
+            created_by_user_id=key("user"),
         )
     )
     connection.execute(
@@ -153,14 +157,16 @@ def populate(connection: Connection) -> dict[str, UUID]:
         (2, "second_run", "second_request"),
     ):
         connection.execute(
-            insert(SqlAgentRun).values(
-                id=ids[run],
-                session_id=ids["session"],
-                project_id=ids["project"],
-                agent_version_id=ids["agent"],
-                requested_by_user_id=ids["user"],
-                request_message_id=ids[message],
-                gateway_profile_id=ids["profile"],
+            old("agent_runs")
+            .insert()
+            .values(
+                id=key(run),
+                session_id=key("session"),
+                project_id=key("project"),
+                agent_version_id=key("agent"),
+                requested_by_user_id=key("user"),
+                request_message_id=key(message),
+                gateway_profile_id=key("profile"),
                 gateway_credential_version=1,
                 gateway_model_id="model",
                 queue_sequence=sequence,
@@ -168,6 +174,11 @@ def populate(connection: Connection) -> dict[str, UUID]:
                 status="COMPLETED" if sequence == 1 else "FAILED",
                 next_event_cursor=3 if sequence == 1 else 1,
                 requested_context_artifact_ids=[str(ids["artifact"])],
+                client_request_id=key(run),
+                attempt=0,
+                lease_generation=0,
+                created_at=now,
+                updated_at=now,
             )
         )
     for cursor, name, run, kind, payload in (
@@ -398,7 +409,7 @@ def verify(connection: Connection, ids: dict[str, UUID]) -> None:
         if row["origin"] == "agent"
     )
     assert UUID(str(conversation["root_id"])) == ids["session"]
-    assert UUID(str(conversation["task_id"])) == ids["task"]
+    assert UUID(str(conversation["worktree_id"])) == ids["task"]
     assert conversation["sharing"] == "project_readable"
     assert conversation["next_message_sequence"] == 6
     configuration = (

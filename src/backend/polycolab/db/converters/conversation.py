@@ -85,7 +85,7 @@ def conversation(
         )
         if configuration is not None
         else None,
-        working_context=WorkingContext(task_id=row.task_id, worktree_id=row.task_id),
+        working_context=WorkingContext(worktree_id=row.worktree_id),
         status=(
             ConversationStatus.ARCHIVED
             if row.status == AgentSessionStatus.ARCHIVED

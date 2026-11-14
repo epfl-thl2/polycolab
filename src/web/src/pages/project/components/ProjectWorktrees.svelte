@@ -4,7 +4,7 @@
   import ProjectPanelHeader from './ProjectPanelHeader.svelte';
   import { Plus, ChevronRight, GitBranch, MessageSquarePlus } from '@lucide/svelte';
   import { createProjectSessions, projectSessionItems } from '../../../lib/session-queries';
-  import type { ProjectTask as Worktree } from '../../../lib/project-tasks-api';
+  import type { Worktree } from '../../../lib/worktrees-api';
   import { projectContext, explain } from '../../../svelte-lib/context';
 
   let {
@@ -32,7 +32,7 @@
     onNewChat: (worktree?: Worktree) => void;
     onWorktreesChange: (items: Worktree[]) => void;
   } = $props();
-  const { tasks: api, agents, query } = projectContext();
+  const { worktrees: api, agents, query } = projectContext();
   let worktrees = $state<Worktree[]>([]);
   const chats = createProjectSessions(
     agents,
@@ -43,7 +43,7 @@
   const sessions = $derived(canReadChats ? projectSessionItems($chats.data) : []);
   const chatError = $derived(canReadChats && $chats.isError ? explain($chats.error) : '');
   let expanded = $state(new Set<string>(['main']));
-  let archivedOpen = $state(false);
+  let removedOpen = $state(false);
   let createOpen = $state(false);
   let name = $state('');
   let branchName = $state('');
@@ -60,16 +60,15 @@
   let request: { name: string; id: string } | undefined;
   const current = $derived(
     worktrees
-      .filter((item) => !item.archived_at)
+      .filter((item) => !item.removed_at)
       .sort((a, b) => Number(b.branch === 'main') - Number(a.branch === 'main')),
   );
-  const archived = $derived(worktrees.filter((item) => item.archived_at));
+  const removed = $derived(worktrees.filter((item) => item.removed_at));
   const conversations = (id?: string) =>
     sessions
       .filter(
         (session) =>
           (session.working_context.worktree_id ||
-            session.working_context.task_id ||
             worktrees.find((tree) => tree.branch === 'main')?.id) === id,
       )
       .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
@@ -116,7 +115,7 @@
       name = '';
       createOpen = false;
       busy = false;
-      archivedOpen = false;
+      removedOpen = false;
       request = undefined;
       actionError = '';
       void refresh(id, generation);
@@ -164,7 +163,7 @@
       name = '';
       createOpen = false;
       busy = false;
-      archivedOpen = false;
+      removedOpen = false;
       request = undefined;
       await select(saved);
     } catch (reason) {
@@ -179,7 +178,7 @@
     busy = true;
     actionError = '';
     try {
-      const saved = await api.update(projectId, worktree.id, { archived: false });
+      const saved = await api.restore(projectId, worktree.id);
       if (version !== generation) return;
       worktrees = worktrees.map((item) => (item.id === saved.id ? saved : item));
     } catch (reason) {
@@ -198,10 +197,12 @@
       return;
     busy = true;
     try {
-      const saved = await api.update(projectId, worktree.id, {
-        archived: true,
-        discard_changes: Boolean(worktree.changed_files?.length),
-      });
+      const saved = await api.remove(
+        projectId,
+        worktree.id,
+        worktree.revision!,
+        Boolean(worktree.changed_files?.length),
+      );
       worktrees = worktrees.map((item) => (item.id === saved.id ? saved : item));
       if (activeWorktreeId === worktree.id)
         await select(worktrees.find((item) => item.branch === 'main'));
@@ -273,15 +274,13 @@
     {#if !worktrees.some((tree) => tree.branch === 'main')}{@render row(undefined)}{/if}
     {#if loading && !worktrees.length}<p class="hint" role="status">Loading worktrees…</p>{/if}
     {#each current as worktree (worktree.id)}{@render row(worktree)}{/each}
-    {#if archived.length}<button
+    {#if removed.length}<button
         class="load-more"
-        aria-expanded={archivedOpen}
-        onclick={() => (archivedOpen = !archivedOpen)}
-        ><ChevronRight size={13} />Removed worktrees ({archived.length})</button
+        aria-expanded={removedOpen}
+        onclick={() => (removedOpen = !removedOpen)}
+        ><ChevronRight size={13} />Removed worktrees ({removed.length})</button
       >
-      {#if archivedOpen}{#each archived as worktree (worktree.id)}{@render row(
-            worktree,
-          )}{/each}{/if}
+      {#if removedOpen}{#each removed as worktree (worktree.id)}{@render row(worktree)}{/each}{/if}
     {/if}
     {#if worktreeCursor}<button
         class="load-more"
@@ -326,7 +325,7 @@
         aria-current={(worktree?.id || undefined) === activeWorktreeId ? 'true' : undefined}
         onclick={() => select(worktree)}><GitBranch size={14} /><strong>{title}</strong></button
       >
-      {#if canChat && !worktree?.archived_at}<button
+      {#if canChat && !worktree?.removed_at}<button
           class="icon-button"
           aria-label={`New conversation in ${title}`}
           title="New conversation"
@@ -351,12 +350,12 @@
         {#if !chats.length}<p class="hint">
             {canReadChats ? 'No conversations yet.' : 'Conversations are private.'}
           </p>{/if}
-        {#if worktree && !worktree.archived_at && worktree.branch !== 'main' && canCreate}<button
+        {#if worktree && !worktree.removed_at && worktree.branch !== 'main' && canCreate}<button
             class="load-more"
             disabled={busy || worktree.writable === false}
             onclick={() => removeWorktree(worktree)}>Remove worktree</button
           >{/if}
-        {#if worktree && (worktree.archived_at || worktree.lifecycle === 'unavailable') && canCreate}<button
+        {#if worktree && (worktree.removed_at || worktree.lifecycle === 'unavailable') && canCreate}<button
             class="load-more"
             disabled={busy}
             onclick={() => restore(worktree)}>Restore worktree</button

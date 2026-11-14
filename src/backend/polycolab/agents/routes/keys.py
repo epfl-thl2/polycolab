@@ -45,7 +45,6 @@ class IdentityRead(BaseModel):
     kind: Literal["human", "agent"]
     user_id: UUID | None = None
     credential_id: UUID | None = None
-    agent_id: UUID | None = None
     fixed_rights: list[str] = []
     expires_at: datetime | None = None
     requests_remaining: int | None = None
@@ -71,7 +70,6 @@ def identity(request: Request, access: Access) -> IdentityRead:
         return IdentityRead(
             kind="agent",
             credential_id=key.id,
-            agent_id=key.agent_id,
             fixed_rights=[credential_right(value) for value in key.fixed_rights],
             expires_at=key.expires_at,
             requests_remaining=max(0, key.max_requests - key.request_count),
@@ -111,7 +109,6 @@ def issue(
         session,
         sponsor=user,
         name=payload.name,
-        agent_id=payload.agent_id,
         ttl_seconds=settings.external_agent_credential_ttl_seconds,
         max_requests=settings.external_agent_max_requests,
         max_mutations=settings.external_agent_max_mutations,

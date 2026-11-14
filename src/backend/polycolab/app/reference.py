@@ -6,16 +6,16 @@ import re
 from typing import Any
 
 REFERENCE_GROUPS = [
-    {"name": "Access", "tags": ["identity", "agent-identities", "agent-keys"]},
+    {"name": "Access", "tags": ["identity", "agent-keys"]},
     {"name": "Projects", "tags": ["projects", "agent-library"]},
     {"name": "Artifacts", "tags": ["artifacts"]},
     {
         "name": "Human administration",
-        "tags": ["memberships", "invitations", "users", "account recovery"],
+        "tags": ["memberships", "invitations", "account", "account recovery"],
     },
     {
         "name": "Optional hosted services",
-        "tags": ["agents", "sessions", "runs", "gateway-profiles"],
+        "tags": ["agents", "sessions", "runs", "provider-profiles"],
     },
 ]
 
@@ -24,11 +24,6 @@ REFERENCE_TAGS = {
         "name": "agent-library",
         "x-displayName": "Agent library",
         "description": "Public prompts, skills and plugin listings with human-owned drafts.",
-    },
-    "agent-identities": {
-        "name": "agent-identities",
-        "x-displayName": "Agent identities",
-        "description": "Named agents owned by a sponsor; identities survive key rotation.",
     },
     "identity": {
         "name": "identity",
@@ -63,8 +58,8 @@ REFERENCE_TAGS = {
         "authorized artifacts. Stored evidence is not automatically "
         "verified.",
     },
-    "users": {
-        "name": "users",
+    "account": {
+        "name": "account",
         "x-displayName": "Human account",
         "description": "The authenticated human account projection; agents use /api/v1/me.",
     },
@@ -93,8 +88,8 @@ REFERENCE_TAGS = {
         "x-displayName": "Hosted runs",
         "description": "Session executions scoped to the user and project permissions.",
     },
-    "gateway-profiles": {
-        "name": "gateway-profiles",
+    "provider-profiles": {
+        "name": "provider-profiles",
         "x-displayName": "Model provider profiles",
         "description": "Optional human-owned provider configuration and secret lifecycle.",
     },
@@ -139,8 +134,9 @@ OPERATION_SECTIONS = {
     "cancelLatexBuild": "projects",
     "downloadLatexOutput": "projects",
     "listWorktrees": "projects",
-    "createWorktree": "projects",
     "getWorktree": "projects",
+    "createWorktree": "projects",
+    "updateWorktree": "projects",
     "getWorktreeFile": "projects",
     "diffWorktree": "projects",
     "saveWorktree": "projects",
@@ -148,10 +144,6 @@ OPERATION_SECTIONS = {
     "discardWorktree": "projects",
     "removeWorktree": "projects",
     "restoreWorktree": "projects",
-    "listProjectTasks": "projects",
-    "getProjectTask": "projects",
-    "createProjectTask": "projects",
-    "updateProjectTask": "projects",
     "getSessionRepository": "projects",
     "enableSessionRepository": "projects",
     "getRunRepository": "projects",
@@ -163,9 +155,6 @@ OPERATION_SECTIONS = {
     "previewProjectMerge": "projects",
     "mergeProjectFiles": "projects",
     "getApplicationConfiguration": "identity",
-    "createExternalAgentIdentity": "agent-identities",
-    "listExternalAgentIdentities": "agent-identities",
-    "updateExternalAgentIdentity": "agent-identities",
     "listExternalAgentCredentials": "agent-keys",
     "createExternalAgentCredential": "agent-keys",
     "revealExternalAgentCredential": "agent-keys",
@@ -190,19 +179,19 @@ OPERATION_SECTIONS = {
     "submitSessionEvent": "sessions",
     "readArtifact": "artifacts",
     "downloadArtifact": "artifacts",
-    "listGatewayProfiles": "gateway-profiles",
-    "createGatewayProfile": "gateway-profiles",
-    "deleteGatewayProfile": "gateway-profiles",
-    "rotateGatewayProfile": "gateway-profiles",
-    "validateGatewayProfile": "gateway-profiles",
+    "listProviderProfiles": "provider-profiles",
+    "createProviderProfile": "provider-profiles",
+    "deleteProviderProfile": "provider-profiles",
+    "rotateProviderProfile": "provider-profiles",
+    "validateProviderProfile": "provider-profiles",
     "acceptInvitation": "invitations",
     "getCurrentIdentity": "identity",
     "listPlatformAgents": "agents",
     "verifyAccountEmail": "account recovery",
     "confirmPasswordReset": "account recovery",
     "requestPasswordReset": "account recovery",
-    "getCurrentUser": "users",
-    "chooseUsername": "users",
+    "getAccount": "account",
+    "chooseUsername": "account",
     "listProjects": "projects",
     "createProject": "projects",
     "deleteProject": "projects",
@@ -262,7 +251,7 @@ def arrange_reference(schema: dict[str, Any]) -> None:
                 "agents",
                 "sessions",
                 "runs",
-                "gateway-profiles",
+                "provider-profiles",
                 "account recovery",
             }:
                 notes.append(

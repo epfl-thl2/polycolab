@@ -37,14 +37,13 @@ it('authenticates account key management', async () => {
     getAccessToken: () => 'human-token',
   });
 
-  const issued = await api.createCredential('Lean helper', 'agent-a');
+  const issued = await api.createCredential('Lean helper');
   await api.listCredentials();
   await api.revokeCredential('credential-a');
 
   expect(issued.secret).toBe('shown-once');
   expect(await requests[0]!.json()).toEqual({
     name: 'Lean helper',
-    agent_id: 'agent-a',
   });
   expect(
     requests

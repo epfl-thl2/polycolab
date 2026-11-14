@@ -21,10 +21,10 @@ from polycolab.db.base import Base
 from polycolab.entities.time import utc_now
 
 
-class SqlGatewayProfile(Base):
+class SqlProviderProfile(Base):
     """User-owned OpenAI-compatible routing metadata, masked key preview, and encrypted secret."""
 
-    __tablename__ = "gateway_profiles"
+    __tablename__ = "provider_profiles"
     __table_args__ = (
         CheckConstraint(
             "wire_api IN ('responses', 'chat_completions')", name="ck_gateway_wire_api"
@@ -67,7 +67,7 @@ class SqlGatewayCredentialRewrapAudit(Base):
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    profile_id: Mapped[UUID] = mapped_column(ForeignKey("gateway_profiles.id"), index=True)
+    profile_id: Mapped[UUID] = mapped_column(ForeignKey("provider_profiles.id"), index=True)
     credential_version: Mapped[int] = mapped_column(Integer)
     source_key_version: Mapped[str] = mapped_column(String(200))
     target_key_version: Mapped[str] = mapped_column(String(200))
@@ -83,7 +83,7 @@ class SqlGatewayRunGrant(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     token_digest: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
-    profile_id: Mapped[UUID] = mapped_column(ForeignKey("gateway_profiles.id"), index=True)
+    profile_id: Mapped[UUID] = mapped_column(ForeignKey("provider_profiles.id"), index=True)
     run_id: Mapped[UUID] = mapped_column(index=True)
     model_id: Mapped[str] = mapped_column(String(500))
     credential_version: Mapped[int] = mapped_column(Integer)
@@ -93,7 +93,7 @@ class SqlGatewayRunGrant(Base):
 
 
 __all__ = [
-    "SqlGatewayProfile",
+    "SqlProviderProfile",
     "SqlGatewayCredentialRewrapAudit",
     "SqlGatewayRunGrant",
 ]

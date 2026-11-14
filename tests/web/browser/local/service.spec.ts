@@ -51,16 +51,10 @@ test('Default project files, delegated keys, artifacts, and retired routes use t
   await page.getByRole('button', { name: 'notes.txt', exact: true }).click();
   await plainFileEditor(page);
   await expect(editor).toHaveValue('Saved by the human');
-  const identity = await (
-    await page.request.post('/api/v1/account/agents', {
-      headers,
-      data: { name: 'Workspace helper' },
-    })
-  ).json();
   const key = await (
     await page.request.post('/api/v1/account/agent-keys', {
       headers,
-      data: { name: 'File access', agent_id: identity.id },
+      data: { name: 'File access' },
     })
   ).json();
   const agentHeaders = { Authorization: `Bearer ${key.secret}` };

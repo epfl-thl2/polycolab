@@ -991,9 +991,9 @@ def create_app(
                         "Invitation delivery is unavailable"
                     )
                 if operation_id in {
-                    "createGatewayProfile",
-                    "rotateGatewayProfile",
-                    "validateGatewayProfile",
+                    "createProviderProfile",
+                    "rotateProviderProfile",
+                    "validateProviderProfile",
                 }:
                     responses["503"] = _error_response_reference(
                         "Credential encryption service is unavailable"

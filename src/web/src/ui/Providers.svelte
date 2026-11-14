@@ -15,7 +15,7 @@
   import { toStore } from 'svelte/store';
   import { createInfiniteQuery } from '@tanstack/svelte-query';
   import { projectContext, explain } from '../svelte-lib/context';
-  import type { GatewayProfile } from '../lib/projects-api';
+  import type { ProviderProfile } from '../lib/projects-api';
   const confirmation = new Confirmation();
   const { api, query } = projectContext();
   const profiles = createInfiniteQuery(
@@ -23,12 +23,12 @@
       queryKey: ['profiles'],
       initialPageParam: undefined as string | undefined,
       queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
-        api.listGatewayProfiles(pageParam),
+        api.listProviderProfiles(pageParam),
       getNextPageParam: (p: { nextCursor?: string }) => p.nextCursor,
     })),
   );
   let draft = $state({ display_name: '', base_url: '', model_id: '', api_key: '' });
-  let editing = $state<GatewayProfile>();
+  let editing = $state<ProviderProfile>();
   let replacement = $state('');
   let dialogOpen = $state(false);
   let busy = $state(false);
@@ -65,11 +65,11 @@
       busy = false;
     }
   }
-  async function testConnection(profile: GatewayProfile) {
+  async function testConnection(profile: ProviderProfile) {
     checks[profile.id] = 'Testing…';
     await perform(async () => {
       try {
-        await api.validateGatewayProfile(profile.id);
+        await api.validateProviderProfile(profile.id);
         checks[profile.id] = 'Connection verified';
       } catch (reason) {
         checks[profile.id] = 'Test failed';
@@ -183,7 +183,7 @@
                       onSelect={async () => {
                         if (await confirmation.ask(`Delete ${profile.display_name}?`))
                           void perform(
-                            () => api.deleteGatewayProfile(profile.id),
+                            () => api.deleteProviderProfile(profile.id),
                             'AI provider deleted.',
                           );
                       }}>Delete provider</DropdownMenu.Item
@@ -271,9 +271,9 @@
         void perform(
           async () => {
             if (profile) {
-              await api.rotateGatewayProfile(profile.id, replacement);
+              await api.rotateProviderProfile(profile.id, replacement);
               delete checks[profile.id];
-            } else await api.createGatewayProfile({ ...draft });
+            } else await api.createProviderProfile({ ...draft });
             closeDialog();
           },
           profile ? 'API key replaced.' : 'AI provider added.',

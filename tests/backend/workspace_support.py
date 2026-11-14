@@ -19,7 +19,7 @@ def create_project(client: TestClient, *, visibility: str = "PRIVATE") -> str:
 
 
 def current_user_id(client: TestClient, token: str) -> str:
-    response = client.get("/api/v1/users/me", headers=headers(token))
+    response = client.get("/api/v1/account", headers=headers(token))
     assert response.status_code == 200
     return cast(str, response.json()["id"])
 

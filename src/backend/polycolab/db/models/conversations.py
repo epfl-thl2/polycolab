@@ -23,7 +23,7 @@ class SqlLegacyConversationExecution(Base):
     conversation_id: Mapped[UUID] = mapped_column(ForeignKey("conversations.id"), index=True)
     request_id: Mapped[UUID] = mapped_column()
     sequence: Mapped[int] = mapped_column(Integer)
-    profile_id: Mapped[UUID] = mapped_column(ForeignKey("gateway_profiles.id"))
+    profile_id: Mapped[UUID] = mapped_column(ForeignKey("provider_profiles.id"))
     model_id: Mapped[str] = mapped_column(String(500))
     status: Mapped[str] = mapped_column(String(16))
     failure_code: Mapped[str | None] = mapped_column(String(100))

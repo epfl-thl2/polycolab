@@ -44,7 +44,7 @@ test('unified sessions persist shared browser participation and fence concurrent
       ['contributor', 'CONTRIBUTOR'],
       ['reader', 'READ_ONLY'],
     ]) {
-      const account = await call(request, 'get', '/users/me', user);
+      const account = await call(request, 'get', '/account', user);
       await call(request, 'post', `/projects/${project.id}/members`, 'owner', {
         user_id: account.id,
         role,
@@ -53,7 +53,7 @@ test('unified sessions persist shared browser participation and fence concurrent
     const profiles: Record<string, string> = {};
     for (const user of ['owner', 'contributor']) {
       profiles[user] = (
-        await call(request, 'post', '/gateway/profiles', user, {
+        await call(request, 'post', '/account/provider-profiles', user, {
           display_name: `${user} session provider`,
           model_id: 'integration-model',
           base_url: 'https://8.8.8.8/v1',
@@ -61,7 +61,7 @@ test('unified sessions persist shared browser participation and fence concurrent
         })
       ).id;
     }
-    const heldProfile = await call(request, 'post', '/gateway/profiles', 'contributor', {
+    const heldProfile = await call(request, 'post', '/account/provider-profiles', 'contributor', {
       display_name: 'Held contributor provider',
       model_id: 'integration-held',
       base_url: 'https://8.8.8.8/v1',
@@ -147,7 +147,7 @@ test('unified sessions persist shared browser participation and fence concurrent
           type: 'message',
           client_request_id: randomUUID(),
           content_md: `Concurrent contribution ${index}`,
-          gateway_profile_id: profiles[user],
+          provider_profile_id: profiles[user],
         });
       }),
     );

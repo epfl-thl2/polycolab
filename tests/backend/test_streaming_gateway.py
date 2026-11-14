@@ -13,10 +13,10 @@ from sqlalchemy import select
 from polycolab.agents.sessions import create_agent_session
 from polycolab.db.models import (
     SqlAgentRun,
-    SqlGatewayProfile,
     SqlGatewayRunGrant,
     SqlMembership,
     SqlProject,
+    SqlProviderProfile,
 )
 from polycolab.entities.enums import AgentRunStatus, PlatformAgentKind, ProjectRole
 from polycolab.model_gateway.service import (
@@ -59,7 +59,7 @@ class FakeStreamTransport:
 
 def create_profile(client: TestClient) -> dict[str, Any]:
     response = client.post(
-        "/api/v1/gateway/profiles",
+        "/api/v1/account/provider-profiles",
         headers=headers("owner"),
         json={
             "display_name": "streaming",
@@ -74,7 +74,7 @@ def create_profile(client: TestClient) -> dict[str, Any]:
 
 def issue_grant(client: TestClient, profile_id: UUID, run_id: UUID) -> str:
     app = app_for(client)
-    user_id = UUID(client.get("/api/v1/users/me", headers=headers("owner")).json()["id"])
+    user_id = UUID(client.get("/api/v1/account", headers=headers("owner")).json()["id"])
     session = app.state.session_factory()
     try:
         if session.get(SqlAgentRun, run_id) is None:
@@ -91,7 +91,7 @@ def issue_grant(client: TestClient, profile_id: UUID, run_id: UUID) -> str:
                 created_by_user_id=user_id,
                 agent_kind=PlatformAgentKind.RESEARCHER,
             )
-            profile = session.get(SqlGatewayProfile, profile_id)
+            profile = session.get(SqlProviderProfile, profile_id)
             assert profile is not None
             session.add(
                 SqlAgentRun(
@@ -100,7 +100,7 @@ def issue_grant(client: TestClient, profile_id: UUID, run_id: UUID) -> str:
                     project_id=project.id,
                     agent_version_id=conversation.agent_version_id,
                     requested_by_user_id=user_id,
-                    gateway_profile_id=profile_id,
+                    provider_profile_id=profile_id,
                     gateway_credential_version=profile.credential_version,
                     gateway_model_id="research-model",
                     queue_sequence=1,
@@ -254,7 +254,7 @@ def test_stream_generator_close_closes_upstream(client: TestClient) -> None:
         ],
     )
     app = app_for(client)
-    user_id = UUID(client.get("/api/v1/users/me", headers=headers("owner")).json()["id"])
+    user_id = UUID(client.get("/api/v1/account", headers=headers("owner")).json()["id"])
     session = app.state.session_factory()
     try:
         stream = cast(

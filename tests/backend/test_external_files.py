@@ -31,14 +31,11 @@ def test_files_require_authentication_in_runtime_and_contract(
 
 
 def key_for(client: TestClient, user: str = "owner") -> dict[str, Any]:
-    identity = client.post("/api/v1/account/agents", headers=headers(user), json={"name": "Files"})
-    assert identity.status_code == 201, identity.text
     response = client.post(
         "/api/v1/account/agent-keys",
         headers=headers(user),
         json={
             "name": "Files",
-            "agent_id": identity.json()["id"],
         },
     )
     assert response.status_code == 201, response.text

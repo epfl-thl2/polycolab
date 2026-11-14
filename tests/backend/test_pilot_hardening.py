@@ -88,7 +88,7 @@ def _project(client: TestClient) -> dict[str, object]:
 
 def _profile(client: TestClient) -> dict[str, object]:
     response = client.post(
-        "/api/v1/gateway/profiles",
+        "/api/v1/account/provider-profiles",
         headers=_headers("owner"),
         json={
             "display_name": "Pilot model",
@@ -172,7 +172,7 @@ def test_sse_cursor_reconnects_are_rate_limited_after_authorization(
             "type": "message",
             **(
                 {
-                    "gateway_profile_id": profile["id"],
+                    "provider_profile_id": profile["id"],
                     "content_md": "Rate limit reconnects.",
                     "client_request_id": str(uuid4()),
                 }
@@ -225,7 +225,7 @@ def test_execution_concurrency_quota_and_operator_metrics_are_enforced(
     _app(client).state.settings.execution_project_concurrent_runs = 1
     agent_session = _session(client, str(project["id"]))
     payload = {
-        "gateway_profile_id": profile["id"],
+        "provider_profile_id": profile["id"],
         "content_md": "Bound this pilot turn.",
     }
     accepted = client.post(
@@ -266,7 +266,7 @@ def test_operator_run_diagnostics_are_redacted_audited_and_cross_process_observa
             "type": "message",
             **(
                 {
-                    "gateway_profile_id": profile["id"],
+                    "provider_profile_id": profile["id"],
                     "content_md": "This private prompt must never enter diagnostics.",
                     "client_request_id": str(uuid4()),
                 }
@@ -423,7 +423,7 @@ def test_sse_connection_gauge_tracks_open_generators_and_closes_without_leaks(
             "type": "message",
             **(
                 {
-                    "gateway_profile_id": profile["id"],
+                    "provider_profile_id": profile["id"],
                     "content_md": "Open a stream.",
                     "client_request_id": str(uuid4()),
                 }
@@ -532,7 +532,7 @@ def test_nullable_usage_is_conservatively_aggregated_and_charged(
             "type": "message",
             **(
                 {
-                    "gateway_profile_id": profile["id"],
+                    "provider_profile_id": profile["id"],
                     "content_md": "Account nullable usage.",
                     "client_request_id": str(uuid4()),
                 }
@@ -643,7 +643,7 @@ def test_resume_and_next_round_budget_fail_closed_when_ceiling_is_tight(
             "type": "message",
             **(
                 {
-                    "gateway_profile_id": profile["id"],
+                    "provider_profile_id": profile["id"],
                     "content_md": "Reserve a multi-round turn.",
                     "client_request_id": str(uuid4()),
                 }
@@ -674,7 +674,7 @@ def test_resume_and_next_round_budget_fail_closed_when_ceiling_is_tight(
     resumed = client.post(
         f"/api/v1/runs/{run_id}/resume",
         headers=_headers("owner"),
-        json={"gateway_profile_id": profile["id"], "client_request_id": str(uuid4())},
+        json={"provider_profile_id": profile["id"], "client_request_id": str(uuid4())},
     )
     assert resumed.status_code == 429
     assert resumed.json()["error"]["code"] == "execution_daily_token_quota_exceeded"

@@ -137,14 +137,16 @@
   const session = createQuery(
     toStore(() => ({ ...sessionOptions(agents, sessionId, isVisible), enabled: canReadSession })),
   );
-  const tasks = projectContext().tasks;
-  const currentTaskId = $derived(sessionId ? $session.data?.working_context.task_id : worktreeId);
-  const task = createQuery(
+  const worktrees = projectContext().worktrees;
+  const currentWorktreeId = $derived(
+    sessionId ? $session.data?.working_context.worktree_id : worktreeId,
+  );
+  const worktree = createQuery(
     toStore(() => ({
-      queryKey: ['project-task', projectId, currentTaskId],
-      enabled: Boolean(tasks && currentTaskId),
-      queryFn: () => tasks!.get(projectId, currentTaskId!),
-      refetchInterval: isVisible && currentTaskId ? 5000 : false,
+      queryKey: ['project-worktree', projectId, currentWorktreeId],
+      enabled: Boolean(worktrees && currentWorktreeId),
+      queryFn: () => worktrees!.get(projectId, currentWorktreeId!),
+      refetchInterval: isVisible && currentWorktreeId ? 5000 : false,
     })),
   );
   const runs = createInfiniteQuery(
@@ -200,7 +202,7 @@
       queryKey: ['profiles'],
       initialPageParam: undefined as string | undefined,
       queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
-        api.listGatewayProfiles(pageParam),
+        api.listProviderProfiles(pageParam),
       getNextPageParam: (p: { nextCursor?: string }) => p.nextCursor,
     })),
   );
@@ -253,9 +255,9 @@
   );
   const newChatSendReason = $derived.by(() => {
     if (busy) return 'Sending…';
-    if (worktreeId && $task.isPending) return 'Opening worktree…';
-    if (worktreeId && $task.isError) return 'This worktree is unavailable.';
-    if ($task.data?.archived_at) return 'This worktree is archived.';
+    if (worktreeId && $worktree.isPending) return 'Opening worktree…';
+    if (worktreeId && $worktree.isError) return 'This worktree is unavailable.';
+    if ($worktree.data?.removed_at) return 'This worktree is removed.';
     if (!executionEnabled) return 'Hosted execution is disabled.';
     if (configurationMode === 'custom' && !hostedAvailable) return 'Hosted Codex is unavailable.';
     if (!agentId) return 'Choose a preset below.';
@@ -274,7 +276,7 @@
     if (!$session.data?.capabilities.can_send)
       return 'You can read this conversation but cannot send messages.';
     if (busy) return 'Working…';
-    if ($task.data?.archived_at) return 'This worktree is archived.';
+    if ($worktree.data?.removed_at) return 'This worktree is removed.';
     if ($session.data?.status === 'archived') return 'This session is archived.';
     if (!executionEnabled) return 'Hosted execution is disabled.';
     if (!$capabilities.data?.execution_available) return 'Agent execution is unavailable.';
@@ -287,7 +289,7 @@
     event.preventDefault();
     if (
       busy ||
-      (worktreeId && ($task.isPending || $task.isError || $task.data?.archived_at)) ||
+      (worktreeId && ($worktree.isPending || $worktree.isError || $worktree.data?.removed_at)) ||
       !executionEnabled ||
       !chatDraft.message.trim() ||
       !profileId ||
@@ -319,7 +321,7 @@
         await repository.enableSession(projectId, chatDraft.startingSessionId);
       const body = {
         content_md: submittedMessage.trim(),
-        gateway_profile_id: profileId,
+        provider_profile_id: profileId,
       };
       const serialized = JSON.stringify(body);
       if (chatDraft.startRequest?.body !== serialized)
@@ -442,7 +444,7 @@
       const body = {
         content_md: submittedMessage.trim(),
         context_artifact_ids: ids(artifactIds),
-        gateway_profile_id: profileId,
+        provider_profile_id: profileId,
       };
       const serialized = JSON.stringify(body);
       if (chatDraft.request?.body !== serialized)
@@ -512,7 +514,7 @@
   action={{ label: 'Retry', run: () => $exports.refetch() }}
 />
 
-{#if sessionId && !currentTaskId && $repositoryState.data?.enabled && hostedAvailable}
+{#if sessionId && !currentWorktreeId && $repositoryState.data?.enabled && hostedAvailable}
   <div class="session-repository-controls">
     {#if $sessionRepository.data?.enabled}
       <a

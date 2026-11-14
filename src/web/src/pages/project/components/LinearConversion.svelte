@@ -6,7 +6,7 @@
   import { Button } from '../../../lib/components/ui/button';
   import { NativeSelect } from '../../../lib/components/ui/native-select';
   let { project }: { project: Project } = $props();
-  const { auth, tasks } = projectContext();
+  const { auth, worktrees } = projectContext();
   const api = createLinearApi({ getAccessToken: auth.token });
   let trees = $state<{ id: string; title: string }[]>([]);
   let selected = $state('');
@@ -40,7 +40,7 @@
       disabled={busy}
       onclick={() =>
         act(async () => {
-          trees = (await tasks!.list(project.id)).items;
+          trees = (await worktrees!.list(project.id)).items;
         })}>Choose working copy</Button
     >
     {#if trees.length}<NativeSelect

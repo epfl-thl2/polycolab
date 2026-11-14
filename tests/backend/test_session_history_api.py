@@ -26,7 +26,7 @@ from polycolab.entities.time import utc_now
 def test_legacy_history_is_accessible_without_enabling_execution(
     client: TestClient, failure_code: str
 ) -> None:
-    owner_id = UUID(client.get("/api/v1/users/me", headers=headers("owner")).json()["id"])
+    owner_id = UUID(client.get("/api/v1/account", headers=headers("owner")).json()["id"])
     profile_id = UUID(str(create_profile(client, "owner")["id"]))
     session_id, run_id = uuid4(), uuid4()
     app = cast(Any, client.app)
@@ -125,7 +125,7 @@ def test_legacy_history_is_accessible_without_enabling_execution(
             "type": "message",
             "client_request_id": str(uuid4()),
             "content_md": "Continue",
-            "gateway_profile_id": str(profile_id),
+            "provider_profile_id": str(profile_id),
         },
         {"type": "interrupt", "run_id": str(run_id)},
     ):
@@ -138,7 +138,7 @@ def test_legacy_history_is_accessible_without_enabling_execution(
             headers=headers("owner"),
             json={
                 "client_request_id": str(uuid4()),
-                "gateway_profile_id": str(profile_id),
+                "provider_profile_id": str(profile_id),
             },
         ).status_code
         == 409

@@ -36,8 +36,8 @@ def main() -> None:
             )
             with service.open():
                 service.materialize()
-                for task in service.store.tasks(args.project, False):
-                    service.require_available(task)
+                for worktree in service.store.worktrees(args.project, False):
+                    service.require_available(worktree)
             print(f"Worktrees verified for {args.project}")
     finally:
         engine.dispose()

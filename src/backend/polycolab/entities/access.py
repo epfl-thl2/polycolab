@@ -33,7 +33,6 @@ class Actor:
     context_manifest_id: UUID | None = None
     project_id: UUID | None = None
     external_credential_id: UUID | None = None
-    external_agent_id: UUID | None = None
     operation_scope: frozenset[ActorOperation] = field(default_factory=frozenset)
 
     def __post_init__(self) -> None:
@@ -49,7 +48,6 @@ class Actor:
                     self.context_manifest_id,
                     self.project_id,
                     self.external_credential_id,
-                    self.external_agent_id,
                 )
             ):
                 raise ValueError("human actors cannot carry agent or delegated scope")
@@ -68,11 +66,11 @@ class Actor:
                 self.context_manifest_id,
             )
         )
-        external = self.external_credential_id is not None and self.external_agent_id is not None
+        external = self.external_credential_id is not None
         if (
             self.human_user_id is not None
             or self.sponsor_user_id is None
-            or (self.project_id is None and self.external_agent_id is None)
+            or (hosted and self.project_id is None)
             or hosted == external
         ):
             raise ValueError("agent actors require validated delegated references")

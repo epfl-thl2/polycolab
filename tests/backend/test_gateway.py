@@ -12,8 +12,8 @@ from sqlalchemy import select
 
 from polycolab.db.models import (
     SqlGatewayCredentialRewrapAudit,
-    SqlGatewayProfile,
     SqlGatewayRunGrant,
+    SqlProviderProfile,
 )
 from polycolab.entities.time import utc_now
 from polycolab.model_gateway.credentials import (
@@ -67,9 +67,9 @@ def app_for(client: TestClient) -> FastAPI:
     return cast(FastAPI, client.app)
 
 
-def create_gateway_profile(client: TestClient, token: str = "owner") -> dict[str, Any]:
+def create_provider_profile(client: TestClient, token: str = "owner") -> dict[str, Any]:
     response = client.post(
-        "/api/v1/gateway/profiles",
+        "/api/v1/account/provider-profiles",
         headers=headers(token),
         json={
             "display_name": "Primary model",
@@ -86,7 +86,7 @@ def create_gateway_profile(client: TestClient, token: str = "owner") -> dict[str
 def test_credential_rewrap_is_bounded_audited_and_compare_and_swap(
     client: TestClient,
 ) -> None:
-    created = create_gateway_profile(client)
+    created = create_provider_profile(client)
     app = app_for(client)
     target = LocalAesGcmKeyWrapper(b"b" * 32, "replacement-v2")
     ring = CredentialKeyring([app.state.credential_wrapper, target])
@@ -102,7 +102,7 @@ def test_credential_rewrap_is_bounded_audited_and_compare_and_swap(
             target_version=target.key_version,
         )
         audit = commit_rewrap_candidate(db, snapshot=snapshot, candidate=candidate)
-        stored = db.get(SqlGatewayProfile, UUID(created["id"]))
+        stored = db.get(SqlProviderProfile, UUID(created["id"]))
         assert stored is not None
         assert stored.api_key_preview == created["api_key_preview"]
         assert stored.encryption_key_version == target.key_version
@@ -118,7 +118,7 @@ def test_credential_rewrap_is_bounded_audited_and_compare_and_swap(
 def test_credential_rewrap_rejects_concurrent_rotation_without_audit(
     client: TestClient,
 ) -> None:
-    create_gateway_profile(client)
+    create_provider_profile(client)
     app = app_for(client)
     target = LocalAesGcmKeyWrapper(b"c" * 32, "replacement-v3")
     ring = CredentialKeyring([app.state.credential_wrapper, target])
@@ -130,7 +130,7 @@ def test_credential_rewrap_rejects_concurrent_rotation_without_audit(
             encrypted=snapshot.encrypted,
             target_version=target.key_version,
         )
-        profile = db.get(SqlGatewayProfile, snapshot.profile_id)
+        profile = db.get(SqlProviderProfile, snapshot.profile_id)
         assert profile is not None
         profile.credential_version += 1
         db.commit()
@@ -228,7 +228,7 @@ def test_log_redaction_never_serializes_provider_secrets() -> None:
 def test_profile_routes_encrypt_never_read_back_validate_rotate_and_delete(
     client: TestClient,
 ) -> None:
-    created = create_gateway_profile(client)
+    created = create_provider_profile(client)
     assert created["api_key_preview"] == "sk-••••alue"
     assert "api_key" not in created
     assert "encrypted_credential" not in created
@@ -236,7 +236,7 @@ def test_profile_routes_encrypt_never_read_back_validate_rotate_and_delete(
 
     session = app_for(client).state.session_factory()
     try:
-        stored = session.get(SqlGatewayProfile, UUID(created["id"]))
+        stored = session.get(SqlProviderProfile, UUID(created["id"]))
         assert stored is not None
         assert b"sk-super-secret-value" not in stored.encrypted_credential
         first_ciphertext = stored.encrypted_credential
@@ -246,7 +246,7 @@ def test_profile_routes_encrypt_never_read_back_validate_rotate_and_delete(
     provider = RecordingProvider()
     app_for(client).state.provider_transport = provider
     validated = client.post(
-        f"/api/v1/gateway/profiles/{created['id']}/validate", headers=headers("owner")
+        f"/api/v1/account/provider-profiles/{created['id']}/validate", headers=headers("owner")
     )
     assert validated.status_code == 200
     assert provider.calls[0]["api_key"] == "sk-super-secret-value"
@@ -254,7 +254,7 @@ def test_profile_routes_encrypt_never_read_back_validate_rotate_and_delete(
     assert "sk-super-secret-value" not in validated.text
 
     rotated = client.post(
-        f"/api/v1/gateway/profiles/{created['id']}/rotate",
+        f"/api/v1/account/provider-profiles/{created['id']}/rotate",
         headers=headers("owner"),
         json={"api_key": "sk-rotated-secret"},
     )
@@ -263,7 +263,7 @@ def test_profile_routes_encrypt_never_read_back_validate_rotate_and_delete(
     assert "sk-rotated-secret" not in rotated.text
     session = app_for(client).state.session_factory()
     try:
-        stored = session.get(SqlGatewayProfile, UUID(created["id"]))
+        stored = session.get(SqlProviderProfile, UUID(created["id"]))
         assert stored is not None
         assert stored.api_key_preview == "sk-••••cret"
         assert stored.credential_version == 2
@@ -271,10 +271,10 @@ def test_profile_routes_encrypt_never_read_back_validate_rotate_and_delete(
     finally:
         session.close()
 
-    assert client.get("/api/v1/gateway/profiles", headers=headers("outsider")).json() == []
+    assert client.get("/api/v1/account/provider-profiles", headers=headers("outsider")).json() == []
     assert (
         client.post(
-            f"/api/v1/gateway/profiles/{created['id']}/rotate",
+            f"/api/v1/account/provider-profiles/{created['id']}/rotate",
             headers=headers("outsider"),
             json={"api_key": "sk-cross-user"},
         ).status_code
@@ -282,17 +282,17 @@ def test_profile_routes_encrypt_never_read_back_validate_rotate_and_delete(
     )
     assert (
         client.delete(
-            f"/api/v1/gateway/profiles/{created['id']}", headers=headers("owner")
+            f"/api/v1/account/provider-profiles/{created['id']}", headers=headers("owner")
         ).status_code
         == 204
     )
-    assert client.get("/api/v1/gateway/profiles", headers=headers("owner")).json() == []
+    assert client.get("/api/v1/account/provider-profiles", headers=headers("owner")).json() == []
 
 
 def test_profile_validation_failure_is_normalized_and_secret_safe(
     client: TestClient,
 ) -> None:
-    created = create_gateway_profile(client)
+    created = create_provider_profile(client)
 
     class FailingProvider:
         def request_json(self, **_kwargs: object) -> dict[str, object]:
@@ -300,7 +300,7 @@ def test_profile_validation_failure_is_normalized_and_secret_safe(
 
     app_for(client).state.provider_transport = FailingProvider()
     response = client.post(
-        f"/api/v1/gateway/profiles/{created['id']}/validate", headers=headers("owner")
+        f"/api/v1/account/provider-profiles/{created['id']}/validate", headers=headers("owner")
     )
     assert response.status_code == 422
     assert "secret" not in response.text.casefold()
@@ -320,7 +320,7 @@ def test_profile_creation_rolls_back_when_key_service_is_unavailable(
 
     app_for(client).state.credential_wrapper = FailingWrapper()
     response = client.post(
-        "/api/v1/gateway/profiles",
+        "/api/v1/account/provider-profiles",
         headers=headers("owner"),
         json={
             "display_name": "Unavailable KMS",
@@ -333,7 +333,7 @@ def test_profile_creation_rolls_back_when_key_service_is_unavailable(
     assert response.json()["error"]["code"] == "credential_unavailable"
     session = app_for(client).state.session_factory()
     try:
-        assert list(session.scalars(select(SqlGatewayProfile))) == []
+        assert list(session.scalars(select(SqlProviderProfile))) == []
     finally:
         session.close()
 
@@ -341,8 +341,8 @@ def test_profile_creation_rolls_back_when_key_service_is_unavailable(
 def test_run_grant_is_scoped_one_use_expiring_and_invalidated_by_rotation(
     client: TestClient,
 ) -> None:
-    created = create_gateway_profile(client)
-    user_id = UUID(client.get("/api/v1/users/me", headers=headers("owner")).json()["id"])
+    created = create_provider_profile(client)
+    user_id = UUID(client.get("/api/v1/account", headers=headers("owner")).json()["id"])
     profile_id = UUID(created["id"])
     run_id = uuid4()
     session = app_for(client).state.session_factory()
@@ -452,7 +452,7 @@ def test_run_grant_is_scoped_one_use_expiring_and_invalidated_by_rotation(
         assert rotating_row is not None
         assert (
             client.post(
-                f"/api/v1/gateway/profiles/{profile_id}/rotate",
+                f"/api/v1/account/provider-profiles/{profile_id}/rotate",
                 headers=headers("owner"),
                 json={"api_key": "sk-another-rotation"},
             ).status_code
@@ -474,8 +474,8 @@ def test_run_grant_is_scoped_one_use_expiring_and_invalidated_by_rotation(
 def test_model_gateway_applies_key_and_enforces_input_output_cost_and_usage(
     client: TestClient,
 ) -> None:
-    created = create_gateway_profile(client)
-    user_id = UUID(client.get("/api/v1/users/me", headers=headers("owner")).json()["id"])
+    created = create_provider_profile(client)
+    user_id = UUID(client.get("/api/v1/account", headers=headers("owner")).json()["id"])
     profile_id = UUID(created["id"])
     limits = GatewayLimits(
         run_token_ttl_seconds=300,
@@ -612,7 +612,7 @@ def test_provider_preview_is_bounded_and_persisted(
     client: TestClient, api_key: str, preview: str
 ) -> None:
     response = client.post(
-        "/api/v1/gateway/profiles",
+        "/api/v1/account/provider-profiles",
         headers=headers("owner"),
         json={
             "display_name": "Preview model",
@@ -625,10 +625,10 @@ def test_provider_preview_is_bounded_and_persisted(
     assert response.json()["api_key_preview"] == preview
     assert api_key not in preview
     with app_for(client).state.session_factory() as db:
-        stored = db.get(SqlGatewayProfile, UUID(response.json()["id"]))
+        stored = db.get(SqlProviderProfile, UUID(response.json()["id"]))
         assert stored is not None
         assert stored.api_key_preview == preview
-    listed = client.get("/api/v1/gateway/profiles", headers=headers("owner")).json()
+    listed = client.get("/api/v1/account/provider-profiles", headers=headers("owner")).json()
     assert listed[0]["api_key_preview"] == preview
     assert "api_key" not in listed[0]
 
@@ -636,9 +636,9 @@ def test_provider_preview_is_bounded_and_persisted(
 def test_existing_preview_is_null_until_replacement_and_reads_do_not_decrypt(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    created = create_gateway_profile(client)
+    created = create_provider_profile(client)
     with app_for(client).state.session_factory() as db:
-        stored = db.get(SqlGatewayProfile, UUID(created["id"]))
+        stored = db.get(SqlProviderProfile, UUID(created["id"]))
         assert stored is not None
         stored.api_key_preview = None
         db.commit()
@@ -647,18 +647,18 @@ def test_existing_preview_is_null_until_replacement_and_reads_do_not_decrypt(
         raise AssertionError("Listing previews must not decrypt credentials")
 
     monkeypatch.setattr("polycolab.model_gateway.service.decrypt_credential", fail_decrypt)
-    listed = client.get("/api/v1/gateway/profiles", headers=headers("owner"))
+    listed = client.get("/api/v1/account/provider-profiles", headers=headers("owner"))
     assert listed.status_code == 200
     assert listed.json()[0]["api_key_preview"] is None
     response = client.post(
-        f"/api/v1/gateway/profiles/{created['id']}/rotate",
+        f"/api/v1/account/provider-profiles/{created['id']}/rotate",
         headers=headers("owner"),
         json={"api_key": "sk-replacement-1234"},
     )
     assert response.status_code == 200
     assert response.json()["api_key_preview"] == "sk-••••1234"
     assert (
-        client.get("/api/v1/gateway/profiles", headers=headers("owner")).json()[0][
+        client.get("/api/v1/account/provider-profiles", headers=headers("owner")).json()[0][
             "api_key_preview"
         ]
         == "sk-••••1234"
@@ -668,9 +668,9 @@ def test_existing_preview_is_null_until_replacement_and_reads_do_not_decrypt(
 def test_failed_replacement_preserves_preview_and_encrypted_key(
     client: TestClient,
 ) -> None:
-    created = create_gateway_profile(client)
+    created = create_provider_profile(client)
     with app_for(client).state.session_factory() as db:
-        stored = db.get(SqlGatewayProfile, UUID(created["id"]))
+        stored = db.get(SqlProviderProfile, UUID(created["id"]))
         assert stored is not None
         original_ciphertext = stored.encrypted_credential
 
@@ -685,14 +685,14 @@ def test_failed_replacement_preserves_preview_and_encrypted_key(
 
     app_for(client).state.credential_wrapper = FailingWrapper()
     response = client.post(
-        f"/api/v1/gateway/profiles/{created['id']}/rotate",
+        f"/api/v1/account/provider-profiles/{created['id']}/rotate",
         headers=headers("owner"),
         json={"api_key": "sk-new-key-1234"},
     )
     assert response.status_code == 503
     assert "sk-new-key-1234" not in response.text
     with app_for(client).state.session_factory() as db:
-        stored = db.get(SqlGatewayProfile, UUID(created["id"]))
+        stored = db.get(SqlProviderProfile, UUID(created["id"]))
         assert stored is not None
         assert stored.api_key_preview == created["api_key_preview"]
         assert stored.encrypted_credential == original_ciphertext

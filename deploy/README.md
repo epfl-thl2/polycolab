@@ -2,6 +2,17 @@
 
 Fresh installations apply the complete Alembic chain. Existing installations upgrade to `head` using forward migrations.
 
+The account/worktree migrations retire external-agent identities, rename `project_tasks`
+to `worktrees`, and rename `gateway_profiles` to `provider_profiles`. Existing key
+secrets and limits, provider credential envelopes, working-copy IDs, and Git branches
+are preserved. Deploy the matching API, browser, and workers together: the old
+`/api/v1/account/agents`, project `/tasks`, `/api/v1/gateway/profiles`, and
+`/api/v1/users/me` endpoints are removed. Clients must use the worktree endpoints,
+`/api/v1/account/provider-profiles`, and `/api/v1/account`, with `worktree_id` and
+`provider_profile_id` in session requests. Key creation accepts a name without an
+`agent_id`. Apply both database and application updates before reopening traffic;
+rollback requires the matching pre-upgrade backup and application version.
+
 The `20261029_workspace_only` PostgreSQL revision and matching SQLite revision permanently remove research objects, revisions, relationships, catalogue/commons/publication data, proposals, verification jobs, research history, and notifications. Development research data is intentionally discarded. Accounts, projects, memberships, credentials and usage counts, conversations, workspace files, agent-library content, and project artifacts are retained. Commons-only artifact bytes are queued for ordinary garbage collection.
 
 Stop old API/worker processes before migration and start the new binaries afterward. Existing tool capabilities are revoked. Nonterminal agent runs with retired research grants are cancelled before those grants are removed, with a recorded cancellation reason and invalidated worker leases. They must not be resumed automatically using private conversation context. Take the normal database/files/artifacts backup first; downgrade requires restoring it. Do not stamp an old database or reset the migration chain. SQLite's upgrade runner creates its normal pre-upgrade backup.

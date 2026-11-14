@@ -247,15 +247,32 @@ def test_native_migration_retains_old_ids_and_is_resumable(
 
     client, project, git = native
     auth = headers("owner")
-    legacy = client.post(
-        f"/api/v1/projects/{project}/tasks",
-        headers=auth,
-        json={"client_request_id": str(uuid4()), "title": "Existing branch"},
-    ).json()
+    user = client.get("/api/v1/account", headers=auth).json()
+    app = cast(FastAPI, client.app)
+    identifier = uuid4()
+    legacy = {
+        "id": str(identifier),
+        "branch": "tasks/retained",
+        "created_by_user_id": user["id"],
+    }
+    from polycolab.db.models.worktrees import SqlWorktree
+
+    # Seed a saved branch exactly as a pre-native installation would have it.
+    with git.locked():
+        git.advance(legacy["branch"], "0" * 40, git.head("main"))
+    with app.state.session_factory() as db:
+        db.add(
+            SqlWorktree(
+                id=identifier,
+                project_id=UUID(project),
+                title="Existing branch",
+                branch=legacy["branch"],
+                created_by_user_id=UUID(user["id"]),
+            )
+        )
+        db.commit()
     root = f"/api/v1/projects/{project}/worktrees"
     assert client.get(root, headers=auth).status_code == 409
-    user = client.get("/api/v1/users/me", headers=auth).json()
-    app = cast(FastAPI, client.app)
     with app.state.session_factory() as db:
         instance = WorktreeService(
             SqlAlchemyTransaction(db),
@@ -335,3 +352,82 @@ def test_merge_requires_clean_files_and_exact_saved_revisions(
     main = client.get(root + "/worktrees/" + main["id"], headers=auth).json()
     assert not main["changed_files"]
     assert main["files"][0]["path"] == "proof"
+
+
+def test_title_patch_does_not_change_worktree_lifecycle(
+    native: tuple[TestClient, str, GitRepository],
+) -> None:
+    client, project, git = native
+    auth = headers("owner")
+    root = f"/api/v1/projects/{project}/worktrees"
+    tree = client.post(
+        root,
+        headers=auth,
+        json={"client_request_id": str(uuid4()), "title": "Original", "branch": "title-only"},
+    ).json()
+    url = root + "/" + tree["id"]
+    saved = client.post(
+        url + "/save",
+        headers={**auth, "Idempotency-Key": "dirty"},
+        json={
+            "expected_revision": tree["revision"],
+            "changes": [{"path": "note.txt", "content_base64": "c2F2ZWQ="}],
+        },
+    ).json()
+    renamed = client.patch(url, headers=auth, json={"title": "  Renamed  "})
+    assert renamed.status_code == 200, renamed.text
+    assert renamed.json()["title"] == "Renamed"
+    assert renamed.json()["revision"] == saved["revision"]
+    assert renamed.json()["head_commit"] == tree["head_commit"]
+    assert renamed.json()["removed_at"] is None
+    for payload in ({}, {"title": " "}, {"archived": True}, {"title": "New", "removed_at": None}):
+        assert client.patch(url, headers=auth, json=payload).status_code == 422
+    removed = client.post(
+        url + "/remove",
+        headers={**auth, "Idempotency-Key": "remove"},
+        json={
+            "expected_revision": saved["revision"],
+            "discard_changes": True,
+        },
+    ).json()
+    renamed = client.patch(url, headers=auth, json={"title": "Still removed"}).json()
+    assert renamed["removed_at"] == removed["removed_at"]
+    assert renamed["lifecycle"] == "removed"
+    assert not WorktreeStorage(git).path(UUID(tree["id"])).exists()
+    add_member(client, project, "reader", "READ_ONLY")
+    assert client.patch(url, headers=headers("reader"), json={"title": "No"}).status_code == 403
+    assert client.patch(url, headers=headers("outsider"), json={"title": "No"}).status_code == 404
+
+
+def test_task_routes_and_session_alias_are_retired(
+    native: tuple[TestClient, str, GitRepository],
+) -> None:
+    client, project, _ = native
+    auth = headers("owner")
+    root = f"/api/v1/projects/{project}"
+    tree = client.get(root + "/worktrees", headers=auth).json()[0]
+    assert "archived_at" not in tree
+    for method, suffix in (
+        ("GET", "/tasks"),
+        ("POST", "/tasks"),
+        ("PATCH", f"/tasks/{tree['id']}"),
+    ):
+        assert (
+            client.request(
+                method, root + suffix, headers=auth, json={"title": "retired"}
+            ).status_code
+            == 404
+        )
+    response = client.post(
+        "/api/v1/sessions",
+        headers=auth,
+        json={"project_id": project, "agent_kind": "RESEARCHER", "task_id": tree["id"]},
+    )
+    assert response.status_code == 422
+    response = client.post(
+        "/api/v1/sessions",
+        headers=auth,
+        json={"project_id": project, "agent_kind": "RESEARCHER", "worktree_id": tree["id"]},
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["working_context"] == {"worktree_id": tree["id"]}

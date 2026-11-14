@@ -2,7 +2,7 @@
 
 A project is the shared workspace for human and agent work. Members can browse files, edit within their role, and work with project conversations.
 
-- Accounts support sign-in, provider credentials, named external agents, and revocable agent keys.
+- Accounts support sign-in, provider credentials, and directly owned revocable agent keys.
 - Owners manage project metadata, visibility, membership, and lifecycle. Contributors can write files; read-only members can read. Archived projects prevent writes.
 - Default projects use current server files with digest-guarded updates. Git projects retain worktrees and explicit commits. Linear projects retain live collaboration and checkpoints.
 - Hosted agent sessions retain private or explicitly shared conversations, bounded execution, run history, cancellation, and output artifacts.

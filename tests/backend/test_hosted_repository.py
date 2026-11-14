@@ -37,22 +37,33 @@ def repository_claim(
         session_id = run.session_id
         db.commit()
     if task_copy:
-        task = client.post(
-            url.removesuffix("/repository") + "/tasks",
-            headers=OWNER,
-            json={"client_request_id": str(uuid4()), "title": "Shared task copy"},
-        )
-        assert task.status_code == 201, task.text
-        from uuid import UUID
+        from polycolab.db.models.worktrees import SqlWorktree
+        from polycolab.projects.git_storage import GitRepository
 
+        # Preserve coverage for a populated, pre-native saved branch. New clients
+        # create native worktrees; migration materialization is a separate operation.
+        identifier = uuid4()
         with app.state.session_factory() as db:
-            db.get(SqlConversation, session_id).task_id = UUID(task.json()["id"])
+            parent = db.get(SqlConversation, session_id)
+            branch = f"tasks/{identifier}"
+            git = GitRepository(tmp_path / "repositories", parent.project_id)
+            with git.locked():
+                git.advance(branch, "0" * 40, git.head("main"))
+            db.add(
+                SqlWorktree(
+                    id=identifier,
+                    project_id=parent.project_id,
+                    created_by_user_id=parent.created_by_user_id,
+                    title="Saved working copy",
+                    branch=branch,
+                )
+            )
+            db.flush()
+            parent.worktree_id = identifier
             db.commit()
     enabled = client.put(f"{url}/sessions/{session_id}", headers=OWNER)
     assert enabled.status_code == 200, enabled.text
     if native_copy:
-        from uuid import UUID
-
         from polycolab.db.stores.repositories import SqlRepositoryStore
         from polycolab.db.transaction import SqlAlchemyTransaction
         from polycolab.projects.git_storage import GitRepository
@@ -69,8 +80,8 @@ def repository_claim(
             )
             with instance.open():
                 instance.materialize()
-                main = instance.task_for_branch("main")
-                db.get(SqlConversation, session_id).task_id = main.id
+                main = instance.worktree_for_branch("main")
+                db.get(SqlConversation, session_id).worktree_id = main.id
                 db.commit()
         trees_url = url.removesuffix("/repository") + "/worktrees"
         tree = client.get(f"{trees_url}/{main.id}", headers=OWNER).json()
@@ -91,7 +102,7 @@ def repository_claim(
             db,
             session_id=previous.session_id,
             requested_by_user_id=previous.requested_by_user_id,
-            gateway_profile_id=previous.gateway_profile_id,
+            provider_profile_id=previous.provider_profile_id,
             content_md="Work on the saved repository.",
             runtime_spec=spec().model_dump(mode="json"),
             deadline_at=utc_now() + timedelta(minutes=5),

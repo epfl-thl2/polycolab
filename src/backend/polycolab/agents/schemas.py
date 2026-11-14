@@ -31,13 +31,11 @@ class AgentRunEventRead(ApiModel):
 
 
 class ExternalCredentialCreate(RequestModel):
-    agent_id: UUID
     name: str = Field(min_length=1, max_length=200)
 
 
 class ExternalCredentialRead(ApiModel):
     secret_reveal_available: bool = False
-    agent_id: UUID | None
     id: UUID
     project_id: UUID | None
     scope_kind: Literal["ACCOUNT", "PROJECT"]

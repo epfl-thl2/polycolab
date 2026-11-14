@@ -18,6 +18,7 @@ from polycolab.projects.worktree_schemas import (
     WorktreeRevision,
     WorktreeSave,
     WorktreeSaved,
+    WorktreeUpdate,
 )
 
 router = APIRouter(prefix="/api/v1/projects/{project_id}/worktrees", tags=["worktrees"])
@@ -37,8 +38,8 @@ def list_worktrees(
     with instance.open():
         instance.ensure_native()
         return [
-            WorktreeRead.model_validate(instance.state(task))
-            for task in instance.store.tasks(project_id, include_removed)
+            WorktreeRead.model_validate(instance.state(worktree))
+            for worktree in instance.store.worktrees(project_id, include_removed)
         ]
 
 
@@ -47,11 +48,11 @@ def create(
     project_id: UUID, body: WorktreeCreate, request: Request, db: DbSession, user: CurrentUser
 ) -> WorktreeRead:
     instance = service(request, db, project_id, user.id).native_service()
-    task = instance.create_worktree(
+    worktree = instance.create_worktree(
         body.client_request_id, body.title, body.branch, body.start_branch
     )
     with instance.open():
-        return WorktreeRead.model_validate(instance.state(task))
+        return WorktreeRead.model_validate(instance.state(worktree))
 
 
 @router.get("/{worktree_id}", response_model=WorktreeRead, operation_id="getWorktree")
@@ -68,8 +69,23 @@ def get(
     with instance.open():
         instance.ensure_native()
         return WorktreeRead.model_validate(
-            instance.state(instance.store.task(project_id, worktree_id))
+            instance.state(instance.store.worktree(project_id, worktree_id))
         )
+
+
+@router.patch("/{worktree_id}", response_model=WorktreeRead, operation_id="updateWorktree")
+def update(
+    project_id: UUID,
+    worktree_id: UUID,
+    body: WorktreeUpdate,
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
+) -> WorktreeRead:
+    instance = service(request, db, project_id, user.id).native_service()
+    worktree = instance.rename_worktree(worktree_id, body.title)
+    with instance.open():
+        return WorktreeRead.model_validate(instance.state(worktree))
 
 
 @router.get("/{worktree_id}/file", response_model=RepositoryFile, operation_id="getWorktreeFile")
@@ -84,8 +100,8 @@ def file(
 ) -> RepositoryFile:
     instance = service(request, db, project_id, user.id).native_service()
     with instance.open():
-        task = instance.store.task(project_id, worktree_id)
-        instance.require_available(task)
+        worktree = instance.store.worktree(project_id, worktree_id)
+        instance.require_available(worktree)
         if not instance.files.contains(worktree_id, revision):
             raise RepositoryError("worktree_revision_not_found", 404)
         return RepositoryFile(
@@ -106,11 +122,11 @@ def diff(
 ) -> str:
     instance = service(request, db, project_id, user.id).native_service()
     with instance.open():
-        task = instance.store.task(project_id, worktree_id)
-        current = instance.require_available(task)
+        worktree = instance.store.worktree(project_id, worktree_id)
+        current = instance.require_available(worktree)
         if revision and revision != current:
             raise RepositoryError("worktree_stale_revision")
-        return instance.git.diff(instance.git.head(task.branch), current)
+        return instance.git.diff(instance.git.head(worktree.branch), current)
 
 
 @router.post("/{worktree_id}/save", response_model=WorktreeSaved, operation_id="saveWorktree")
@@ -192,20 +208,20 @@ def remove(
     user: CurrentUser,
 ) -> WorktreeRead:
     instance = service(request, db, project_id, user.id).native_service()
-    if instance.store.task(project_id, worktree_id).branch == "main":
+    if instance.store.worktree(project_id, worktree_id).branch == "main":
         raise RepositoryError("worktree_main_cannot_remove")
     # Discard has its own receipt; repeated removes are safe and preserve metadata.
     if body.discard_changes:
         instance.change(
             worktree_id, body.expected_revision, key, "discard", {"remove": body.model_dump()}
         )
-    task = instance.lifecycle(
+    worktree = instance.lifecycle(
         worktree_id,
         removed=True,
         expected=body.expected_revision if not body.discard_changes else None,
     )
     with instance.open():
-        return WorktreeRead.model_validate(instance.state(task))
+        return WorktreeRead.model_validate(instance.state(worktree))
 
 
 @router.post("/{worktree_id}/restore", response_model=WorktreeRead, operation_id="restoreWorktree")
@@ -213,6 +229,6 @@ def restore(
     project_id: UUID, worktree_id: UUID, request: Request, db: DbSession, user: CurrentUser
 ) -> WorktreeRead:
     instance = service(request, db, project_id, user.id).native_service()
-    task = instance.lifecycle(worktree_id, removed=False)
+    worktree = instance.lifecycle(worktree_id, removed=False)
     with instance.open():
-        return WorktreeRead.model_validate(instance.state(task))
+        return WorktreeRead.model_validate(instance.state(worktree))

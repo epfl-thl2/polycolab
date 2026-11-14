@@ -10,7 +10,7 @@ from uuid import UUID, uuid4, uuid5
 import structlog
 
 from polycolab.access.authorization import ProjectAction, project_policy
-from polycolab.entities.repositories import ProjectTask, RepositoryError, RepositoryReceipt
+from polycolab.entities.repositories import RepositoryError, RepositoryReceipt, Worktree
 from polycolab.entities.time import utc_now
 from polycolab.projects.git_storage import ZERO, branch_name
 from polycolab.projects.repository_service import RepositoryService
@@ -27,17 +27,17 @@ class WorktreeService(RepositoryService):
         self.authorize(not provision_empty)
         if self.store.project_active(self.project_id):
             raise RepositoryError("worktree_runs_must_be_drained")
-        tasks = self.store.tasks(self.project_id, True)
-        for task in tasks:
-            if self.store.branch_active(self.project_id, task.branch):
+        worktrees = self.store.worktrees(self.project_id, True)
+        for worktree in worktrees:
+            if self.store.branch_active(self.project_id, worktree.branch):
                 raise RepositoryError("worktree_runs_must_be_drained")
         branches = self.git.branches()
-        known = {task.branch for task in tasks}
+        known = {worktree.branch for worktree in worktrees}
         for branch in branches:
             if branch in known:
                 continue
             now = utc_now()
-            task = ProjectTask(
+            worktree = Worktree(
                 UUID(branch[9:])
                 if branch.startswith("sessions/")
                 else uuid5(self.project_id, branch),
@@ -49,12 +49,12 @@ class WorktreeService(RepositoryService):
                 now,
                 None,
             )
-            self.store.create_task(task)
-            tasks.append(task)
+            self.store.create_worktree(worktree)
+            worktrees.append(worktree)
         self.transaction.commit()
-        for task in tasks:
-            if task.archived_at is None:
-                self.files.initialize(task.id, task.branch)
+        for worktree in worktrees:
+            if worktree.removed_at is None:
+                self.files.initialize(worktree.id, worktree.branch)
         self.store.activate_native(self.project_id)
         self.transaction.commit()
 
@@ -67,33 +67,35 @@ class WorktreeService(RepositoryService):
         if access.project.workspace_mode != "git":
             raise RepositoryError("git_archive_unavailable", 404)
         # A fresh repository can be provisioned with its first worktree request.
-        if len(self.git.history(self.git.head("main"), 2)) == 1 and not self.store.tasks(
+        if len(self.git.history(self.git.head("main"), 2)) == 1 and not self.store.worktrees(
             self.project_id, True
         ):
             self.materialize(provision_empty=True)
         else:
             raise RepositoryError("worktree_migration_required")
 
-    def task_for_branch(self, branch: str) -> ProjectTask:
-        for task in self.store.tasks(self.project_id, True):
-            if task.branch == branch:
-                return task
+    def worktree_for_branch(self, branch: str) -> Worktree:
+        for worktree in self.store.worktrees(self.project_id, True):
+            if worktree.branch == branch:
+                return worktree
         raise RepositoryError("worktree_not_found", 404)
 
-    def require_available(self, task: ProjectTask) -> str:
-        if task.archived_at is not None:
+    def require_available(self, worktree: Worktree) -> str:
+        if worktree.removed_at is not None:
             raise RepositoryError("worktree_removed")
-        if not self.files.available(task.id, task.branch):
+        if not self.files.available(worktree.id, worktree.branch):
             raise RepositoryError("worktree_unavailable", 503)
-        revision = self.files.revision(task.id)
-        if self.files.snapshot_head(revision) != self.git.head(task.branch):
+        revision = self.files.revision(worktree.id)
+        if self.files.snapshot_head(revision) != self.git.head(worktree.branch):
             raise RepositoryError("worktree_external_head_change", 409)
         return revision
 
-    def state(self, task: ProjectTask) -> dict[str, object]:
-        available = task.archived_at is None and self.files.available(task.id, task.branch)
-        revision = self.files.revision(task.id) if self.files.exists(task.id) else None
-        head = self.git.head(task.branch)
+    def state(self, worktree: Worktree) -> dict[str, object]:
+        available = worktree.removed_at is None and self.files.available(
+            worktree.id, worktree.branch
+        )
+        revision = self.files.revision(worktree.id) if self.files.exists(worktree.id) else None
+        head = self.git.head(worktree.branch)
         committed = self.git.entries(head)
         saved = self.git.entries(revision) if revision else committed
         changed = [
@@ -109,16 +111,16 @@ class WorktreeService(RepositoryService):
             if saved.get(path) != committed.get(path)
         ]
         return {
-            **{name: getattr(task, name) for name in task.__dataclass_fields__},
+            **{name: getattr(worktree, name) for name in worktree.__dataclass_fields__},
             "head_commit": head,
             "revision": revision,
             "lifecycle": "removed"
-            if task.archived_at
+            if worktree.removed_at
             else "active"
             if available
             else "unavailable",
             "changed_files": changed,
-            "ignored_files": sorted(self.files.ignored_files(task.id) & saved.keys())
+            "ignored_files": sorted(self.files.ignored_files(worktree.id) & saved.keys())
             if available
             else [],
             "files": [
@@ -134,12 +136,12 @@ class WorktreeService(RepositoryService):
             and project_policy.can(
                 self.transaction, self.project_id, self.user_id, ProjectAction.WRITE_FILES
             )
-            and not self.store.branch_active(self.project_id, task.branch),
+            and not self.store.branch_active(self.project_id, worktree.branch),
         }
 
     def mutate_worktree(
         self,
-        task: ProjectTask,
+        worktree: Worktree,
         expected: str,
         key: str,
         payload: object,
@@ -147,12 +149,12 @@ class WorktreeService(RepositoryService):
         authority: Callable[[], None] | None = None,
     ) -> str:
         """Caller holds the repository lock. Prepare returns (tree, branch head)."""
-        authorize = authority or (lambda: self.authorize(True, task.branch))
+        authorize = authority or (lambda: self.authorize(True, worktree.branch))
         authorize()
         self.transaction.commit()
         digest = hashlib.sha256(
             json.dumps(
-                {"worktree_id": str(task.id), "payload": payload},
+                {"worktree_id": str(worktree.id), "payload": payload},
                 sort_keys=True,
                 separators=(",", ":"),
             ).encode()
@@ -162,24 +164,24 @@ class WorktreeService(RepositoryService):
         # across it and then attempt to promote that stale snapshot to a writer.
         self.transaction.commit()
         if receipt:
-            if receipt.digest != digest or receipt.branch != task.branch:
+            if receipt.digest != digest or receipt.branch != worktree.branch:
                 raise RepositoryError("repository_retry_mismatch")
-            if receipt.completed or self.files.contains(task.id, receipt.new_commit):
+            if receipt.completed or self.files.contains(worktree.id, receipt.new_commit):
                 self.store.complete(receipt.id)
                 self.transaction.commit()
                 return receipt.new_commit
         else:
-            if self.require_available(task) != expected:
+            if self.require_available(worktree) != expected:
                 raise RepositoryError("worktree_stale_revision")
             tree, head = prepare()
-            revision = self.files.snapshot(task.id, tree, head, expected)
+            revision = self.files.snapshot(worktree.id, tree, head, expected)
             receipt = RepositoryReceipt(
                 uuid4(),
                 self.project_id,
                 self.user_id,
                 key,
                 digest,
-                task.branch,
+                worktree.branch,
                 expected,
                 revision,
                 False,
@@ -188,16 +190,16 @@ class WorktreeService(RepositoryService):
             self.store.prepare(receipt)
             self.transaction.commit()
         authorize()
-        if self.require_available(task) != receipt.old_commit:
+        if self.require_available(worktree) != receipt.old_commit:
             raise RepositoryError("worktree_stale_revision")
-        self.files.apply(task.id, task.branch, receipt.new_commit)
+        self.files.apply(worktree.id, worktree.branch, receipt.new_commit)
         self.store.complete(receipt.id)
         self.transaction.commit()
         structlog.get_logger().info(
             "worktree_operation_applied",
             operation_id=str(receipt.id),
             project_id=str(self.project_id),
-            worktree_id=str(task.id),
+            worktree_id=str(worktree.id),
         )
         return receipt.new_commit
 
@@ -213,24 +215,24 @@ class WorktreeService(RepositoryService):
     ) -> str:
         with self.open():
             self.ensure_native()
-            task = self.store.task(self.project_id, identifier)
+            worktree = self.store.worktree(self.project_id, identifier)
 
             def prepare() -> tuple[str, str]:
-                head = self.git.head(task.branch)
+                head = self.git.head(worktree.branch)
                 if operation == "save":
                     return self.git.changed_tree(expected, changes or {}), head
                 if operation == "discard":
                     return self.git.git("rev-parse", f"{head}^{{tree}}").decode().strip(), head
                 if not message.strip():
                     raise RepositoryError("worktree_commit_message_required", 422)
-                if self.files.clean(task.id, task.branch):
+                if self.files.clean(worktree.id, worktree.branch):
                     raise RepositoryError("worktree_nothing_to_commit")
                 tree = self.git.git("rev-parse", f"{expected}^{{tree}}").decode().strip()
                 return tree, self.git.commit_tree(tree, [head], message.strip(), str(self.user_id))
 
-            return self.mutate_worktree(task, expected, key, payload, prepare)
+            return self.mutate_worktree(worktree, expected, key, payload, prepare)
 
-    def create_worktree(self, identifier: UUID, title: str, branch: str, start: str) -> ProjectTask:
+    def create_worktree(self, identifier: UUID, title: str, branch: str, start: str) -> Worktree:
         with self.open():
             self.ensure_native()
             self.authorize(True)
@@ -241,25 +243,25 @@ class WorktreeService(RepositoryService):
             if receipt and receipt.digest != digest:
                 raise RepositoryError("worktree_retry_mismatch")
             existing = None
-            for task in self.store.tasks(self.project_id, True):
-                if task.id == identifier:
-                    if (task.title, task.branch, task.created_by_user_id) != (
+            for worktree in self.store.worktrees(self.project_id, True):
+                if worktree.id == identifier:
+                    if (worktree.title, worktree.branch, worktree.created_by_user_id) != (
                         title,
                         branch,
                         self.user_id,
                     ):
                         raise RepositoryError("worktree_retry_mismatch")
-                    existing = task
-                elif task.branch == branch:
+                    existing = worktree
+                elif worktree.branch == branch:
                     raise RepositoryError("worktree_branch_exists")
             if existing is None:
                 if self.git.head(branch, missing=True):
                     raise RepositoryError("worktree_branch_exists")
-                if self.store.task_identifier_taken(identifier):
+                if self.store.worktree_identifier_taken(identifier):
                     raise RepositoryError("worktree_not_found", 404)
                 head = self.git.head(start)
                 now = utc_now()
-                existing = ProjectTask(
+                existing = Worktree(
                     identifier, self.project_id, title, branch, self.user_id, now, now, None
                 )
                 receipt = RepositoryReceipt(
@@ -275,9 +277,9 @@ class WorktreeService(RepositoryService):
                     now,
                 )
                 self.store.prepare(receipt)
-                self.store.create_task(existing)
+                self.store.create_worktree(existing)
                 self.transaction.commit()
-            if existing.archived_at:
+            if existing.removed_at:
                 return existing
             self.authorize(True, branch)
             if not self.git.head(branch, missing=True):
@@ -290,6 +292,21 @@ class WorktreeService(RepositoryService):
             self.transaction.commit()
             return existing
 
+    def rename_worktree(self, identifier: UUID, title: str) -> Worktree:
+        with self.open():
+            self.ensure_native()
+            access = project_policy.require_scope(
+                self.transaction, self.project_id, self.user_id, ProjectAction.WRITE_FILES
+            )
+            if access.project.workspace_mode != "git" or self.transaction.linear.conversion_pending(
+                self.project_id
+            ):
+                raise RepositoryError("git_workspace_read_only")
+            self.store.worktree(self.project_id, identifier, lock=True)
+            updated = self.store.update_worktree(identifier, title, None)
+            self.transaction.commit()
+            return updated
+
     def lifecycle(
         self,
         identifier: UUID,
@@ -298,39 +315,39 @@ class WorktreeService(RepositoryService):
         discard: bool = False,
         title: str | None = None,
         expected: str | None = None,
-    ) -> ProjectTask:
+    ) -> Worktree:
         with self.open():
             self.ensure_native()
-            task = self.store.task(self.project_id, identifier, lock=True)
+            worktree = self.store.worktree(self.project_id, identifier, lock=True)
             self.authorize(True)
-            if self.store.branch_active(self.project_id, task.branch):
-                raise RepositoryError("task_active")
+            if self.store.branch_active(self.project_id, worktree.branch):
+                raise RepositoryError("worktree_active")
             if removed:
                 if (
                     expected
-                    and task.archived_at is None
+                    and worktree.removed_at is None
                     and self.files.revision(identifier) != expected
                 ):
                     raise RepositoryError("worktree_stale_revision")
-                if task.branch == "main":
+                if worktree.branch == "main":
                     raise RepositoryError("worktree_main_cannot_remove")
                 if (
                     self.files.exists(identifier)
-                    and not self.files.clean(identifier, task.branch)
+                    and not self.files.clean(identifier, worktree.branch)
                     and not discard
                 ):
                     raise RepositoryError("worktree_discard_confirmation_required")
                 # SQL tombstone first: a crash can leave a checkout, never expose it as active.
-                updated = self.store.update_task(identifier, title, True)
+                updated = self.store.update_worktree(identifier, title, True)
                 self.transaction.commit()
-                self.files.remove(identifier, task.branch)
+                self.files.remove(identifier, worktree.branch)
             else:
-                if task.archived_at:
-                    self.files.restore(identifier, task.branch)
-                elif not self.files.available(identifier, task.branch):
+                if worktree.removed_at:
+                    self.files.restore(identifier, worktree.branch)
+                elif not self.files.available(identifier, worktree.branch):
                     self.files.apply(
-                        identifier, task.branch, self.files.revision(identifier), create=True
+                        identifier, worktree.branch, self.files.revision(identifier), create=True
                     )
-                updated = self.store.update_task(identifier, title, False)
+                updated = self.store.update_worktree(identifier, title, False)
                 self.transaction.commit()
             return updated

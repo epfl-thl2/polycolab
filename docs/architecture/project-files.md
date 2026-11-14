@@ -73,16 +73,16 @@ Queued or active agent runs block human writes and removal, including on Main.
 
 ## HTTP and compatibility
 
-`/api/v1/projects/{id}/worktrees` provides list, create, and get operations.
+`/api/v1/projects/{id}/worktrees` provides list, create, and get operations. A title-only PATCH renames a worktree without changing its saved revision or lifecycle.
 Worktree-scoped routes provide file reads, diff, save, commit, discard, remove,
 and restore. State includes `head_commit`, independent saved `revision`, lifecycle,
 files, changed files, and current writability. File mutations require the expected
 saved revision and an idempotency key. Stale writes fail without overwriting files.
 
-Conversation requests accept `worktree_id`; `task_id` remains a compatibility
-alias, and conflicting values are rejected. The physical `project_tasks` table
-and legacy metadata routes remain compatible. Existing task IDs and session
-branches are preserved. New conversations without an explicit binding use Main
+Session requests accept only `worktree_id`; obsolete `task_id` fields are rejected.
+The physical table is `worktrees`, with `removed_at` recording removal. The retired
+`/projects/{id}/tasks` routes return 404. Existing working-copy IDs, saved revisions,
+checkout locations, and session branches are preserved. New conversations without an explicit binding use Main
 once the project has been materialized. Legacy history reads remain available;
 the auto-commit `/repository/changes` endpoint rejects migrated repositories with
 `repository_upgrade_required_use_worktrees`.

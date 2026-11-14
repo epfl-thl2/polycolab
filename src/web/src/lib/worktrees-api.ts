@@ -5,10 +5,9 @@ import {
   type AuthenticatedClientOptions,
 } from './authenticated-client';
 
-export type ProjectTask = components['schemas']['ProjectTaskRead'] &
-  Partial<components['schemas']['WorktreeRead']>;
+export type Worktree = components['schemas']['WorktreeRead'];
 
-export function createProjectTasksApi(options: AuthenticatedClientOptions = {}) {
+export function createWorktreesApi(options: AuthenticatedClientOptions = {}) {
   const client = authenticatedClient(options);
   return {
     list: async (project_id: string, _cursor?: string) => {
@@ -21,10 +20,10 @@ export function createProjectTasksApi(options: AuthenticatedClientOptions = {}) 
         nextCursor: response.response.headers.get('X-Next-Cursor') ?? undefined,
       };
     },
-    get: (project_id: string, task_id: string) =>
+    get: (project_id: string, worktree_id: string) =>
       result(
         client.GET('/api/v1/projects/{project_id}/worktrees/{worktree_id}', {
-          params: { path: { project_id, worktree_id: task_id } },
+          params: { path: { project_id, worktree_id } },
         }),
       ),
     create: (
@@ -50,32 +49,34 @@ export function createProjectTasksApi(options: AuthenticatedClientOptions = {}) 
           },
         }),
       ),
-    update: async (
+    update: (project_id: string, worktree_id: string, title: string) =>
+      result(
+        client.PATCH('/api/v1/projects/{project_id}/worktrees/{worktree_id}', {
+          params: { path: { project_id, worktree_id } },
+          body: { title },
+        }),
+      ),
+    restore: (project_id: string, worktree_id: string) =>
+      result(
+        client.POST('/api/v1/projects/{project_id}/worktrees/{worktree_id}/restore', {
+          params: { path: { project_id, worktree_id } },
+        }),
+      ),
+    remove: (
       project_id: string,
-      task_id: string,
-      body: { title?: string; archived?: boolean; discard_changes?: boolean },
-    ) => {
-      const path = { project_id, worktree_id: task_id };
-      if (body.archived === false)
-        return result(
-          client.POST('/api/v1/projects/{project_id}/worktrees/{worktree_id}/restore', {
-            params: { path },
-          }),
-        );
-      const tree = await result(
-        client.GET('/api/v1/projects/{project_id}/worktrees/{worktree_id}', {
-          params: { path },
-        }),
-      );
-      return result(
+      worktree_id: string,
+      expected_revision: string,
+      discard_changes = false,
+      idempotency_key = crypto.randomUUID(),
+    ) =>
+      result(
         client.POST('/api/v1/projects/{project_id}/worktrees/{worktree_id}/remove', {
-          params: { path, header: { 'Idempotency-Key': crypto.randomUUID() } },
-          body: {
-            expected_revision: tree.revision!,
-            discard_changes: body.discard_changes ?? false,
+          params: {
+            path: { project_id, worktree_id },
+            header: { 'Idempotency-Key': idempotency_key },
           },
+          body: { expected_revision, discard_changes },
         }),
-      );
-    },
+      ),
   };
 }

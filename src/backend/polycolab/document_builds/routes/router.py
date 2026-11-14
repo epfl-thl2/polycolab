@@ -88,7 +88,7 @@ def create(
             )
             if previous:
                 return read(builds.get(project_id, worktree_id, previous.id, user.id))
-            task = repo.store.task(project_id, worktree_id)
+            task = repo.store.worktree(project_id, worktree_id)
             if repo.require_available(task) != body.revision:
                 raise BuildError("latex_stale_revision")
             entries = repo.git.entries(body.revision)
@@ -124,7 +124,7 @@ def listing(
     with service(request, db) as builds:
         builds.authorize(project_id, user.id)
         # Worktree identity remains required even when no builds exist.
-        repository_service(request, db, project_id, user.id).store.task(project_id, worktree_id)
+        repository_service(request, db, project_id, user.id).store.worktree(project_id, worktree_id)
         builds.transaction.commit()
         builds.recover()
         available = builds.available()

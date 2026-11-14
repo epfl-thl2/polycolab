@@ -86,7 +86,7 @@ test('shared contributors use their profile and read-only members receive the sa
           });
         if (path.endsWith('/stream'))
           return route.fulfill({ contentType: 'text/event-stream', body: ': heartbeat\n\n' });
-        if (path.endsWith('/gateway/profiles'))
+        if (path.endsWith('/account/provider-profiles'))
           return route.fulfill({
             json: [
               { id: `${name}-profile`, display_name: `${name} provider`, model_id: 'test-model' },
@@ -133,7 +133,10 @@ test('shared contributors use their profile and read-only members receive the sa
       .fill('A second perspective from the contributor.');
     await authorPage.getByRole('button', { name: 'Send message', exact: true }).click();
     await expect(authorPage.getByText('A second perspective from the contributor.')).toBeVisible();
-    expect(submitted).toMatchObject({ type: 'message', gateway_profile_id: 'contributor-profile' });
+    expect(submitted).toMatchObject({
+      type: 'message',
+      provider_profile_id: 'contributor-profile',
+    });
     expect(submitted).not.toHaveProperty('author');
     await authorPage.getByRole('button', { name: 'Stop agent', exact: true }).click();
     await expect.poll(() => run?.status).toBe('CANCELLED');

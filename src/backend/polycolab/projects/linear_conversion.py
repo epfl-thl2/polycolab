@@ -23,7 +23,7 @@ def preview(
     )
     instance = repository_service(settings, db, project_id, user_id).native_service()
     with instance.open():
-        task = instance.store.task(project_id, worktree_id)
+        task = instance.store.worktree(project_id, worktree_id)
         revision = instance.require_available(task)
         return {
             "worktree_id": str(worktree_id),
@@ -74,7 +74,7 @@ def convert(
             )
             if active:
                 raise RepositoryError("linear_conversion_runs_must_drain")
-            task = native.store.task(project_id, worktree_id)
+            task = native.store.worktree(project_id, worktree_id)
             if native.require_available(task) != revision:
                 raise RepositoryError("worktree_stale_revision")
             db.add(

@@ -1,5 +1,6 @@
 """Native Git worktree HTTP contracts."""
 
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
@@ -11,7 +12,6 @@ from polycolab.projects.repository_schemas import (
     RepositoryFileChange,
     RepositoryModel,
 )
-from polycolab.projects.task_schemas import ProjectTaskRead
 
 
 class WorktreeChange(RepositoryModel):
@@ -19,7 +19,15 @@ class WorktreeChange(RepositoryModel):
     status: Literal["added", "modified", "deleted"]
 
 
-class WorktreeRead(ProjectTaskRead):
+class WorktreeRead(RepositoryModel):
+    id: UUID
+    project_id: UUID
+    title: str
+    branch: str
+    created_by_user_id: UUID
+    created_at: datetime
+    updated_at: datetime
+    removed_at: datetime | None
     head_commit: str
     revision: str | None
     lifecycle: Literal["active", "removed", "unavailable"]
@@ -42,6 +50,11 @@ class WorktreeCreate(RepositoryModel):
         if not value.strip():
             raise ValueError("title must not be blank")
         return value.strip()
+
+
+class WorktreeUpdate(RepositoryModel):
+    title: str = Field(min_length=1, max_length=300)
+    _title = field_validator("title")(WorktreeCreate.title_not_blank)
 
 
 class WorktreeRevision(RepositoryModel):

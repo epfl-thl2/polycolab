@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from polycolab.artifacts.storage import ArtifactIntegrity, GarageStorage, garage_storage
 from polycolab.db.models import (
     SqlArtifact,
-    SqlGatewayProfile,
+    SqlProviderProfile,
 )
 from polycolab.db.session import make_engine, make_session_factory
 from polycolab.entities.enums import (
@@ -90,10 +90,10 @@ def verify_credentials(
         try:
             with factory() as session:
                 _read_only(session)
-                query = select(SqlGatewayProfile)
+                query = select(SqlProviderProfile)
                 if cursor is not None:
-                    query = query.where(SqlGatewayProfile.id > cursor)
-                rows = list(session.scalars(query.order_by(SqlGatewayProfile.id).limit(100)))
+                    query = query.where(SqlProviderProfile.id > cursor)
+                rows = list(session.scalars(query.order_by(SqlProviderProfile.id).limit(100)))
             if not rows:
                 return DependencyReport("VERIFIED", checked)
         except Exception:

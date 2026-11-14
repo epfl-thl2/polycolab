@@ -10,7 +10,7 @@ export type MembershipInput =
   | { username: string; user_id?: never; role: Role }
   | { user_id: string; username?: never; role: Role };
 export type Invitation = components['schemas']['InvitationRead'];
-export type GatewayProfile = components['schemas']['GatewayProfileRead'];
+export type ProviderProfile = components['schemas']['ProviderProfileRead'];
 export interface Page<T> {
   total?: number;
   items: T[];
@@ -57,16 +57,16 @@ export interface ProjectsApi {
   listInvitations(projectId: string, cursor?: string): Promise<Page<Invitation>>;
   createInvitation(projectId: string, input: { email: string; role: Role }): Promise<Invitation>;
   revokeInvitation(projectId: string, invitationId: string): Promise<void>;
-  listGatewayProfiles(cursor?: string): Promise<Page<GatewayProfile>>;
-  createGatewayProfile(input: {
+  listProviderProfiles(cursor?: string): Promise<Page<ProviderProfile>>;
+  createProviderProfile(input: {
     display_name: string;
     base_url: string;
     model_id: string;
     api_key: string;
-  }): Promise<GatewayProfile>;
-  rotateGatewayProfile(profileId: string, apiKey: string): Promise<GatewayProfile>;
-  validateGatewayProfile(profileId: string): Promise<GatewayProfile>;
-  deleteGatewayProfile(profileId: string): Promise<void>;
+  }): Promise<ProviderProfile>;
+  rotateProviderProfile(profileId: string, apiKey: string): Promise<ProviderProfile>;
+  validateProviderProfile(profileId: string): Promise<ProviderProfile>;
+  deleteProviderProfile(profileId: string): Promise<void>;
   getPublicProject(projectId: string): Promise<PublicProject>;
   listPublicProjects(
     query?: string,
@@ -218,32 +218,34 @@ export function createProjectsApi(
           params: { path: { project_id: projectId, invitation_id: invitationId } },
         }),
       ),
-    listGatewayProfiles: (cursor) =>
+    listProviderProfiles: (cursor) =>
       unwrapPage(
-        memberClient.GET('/api/v1/gateway/profiles', {
+        memberClient.GET('/api/v1/account/provider-profiles', {
           params: { query: pageQuery(cursor) },
         }),
       ),
-    createGatewayProfile: (body) =>
+    createProviderProfile: (body) =>
       unwrap(
-        memberClient.POST('/api/v1/gateway/profiles', { body: { ...body, wire_api: 'responses' } }),
+        memberClient.POST('/api/v1/account/provider-profiles', {
+          body: { ...body, wire_api: 'responses' },
+        }),
       ),
-    rotateGatewayProfile: (profileId, api_key) =>
+    rotateProviderProfile: (profileId, api_key) =>
       unwrap(
-        memberClient.POST('/api/v1/gateway/profiles/{profile_id}/rotate', {
+        memberClient.POST('/api/v1/account/provider-profiles/{profile_id}/rotate', {
           params: { path: { profile_id: profileId } },
           body: { api_key },
         }),
       ),
-    validateGatewayProfile: (profileId) =>
+    validateProviderProfile: (profileId) =>
       unwrap(
-        memberClient.POST('/api/v1/gateway/profiles/{profile_id}/validate', {
+        memberClient.POST('/api/v1/account/provider-profiles/{profile_id}/validate', {
           params: { path: { profile_id: profileId } },
         }),
       ),
-    deleteGatewayProfile: (profileId) =>
+    deleteProviderProfile: (profileId) =>
       unwrap(
-        memberClient.DELETE('/api/v1/gateway/profiles/{profile_id}', {
+        memberClient.DELETE('/api/v1/account/provider-profiles/{profile_id}', {
           params: { path: { profile_id: profileId } },
         }),
       ),
@@ -259,7 +261,7 @@ export function createProjectsApi(
           params: { query: { limit: 20, q: q || undefined, cursor: cursor || undefined, sort } },
         }),
       ),
-    currentUser: () => unwrap(memberClient.GET('/api/v1/users/me')),
+    currentUser: () => unwrap(memberClient.GET('/api/v1/account')),
     chooseUsername: (username) =>
       unwrap(memberClient.PUT('/api/v1/account/username', { body: { username } })),
   };

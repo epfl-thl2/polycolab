@@ -1,4 +1,4 @@
-"""Envelope encryption and secret-safe gateway profile primitives."""
+"""Envelope encryption and secret-safe provider profile primitives."""
 
 from __future__ import annotations
 
@@ -92,6 +92,8 @@ class EncryptedCredential:
 
 
 def credential_context(*, user_id: UUID, profile_id: UUID) -> bytes:
+    # Persisted envelopes authenticate this historical context; renaming the resource
+    # must not change the bytes used to decrypt or rewrap existing credentials.
     return f"polycolab:gateway-profile:{user_id}:{profile_id}".encode("ascii")
 
 

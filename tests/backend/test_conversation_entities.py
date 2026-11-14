@@ -135,7 +135,7 @@ def test_complete_configuration_is_materialized_without_runtime_state() -> None:
         created_by_user_id=uuid4(),
         project_id=uuid4(),
         configuration=configuration,
-        task_id=worktree,
+        worktree_id=worktree,
         created_at=now,
         updated_at=now,
         status=AgentSessionStatus.ACTIVE,

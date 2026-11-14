@@ -81,7 +81,7 @@ test('contributor can create a session and queue a chat turn', async ({ page }) 
           { id: 'agent-2', agent_kind: 'CRITIC', version: 1, display_name: 'Critic' },
         ]),
       });
-    if (path.endsWith('/gateway/profiles'))
+    if (path.endsWith('/account/provider-profiles'))
       return route.fulfill({
         contentType: 'application/json',
         body: JSON.stringify([

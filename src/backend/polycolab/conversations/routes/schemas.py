@@ -19,7 +19,6 @@ from polycolab.entities.enums import AgentRunStatus, PlatformAgentKind, UsageSou
 
 class SessionCreate(RequestModel):
     worktree_id: UUID | None = None
-    task_id: UUID | None = None
     project_id: UUID
     agent_kind: PlatformAgentKind
     title: str | None = Field(default=None, max_length=300)
@@ -29,9 +28,6 @@ class SessionCreate(RequestModel):
 
     @model_validator(mode="after")
     def custom_configuration(self) -> SessionCreate:
-        if self.task_id and self.worktree_id and self.task_id != self.worktree_id:
-            raise ValueError("task_id and worktree_id must agree")
-        self.task_id = self.worktree_id or self.task_id
         if (self.harness is None) != (self.system_prompt is None):
             raise ValueError("custom sessions require a harness and system prompt")
         if self.system_prompt is not None and not self.system_prompt.strip():
@@ -63,7 +59,7 @@ class SessionMessage(RequestModel):
     type: Literal["message"]
     client_request_id: UUID
     content_md: str = Field(min_length=1, max_length=200_000)
-    gateway_profile_id: UUID
+    provider_profile_id: UUID
     context_artifact_ids: list[UUID] = Field(default_factory=list, max_length=32)
 
     @model_validator(mode="after")
@@ -83,7 +79,7 @@ type SessionEvent = Annotated[SessionMessage | SessionInterrupt, Field(discrimin
 
 class RunResume(RequestModel):
     client_request_id: UUID
-    gateway_profile_id: UUID
+    provider_profile_id: UUID
 
 
 class AgentConfigurationRead(ApiModel):
@@ -98,7 +94,6 @@ class AgentConfigurationRead(ApiModel):
 
 
 class WorkingContextRead(ApiModel):
-    task_id: UUID | None
     worktree_id: UUID | None
 
 

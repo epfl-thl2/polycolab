@@ -570,7 +570,7 @@ def test_new_profile_validation_uses_responses(client: TestClient) -> None:
     app.state.provider_transport = Provider()
     headers = {"Authorization": "Bearer owner"}
     profile = client.post(
-        "/api/v1/gateway/profiles",
+        "/api/v1/account/provider-profiles",
         headers=headers,
         json={
             "display_name": "Responses",
@@ -582,7 +582,7 @@ def test_new_profile_validation_uses_responses(client: TestClient) -> None:
     assert profile.status_code == 201
     assert profile.json()["wire_api"] == "responses"
     result = client.post(
-        f"/api/v1/gateway/profiles/{profile.json()['id']}/validate", headers=headers
+        f"/api/v1/account/provider-profiles/{profile.json()['id']}/validate", headers=headers
     )
     assert result.status_code == 200
     assert len(requests) == 1

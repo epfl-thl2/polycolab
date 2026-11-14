@@ -336,7 +336,7 @@ def create(
         version=payload.agent_version,
         harness=payload.harness,
         system_prompt=payload.system_prompt,
-        task_id=payload.task_id,
+        worktree_id=payload.worktree_id,
     )
     return _read_session(db, require_read(SqlAlchemyTransaction(db), value.id, user.id), user.id)
 
@@ -562,7 +562,7 @@ def _message(
         db,
         session_id=session_id,
         requested_by_user_id=user.id,
-        gateway_profile_id=payload.gateway_profile_id,
+        provider_profile_id=payload.provider_profile_id,
         content_md=payload.content_md,
         context_artifact_ids=payload.context_artifact_ids,
         client_request_id=payload.client_request_id,
@@ -577,7 +577,7 @@ def _message(
         db,
         session_id=value.id,
         requested_by_user_id=user.id,
-        gateway_profile_id=payload.gateway_profile_id,
+        provider_profile_id=payload.provider_profile_id,
         content_md=payload.content_md,
         context_artifact_ids=payload.context_artifact_ids,
         client_request_id=payload.client_request_id,
@@ -640,7 +640,7 @@ def resume(
         db,
         run_id=run_id,
         requested_by_user_id=user.id,
-        gateway_profile_id=payload.gateway_profile_id,
+        provider_profile_id=payload.provider_profile_id,
         client_request_id=payload.client_request_id,
         deadline_at=utc_now()
         + timedelta(seconds=request.app.state.settings.runtime_run_timeout_seconds),

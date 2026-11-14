@@ -10,7 +10,6 @@
   import * as Table from '../lib/components/ui/table';
   import * as Dialog from '../lib/components/ui/dialog';
   import * as DropdownMenu from '../lib/components/ui/dropdown-menu';
-  import * as NativeSelect from '../lib/components/ui/native-select';
   import { Input } from '../lib/components/ui/input';
   import * as Field from '../lib/components/ui/field';
   import { explain, projectContext } from '../svelte-lib/context';
@@ -25,11 +24,6 @@
   let cursor = $state<string>();
   let policy = $state<Awaited<ReturnType<typeof externalAgents.identity>>['agent_key_policy']>();
   let issued = $state<IssuedExternalCredential>();
-  let identities = $state<import('../lib/external-agent-api').AgentIdentity[]>([]);
-  let agentId = $state('');
-  let agentName = $state('');
-  let creatingAgent = $state(false);
-  let identityCursor = $state<string>();
   let name = $state('');
   let busy = $state(false);
   let error = $state('');
@@ -50,9 +44,6 @@
     dialogOpen = false;
     issued = undefined;
     name = '';
-    agentName = '';
-    agentId = '';
-    creatingAgent = false;
     error = '';
     notice = '';
   }
@@ -63,22 +54,7 @@
   function openCreateDialog() {
     error = '';
     notice = '';
-    creatingAgent = identities.length === 0;
-    agentId = identities[0]?.id ?? '';
     dialogOpen = true;
-  }
-  async function loadMoreAgents() {
-    busy = true;
-    error = '';
-    try {
-      const page = await externalAgents.listAgents(identityCursor);
-      identities = [...identities, ...page.items];
-      identityCursor = page.nextCursor;
-    } catch (cause) {
-      error = explain(cause);
-    } finally {
-      busy = false;
-    }
   }
   async function copyMaskedKey(key: ExternalCredential) {
     const current = generation;
@@ -127,13 +103,10 @@
     busy = true;
     loadError = '';
     try {
-      const [page, identity, agents] = await Promise.all([
+      const [page, identity] = await Promise.all([
         externalAgents.listCredentials(more ? cursor : undefined),
         externalAgents.identity(),
-        externalAgents.listAgents(),
       ]);
-      identities = agents.items;
-      identityCursor = agents.nextCursor;
       keys = more ? [...keys, ...page.items] : page.items;
       cursor = page.nextCursor;
       policy = identity.agent_key_policy;
@@ -150,9 +123,7 @@
     error = '';
     notice = '';
     try {
-      const identity = agentId || (await externalAgents.createAgent(agentName.trim())).id;
-      agentId = identity;
-      const result = await externalAgents.createCredential(name.trim(), identity);
+      const result = await externalAgents.createCredential(name.trim());
       if (current !== generation) return;
       issued = result;
       notice = 'API key created.';
@@ -445,7 +416,7 @@
       Send the key in the Authorization header, never in a URL. You can revoke it from the list
       above when it is no longer needed.
     </p>
-    <a href="/docs/api/">API reference</a> · <a href="/agents/connections">Agent profiles</a>
+    <a href="/docs/api/">API reference</a>
   </section>
 </section>
 
@@ -515,60 +486,6 @@
             placeholder="Research assistant"
           /></Field.Label
         >
-        {#if creatingAgent}
-          <Field.Label
-            >Polycolab agent name<Input
-              required
-              maxlength={200}
-              bind:value={agentName}
-              disabled={busy || !!agentId}
-            /></Field.Label
-          >
-          <p class="key-form-hint">
-            Use this name to recognize the agent associated with this key.
-          </p>
-          {#if identities.length}
-            <Button
-              type="button"
-              variant="link"
-              disabled={busy}
-              onclick={() => {
-                creatingAgent = false;
-                agentId = identities[0].id;
-              }}>Use an existing agent</Button
-            >
-          {/if}
-        {:else}
-          <Field.Label
-            >Polycolab agent name<NativeSelect.Root bind:value={agentId} disabled={busy}>
-              {#each identities as identity (identity.id)}<option value={identity.id}
-                  >{identity.name}</option
-                >{/each}
-            </NativeSelect.Root></Field.Label
-          >
-          <div class="agent-selection-actions">
-            <Button
-              type="button"
-              variant="link"
-              disabled={busy}
-              onclick={() => {
-                creatingAgent = true;
-                agentId = '';
-                agentName = '';
-              }}><Plus aria-hidden="true" />Create new agent</Button
-            >
-            {#if identityCursor}<Button
-                variant="outline"
-                type="button"
-                disabled={busy}
-                onclick={loadMoreAgents}>Load more agents</Button
-              >{/if}
-          </div>
-          <p class="key-form-hint">
-            This name identifies the agent using this key. Select the same agent when replacing a
-            key.
-          </p>
-        {/if}
         <div class="key-access-summary">
           <p>
             Each key can access Default project files using your current membership. Owners and
@@ -586,10 +503,7 @@
         <Dialog.Footer
           ><Button type="button" variant="outline" disabled={busy} onclick={finishDialog}
             >Cancel</Button
-          ><Button
-            class="keys-primary"
-            type="submit"
-            disabled={busy || !name.trim() || (!agentId && !agentName.trim())}
+          ><Button class="keys-primary" type="submit" disabled={busy || !name.trim()}
             >{busy ? 'Creating…' : 'Create API key'}</Button
           ></Dialog.Footer
         >
@@ -767,18 +681,6 @@
   }
   :global(.keys-primary:hover) {
     background: color-mix(in srgb, var(--brand-strong) 90%, var(--polycolab-ink));
-  }
-  .key-form-hint {
-    margin: -8px 0 0;
-    font-size: 12px;
-    color: var(--muted-foreground);
-  }
-  .agent-selection-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    margin-top: -8px;
   }
   .key-access-summary {
     padding: 12px;

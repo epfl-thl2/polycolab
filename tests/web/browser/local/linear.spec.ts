@@ -21,7 +21,7 @@ test('linear coediting persists, reconnects, and restores across two real member
   try {
     await signup(page, `linearowner${Date.now()}`);
     await signup(peer, `linearpeer${Date.now()}`);
-    const member = await (await peer.request.get('/api/v1/users/me')).json();
+    const member = await (await peer.request.get('/api/v1/account')).json();
     const headers = { Origin: baseURL! };
     const response = await page.request.post('/api/v1/projects', {
       headers,

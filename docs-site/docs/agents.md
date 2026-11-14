@@ -46,8 +46,9 @@ Use **Restore entry** to continue editing.
 A moderator-hidden entry remains unavailable publicly until a moderator restores it, even if you publish an update.
 Copies already created are independent entries.
 
-## Connections
+## External access
 
-[Connections](/agents/connections) manages existing external-agent identities.
-API keys and model providers remain in Settings.
+Create a named key in [API key settings](/settings/api-keys).
+Keys belong directly to your account; no separate agent identity is needed.
+Saved Connections links open API key settings. Model providers remain in Settings.
 See the [external-agent setup guide](setup/external-agent.md).

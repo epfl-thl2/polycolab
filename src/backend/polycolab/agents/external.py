@@ -11,7 +11,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from polycolab.access.authorization import (
-    AuthorizationDenied,
     ProjectNotFound,
 )
 from polycolab.agents.credentials import (
@@ -74,27 +73,14 @@ def issue_credential(
     ttl_seconds: int,
     max_requests: int,
     max_mutations: int,
-    agent_id: UUID | None = None,
     wrapper: KeyWrapper | None = None,
 ) -> IssuedCredential:
-    from polycolab.db.models import SqlExternalAgentIdentity
-
-    if agent_id is None:
-        identity = SqlExternalAgentIdentity(sponsor_user_id=sponsor.id, name=name)
-        session.add(identity)
-        session.flush()
-        agent_id = identity.id
-    else:
-        existing_identity = session.get(SqlExternalAgentIdentity, agent_id)
-        if existing_identity is None or existing_identity.sponsor_user_id != sponsor.id:
-            raise AuthorizationDenied("agent identity is not owned by this account")
     credential_id = uuid4()
     secret = f"pca_{credential_id.hex}_{secrets.token_urlsafe(32)}"
     credential = SqlExternalAgentCredential(
         id=credential_id,
         project_id=None,
         scope_kind="ACCOUNT",
-        agent_id=agent_id,
         sponsor_user_id=sponsor.id,
         name=name,
         token_digest=_digest(secret),

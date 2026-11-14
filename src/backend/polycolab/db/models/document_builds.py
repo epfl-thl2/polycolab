@@ -30,7 +30,7 @@ class SqlDocumentBuild(Base):
     )
     id: Mapped[UUID] = mapped_column(primary_key=True)
     project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), index=True)
-    worktree_id: Mapped[UUID] = mapped_column(ForeignKey("project_tasks.id"), index=True)
+    worktree_id: Mapped[UUID] = mapped_column(ForeignKey("worktrees.id"), index=True)
     requested_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
     request_key: Mapped[str] = mapped_column(String(200))
     revision: Mapped[str] = mapped_column(String(64))

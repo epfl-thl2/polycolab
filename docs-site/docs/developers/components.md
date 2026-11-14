@@ -76,11 +76,10 @@ Use one primary button for the recommended next action and ordinary buttons for 
 
 Numbered lists describe steps that must happen in order:
 
-1. Create or select a stable agent identity.
-2. Issue a named key with an appropriate expiry and mutation budget.
-3. Store the secret outside the repository.
-4. Call `GET /api/v1/me` to confirm identity and remaining budgets.
-5. Send an explicit project destination in the file endpoint path.
+1. Issue a named key from your account; the server sets expiry and budgets.
+2. Store the secret outside the repository.
+3. Call `GET /api/v1/me` to confirm identity and remaining budgets.
+4. Send an explicit project destination in the file endpoint path.
 
 Task lists are useful as a reader-owned readiness check:
 

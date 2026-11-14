@@ -25,7 +25,7 @@ from polycolab.db.models import (
     SqlExecutionWorkItem,
     SqlMembership,
     SqlProject,
-    SqlProjectTask,
+    SqlWorktree,
 )
 from polycolab.db.models.agents import (
     SqlAgentRun,
@@ -245,8 +245,8 @@ class SqlConversationStore:
                 item = self._session.get(SqlConversationItem, hierarchy.spawning_item_id)
                 if item is None or item.session_id != parent.id:
                     raise ValueError("spawning item must belong to the parent")
-        if value.working_context.task_id is not None:
-            task = self._session.get(SqlProjectTask, value.working_context.task_id)
+        if value.working_context.worktree_id is not None:
+            task = self._session.get(SqlWorktree, value.working_context.worktree_id)
             if task is None or task.project_id != value.project_id:
                 raise ValueError("worktree must belong to the conversation project")
         config = value.configuration
@@ -269,7 +269,7 @@ class SqlConversationStore:
             spawning_run_id=hierarchy.spawning_run_id,
             spawning_item_id=hierarchy.spawning_item_id,
             delegated_task=hierarchy.delegated_task,
-            task_id=value.working_context.task_id,
+            worktree_id=value.working_context.worktree_id,
             created_at=value.created_at,
             updated_at=value.updated_at,
             archived_at=value.archived_at,

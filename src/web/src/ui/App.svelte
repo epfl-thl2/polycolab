@@ -13,7 +13,7 @@
   import { createExternalAgentApi } from '../lib/external-agent-api';
   import { createDocumentBuildsApi } from '../lib/document-builds-api';
   import { createRepositoryApi } from '../lib/repository-api';
-  import { createProjectTasksApi } from '../lib/project-tasks-api';
+  import { createWorktreesApi } from '../lib/worktrees-api';
   import { createArtifactApi } from '../lib/artifact-api';
   import LoadingState from './LoadingState.svelte';
   import SignIn from './SignIn.svelte';
@@ -49,7 +49,7 @@
     externalAgents: createExternalAgentApi(options),
     artifacts: createArtifactApi(options),
     repository: createRepositoryApi(options),
-    tasks: createProjectTasksApi(options),
+    worktrees: createWorktreesApi(options),
     documentBuilds: createDocumentBuildsApi(options),
   });
   onMount(() => {

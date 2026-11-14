@@ -41,9 +41,9 @@ from polycolab.db.models import (
     SqlAgentRun,
     SqlAgentRunEvent,
     SqlConversationItem,
-    SqlGatewayProfile,
     SqlMembership,
     SqlProject,
+    SqlProviderProfile,
     SqlUser,
 )
 from polycolab.entities.enums import (
@@ -59,7 +59,7 @@ from polycolab.entities.enums import (
 
 def _domain_setup(
     client: TestClient,
-) -> tuple[Any, SqlUser, SqlProject, SqlGatewayProfile]:
+) -> tuple[Any, SqlUser, SqlProject, SqlProviderProfile]:
     app = cast(Any, client.app)
     session = app.state.session_factory()
     user = SqlUser(issuer="https://issuer.example", subject="worker-owner", email="owner@test")
@@ -73,7 +73,7 @@ def _domain_setup(
     session.add(project)
     session.commit()
     session.add(SqlMembership(project_id=project.id, user_id=user.id, role=ProjectRole.OWNER))
-    profile = SqlGatewayProfile(
+    profile = SqlProviderProfile(
         user_id=user.id,
         display_name="Test profile",
         base_url="https://models.example/v1",
@@ -88,7 +88,7 @@ def _domain_setup(
     return session, user, project, profile
 
 
-def _new_run(client: TestClient) -> tuple[Any, SqlUser, SqlGatewayProfile, UUID]:
+def _new_run(client: TestClient) -> tuple[Any, SqlUser, SqlProviderProfile, UUID]:
     session, user, project, profile = _domain_setup(client)
     agent_session = create_agent_session(
         session,
@@ -100,7 +100,7 @@ def _new_run(client: TestClient) -> tuple[Any, SqlUser, SqlGatewayProfile, UUID]
         session,
         session_id=agent_session.id,
         requested_by_user_id=user.id,
-        gateway_profile_id=profile.id,
+        provider_profile_id=profile.id,
         content_md="Explore the claim",
     )
     return session, user, profile, run.id
@@ -141,7 +141,7 @@ def test_custom_session_keeps_its_prompt_and_uses_it_for_model_input(
             session,
             session_id=created.id,
             requested_by_user_id=user.id,
-            gateway_profile_id=profile.id,
+            provider_profile_id=profile.id,
             content_md="Explore this statement.",
         )
         assert created.harness == "codex"
@@ -183,14 +183,14 @@ def test_message_and_run_are_ordered_atomically_and_profile_is_snapshotted(
             session,
             session_id=agent_session.id,
             requested_by_user_id=user.id,
-            gateway_profile_id=profile.id,
+            provider_profile_id=profile.id,
             content_md="Check the first proof.",
         )
         message_two, run_two = append_user_message_and_queue_run(
             session,
             session_id=agent_session.id,
             requested_by_user_id=user.id,
-            gateway_profile_id=profile.id,
+            provider_profile_id=profile.id,
             content_md="Now find a counterexample.",
         )
         assert (message_one.sequence, message_two.sequence) == (1, 2)
@@ -270,7 +270,7 @@ def test_private_session_is_concealed_from_other_run_requesters(
                 role=ProjectRole.CONTRIBUTOR,
             )
         )
-        profile = SqlGatewayProfile(
+        profile = SqlProviderProfile(
             user_id=contributor.id,
             display_name="contributor profile",
             base_url="https://models.example/v1",
@@ -293,7 +293,7 @@ def test_private_session_is_concealed_from_other_run_requesters(
                 session,
                 session_id=private_session.id,
                 requested_by_user_id=contributor.id,
-                gateway_profile_id=profile.id,
+                provider_profile_id=profile.id,
                 content_md="Attempt to cross the private session boundary.",
             )
     finally:
@@ -423,7 +423,7 @@ def test_cancel_resume_and_runtime_bindings_preserve_history(
             session,
             run_id=run_id,
             requested_by_user_id=user.id,
-            gateway_profile_id=profile.id,
+            provider_profile_id=profile.id,
         )
         assert successor.parent_run_id == run_id
         assert successor.status is AgentRunStatus.QUEUED

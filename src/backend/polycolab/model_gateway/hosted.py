@@ -21,8 +21,8 @@ from polycolab.conversations.service import can_execute
 from polycolab.db.models import (
     SqlAgentRun,
     SqlAgentRunUsage,
-    SqlGatewayProfile,
     SqlHostedModelRequest,
+    SqlProviderProfile,
 )
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.enums import AgentRunEventKind, AgentRunStatus, UsageSource
@@ -198,7 +198,7 @@ def prepare(
         )
         if count >= spec.max_model_requests:
             raise ProviderFailure("model_request_limit_exceeded")
-        profile = session.get(SqlGatewayProfile, run.gateway_profile_id)
+        profile = session.get(SqlProviderProfile, run.provider_profile_id)
         if (
             profile is None
             or profile.deleted_at is not None
@@ -206,7 +206,7 @@ def prepare(
             or profile.credential_version != run.gateway_credential_version
             or profile.model_id != run.gateway_model_id
         ):
-            raise ProviderFailure("gateway_profile_changed")
+            raise ProviderFailure("provider_profile_changed")
         if profile.wire_api != "responses":
             raise ProviderFailure("provider_protocol_incompatible")
         assert run.deadline_at is not None
@@ -238,7 +238,7 @@ def authorize_delivery(request: Request, run_id: UUID, worker_id: str, generatio
     with request.app.state.session_factory() as session:
         run = session.get(SqlAgentRun, run_id)
         _require_live_lease(run, worker_id=worker_id, lease_generation=generation, now=utc_now())
-        profile = session.get(SqlGatewayProfile, run.gateway_profile_id)
+        profile = session.get(SqlProviderProfile, run.provider_profile_id)
         if (
             run.status != AgentRunStatus.RUNNING
             or profile is None

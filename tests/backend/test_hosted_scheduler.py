@@ -69,7 +69,7 @@ def new_hosted(
             db,
             session_id=parent.id,
             requested_by_user_id=previous.requested_by_user_id,
-            gateway_profile_id=previous.gateway_profile_id,
+            provider_profile_id=previous.provider_profile_id,
             content_md="Hosted execution",
             deadline_at=utc_now() + timedelta(minutes=5),
             runtime_spec=(runtime_spec or spec()).model_dump(mode="json"),
@@ -251,7 +251,7 @@ def test_merge_upgrade_preserves_existing_branch_data(
         assert retained is not None and retained.subject == "retained-account"
     from alembic.script import ScriptDirectory
 
-    assert ScriptDirectory.from_config(config).get_heads() == ["20261103_session_workspace"]
+    assert ScriptDirectory.from_config(config).get_heads() == ["20261104_provider_profiles"]
 
 
 def test_claim_requires_frozen_backend_version_and_image(

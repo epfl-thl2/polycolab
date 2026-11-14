@@ -27,14 +27,14 @@ from polycolab.db.models import (
     SqlConversation,
     SqlConversationConfiguration,
     SqlConversationItem,
-    SqlGatewayProfile,
     SqlPlatformAgentVersion,
+    SqlProviderProfile,
     SqlRuntimeRunBinding,
     SqlRuntimeSessionBinding,
     SqlRunToolCapability,
 )
-from polycolab.db.models.project_tasks import SqlProjectTask
 from polycolab.db.models.projects import SqlProject
+from polycolab.db.models.worktrees import SqlWorktree
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.conversation import Conversation, ConversationStatus
 from polycolab.entities.enums import (
@@ -211,7 +211,7 @@ def create_agent_session(
     version: int = 1,
     harness: Literal["codex"] | None = None,
     system_prompt: str | None = None,
-    task_id: UUID | None = None,
+    worktree_id: UUID | None = None,
 ) -> SqlConversation:
     """Create a private project session pinned to an eligible agent definition."""
 
@@ -221,25 +221,25 @@ def create_agent_session(
     )
     project = session.get(SqlProject, project_id)
     if project is not None and project.workspace_mode in {"linear", "default"}:
-        task_id = None
-    elif task_id is None:
-        task_id = session.scalar(
-            select(SqlProjectTask.id).where(
-                SqlProjectTask.project_id == project_id, SqlProjectTask.branch == "main"
+        worktree_id = None
+    elif worktree_id is None:
+        worktree_id = session.scalar(
+            select(SqlWorktree.id).where(
+                SqlWorktree.project_id == project_id, SqlWorktree.branch == "main"
             )
         )
-    if task_id is not None:
+    if worktree_id is not None:
         task = session.scalar(
-            select(SqlProjectTask)
-            .where(SqlProjectTask.id == task_id, SqlProjectTask.project_id == project_id)
+            select(SqlWorktree)
+            .where(SqlWorktree.id == worktree_id, SqlWorktree.project_id == project_id)
             .with_for_update()
         )
         if task is None:
-            raise RepositoryError("project_task_not_found", 404)
-        if task.archived_at is not None:
-            raise RepositoryError("task_archived")
+            raise RepositoryError("worktree_not_found", 404)
+        if task.removed_at is not None:
+            raise RepositoryError("worktree_removed")
     result = SqlConversation(
-        task_id=task_id,
+        worktree_id=worktree_id,
         project_id=project_id,
         configuration=SqlConversationConfiguration(
             agent_version_id=agent_version.id,
@@ -259,13 +259,13 @@ def create_agent_session(
 
 
 def _locked_session(session: Session, session_id: UUID) -> SqlConversation:
-    task_id = session.scalar(
-        select(SqlConversation.task_id).where(SqlConversation.id == session_id)
+    worktree_id = session.scalar(
+        select(SqlConversation.worktree_id).where(SqlConversation.id == session_id)
     )
-    if task_id is not None:
+    if worktree_id is not None:
         session.scalar(
-            select(SqlProjectTask)
-            .where(SqlProjectTask.id == task_id)
+            select(SqlWorktree)
+            .where(SqlWorktree.id == worktree_id)
             .with_for_update()
             .execution_options(populate_existing=True)
         )
@@ -280,13 +280,13 @@ def _locked_session(session: Session, session_id: UUID) -> SqlConversation:
     return result
 
 
-def _active_profile(session: Session, *, profile_id: UUID, user_id: UUID) -> SqlGatewayProfile:
+def _active_profile(session: Session, *, profile_id: UUID, user_id: UUID) -> SqlProviderProfile:
     profile = session.scalar(
-        select(SqlGatewayProfile)
+        select(SqlProviderProfile)
         .where(
-            SqlGatewayProfile.id == profile_id,
-            SqlGatewayProfile.user_id == user_id,
-            SqlGatewayProfile.deleted_at.is_(None),
+            SqlProviderProfile.id == profile_id,
+            SqlProviderProfile.user_id == user_id,
+            SqlProviderProfile.deleted_at.is_(None),
         )
         .with_for_update()
     )
@@ -300,7 +300,7 @@ def accepted_user_message(
     *,
     session_id: UUID,
     requested_by_user_id: UUID,
-    gateway_profile_id: UUID,
+    provider_profile_id: UUID,
     content_md: str,
     context_artifact_ids: list[UUID] | None,
     client_request_id: UUID,
@@ -317,7 +317,7 @@ def accepted_user_message(
         if (
             existing_message is None
             or existing_run.requested_by_user_id != requested_by_user_id
-            or existing_run.gateway_profile_id != gateway_profile_id
+            or existing_run.provider_profile_id != provider_profile_id
             or existing_message.content_md != content_md
             or existing_run.requested_context_artifact_ids
             != [str(value) for value in context_artifact_ids or []]
@@ -333,7 +333,7 @@ def append_user_message_and_queue_run(
     *,
     session_id: UUID,
     requested_by_user_id: UUID,
-    gateway_profile_id: UUID,
+    provider_profile_id: UUID,
     content_md: str,
     context_artifact_ids: list[UUID] | None = None,
     client_request_id: UUID | None = None,
@@ -366,18 +366,18 @@ def append_user_message_and_queue_run(
         raise RepositoryError("linear_conversion_in_progress")
     if parent.status is not AgentSessionStatus.ACTIVE:
         raise SessionStateError("session is archived")
-    if parent.task_id is not None and (
+    if parent.worktree_id is not None and (
         linear_project is None or linear_project.workspace_mode not in {"linear", "default"}
     ):
-        task = session.get(SqlProjectTask, parent.task_id)
-        if task is None or task.archived_at is not None:
-            raise RepositoryError("task_archived")
+        task = session.get(SqlWorktree, parent.worktree_id)
+        if task is None or task.removed_at is not None:
+            raise RepositoryError("worktree_removed")
     request_id = client_request_id or uuid4()
     accepted = accepted_user_message(
         session,
         session_id=parent.id,
         requested_by_user_id=requested_by_user_id,
-        gateway_profile_id=gateway_profile_id,
+        provider_profile_id=provider_profile_id,
         content_md=content_md,
         context_artifact_ids=context_artifact_ids,
         client_request_id=request_id,
@@ -393,7 +393,7 @@ def append_user_message_and_queue_run(
             limits=execution_limits,
             now=_utc(now or utc_now()),
         )
-    profile = _active_profile(session, profile_id=gateway_profile_id, user_id=requested_by_user_id)
+    profile = _active_profile(session, profile_id=provider_profile_id, user_id=requested_by_user_id)
     if runtime_spec is not None and profile.wire_api != "responses":
         raise SessionStateError("provider_protocol_incompatible")
     run_id = uuid4()
@@ -417,7 +417,7 @@ def append_user_message_and_queue_run(
         requested_by_user_id=requested_by_user_id,
         request_message_id=message.id,
         client_request_id=request_id,
-        gateway_profile_id=profile.id,
+        provider_profile_id=profile.id,
         gateway_credential_version=profile.credential_version,
         gateway_model_id=profile.model_id,
         runtime_spec=runtime_spec,
@@ -674,14 +674,14 @@ def claim_next_run_in_transaction(
                     earlier.queue_sequence < SqlAgentRun.queue_sequence,
                 ),
                 and_(
-                    SqlConversation.task_id.is_not(None),
+                    SqlConversation.worktree_id.is_not(None),
                     ~exists(
                         select(SqlProject.id).where(
                             SqlProject.id == SqlAgentRun.project_id,
                             SqlProject.workspace_mode.in_(["linear", "default"]),
                         )
                     ),
-                    earlier_session.task_id == SqlConversation.task_id,
+                    earlier_session.worktree_id == SqlConversation.worktree_id,
                     earlier.id != SqlAgentRun.id,
                     or_(
                         earlier.status.in_(
@@ -713,7 +713,7 @@ def claim_next_run_in_transaction(
             SqlAgentRun.status == AgentRunStatus.QUEUED,
             SqlConversation.status == AgentSessionStatus.ACTIVE,
             or_(
-                SqlConversation.task_id.is_(None),
+                SqlConversation.worktree_id.is_(None),
                 exists(
                     select(SqlProject.id).where(
                         SqlProject.id == SqlAgentRun.project_id,
@@ -721,9 +721,9 @@ def claim_next_run_in_transaction(
                     )
                 ),
                 exists(
-                    select(SqlProjectTask.id).where(
-                        SqlProjectTask.id == SqlConversation.task_id,
-                        SqlProjectTask.archived_at.is_(None),
+                    select(SqlWorktree.id).where(
+                        SqlWorktree.id == SqlConversation.worktree_id,
+                        SqlWorktree.removed_at.is_(None),
                     )
                 ),
             ),
@@ -1241,7 +1241,7 @@ def resume_run(
     *,
     run_id: UUID,
     requested_by_user_id: UUID,
-    gateway_profile_id: UUID,
+    provider_profile_id: UUID,
     client_request_id: UUID | None = None,
     deadline_at: datetime | None = None,
     execution_limits: ExecutionLimits | None = None,
@@ -1270,12 +1270,12 @@ def resume_run(
         raise RepositoryError("linear_conversion_in_progress")
     if parent.status is not AgentSessionStatus.ACTIVE:
         raise SessionStateError("session is archived")
-    if parent.task_id is not None and (
+    if parent.worktree_id is not None and (
         linear_project is None or linear_project.workspace_mode not in {"linear", "default"}
     ):
-        task = session.get(SqlProjectTask, parent.task_id)
-        if task is None or task.archived_at is not None:
-            raise RepositoryError("task_archived")
+        task = session.get(SqlWorktree, parent.worktree_id)
+        if task is None or task.removed_at is not None:
+            raise RepositoryError("worktree_removed")
     if previous.requested_by_user_id != requested_by_user_id:
         raise SessionStateError("only the run sender may resume its private context and authority")
     request_id = client_request_id or uuid4()
@@ -1289,7 +1289,7 @@ def resume_run(
         if (
             existing.parent_run_id != previous.id
             or existing.requested_by_user_id != requested_by_user_id
-            or existing.gateway_profile_id != gateway_profile_id
+            or existing.provider_profile_id != provider_profile_id
         ):
             session.rollback()
             raise SessionStateError("idempotency key reused with different resume")
@@ -1303,7 +1303,7 @@ def resume_run(
             limits=execution_limits,
             now=_utc(now or utc_now()),
         )
-    profile = _active_profile(session, profile_id=gateway_profile_id, user_id=requested_by_user_id)
+    profile = _active_profile(session, profile_id=provider_profile_id, user_id=requested_by_user_id)
     if runtime_spec is not None and profile.wire_api != "responses":
         raise SessionStateError("provider_protocol_incompatible")
     parent.next_run_sequence += 1
@@ -1314,7 +1314,7 @@ def resume_run(
         requested_by_user_id=requested_by_user_id,
         parent_run_id=previous.id,
         client_request_id=request_id,
-        gateway_profile_id=profile.id,
+        provider_profile_id=profile.id,
         gateway_credential_version=profile.credential_version,
         gateway_model_id=profile.model_id,
         runtime_spec=runtime_spec,

@@ -11,7 +11,7 @@ from pydantic import Field, SecretStr
 from polycolab.app.schemas import ApiModel, RequestModel
 
 
-class GatewayProfileCreate(RequestModel):
+class ProviderProfileCreate(RequestModel):
     display_name: str = Field(min_length=1, max_length=200)
     base_url: str = Field(min_length=8, max_length=2048)
     model_id: str = Field(min_length=1, max_length=500)
@@ -19,11 +19,11 @@ class GatewayProfileCreate(RequestModel):
     wire_api: Literal["responses", "chat_completions"] = "responses"
 
 
-class GatewayProfileRotate(RequestModel):
+class ProviderProfileRotate(RequestModel):
     api_key: SecretStr = Field(min_length=1, max_length=20_000)
 
 
-class GatewayProfileRead(ApiModel):
+class ProviderProfileRead(ApiModel):
     api_key_preview: str | None = None
     id: UUID
     display_name: str
@@ -36,7 +36,7 @@ class GatewayProfileRead(ApiModel):
 
 
 __all__ = [
-    "GatewayProfileCreate",
-    "GatewayProfileRotate",
-    "GatewayProfileRead",
+    "ProviderProfileCreate",
+    "ProviderProfileRotate",
+    "ProviderProfileRead",
 ]

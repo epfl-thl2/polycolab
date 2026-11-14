@@ -51,10 +51,10 @@ HTTP(S) source URLs prohibit embedded credentials and control characters and are
 ## Browser
 
 Agents appears in desktop and mobile navigation at `/agents`.
-Library, Yours and Connections share a shell; public entry and exact-version pages are under `/agents/library`.
+Library and Yours share a shell; public entry and exact-version pages are under `/agents/library`.
 The editor under `/agents/yours/{id}/edit` retains inputs on failures, guards unsaved navigation and requires a publication preview.
 Public copying creates an independently editable private draft with exact source attribution.
-The existing external-agent identity page is now `/agents/connections`.
+Saved `/agents/connections` bookmarks redirect to `/settings/api-keys`; external identity creation and selection have been removed.
 Keys and model providers retain their Settings routes.
 Operator moderation remains available through the agent-library API with current-revision checks.
 

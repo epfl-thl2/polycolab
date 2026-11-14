@@ -86,12 +86,7 @@ class AgentConfiguration:
 
 @dataclass(frozen=True)
 class WorkingContext:
-    task_id: UUID | None = None
     worktree_id: UUID | None = None
-
-    def __post_init__(self) -> None:
-        if self.task_id and self.worktree_id and self.task_id != self.worktree_id:
-            raise ValueError("task and worktree references must agree")
 
 
 @dataclass(frozen=True)

@@ -10,16 +10,10 @@ from polycolab.model_gateway.credentials import LocalAesGcmKeyWrapper
 
 
 def create_key(client: TestClient) -> dict[str, Any]:
-    agent = client.post(
-        "/api/v1/account/agents",
-        headers={"Authorization": "Bearer owner"},
-        json={"name": "Research helper"},
-    )
-    assert agent.status_code == 201
     response = client.post(
         "/api/v1/account/agent-keys",
         headers={"Authorization": "Bearer owner"},
-        json={"name": "Research helper", "agent_id": agent.json()["id"]},
+        json={"name": "Research helper"},
     )
     assert response.status_code == 201, response.text
     return cast(dict[str, Any], response.json())

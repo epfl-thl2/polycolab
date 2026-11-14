@@ -104,7 +104,7 @@ class SqlLinearConversion(Base):
     __tablename__ = "linear_conversions"
     project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), primary_key=True)
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
-    source_worktree_id: Mapped[UUID] = mapped_column(ForeignKey("project_tasks.id"))
+    source_worktree_id: Mapped[UUID] = mapped_column(ForeignKey("worktrees.id"))
     source_revision: Mapped[str] = mapped_column(String(40))
     request_key: Mapped[str] = mapped_column(String(200))
     completed: Mapped[bool] = mapped_column(Boolean, default=False)

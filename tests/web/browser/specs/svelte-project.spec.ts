@@ -92,14 +92,7 @@ async function mock(
           hosted_agents: false,
         },
       });
-    if (path === '/api/v1/account/agents')
-      return route.fulfill({
-        json:
-          request.method() === 'POST'
-            ? { id: 'agent-1', name: 'Agent', sponsor_user_id: 'author-1' }
-            : { items: [], next_cursor: null },
-      });
-    if (path === '/api/v1/users/me')
+    if (path === '/api/v1/account')
       return route.fulfill({
         json: { id: 'author-1', username: 'ada', display_name: 'Ada', email: null },
       });
@@ -141,11 +134,7 @@ async function mock(
       return route.fulfill({ status: 204, body: '' });
     if (path === `/api/v1/projects/${projectId}`)
       return route.fulfill({ json: { ...project, current_user_role: role } });
-    if (
-      path === `/api/v1/projects/${projectId}/tasks` ||
-      path === `/api/v1/projects/${projectId}/worktrees`
-    )
-      return route.fulfill({ json: [] });
+    if (path === `/api/v1/projects/${projectId}/worktrees`) return route.fulfill({ json: [] });
     if (path === '/api/v1/projects')
       return route.fulfill({
         json:
@@ -155,7 +144,7 @@ async function mock(
       });
     if (path.endsWith('/members') || path.endsWith('/invitations'))
       return route.fulfill({ json: [] });
-    if (path.endsWith('/gateway/profiles'))
+    if (path.endsWith('/account/provider-profiles'))
       return route.fulfill({
         json: [
           {
@@ -771,7 +760,7 @@ test('OIDC code flow returns to the exact project and supplies its access token'
   let nonce = '';
   const projectAuthorizations: (string | undefined)[] = [];
   let selectedUsername: string | null = null;
-  await page.route('**/api/v1/users/me', (route) =>
+  await page.route('**/api/v1/account', (route) =>
     route.fulfill({
       json: {
         id: 'oidc-internal-user',
@@ -902,6 +891,7 @@ test('creates, repeatedly reveals, and revokes account-wide agent API keys', asy
     if (route.request().url().endsWith('/reveal')) {
       return route.fulfill({ json: { secret: 'recoverable-secret' } });
     }
+    if (method === 'POST') expect(route.request().postDataJSON()).toEqual({ name: 'Lean helper' });
     if (method === 'POST' && failCreate)
       return route.fulfill({ status: 503, json: { error: { code: 'credential_unavailable' } } });
     if (method === 'POST') {
@@ -918,7 +908,7 @@ test('creates, repeatedly reveals, and revokes account-wide agent API keys', asy
   await page.goto('/settings/api-keys');
   await expect(page.getByRole('table', { name: 'Your API keys' })).toBeVisible();
   await page.getByRole('button', { name: 'New API key' }).click();
-  await page.getByLabel('Polycolab agent name').fill('Lean researcher');
+  await expect(page.getByLabel('Polycolab agent name')).toHaveCount(0);
   await page.getByLabel('Key name').fill('Lean helper');
   const keyInputBounds = await page.getByLabel('Key name').boundingBox();
   await page.getByRole('button', { name: 'Create API key' }).click();
@@ -1786,7 +1776,7 @@ test('provider keys remain write-only across create, validation, rotation, failu
   let profiles = [original];
   let failCreate = false;
   const writes: Array<{ path: string; body?: Record<string, string> }> = [];
-  await page.route('**/api/v1/gateway/profiles**', async (route) => {
+  await page.route('**/api/v1/account/provider-profiles**', async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
     if (new URL(route.request().url()).pathname === '/api/v1/config')
@@ -1799,12 +1789,12 @@ test('provider keys remain write-only across create, validation, rotation, failu
     if (request.method() === 'GET') return route.fulfill({ json: profiles });
     const body = request.postData() ? (request.postDataJSON() as Record<string, string>) : null;
     writes.push({ path, body: body ?? undefined });
-    if (path === '/api/v1/gateway/profiles' && failCreate)
+    if (path === '/api/v1/account/provider-profiles' && failCreate)
       return route.fulfill({
         status: 503,
         json: { error: { code: 'credential_unavailable' } },
       });
-    if (path === '/api/v1/gateway/profiles' && request.method() === 'POST') {
+    if (path === '/api/v1/account/provider-profiles' && request.method() === 'POST') {
       const created = {
         api_key_preview: 'cre••••cret',
         id: 'profile-2',
@@ -1906,14 +1896,14 @@ test('provider keys remain write-only across create, validation, rotation, failu
   expect(writes).toEqual(
     expect.arrayContaining([
       {
-        path: '/api/v1/gateway/profiles',
+        path: '/api/v1/account/provider-profiles',
         body: expect.objectContaining({ api_key: 'create-secret' }),
       },
       {
-        path: '/api/v1/gateway/profiles/profile-2/rotate',
+        path: '/api/v1/account/provider-profiles/profile-2/rotate',
         body: { api_key: 'rotation-secret' },
       },
-      { path: '/api/v1/gateway/profiles/profile-2', body: undefined },
+      { path: '/api/v1/account/provider-profiles/profile-2', body: undefined },
     ]),
   );
 });
@@ -2429,7 +2419,7 @@ test('project Agent connect provides scoped instructions and a collapsed navigat
   const keyDialog = page.getByRole('dialog', { name: 'Create API key' });
   await expect(keyDialog).toBeVisible();
   await expect(keyDialog).toContainText('Default project files using your current membership');
-  await keyDialog.getByLabel('Polycolab agent name').fill('Lean researcher');
+  await expect(keyDialog.getByLabel('Polycolab agent name')).toHaveCount(0);
   await keyDialog.getByLabel('Key name').fill('Lean helper');
   await keyDialog.getByRole('button', { name: 'Create API key' }).click();
   await expect(page.getByLabel('API key', { exact: true })).toHaveValue('shown-once-secret');
@@ -2467,7 +2457,6 @@ test('API keys table filters loaded rows and preserves cursor pagination', async
   const base = {
     id: '01234567-89ab-4cde-8fab-0123456789ab',
     name: 'Research helper',
-    agent_id: 'agent-a',
     project_id: null,
     scope_kind: 'ACCOUNT',
     sponsor_user_id: 'author-1',
@@ -2544,7 +2533,7 @@ function nativeTree(
     created_by_user_id: author.id,
     created_at: createdAt,
     updated_at: createdAt,
-    archived_at: null,
+    removed_at: null,
     head_commit: 'a'.repeat(40),
     revision: savedRevision,
     lifecycle: 'active',
@@ -2594,9 +2583,6 @@ async function mockNativeFiles(
 
 test('project Files saves through the member API and retains stale drafts', async ({ page }) => {
   await mock(page);
-  await page.route(`**/api/v1/projects/${projectId}/tasks*`, (route) =>
-    route.fulfill({ json: [] }),
-  );
   let head = 'a'.repeat(40);
   let saved = 'Initial note';
   let stale = false;
@@ -2707,9 +2693,6 @@ test('Files workbench keeps tab drafts, explores folders, and reviews an agent c
   page,
 }) => {
   await mock(page);
-  await page.route(`**/api/v1/projects/${projectId}/tasks*`, (route) =>
-    route.fulfill({ json: [] }),
-  );
   await page.setViewportSize({ width: 1440, height: 1000 });
   const agentBranch = `sessions/${sessionId}`;
   const files: Record<string, string> = {
@@ -2897,9 +2880,6 @@ test('agent workbench retains chat and file drafts across unified tabs and mobil
   const secondId = '66666666-6666-4666-8666-666666666666';
   const second = { ...session, id: secondId, title: 'Second investigation' };
   const requests = await mock(page, 'OWNER', 0, [session, second]);
-  await page.route(`**/api/v1/projects/${projectId}/tasks*`, (route) =>
-    route.fulfill({ json: [] }),
-  );
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.route('**/api/v1/sessions*', async (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -3254,18 +3234,25 @@ function workbenchTask(id: string, title: string) {
     created_by_user_id: 'author-1',
     created_at: createdAt,
     updated_at: createdAt,
-    archived_at: null as string | null,
+    removed_at: null as string | null,
+    head_commit: 'a'.repeat(40),
+    revision: 'b'.repeat(40),
+    lifecycle: 'active',
+    writable: true,
+    files: [],
+    ignored_files: [],
+    changed_files: [],
   };
 }
 async function mockTaskWorkbench(page: Page) {
   const secondChatId = '99999999-9999-4999-8999-999999999999';
   const chats: Array<typeof session> = [
-    { ...session, working_context: { task_id: workbenchTaskId, worktree_id: workbenchTaskId } },
+    { ...session, working_context: { worktree_id: workbenchTaskId } },
     {
       ...session,
       id: secondChatId,
       title: 'Second proof conversation',
-      working_context: { task_id: workbenchTaskId, worktree_id: workbenchTaskId },
+      working_context: { worktree_id: workbenchTaskId },
     },
   ];
   await mock(page, 'OWNER', 0, chats);
@@ -3293,9 +3280,6 @@ async function mockTaskWorkbench(page: Page) {
       tasks[index] = {
         ...tasks[index]!,
         ...(body.title ? { title: body.title } : {}),
-        ...(typeof body.archived === 'boolean'
-          ? { archived_at: body.archived ? createdAt : null }
-          : {}),
       };
       return route.fulfill({ json: tasks[index] });
     }
@@ -3309,7 +3293,6 @@ async function mockTaskWorkbench(page: Page) {
         id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
         title: 'New conversation',
         working_context: {
-          task_id: sessionCreate!.worktree_id as string,
           worktree_id: sessionCreate!.worktree_id as string,
         },
       };
@@ -3501,7 +3484,7 @@ test('conversation navigation ignores a delayed legacy working-copy response', a
     ...session,
     id: sharedId,
     title: 'Shared conversation',
-    working_context: { task_id: null, worktree_id: null },
+    working_context: { worktree_id: null },
   });
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));

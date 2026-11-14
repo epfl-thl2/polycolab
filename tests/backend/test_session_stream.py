@@ -36,7 +36,7 @@ def test_later_cancellation_waits_for_preceding_output_before_advancing_cursor(
     assert claim.status_code == 200 and claim.json()["run_id"] == first
     generation = claim.json()["lease_generation"]
     assert interrupt(client, session_id, second).status_code == 202
-    user_id = UUID(client.get("/api/v1/users/me", headers=headers("owner")).json()["id"])
+    user_id = UUID(client.get("/api/v1/account", headers=headers("owner")).json()["id"])
     app = cast(Any, client.app)
     app.state.settings.runtime_sse_poll_seconds = 0.01
     with app.state.session_factory() as db:

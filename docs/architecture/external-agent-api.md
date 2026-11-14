@@ -1,6 +1,6 @@
 # External agent API
 
-Humans issue, reveal, list, and revoke account-wide agent keys through `/api/v1/account/agent-keys`. Named agents retain stable identities when keys rotate. Keys are bound to a sponsor and have request and mutation budgets plus an expiry.
+Humans issue, reveal, list, and revoke account-wide agent keys through `/api/v1/account/agent-keys`. Key creation requires only a name. Each key is directly owned by its human sponsor and has request and mutation budgets plus an expiry.
 
 `GET /api/v1/me` reports current identity and budgets. `GET /api/v1/projects?scope=member` lists accessible projects. `GET /api/v1/projects/{project_id}` reads project metadata.
 

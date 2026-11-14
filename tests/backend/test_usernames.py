@@ -15,7 +15,7 @@ from polycolab.db.transaction import SqlAlchemyTransaction
 def test_oidc_username_claim_is_unique_and_does_not_replace_authentication_identity(
     client: TestClient,
 ) -> None:
-    before = client.get("/api/v1/users/me", headers=headers()).json()
+    before = client.get("/api/v1/account", headers=headers()).json()
     assert before["username"] is None
     chosen = client.put(
         "/api/v1/account/username",
@@ -25,7 +25,7 @@ def test_oidc_username_claim_is_unique_and_does_not_replace_authentication_ident
     assert chosen.status_code == 200, chosen.text
     assert chosen.json()["id"] == before["id"]
     assert chosen.json()["username"] == "ada.example"
-    assert client.get("/api/v1/users/me", headers=headers()).json()["username"] == "ada.example"
+    assert client.get("/api/v1/account", headers=headers()).json()["username"] == "ada.example"
     assert (
         client.put(
             "/api/v1/account/username",

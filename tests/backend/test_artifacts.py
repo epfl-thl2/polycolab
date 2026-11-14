@@ -99,7 +99,7 @@ def test_revocation_during_download_prevents_returning_bytes(
     project = create_project(client)
     add_member(client, project, "reader", "READ_ONLY")
     artifact = upload(client, project).json()["id"]
-    reader = client.get("/api/v1/users/me", headers=headers("reader")).json()["id"]
+    reader = client.get("/api/v1/account", headers=headers("reader")).json()["id"]
     store = cast(Any, client.app).state.artifact_storage
     original = store.client.get_object
 

@@ -254,12 +254,9 @@ def test_filter_pagination_and_retry_conflicts(client: TestClient) -> None:
 def test_agent_keys_cannot_contribute_and_cross_entry_versions_are_denied(
     client: TestClient,
 ) -> None:
-    agent = client.post(
-        "/api/v1/account/agents", json={"name": "Library assistant"}, headers=headers()
-    ).json()
     credential = client.post(
         "/api/v1/account/agent-keys",
-        json={"name": "Library key", "agent_id": agent["id"]},
+        json={"name": "Library key"},
         headers=headers(),
     )
     assert credential.status_code == 201

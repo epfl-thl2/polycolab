@@ -6,7 +6,7 @@ from typing import Any, cast
 import pytest
 from fastapi.testclient import TestClient
 
-from polycolab.db.models import SqlGatewayProfile, SqlUser
+from polycolab.db.models import SqlProviderProfile, SqlUser
 from polycolab.operations import recovery_integrity
 from polycolab.operations.recovery_integrity import (
     capture_manifest,
@@ -30,7 +30,7 @@ def test_manifest_is_deterministic_keyed_and_contains_no_values(
         session.add(user)
         session.flush()
         session.add(
-            SqlGatewayProfile(
+            SqlProviderProfile(
                 user_id=user.id,
                 display_name="private-profile",
                 base_url="https://models.example/v1",
@@ -45,13 +45,13 @@ def test_manifest_is_deterministic_keyed_and_contains_no_values(
             session,
             key=KEY,
             schema_revision="test-revision",
-            table_names=("users", "gateway_profiles"),
+            table_names=("users", "provider_profiles"),
         )
         second = capture_manifest(
             session,
             key=KEY,
             schema_revision="test-revision",
-            table_names=("gateway_profiles", "users"),
+            table_names=("provider_profiles", "users"),
         )
         assert first == second
         rendered = str(first)

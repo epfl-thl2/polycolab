@@ -58,7 +58,7 @@ def test_username_migration_and_concurrent_claims_on_postgresql(
     try:
         with TestClient(app) as client:
             for token in ["owner", "contributor"]:
-                assert client.get("/api/v1/users/me", headers=headers(token)).status_code == 200
+                assert client.get("/api/v1/account", headers=headers(token)).status_code == 200
             assert (
                 client.put(
                     "/api/v1/account/username",
@@ -82,7 +82,7 @@ def test_username_migration_and_concurrent_claims_on_postgresql(
                     409,
                 ]
             names = [
-                client.get("/api/v1/users/me", headers=headers(token)).json()["username"]
+                client.get("/api/v1/account", headers=headers(token)).json()["username"]
                 for token in ["owner", "contributor"]
             ]
             assert names.count("race-name") == 1

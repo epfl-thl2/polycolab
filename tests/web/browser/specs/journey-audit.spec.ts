@@ -23,9 +23,6 @@ async function account(page: Page, initiallySignedIn = false) {
   await page.route('**/api/v1/catalogue', (route) =>
     route.fulfill({ json: { items: [], next_cursor: null } }),
   );
-  await page.route(new RegExp('/api/v1/account/agents(?:\\?.*)?$'), (route) =>
-    route.fulfill({ json: { items: [], next_cursor: null } }),
-  );
   await page.route(new RegExp('/api/v1/projects(?:\\?.*)?$'), (route) =>
     route.fulfill({ json: { items: [], next_cursor: null } }),
   );
@@ -118,25 +115,21 @@ test('account shortcuts are reachable on desktop and a short mobile screen', asy
   }
 });
 
-test('agent connection errors offer a retry and a real next step for new contributors', async ({
-  page,
-}) => {
+test('saved Connections links redirect to agent key settings', async ({ page }) => {
   await account(page, true);
-  let fail = true;
-  await page.route(new RegExp('/api/v1/account/agents(?:\\?.*)?$'), (route) =>
-    route.fulfill(
-      fail
-        ? { status: 503, json: { detail: 'Unavailable' } }
-        : { json: { items: [], next_cursor: null } },
-    ),
+  const retiredRequests: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/v1/account/agents')
+      retiredRequests.push(request.url());
+  });
+  await page.route('**/api/v1/account/agent-keys?*', (route) =>
+    route.fulfill({ json: { items: [], next_cursor: null } }),
+  );
+  await page.route('**/api/v1/me', (route) =>
+    route.fulfill({ json: { kind: 'human', user_id: 'ada' } }),
   );
   await page.goto('/agents/connections');
-  await expect(page.getByRole('alert')).toBeVisible();
-  await expect(page.getByText(/No agents yet/)).toHaveCount(0);
-  fail = false;
-  await page.getByRole('button', { name: 'Retry' }).click();
-  await expect(page.getByText(/No agents yet/)).toBeVisible();
-  await page.getByRole('link', { name: 'Open your projects' }).click();
-  await page.getByRole('button', { name: 'New project' }).click();
-  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page).toHaveURL(/\/settings\/api-keys$/);
+  await expect(page.getByRole('heading', { name: 'API keys', exact: true })).toBeVisible();
+  expect(retiredRequests).toEqual([]);
 });

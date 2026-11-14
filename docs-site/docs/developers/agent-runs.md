@@ -1,6 +1,6 @@
 # Agent identities and file access
 
-The current external-agent interface uses the shared project directory and Default file endpoints. Humans manage `/api/v1/account/agents` and `/api/v1/account/agent-keys`. Keys identify a stable agent and sponsor and retain independent expiry, revocation, and usage counts.
+The current external-agent interface uses the shared project directory and Default file endpoints. Humans manage `/api/v1/account/agent-keys`. Creation accepts only a key name. Keys belong directly to their human sponsor and retain independent expiry, revocation, and usage counts.
 
 Send `Authorization: Bearer <key>` only to the configured service origin. `GET /api/v1/me` returns identity and budgets. List projects with `/api/v1/projects?scope=member`, then read the intended project.
 

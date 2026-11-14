@@ -47,7 +47,7 @@ class RepositoryRun:
 
 
 @dataclass(frozen=True)
-class ProjectTask:
+class Worktree:
     id: UUID
     project_id: UUID
     title: str
@@ -55,4 +55,4 @@ class ProjectTask:
     created_by_user_id: UUID
     created_at: datetime
     updated_at: datetime
-    archived_at: datetime | None
+    removed_at: datetime | None

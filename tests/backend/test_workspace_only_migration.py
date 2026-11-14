@@ -397,7 +397,7 @@ def verify(connection: Connection, ids: dict[str, Any]) -> None:
         connection.scalar(sa.select(messages.c.content_md).where(messages.c.id == key("message")))
         == "Keep this conversation"
     )
-    profiles = metadata.tables["gateway_profiles"]
+    profiles = metadata.tables["provider_profiles"]
     assert (
         connection.scalar(
             sa.select(profiles.c.encrypted_credential).where(profiles.c.id == key("profile"))

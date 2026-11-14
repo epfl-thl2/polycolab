@@ -74,7 +74,7 @@ def state(
             == "git"
             and not tx.linear.conversion_pending(project_id)
         )
-        if instance.store.branch_active(project_id, branch) or instance.store.branch_archived(
+        if instance.store.branch_active(project_id, branch) or instance.store.branch_removed(
             project_id, branch
         ):
             writable = False

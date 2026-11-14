@@ -5,7 +5,6 @@ from polycolab.projects.routes.directory import router as directory_router
 from polycolab.projects.routes.linear import router as linear_router
 from polycolab.projects.routes.project import router as project_router
 from polycolab.projects.routes.repository import router as repository_router
-from polycolab.projects.routes.tasks import router as tasks_router
 from polycolab.projects.routes.worktrees import router as worktrees_router
 
 router = APIRouter()
@@ -13,7 +12,6 @@ router.include_router(directory_router)
 router.include_router(default_files_router)
 router.include_router(linear_router)
 router.include_router(worktrees_router)
-router.include_router(tasks_router)
 router.include_router(repository_router)
 router.include_router(project_router)
 

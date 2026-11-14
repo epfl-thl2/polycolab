@@ -15,7 +15,7 @@ from test_sessions_api import (
 )
 
 from polycolab.conversations.service import set_sharing
-from polycolab.db.models import SqlAgentRun, SqlGatewayProfile, SqlMembership
+from polycolab.db.models import SqlAgentRun, SqlMembership, SqlProviderProfile
 from polycolab.db.stores.conversations import SqlConversationStore
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.conversation import ConversationSharing
@@ -30,8 +30,8 @@ def shared_session(client: TestClient) -> tuple[Any, UUID, UUID, UUID, dict[str,
     add_member(client, str(project_id), "contributor", "CONTRIBUTOR")
     add_member(client, str(project_id), "reader", "READ_ONLY")
     session_id = UUID(str(create_session(client, str(project_id))["id"]))
-    owner_id = UUID(client.get("/api/v1/users/me", headers=headers("owner")).json()["id"])
-    sender_id = UUID(client.get("/api/v1/users/me", headers=headers("contributor")).json()["id"])
+    owner_id = UUID(client.get("/api/v1/account", headers=headers("owner")).json()["id"])
+    sender_id = UUID(client.get("/api/v1/account", headers=headers("contributor")).json()["id"])
     with app.state.session_factory() as db:
         set_sharing(
             SqlAlchemyTransaction(db),
@@ -44,7 +44,7 @@ def shared_session(client: TestClient) -> tuple[Any, UUID, UUID, UUID, dict[str,
         "type": "message",
         "client_request_id": str(uuid4()),
         "content_md": "Contribute with my own model profile.",
-        "gateway_profile_id": str(profile["id"]),
+        "provider_profile_id": str(profile["id"]),
     }
     return app, project_id, session_id, sender_id, message
 
@@ -58,7 +58,7 @@ def test_shared_submission_profiles_retries_and_owner_interruption(
     stolen_profile = client.post(
         path,
         headers=headers("contributor"),
-        json={**message, "gateway_profile_id": owner_profile["id"]},
+        json={**message, "provider_profile_id": owner_profile["id"]},
     )
     assert stolen_profile.status_code == 409
     assert client.post(path, headers=headers("reader"), json=message).status_code == 403
@@ -80,10 +80,10 @@ def test_shared_submission_profiles_retries_and_owner_interruption(
     assert client.post(path, headers=headers("owner"), json=message).status_code == 409
     with app.state.session_factory() as db:
         run = db.get(SqlAgentRun, run_id)
-        profile = db.get(SqlGatewayProfile, UUID(message["gateway_profile_id"]))
+        profile = db.get(SqlProviderProfile, UUID(message["provider_profile_id"]))
         assert run is not None and profile is not None
         assert run.requested_by_user_id == sender_id == profile.user_id
-        assert run.gateway_profile_id == profile.id
+        assert run.provider_profile_id == profile.id
         assert run.gateway_credential_version == profile.credential_version
     assert (
         client.patch(
@@ -112,7 +112,7 @@ def test_shared_submission_profiles_retries_and_owner_interruption(
         headers=headers("contributor"),
         json={
             "client_request_id": str(uuid4()),
-            "gateway_profile_id": message["gateway_profile_id"],
+            "provider_profile_id": message["provider_profile_id"],
         },
     )
     assert resume.status_code == 202, resume.text
@@ -188,7 +188,7 @@ def test_worker_rechecks_shared_sender_authority(client: TestClient, revocation:
         )
     with app.state.session_factory() as db:
         if revocation in {"private", "readable"}:
-            owner_id = UUID(client.get("/api/v1/users/me", headers=headers("owner")).json()["id"])
+            owner_id = UUID(client.get("/api/v1/account", headers=headers("owner")).json()["id"])
             set_sharing(
                 SqlAlchemyTransaction(db),
                 session_id,

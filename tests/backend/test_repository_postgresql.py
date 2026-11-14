@@ -59,13 +59,13 @@ def test_repository_postgresql(
 
 
 @pytest.mark.parametrize("scenario", ["task_privacy", "task_runs", "task_claim_race"])
-def test_project_tasks_postgresql(
+def test_worktrees_postgresql(
     pg_schema: tuple[Engine, Config, str],
     identity_verifier: MappingIdentityVerifier,
     tmp_path: Path,
     scenario: str,
 ) -> None:
-    import test_project_tasks as tasks
+    import test_worktrees as tasks
 
     _, config, url = pg_schema
     command.upgrade(config, "head")
@@ -110,7 +110,7 @@ def test_project_tasks_postgresql(
                                 {
                                     "client_request_id": str(uuid4()),
                                     "content_md": "Task intent",
-                                    "gateway_profile_id": profile["id"],
+                                    "provider_profile_id": profile["id"],
                                 }
                             ),
                         },

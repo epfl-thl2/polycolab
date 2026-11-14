@@ -25,7 +25,7 @@ def create_project(client: TestClient) -> dict[str, object]:
 
 def create_profile(client: TestClient, token: str) -> dict[str, object]:
     response = client.post(
-        "/api/v1/gateway/profiles",
+        "/api/v1/account/provider-profiles",
         headers=headers(token),
         json={
             "display_name": "Model",
@@ -39,7 +39,7 @@ def create_profile(client: TestClient, token: str) -> dict[str, object]:
 
 
 def add_member(client: TestClient, project_id: str, token: str, role: str) -> None:
-    user = client.get("/api/v1/users/me", headers=headers(token)).json()
+    user = client.get("/api/v1/account", headers=headers(token)).json()
     response = client.post(
         f"/api/v1/projects/{project_id}/members",
         headers=headers("owner"),
@@ -78,7 +78,7 @@ def send(
                 "type": "message",
                 "client_request_id": str(uuid4()),
                 "content_md": "Investigate.",
-                "gateway_profile_id": profile_id,
+                "provider_profile_id": profile_id,
                 **changes,
             },
         ),
@@ -270,7 +270,7 @@ def test_session_and_run_history_are_private_to_the_current_requester(
                 headers=headers(token),
                 json={
                     "client_request_id": str(uuid4()),
-                    "gateway_profile_id": profile_id,
+                    "provider_profile_id": profile_id,
                 },
             ).status_code
             == 404
@@ -283,7 +283,7 @@ def test_session_and_run_history_are_private_to_the_current_requester(
         ).json()
         == []
     )
-    contributor_id = client.get("/api/v1/users/me", headers=headers("contributor")).json()["id"]
+    contributor_id = client.get("/api/v1/account", headers=headers("contributor")).json()["id"]
     assert (
         client.delete(
             f"/api/v1/projects/{project_id}/members/{contributor_id}",
@@ -340,7 +340,7 @@ def test_cancel_resume_and_committed_cursor_sse_reconnect(client: TestClient) ->
         ).status_code
         == 200
     )
-    body = {"client_request_id": str(uuid4()), "gateway_profile_id": profile_id}
+    body = {"client_request_id": str(uuid4()), "provider_profile_id": profile_id}
     resumed = client.post(f"/api/v1/runs/{run_id}/resume", headers=headers("owner"), json=body)
     assert resumed.status_code == 202
     assert (

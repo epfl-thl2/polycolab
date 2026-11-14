@@ -19,7 +19,6 @@ from polycolab.db.models.accounts import SqlUser as SqlUser
 from polycolab.db.models.agent_access import (
     SqlExternalAgentCredential as SqlExternalAgentCredential,
 )
-from polycolab.db.models.agent_access import SqlExternalAgentIdentity as SqlExternalAgentIdentity
 from polycolab.db.models.agents import SqlAgentRun as SqlAgentRun
 from polycolab.db.models.agents import SqlAgentRunEvent as SqlAgentRunEvent
 from polycolab.db.models.agents import SqlAgentRunUsage as SqlAgentRunUsage
@@ -49,9 +48,9 @@ from polycolab.db.models.execution import SqlExecutionWorkItem as SqlExecutionWo
 from polycolab.db.models.model_gateway import (
     SqlGatewayCredentialRewrapAudit as SqlGatewayCredentialRewrapAudit,
 )
-from polycolab.db.models.model_gateway import SqlGatewayProfile as SqlGatewayProfile
 from polycolab.db.models.model_gateway import SqlGatewayRunGrant as SqlGatewayRunGrant
 from polycolab.db.models.model_gateway import SqlHostedModelRequest as SqlHostedModelRequest
+from polycolab.db.models.model_gateway import SqlProviderProfile as SqlProviderProfile
 from polycolab.db.models.operations import SqlOperatorAccountRecovery as SqlOperatorAccountRecovery
 from polycolab.db.models.operations import (
     SqlOperatorRestoreInvalidation as SqlOperatorRestoreInvalidation,
@@ -121,7 +120,7 @@ __all__ = [
     "SqlSocialAccountIdentity",
     "SqlSocialAuthTransaction",
     "SqlSocialIdentityAudit",
-    "SqlGatewayProfile",
+    "SqlProviderProfile",
     "SqlGatewayCredentialRewrapAudit",
     "SqlGatewayRunGrant",
     "SqlProject",
@@ -142,7 +141,6 @@ __all__ = [
     "SqlContextManifestArtifact",
     "SqlRunToolCapability",
     "SqlExternalAgentCredential",
-    "SqlExternalAgentIdentity",
     "SqlArtifact",
     "SqlExecutionWorkItem",
     "SqlExecutionClassState",
@@ -160,7 +158,7 @@ __all__ = [
     "SqlRepositoryRun",
     "SqlRepositorySession",
     "SqlProjectRepository",
-    "SqlProjectTask",
+    "SqlWorktree",
     "SqlLegacyConversationExecution",
     "SqlConversationConfiguration",
     "SqlDocumentBuild",
@@ -203,7 +201,6 @@ from polycolab.db.models.linear import (
 from polycolab.db.models.linear import (
     SqlLinearWorkspace as SqlLinearWorkspace,
 )
-from polycolab.db.models.project_tasks import SqlProjectTask as SqlProjectTask
 from polycolab.db.models.repositories import (
     SqlProjectRepository as SqlProjectRepository,
 )
@@ -216,3 +213,4 @@ from polycolab.db.models.repositories import (
 from polycolab.db.models.repositories import (
     SqlRepositorySession as SqlRepositorySession,
 )
+from polycolab.db.models.worktrees import SqlWorktree as SqlWorktree

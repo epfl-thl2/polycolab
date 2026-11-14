@@ -16,7 +16,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from polycolab.db.models import SqlGatewayProfile, SqlGatewayRunGrant
+from polycolab.db.models import SqlGatewayRunGrant, SqlProviderProfile
 from polycolab.entities.accounts import IdentifiedUser
 from polycolab.entities.time import utc_now
 from polycolab.model_gateway.credentials import (
@@ -107,11 +107,11 @@ def validate_base_url(value: str, *, production: bool, resolver=socket.getaddrin
 
 def profile_for_user(
     session: Session, *, profile_id: UUID, user_id: UUID, lock: bool = False
-) -> SqlGatewayProfile:
-    statement = select(SqlGatewayProfile).where(
-        SqlGatewayProfile.id == profile_id,
-        SqlGatewayProfile.user_id == user_id,
-        SqlGatewayProfile.deleted_at.is_(None),
+) -> SqlProviderProfile:
+    statement = select(SqlProviderProfile).where(
+        SqlProviderProfile.id == profile_id,
+        SqlProviderProfile.user_id == user_id,
+        SqlProviderProfile.deleted_at.is_(None),
     )
     if lock:
         statement = statement.with_for_update()
@@ -141,10 +141,10 @@ def create_profile(
     api_key: str,
     production: bool,
     wire_api: str = "responses",
-) -> SqlGatewayProfile:
+) -> SqlProviderProfile:
     if wire_api not in {"responses", "chat_completions"}:
         raise ValueError("unsupported provider protocol")
-    profile = SqlGatewayProfile(
+    profile = SqlProviderProfile(
         user_id=user.id,
         display_name=display_name,
         base_url=validate_base_url(base_url, production=production),
@@ -176,7 +176,7 @@ def create_profile(
 
 def rotate_profile(
     session: Session, *, profile_id: UUID, user: IdentifiedUser, wrapper: KeyWrapper, api_key: str
-) -> SqlGatewayProfile:
+) -> SqlProviderProfile:
     try:
         profile = profile_for_user(session, profile_id=profile_id, user_id=user.id, lock=True)
         encrypted = encrypt_credential(
@@ -267,8 +267,8 @@ def exchange_run_grant(
             raise GrantInvalid
         # Profile is the serialization point shared with rotate/delete/issuance.
         profile = session.scalar(
-            select(SqlGatewayProfile)
-            .where(SqlGatewayProfile.id == candidate.profile_id)
+            select(SqlProviderProfile)
+            .where(SqlProviderProfile.id == candidate.profile_id)
             .with_for_update()
         )
         grant = session.scalar(
@@ -499,7 +499,7 @@ def stream_model(
     if (
         run is None
         or run.requested_by_user_id != grant.user_id
-        or run.gateway_profile_id != grant.profile_id
+        or run.provider_profile_id != grant.profile_id
         or run.gateway_credential_version != grant.credential_version
     ):
         raise GrantInvalid
@@ -552,7 +552,7 @@ def stream_model(
 
 def validate_profile_credential(
     *,
-    profile: SqlGatewayProfile,
+    profile: SqlProviderProfile,
     user_id: UUID,
     wrapper: KeyWrapper,
     transport: ProviderTransport,

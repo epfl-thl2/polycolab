@@ -352,7 +352,7 @@ def test_websocket_ack_replay_and_revoked_write(
         assert receipt["sequence"] == 2
         socket.send_json({"kind": "update", "request_id": "socket-save", "body": body})
         assert receive("ack")["sequence"] == 2
-        contributor = client.get("/api/v1/users/me", headers=headers("contributor")).json()
+        contributor = client.get("/api/v1/account", headers=headers("contributor")).json()
         assert (
             client.delete(
                 f"/api/v1/projects/{project}/members/{contributor['id']}",

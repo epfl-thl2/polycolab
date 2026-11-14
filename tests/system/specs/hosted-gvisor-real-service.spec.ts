@@ -21,7 +21,7 @@ test('native gVisor chat completes and survives reload', async ({ page }) => {
   expect((await worktrees.json()).some((tree: { branch: string }) => tree.branch === 'main')).toBe(
     true,
   );
-  const profile = await page.request.post('/api/v1/gateway/profiles', {
+  const profile = await page.request.post('/api/v1/account/provider-profiles', {
     data: {
       display_name: 'Deterministic Responses',
       base_url: 'https://8.8.8.8/v1',
@@ -31,7 +31,9 @@ test('native gVisor chat completes and survives reload', async ({ page }) => {
   });
   expect(profile.status()).toBe(201);
   const profileId = (await profile.json()).id;
-  const validation = await page.request.post(`/api/v1/gateway/profiles/${profileId}/validate`);
+  const validation = await page.request.post(
+    `/api/v1/account/provider-profiles/${profileId}/validate`,
+  );
   expect(validation.ok()).toBeTruthy();
   await expect
     .poll(

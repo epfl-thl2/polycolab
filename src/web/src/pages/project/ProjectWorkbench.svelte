@@ -11,7 +11,7 @@
   import ProjectShell from './components/ProjectShell.svelte';
   import ProjectToolsHeader from './components/ProjectToolsHeader.svelte';
   import { projectContext, explain } from '../../svelte-lib/context';
-  import type { ProjectTask } from '../../lib/project-tasks-api';
+  import type { Worktree } from '../../lib/worktrees-api';
   import { canWriteProject } from '../../lib/access';
   import type { Project } from '../../lib/projects-api';
   import {
@@ -28,7 +28,7 @@
   import ProjectFiles from './components/ProjectFiles.svelte';
   import ProjectPage from './ProjectPage.svelte';
   let { project, path }: { project: Project; path: string } = $props();
-  const { auth, capabilities, tasks: taskApi, agents, query } = projectContext();
+  const { auth, capabilities, worktrees: worktreeApi, agents, query } = projectContext();
   const projectId = $derived(project.id);
   const chatDraftStore = chatDrafts() ?? new ChatDrafts();
   const titles = sessionTitles(
@@ -67,16 +67,18 @@
   >([]);
   let currentFileId = $state('');
   let workingBranch = $state('main');
-  let knownTasks = $state.raw<Record<string, ProjectTask>>({});
+  let knownWorktrees = $state.raw<Record<string, Worktree>>({});
   let contextError = $state('');
   let contextSwitching = false;
   let pendingBranch: Promise<boolean> | undefined;
   let routeVersion = 0;
   const selectedWorktree = $derived(
-    Object.values(knownTasks).find((item) => item.branch === workingBranch),
+    Object.values(knownWorktrees).find((item) => item.branch === workingBranch),
   );
   const branchLabels = $derived(
-    Object.fromEntries(Object.values(knownTasks).map((task) => [task.branch, task.title])),
+    Object.fromEntries(
+      Object.values(knownWorktrees).map((worktree) => [worktree.branch, worktree.title]),
+    ),
   );
   const active = $derived(tabs.find((tab) => tab.id === activeId));
   let layoutHref = $state(untrack(() => (isProjectLayoutPage(path) ? path : '')));
@@ -123,13 +125,13 @@
       `/projects/${projectId}/sessions/new?draft=${crypto.randomUUID()}${worktreeId ? `&worktree=${encodeURIComponent(worktreeId)}` : ''}`,
     );
   }
-  async function selectWorktree(worktree?: ProjectTask) {
+  async function selectWorktree(worktree?: Worktree) {
     const version = ++routeVersion;
     contextError = '';
     rightMode = 'explorer';
     try {
       if (!(await switchBranch(worktree?.branch || 'main', version, true))) return false;
-      if (worktree) cacheTasks([worktree]);
+      if (worktree) cacheWorktrees([worktree]);
       navigate(tabs.find((tab) => tab.id === activeId)?.href || emptyProjectHref());
       return true;
     } catch (error) {
@@ -137,23 +139,27 @@
       return false;
     }
   }
-  function newWorktreeChat(worktree?: ProjectTask) {
+  function newWorktreeChat(worktree?: Worktree) {
     newChat(worktree?.id || null);
   }
 
-  function cacheTasks(items: ProjectTask[]) {
-    knownTasks = { ...knownTasks, ...Object.fromEntries(items.map((task) => [task.id, task])) };
-    for (const task of items) query.setQueryData(['project-task', projectId, task.id], task);
+  function cacheWorktrees(items: Worktree[]) {
+    knownWorktrees = {
+      ...knownWorktrees,
+      ...Object.fromEntries(items.map((worktree) => [worktree.id, worktree])),
+    };
+    for (const worktree of items)
+      query.setQueryData(['project-worktree', projectId, worktree.id], worktree);
   }
-  async function readTask(id: string) {
-    if (!taskApi) throw new Error('The conversation’s saved files are unavailable');
-    const task = await query.fetchQuery({
-      queryKey: ['project-task', projectId, id],
-      queryFn: () => taskApi.get(projectId, id),
+  async function readWorktree(id: string) {
+    if (!worktreeApi) throw new Error('The conversation’s saved files are unavailable');
+    const worktree = await query.fetchQuery({
+      queryKey: ['project-worktree', projectId, id],
+      queryFn: () => worktreeApi.get(projectId, id),
       staleTime: 5000,
     });
-    cacheTasks([task]);
-    return task;
+    cacheWorktrees([worktree]);
+    return worktree;
   }
   const branchTabs = new SvelteMap<string, { tabs: ProjectTab[]; activeId: string }>();
   let tabsBranch = $state('main');
@@ -274,11 +280,11 @@
       if (emptyView) {
         const worktreeId = url.searchParams.get('worktree');
         targetBranch = worktreeId
-          ? (await readTask(worktreeId)).branch
+          ? (await readWorktree(worktreeId)).branch
           : url.searchParams.get('branch') || 'main';
       } else if (routeTab?.kind === 'chat') {
         const sessionId = url.pathname.split('/')[4];
-        const taskId =
+        const boundWorktreeId =
           sessionId === 'new'
             ? url.searchParams.get('worktree')
             : (
@@ -287,8 +293,8 @@
                   queryFn: () => agents.getSession(sessionId),
                   staleTime: 5000,
                 })
-              ).working_context.task_id;
-        targetBranch = taskId ? (await readTask(taskId)).branch : 'main';
+              ).working_context.worktree_id;
+        targetBranch = boundWorktreeId ? (await readWorktree(boundWorktreeId)).branch : 'main';
       } else if (url.pathname.endsWith('/files')) {
         targetBranch = url.searchParams.get('branch') || workingBranch;
       }
@@ -618,7 +624,7 @@
               repositoryEnabled={filesEnabled}
               canCreate={canWrite}
               onSelectWorktree={selectWorktree}
-              onWorktreesChange={cacheTasks}
+              onWorktreesChange={cacheWorktrees}
               onOpenSession={openSession}
             />
           </div>
@@ -635,7 +641,7 @@
             onpin={(id) => {
               if (id.startsWith('file:')) files?.pinProjectFile(id.slice(5));
             }}
-            onnewchat={canChat && !selectedWorktree?.archived_at ? () => newChat() : undefined}
+            onnewchat={canChat && !selectedWorktree?.removed_at ? () => newChat() : undefined}
           />{:else if showLayoutHeading}<div class="layout-heading">
             {layoutLabels[section]}
           </div>{/if}

@@ -5,7 +5,6 @@ import { ApiError, type Page } from './projects-api';
 
 export type ExternalCredential = components['schemas']['ExternalCredentialRead'];
 export type IssuedExternalCredential = components['schemas']['ExternalCredentialIssued'];
-export type AgentIdentity = components['schemas']['AgentIdentityRead'];
 
 type ErrorBody = { error?: { code?: string } };
 
@@ -59,16 +58,6 @@ export function createExternalAgentApi(
   const query = (cursor?: string) => ({ limit: 25, ...(cursor ? { cursor } : {}) });
 
   return {
-    listAgents: (cursor?: string) =>
-      page(human.GET('/api/v1/account/agents', { params: { query: query(cursor) } })),
-    createAgent: (name: string) => unwrap(human.POST('/api/v1/account/agents', { body: { name } })),
-    renameAgent: (agentId: string, name: string) =>
-      unwrap(
-        human.PATCH('/api/v1/account/agents/{agent_id}', {
-          params: { path: { agent_id: agentId } },
-          body: { name },
-        }),
-      ),
     identity: () => unwrap(human.GET('/api/v1/me')),
     listCredentials: (cursor?: string) =>
       page(
@@ -76,8 +65,8 @@ export function createExternalAgentApi(
           params: { query: query(cursor) },
         }),
       ),
-    createCredential: (name: string, agentId: string) =>
-      unwrap(human.POST('/api/v1/account/agent-keys', { body: { name, agent_id: agentId } })),
+    createCredential: (name: string) =>
+      unwrap(human.POST('/api/v1/account/agent-keys', { body: { name } })),
     revealCredential: (credentialId: string) =>
       unwrap(
         human.POST('/api/v1/account/agent-keys/{credential_id}/reveal', {

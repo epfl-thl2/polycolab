@@ -9,7 +9,7 @@ export type ProjectContext = {
   defaultFiles?: boolean;
   linear?: import('../lib/linear-session').LinearSession;
   documentBuilds?: ReturnType<typeof import('../lib/document-builds-api').createDocumentBuildsApi>;
-  tasks?: ReturnType<typeof import('../lib/project-tasks-api').createProjectTasksApi>;
+  worktrees?: ReturnType<typeof import('../lib/worktrees-api').createWorktreesApi>;
   repository?: ReturnType<typeof import('../lib/repository-api').createRepositoryApi>;
   capabilities?: import('./capabilities.svelte').Capabilities;
   artifacts: ReturnType<typeof createArtifactApi>;

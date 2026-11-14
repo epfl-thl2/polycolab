@@ -7,9 +7,9 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import event, func, select
 from sqlalchemy.engine import Connection
-from test_gateway import app_for, create_gateway_profile
+from test_gateway import app_for, create_provider_profile
 
-from polycolab.db.models import SqlGatewayCredentialRewrapAudit, SqlGatewayProfile
+from polycolab.db.models import SqlGatewayCredentialRewrapAudit, SqlProviderProfile
 from polycolab.model_gateway import rewrap as credential_rewrap
 from polycolab.model_gateway.credentials import LocalAesGcmKeyWrapper
 from polycolab.model_gateway.migration import CredentialKeyring, commit_rewrap_candidate
@@ -28,8 +28,8 @@ def ring_for(client: TestClient) -> CredentialKeyring:
 def test_dry_run_and_resume_with_no_transaction_during_key_io(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    create_gateway_profile(client)
-    create_gateway_profile(client, "contributor")
+    create_provider_profile(client)
+    create_provider_profile(client, "contributor")
     app, ring = app_for(client), ring_for(client)
     active: set[int] = set()
     event.listen(app.state.engine, "begin", lambda connection: active.add(id(connection)))
@@ -66,8 +66,8 @@ def test_dry_run_and_resume_with_no_transaction_during_key_io(
 def test_partial_failure_resumes_from_committed_state(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    create_gateway_profile(client)
-    create_gateway_profile(client, "contributor")
+    create_provider_profile(client)
+    create_provider_profile(client, "contributor")
     app, ring = app_for(client), ring_for(client)
     prepare = ring.prepare_rewrap
     calls = 0
@@ -94,14 +94,14 @@ def test_partial_failure_resumes_from_committed_state(
 def test_concurrent_rotation_is_not_overwritten(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    created = create_gateway_profile(client)
+    created = create_provider_profile(client)
     app, ring = app_for(client), ring_for(client)
     prepare = ring.prepare_rewrap
 
     def rotated(**kwargs: Any) -> Any:
         candidate = prepare(**kwargs)
         with app.state.session_factory() as session:
-            profile = session.get(SqlGatewayProfile, UUID(created["id"]))
+            profile = session.get(SqlProviderProfile, UUID(created["id"]))
             assert profile is not None
             profile.credential_version += 1
             session.commit()
@@ -114,7 +114,7 @@ def test_concurrent_rotation_is_not_overwritten(
         assert (
             session.scalar(select(func.count()).select_from(SqlGatewayCredentialRewrapAudit)) == 0
         )
-        profile = session.get(SqlGatewayProfile, UUID(created["id"]))
+        profile = session.get(SqlProviderProfile, UUID(created["id"]))
         assert profile is not None and profile.encryption_key_version != ring.key_version
 
 
@@ -128,7 +128,7 @@ def test_cli_rejects_unsafe_invocation_before_configuration(args: list[str]) -> 
 def test_ambiguous_commit_is_resolved_by_rereading_state(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    create_gateway_profile(client)
+    create_provider_profile(client)
     app, ring = app_for(client), ring_for(client)
     commit = commit_rewrap_candidate
 

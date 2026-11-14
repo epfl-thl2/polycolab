@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from polycolab.db.converters.time import timestamp
 from polycolab.db.errors import persistence_boundary
 from polycolab.db.models.document_builds import SqlDocumentBuild, SqlDocumentBuildQueue
-from polycolab.db.models.project_tasks import SqlProjectTask
+from polycolab.db.models.worktrees import SqlWorktree
 from polycolab.entities.document_builds import ACTIVE, BuildBlob, BuildStatus, DocumentBuild, Engine
 
 
@@ -258,10 +258,10 @@ class SqlBuildStore:
     def worktree_available(self, project: UUID, worktree: UUID) -> bool:
         return (
             self.session.scalar(
-                select(SqlProjectTask.id).where(
-                    SqlProjectTask.id == worktree,
-                    SqlProjectTask.project_id == project,
-                    SqlProjectTask.archived_at.is_(None),
+                select(SqlWorktree.id).where(
+                    SqlWorktree.id == worktree,
+                    SqlWorktree.project_id == project,
+                    SqlWorktree.removed_at.is_(None),
                 )
             )
             is not None

@@ -7,6 +7,8 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import MetaData, create_engine
 
 from polycolab.artifacts.storage import (
@@ -17,6 +19,16 @@ from polycolab.artifacts.storage import (
 )
 from polycolab.db.base import Base
 from polycolab.operations.local_development import upgrade_database
+
+
+def current_head() -> str:
+    from polycolab.operations.local_development import MIGRATIONS
+
+    config = Config()
+    config.set_main_option("script_location", str(MIGRATIONS))
+    head = ScriptDirectory.from_config(config).get_current_head()
+    assert head is not None
+    return head
 
 
 def test_local_schema_matches_models_and_survives_restart(tmp_path: Path) -> None:
@@ -67,21 +79,20 @@ def test_local_upgrade_backs_up_and_rolls_back_failure(
     upgrade_database(path)
     migrations = tmp_path / "migrations"
     shutil.copytree(local.MIGRATIONS, migrations)
+    previous_head = current_head()
     next_revision = migrations / "versions/next.py"
-    next_revision.write_text("""from alembic import op
+    next_revision.write_text(f'''from alembic import op
 revision = "local_next"
-down_revision = "local_20261103_session_workspace"
+down_revision = "{previous_head}"
 def upgrade():
     op.execute("CREATE TABLE migration_marker (value TEXT)")
     op.execute("INSERT INTO migration_marker VALUES ('upgraded')")
-""")
+''')
     monkeypatch.setattr(local, "MIGRATIONS", migrations)
     backup = upgrade_database(path)
     assert backup is not None and backup.is_file()
     with sqlite3.connect(backup) as db:
-        assert db.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "local_20261103_session_workspace",
-        )
+        assert db.execute("SELECT version_num FROM alembic_version").fetchone() == (previous_head,)
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT value FROM migration_marker").fetchone() == ("upgraded",)
     (migrations / "versions/failure.py").write_text("""from alembic import op
@@ -158,9 +169,7 @@ def test_local_upgrade_from_either_merged_branch(tmp_path: Path, previous: str) 
     assert upgrade_database(path) is not None
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT value FROM user_marker").fetchone() == ("retained",)
-        assert db.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "local_20261103_session_workspace",
-        )
+        assert db.execute("SELECT version_num FROM alembic_version").fetchone() == (current_head(),)
         assert "encrypted_secret" in {
             row[1] for row in db.execute("PRAGMA table_info(external_agent_credentials)")
         }
@@ -208,6 +217,6 @@ def test_provider_preview_upgrade_preserves_existing_encrypted_credentials(
         )
         command.upgrade(config, "head")
         assert connection.exec_driver_sql(
-            "SELECT api_key_preview, encrypted_credential, wrapped_data_key FROM gateway_profiles"
+            "SELECT api_key_preview, encrypted_credential, wrapped_data_key FROM provider_profiles"
         ).one() == (None, b"encrypted-fixture", b"wrapped-fixture")
     engine.dispose()

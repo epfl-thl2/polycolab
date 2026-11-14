@@ -111,8 +111,6 @@ it('creates an account-wide key without a project and forgets its secret on navi
         max_mutations: 1000,
       },
     }),
-    listAgents: vi.fn().mockResolvedValue({ items: [], nextCursor: undefined }),
-    createAgent: vi.fn().mockResolvedValue({ id: 'agent-1' }),
     listCredentials: vi.fn().mockResolvedValue({ items: [], nextCursor: undefined }),
     createCredential: vi.fn().mockResolvedValue({ id: 'key-1', secret: 'one-time-test-secret' }),
   };
@@ -131,9 +129,7 @@ it('creates an account-wide key without a project and forgets its secret on navi
   await waitFor(() => expect(screen.getByText(/Expires after 30 days/)).toBeTruthy());
   expect(screen.getByText(/using your current membership/)).toBeTruthy();
   expect(screen.queryByRole('combobox', { name: 'Polycolab agent name' })).toBeNull();
-  await fireEvent.input(screen.getByLabelText('Polycolab agent name'), {
-    target: { value: 'Ada assistant' },
-  });
+  expect(screen.queryByLabelText('Polycolab agent name')).toBeNull();
   await fireEvent.input(screen.getByLabelText('Key name'), { target: { value: 'My assistant' } });
   await fireEvent.click(screen.getByRole('button', { name: 'Create API key' }));
   await waitFor(() =>
@@ -141,7 +137,7 @@ it('creates an account-wide key without a project and forgets its secret on navi
       'one-time-test-secret',
     ),
   );
-  expect(externalAgents.createCredential).toHaveBeenCalledWith('My assistant', 'agent-1');
+  expect(externalAgents.createCredential).toHaveBeenCalledWith('My assistant');
   await view.rerender({ path: '/settings/security' });
   expect(screen.queryByLabelText('API key')).toBeNull();
   await view.rerender({ path: '/settings/api-keys' });
@@ -159,45 +155,4 @@ it('keeps model providers accessible when agent execution is unavailable', () =>
   expect(screen.getByRole('link', { name: 'Model providers' }).getAttribute('aria-current')).toBe(
     'page',
   );
-});
-
-it('separates existing agent selection from creating a new agent', async () => {
-  const auth = new Auth(() => {});
-  const externalAgents = {
-    identity: vi.fn().mockResolvedValue({
-      agent_key_policy: { ttl_seconds: 86400, max_requests: 100, max_mutations: 10 },
-    }),
-    listAgents: vi
-      .fn()
-      .mockResolvedValue({ items: [{ id: 'existing-agent', name: 'Proof helper' }] }),
-    listCredentials: vi.fn().mockResolvedValue({ items: [] }),
-    createAgent: vi.fn(),
-    createCredential: vi.fn().mockResolvedValue({ id: 'key-existing', secret: 'test-only-secret' }),
-  };
-  render(AccountSettings, {
-    props: { path: '/settings/api-keys' },
-    context: new Map([[contextKey, { auth, externalAgents }]]),
-  });
-  const trigger = screen.getByRole('button', { name: 'New API key' }) as HTMLButtonElement;
-  await waitFor(() => expect(trigger.disabled).toBe(false));
-  await fireEvent.click(trigger);
-  expect(
-    (screen.getByRole('combobox', { name: 'Polycolab agent name' }) as HTMLSelectElement).value,
-  ).toBe('existing-agent');
-  expect(screen.queryByRole('textbox', { name: 'Polycolab agent name' })).toBeNull();
-  await fireEvent.click(screen.getByRole('button', { name: 'Create new agent' }));
-  expect(screen.getByRole('textbox', { name: 'Polycolab agent name' })).toBeTruthy();
-  expect(screen.queryByRole('combobox', { name: 'Polycolab agent name' })).toBeNull();
-  await fireEvent.click(screen.getByRole('button', { name: 'Use an existing agent' }));
-  await fireEvent.input(screen.getByLabelText('Key name'), {
-    target: { value: 'Replacement key' },
-  });
-  await fireEvent.click(screen.getByRole('button', { name: 'Create API key' }));
-  await waitFor(() =>
-    expect(externalAgents.createCredential).toHaveBeenCalledWith(
-      'Replacement key',
-      'existing-agent',
-    ),
-  );
-  expect(externalAgents.createAgent).not.toHaveBeenCalled();
 });

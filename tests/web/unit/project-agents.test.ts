@@ -19,10 +19,7 @@ const session = (id: string, status: ReturnType<typeof runFixture>['status'] = '
     latest_execution: runFixture({ id: `run-${id}`, status }),
   });
 function setup(
-  items: Array<ReturnType<typeof session> & { task_id?: string }> = [
-    session('recent'),
-    session('older', 'FAILED'),
-  ],
+  items: Array<ReturnType<typeof session>> = [session('recent'), session('older', 'FAILED')],
   canReadChats = true,
 ) {
   const agents = {
@@ -45,8 +42,11 @@ function setup(
   });
   return { agents, onOpenSession, onNewChat };
 }
-it('shows all conversations by recency without task groups or search controls', async () => {
-  setup([{ ...session('recent'), task_id: 'legacy-task' }, session('older', 'FAILED')]);
+it('shows all conversations by recency without worktree groups or search controls', async () => {
+  setup([
+    { ...session('recent'), working_context: { worktree_id: 'saved-worktree' } },
+    session('older', 'FAILED'),
+  ]);
   await screen.findByRole('button', { name: /Chat recent Researcher running/ });
   const chats = screen
     .getAllByRole('button')
