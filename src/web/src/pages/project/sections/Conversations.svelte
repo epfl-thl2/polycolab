@@ -554,9 +554,6 @@
   class:project-chat-detail={Boolean(conversationId)}
   class:project-chat-new={!conversationId && !allConversations}
 >
-  <span class="project-execution-state" aria-label="Execution status"
-    >{executionEnabled ? 'Execution available' : 'Execution disabled'}</span
-  >
   <FeedbackToast pending={busy} message={error} variant="error" />
   {#if !conversationId}
     {#if allConversations}<header class="project-chat-intro">
