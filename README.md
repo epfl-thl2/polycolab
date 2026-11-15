@@ -2,7 +2,7 @@
 
 Polycolab is an online project workspace for people and agents. Project files are the shared working material.
 
-The service supports Default server files, Git worktrees, Collaborative collaboration, project conversations and optional hosted execution, artifacts, LaTeX builds, accounts, memberships, and revocable agent credentials. The independent agent library and direct chat API remain available.
+The service supports Basic files, Collaborative file editing, Git worktrees, project conversations and optional hosted execution, artifacts, LaTeX builds, accounts, memberships, and revocable agent API keys. Library provides reusable prompts, skills, and plugin listings. Retired direct-chat history remains readable through conversations.
 
 FastAPI serves the compiled Svelte application and APIs in production. Public project metadata is discoverable; files and conversations require their applicable access permissions. Private workers call authenticated APIs without database credentials.
 
