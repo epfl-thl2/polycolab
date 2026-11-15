@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/v1")
 
 
 class AgentCapabilities(BaseModel):
-    sessions: bool
+    conversations: bool
     execution_available: bool
     hosted_agents: bool
 
@@ -31,7 +31,7 @@ def hosted_ready(session: Session, settings: Settings) -> bool:
                 == settings.runtime_codex_image.rsplit("@sha256:", 1)[-1],
                 SqlHostedExecutor.expires_at > utc_now(),
                 SqlHostedExecutor.capacity > 0,
-                SqlHostedExecutor.protocol_version == 6,
+                SqlHostedExecutor.protocol_version == 7,
                 SqlHostedExecutor.sandbox_backend == settings.runtime_sandbox_backend,
                 SqlHostedExecutor.sandbox_version == settings.runtime_sandbox_version,
             )
@@ -50,6 +50,6 @@ def capabilities(request: Request, db: DbSession, user: CurrentUser) -> AgentCap
     return AgentCapabilities(
         execution_available=settings.feature_agent_execution_enabled
         and (settings.runtime_codex_image is None or ready),
-        sessions=request.app.state.settings.feature_agent_execution_enabled,
+        conversations=request.app.state.settings.feature_agent_execution_enabled,
         hosted_agents=ready,
     )

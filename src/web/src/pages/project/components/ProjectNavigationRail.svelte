@@ -60,7 +60,7 @@
   ] as const;
   const links = [
     ['overview', 'Overview', FolderKanban],
-    ['sessions', 'Project', PanelsLeftBottom],
+    ['conversations', 'Project', PanelsLeftBottom],
   ] as const;
   function navigate(event: MouseEvent, href: string) {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)

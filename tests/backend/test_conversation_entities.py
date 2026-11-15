@@ -23,7 +23,7 @@ from polycolab.entities.conversation import (
 )
 from polycolab.entities.enums import (
     AgentMessageRole,
-    AgentSessionStatus,
+    StoredConversationStatus,
 )
 
 
@@ -39,7 +39,7 @@ def test_conversation_sources_preserve_owner_and_project() -> None:
             created_at=now,
             updated_at=now,
             origin="legacy_direct",
-            status=AgentSessionStatus.ACTIVE,
+            status=StoredConversationStatus.ACTIVE,
         ),
         None,
     )
@@ -62,7 +62,7 @@ def test_conversation_sources_preserve_owner_and_project() -> None:
             created_at=now,
             updated_at=now,
             archived_at=now,
-            status=AgentSessionStatus.ARCHIVED,
+            status=StoredConversationStatus.ARCHIVED,
             is_shared=True,
         ),
         configuration,
@@ -92,7 +92,7 @@ def test_message_preserves_identity_and_role(role: AgentMessageRole, expected: M
     author = uuid4() if role is AgentMessageRole.USER else None
     row = SqlConversationItem(
         id=uuid4(),
-        session_id=uuid4(),
+        conversation_id=uuid4(),
         sequence=5,
         role=role,
         author_user_id=author,
@@ -101,7 +101,7 @@ def test_message_preserves_identity_and_role(role: AgentMessageRole, expected: M
     )
     item = agent_message(row)
     assert item.id == row.id
-    assert item.conversation_id == row.session_id
+    assert item.conversation_id == row.conversation_id
     assert item.sequence == 5
     assert item.author_user_id == author
     assert item.type == "message"
@@ -138,7 +138,7 @@ def test_complete_configuration_is_materialized_without_runtime_state() -> None:
         worktree_id=worktree,
         created_at=now,
         updated_at=now,
-        status=AgentSessionStatus.ACTIVE,
+        status=StoredConversationStatus.ACTIVE,
         is_shared=False,
     )
     value = conversation(row, configuration)
@@ -173,7 +173,7 @@ def test_agent_authorship_and_execution_attribution_are_explicit() -> None:
     agent_id, run_id = uuid4(), uuid4()
     row = SqlConversationItem(
         id=uuid4(),
-        session_id=uuid4(),
+        conversation_id=uuid4(),
         sequence=2,
         role=AgentMessageRole.AGENT,
         content_md="Answer",
@@ -229,12 +229,12 @@ def test_hierarchy_and_legacy_configuration_invariants() -> None:
     )
     assert child.sharing is ConversationSharing.PRIVATE
     with pytest.raises(ValueError, match="standalone"):
-        replace(root, project_id=None, sharing=ConversationSharing.PROJECT_READABLE)
+        replace(root, project_id=None, sharing=ConversationSharing.MEMBERS_CAN_VIEW)
     with pytest.raises(ValueError, match="legacy direct"):
         replace(
             root,
             origin=ConversationOrigin.LEGACY_DIRECT,
-            sharing=ConversationSharing.PROJECT_CONTRIBUTABLE,
+            sharing=ConversationSharing.MEMBERS_CAN_PARTICIPATE,
         )
     with pytest.raises(ValueError, match="spawning context"):
         ConversationHierarchy(root_id=root.id, spawning_run_id=uuid4())
@@ -348,7 +348,7 @@ def test_execution_and_private_runtime_materialization() -> None:
     binding = private_runtime_binding(
         SqlRuntimeSessionBinding(
             id=uuid4(),
-            session_id=uuid4(),
+            conversation_id=uuid4(),
             adapter_name="codex",
             opaque_runtime_ref="private-reference",
             status=RuntimeBindingStatus.SUPERSEDED,

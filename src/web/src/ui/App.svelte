@@ -9,7 +9,7 @@
   import { contextKey } from '../svelte-lib/context';
   import { accountReturnPath } from '../lib/account-navigation';
   import { createProjectsApi } from '../lib/projects-api';
-  import { createAgentSessionsApi } from '../lib/agent-sessions-api';
+  import { createConversationsApi } from '../lib/conversations-api';
   import { createExternalAgentApi } from '../lib/external-agent-api';
   import { createDocumentBuildsApi } from '../lib/document-builds-api';
   import { createRepositoryApi } from '../lib/repository-api';
@@ -45,7 +45,7 @@
     auth,
     query,
     capabilities,
-    agents: createAgentSessionsApi(options),
+    agents: createConversationsApi(options),
     externalAgents: createExternalAgentApi(options),
     artifacts: createArtifactApi(options),
     repository: createRepositoryApi(options),
@@ -63,7 +63,7 @@
   const returnTo = $derived(accountReturnPath(new URLSearchParams(search).get('returnTo')));
   const projectId = $derived(
     path.match(
-      /^\/projects\/(?!demo(?:\/|$))([^/]+)(?:\/(?:overview|files|settings|agent-connect|sessions)(?:\/[^/]+)?)?\/?$/,
+      /^\/projects\/(?!demo(?:\/|$))([^/]+)(?:\/(?:overview|files|settings|agent-connect|conversations)(?:\/[^/]+)?)?\/?$/,
     )?.[1],
   );
   const projectScope = $derived(
@@ -97,8 +97,15 @@
                       ? 'signin'
                       : path === '/signup'
                         ? 'signup'
-                        : path === '/settings' ||
-                            (path.startsWith('/settings/') && path !== '/settings/notifications')
+                        : [
+                              '/settings',
+                              '/settings/security',
+                              '/settings/recovery',
+                              '/settings/api-keys',
+                              '/settings/provider-connections',
+                              '/settings/conversation-history',
+                            ].includes(path) ||
+                            /^\/settings\/conversation-history\/[^/]+$/.test(path)
                           ? 'account-settings'
                           : 'missing',
   );

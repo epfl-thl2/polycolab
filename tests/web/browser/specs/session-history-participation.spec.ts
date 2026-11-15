@@ -2,7 +2,7 @@ import { test, expect, type BrowserContext } from '../fixtures';
 import { messageItemFixture, runFixture, sessionFixture } from '../../unit/session-fixtures';
 import type { components } from '../../../../src/web/src/lib/api-client';
 
-type Session = components['schemas']['SessionRead'];
+type Session = components['schemas']['ConversationRead'];
 type Item = components['schemas']['ItemPage']['items'][number];
 const projectId = '11111111-1111-1111-1111-111111111111';
 
@@ -19,7 +19,7 @@ test('shared contributors use their profile and read-only members receive the sa
   const contributor = await browser.newContext();
   const reader = await browser.newContext();
   const session = sessionFixture({
-    sharing: 'project_contributable',
+    sharing: 'members_can_participate',
     title: 'Shared investigation',
   });
   const items: Item[] = [
@@ -59,7 +59,7 @@ test('shared contributors use their profile and read-only members receive the sa
         if (path === '/api/v1/agent-capabilities')
           return route.fulfill({
             json: {
-              sessions: true,
+              conversations: true,
               execution_available: true,
               hosted_agents: false,
               verification: false,
@@ -75,8 +75,8 @@ test('shared contributors use their profile and read-only members receive the sa
               archived_at: null,
             },
           });
-        if (path === '/api/v1/sessions') return route.fulfill({ json: [view] });
-        if (path === `/api/v1/sessions/${session.id}`) return route.fulfill({ json: view });
+        if (path === '/api/v1/conversations') return route.fulfill({ json: [view] });
+        if (path === `/api/v1/conversations/${session.id}`) return route.fulfill({ json: view });
         if (path.endsWith('/items')) return route.fulfill({ json: { items, next_cursor: null } });
         if (path.endsWith('/runs'))
           return route.fulfill({
@@ -120,11 +120,11 @@ test('shared contributors use their profile and read-only members receive the sa
       });
     }
     const authorPage = await contributor.newPage();
-    await authorPage.goto(`/projects/${projectId}/sessions/${session.id}`);
+    await authorPage.goto(`/projects/${projectId}/conversations/${session.id}`);
     await expect(authorPage.getByText('An initial question from the owner.')).toBeVisible();
     await expect(authorPage.getByRole('button', { name: 'Sharing', exact: true })).toHaveCount(0);
     await expect(
-      authorPage.getByRole('button', { name: 'Archive session', exact: true }),
+      authorPage.getByRole('button', { name: 'Archive conversation', exact: true }),
     ).toHaveCount(0);
     await authorPage.getByRole('tab', { name: 'Agent history', exact: true }).click();
     await authorPage.getByLabel('AI provider').selectOption('contributor-profile');
@@ -141,7 +141,7 @@ test('shared contributors use their profile and read-only members receive the sa
     await authorPage.getByRole('button', { name: 'Stop agent', exact: true }).click();
     await expect.poll(() => run?.status).toBe('CANCELLED');
     const readerPage = await reader.newPage();
-    await readerPage.goto(`/projects/${projectId}/sessions/${session.id}`);
+    await readerPage.goto(`/projects/${projectId}/conversations/${session.id}`);
     await expect(readerPage.getByText('A second perspective from the contributor.')).toBeVisible();
     await readerPage.reload();
     await expect(readerPage.getByText('An initial question from the owner.')).toBeVisible();
@@ -207,11 +207,11 @@ test('retired direct history preserves unknown usage and supports rename and arc
           email_recovery: true,
         },
       });
-    if (path === '/api/v1/sessions') {
+    if (path === '/api/v1/conversations') {
       expect(url.searchParams.get('origin')).toBe('legacy_direct');
       return route.fulfill({ json: [session] });
     }
-    if (path === `/api/v1/sessions/${session.id}`) {
+    if (path === `/api/v1/conversations/${session.id}`) {
       if (request.method() === 'PATCH') {
         const input = request.postDataJSON();
         if ('title' in input) session.title = input.title;
@@ -235,7 +235,7 @@ test('retired direct history preserves unknown usage and supports rename and arc
     if (/\/(events|stream|sharing|resume)$/.test(path)) forbiddenRequests.push(path);
     return route.fulfill({ status: 404, json: { error: { code: 'not_found' } } });
   });
-  await page.goto('/settings/session-history');
+  await page.goto('/settings/conversation-history');
   await page.getByRole('link', { name: 'Old investigation', exact: true }).click();
   await expect(page.getByText('Saved historical question.')).toBeVisible();
   await page.getByText('Historical requests and usage', { exact: true }).click();

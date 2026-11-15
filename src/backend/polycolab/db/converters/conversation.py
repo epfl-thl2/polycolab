@@ -48,7 +48,7 @@ from polycolab.entities.conversation import (
 from polycolab.entities.enums import (
     AgentMessageRole,
     AgentRunStatus,
-    AgentSessionStatus,
+    StoredConversationStatus,
     UsageSource,
 )
 
@@ -88,7 +88,7 @@ def conversation(
         working_context=WorkingContext(worktree_id=row.worktree_id),
         status=(
             ConversationStatus.ARCHIVED
-            if row.status == AgentSessionStatus.ARCHIVED
+            if row.status == StoredConversationStatus.ARCHIVED
             else ConversationStatus.ACTIVE
         ),
         sharing=ConversationSharing(row.sharing or "private"),
@@ -114,7 +114,7 @@ def agent_message(
     )
     return ConversationItem(
         id=row.id,
-        conversation_id=row.session_id,
+        conversation_id=row.conversation_id,
         sequence=row.sequence,
         author=author,
         execution_id=execution_id,
@@ -176,7 +176,7 @@ def execution_summary(row: SqlAgentRun) -> ExecutionSummary:
 
 def execution(row: SqlAgentRun, *, usage: UsageSummary | None = None) -> ConversationExecution:
     return ConversationExecution(
-        conversation_id=row.session_id,
+        conversation_id=row.conversation_id,
         project_id=row.project_id,
         requested_by_user_id=row.requested_by_user_id,
         request_id=row.client_request_id,
@@ -245,7 +245,7 @@ def token_observation(row: SqlAgentRunUsage) -> TokenObservation:
 def private_runtime_binding(row: SqlRuntimeSessionBinding) -> PrivateRuntimeBinding:
     return PrivateRuntimeBinding(
         id=row.id,
-        conversation_id=row.session_id,
+        conversation_id=row.conversation_id,
         adapter=row.adapter_name,
         external_session_reference=row.opaque_runtime_ref,
         status=row.status,
@@ -288,7 +288,7 @@ def conversation_item(row: SqlConversationItem) -> ConversationItem[Conversation
         raise ValueError("unknown persisted conversation item type")
     return ConversationItem(
         id=row.id,
-        conversation_id=row.session_id,
+        conversation_id=row.conversation_id,
         sequence=row.sequence,
         author=author,
         data=data,

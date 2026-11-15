@@ -2,7 +2,7 @@ import { messageItemFixture, runFixture, sessionFixture } from '../../unit/sessi
 import { plainFileEditor } from '../helpers/project-editor';
 import { test, expect, type Page } from '../fixtures';
 const projectId = '11111111-1111-4111-8111-111111111111';
-const sessionId = '44444444-4444-4444-8444-444444444444';
+const conversationId = '44444444-4444-4444-8444-444444444444';
 const runId = '55555555-5555-4555-8555-555555555555';
 const author = { id: 'author-1', display_name: 'Ada' };
 const createdAt = '2026-09-05T12:00:00Z';
@@ -25,7 +25,7 @@ function unsignedJwt(payload: Record<string, unknown>) {
 }
 
 const session = sessionFixture({
-  id: sessionId,
+  id: conversationId,
   project_id: projectId,
   owner_id: 'author-1',
   title: 'Gap investigation',
@@ -87,7 +87,7 @@ async function mock(
     if (path === '/api/v1/agent-capabilities')
       return route.fulfill({
         json: {
-          sessions: true,
+          conversations: true,
           execution_available: true,
           hosted_agents: false,
         },
@@ -160,9 +160,9 @@ async function mock(
       return route.fulfill({
         json: [{ id: 'agent-1', agent_kind: 'RESEARCHER', version: 1, display_name: 'Researcher' }],
       });
-    if (path === '/api/v1/sessions')
+    if (path === '/api/v1/conversations')
       return route.fulfill({ json: request.method() === 'POST' ? session : agentSessions });
-    if (path.endsWith(`/sessions/${sessionId}`)) return route.fulfill({ json: session });
+    if (path.endsWith(`/conversations/${conversationId}`)) return route.fulfill({ json: session });
     if (path.endsWith('/items')) return route.fulfill({ json: { items: [], next_cursor: null } });
     if (path.endsWith('/events') && request.method() === 'POST')
       return route.fulfill({
@@ -170,10 +170,10 @@ async function mock(
         json: {
           type: 'message',
           item: messageItemFixture({
-            session_id: sessionId,
+            conversation_id: conversationId,
             data: { role: 'user', content_md: request.postDataJSON().content_md },
           }),
-          run: runFixture({ id: runId, session_id: sessionId }),
+          run: runFixture({ id: runId, conversation_id: conversationId }),
         },
       });
     if (path.endsWith('/runs')) return route.fulfill({ json: [] });
@@ -857,7 +857,7 @@ test('OIDC code flow returns to the exact project and supplies its access token'
   await page.getByLabel('Username', { exact: true }).fill('OIDC-Ada');
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
   expect(selectedUsername).toBe('oidc-ada');
-  await expect(page).toHaveURL(`${origin}/projects/${projectId}/sessions/new`);
+  await expect(page).toHaveURL(`${origin}/projects/${projectId}/conversations/new`);
   await page.getByRole('link', { name: 'Overview', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Spectral gaps', level: 1 })).toBeVisible();
   expect(projectAuthorizations).toContain('Bearer oidc-access-token');
@@ -1170,7 +1170,7 @@ test('failed local sign-out retains the account and a successful retry clears th
 
 test('project mode hides project tools and keeps its own navigation', async ({ page }) => {
   await mock(page);
-  await page.goto(`/projects/${projectId}/sessions/new`);
+  await page.goto(`/projects/${projectId}/conversations/new`);
   await expect(
     page.getByRole('complementary', { name: 'Project tools', exact: true }),
   ).toBeVisible();
@@ -1187,7 +1187,7 @@ test('project mode hides project tools and keeps its own navigation', async ({ p
 
 test('project chat has distinct layout icons and an uncluttered composer', async ({ page }) => {
   await mock(page);
-  await page.goto(`/projects/${projectId}/sessions/new`);
+  await page.goto(`/projects/${projectId}/conversations/new`);
   const rail = page.getByRole('complementary', { name: 'Project navigation', exact: true });
   await expect(rail.getByRole('link', { name: 'Project', exact: true }).locator('svg')).toHaveClass(
     /lucide-panels-left-bottom/,
@@ -1209,7 +1209,7 @@ test('project chat has distinct layout icons and an uncluttered composer', async
 
 test('Main conversations show a collapsible empty state', async ({ page }) => {
   await mock(page, 'OWNER', 0, []);
-  await page.goto(`/projects/${projectId}/sessions/new`);
+  await page.goto(`/projects/${projectId}/conversations/new`);
   const panel = page.getByRole('complementary', { name: 'Worktrees', exact: true });
   await expect(panel.getByText('No conversations yet.')).toBeVisible();
   await panel.getByRole('button', { name: 'Toggle Main conversations' }).click();
@@ -1223,7 +1223,7 @@ test('Main groups all loaded conversations without a recent-session cutoff', asy
     title: `Investigation ${index + 1}`,
   }));
   await mock(page, 'OWNER', 0, history);
-  await page.goto(`/projects/${projectId}/sessions/new`);
+  await page.goto(`/projects/${projectId}/conversations/new`);
   const group = page.getByRole('region', { name: 'Main worktree' });
   for (let index = 1; index <= 6; index++)
     await expect(
@@ -1235,10 +1235,15 @@ test('new chat customizes the hosted prompt and model endpoint', async ({ page }
   await mock(page);
   await page.route('**/api/v1/agent-capabilities', (route) =>
     route.fulfill({
-      json: { sessions: true, execution_available: true, hosted_agents: true, verification: false },
+      json: {
+        conversations: true,
+        execution_available: true,
+        hosted_agents: true,
+        verification: false,
+      },
     }),
   );
-  await page.goto(`/projects/${projectId}/sessions/new`);
+  await page.goto(`/projects/${projectId}/conversations/new`);
   const composer = page.locator('#main .project-chat-start');
   await expect(composer.getByRole('button', { name: 'Choose agent' })).toContainText('Researcher');
   await expect(composer.getByLabel('AI provider')).toHaveCount(0);
@@ -1254,7 +1259,7 @@ test('new chat customizes the hosted prompt and model endpoint', async ({ page }
   await page.getByLabel('Message the agent').fill('Examine this conjecture.');
   const createRequest = page.waitForRequest(
     (request) =>
-      request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/sessions',
+      request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/conversations',
   );
   await page.getByRole('button', { name: 'Send message' }).click();
   expect((await createRequest).postDataJSON()).toMatchObject({
@@ -1262,7 +1267,7 @@ test('new chat customizes the hosted prompt and model endpoint', async ({ page }
     harness: 'codex',
     system_prompt: 'Look for counterexamples first.',
   });
-  await expect(page).toHaveURL(`/projects/${projectId}/sessions/${sessionId}`);
+  await expect(page).toHaveURL(`/projects/${projectId}/conversations/${conversationId}`);
 });
 
 test('new chat top bar stays synchronized and resets local settings', async ({ page }) => {
@@ -1277,10 +1282,15 @@ test('new chat top bar stays synchronized and resets local settings', async ({ p
   );
   await page.route('**/api/v1/agent-capabilities', (route) =>
     route.fulfill({
-      json: { sessions: true, execution_available: true, hosted_agents: true, verification: false },
+      json: {
+        conversations: true,
+        execution_available: true,
+        hosted_agents: true,
+        verification: false,
+      },
     }),
   );
-  await page.goto(`/projects/${projectId}/sessions/new`);
+  await page.goto(`/projects/${projectId}/conversations/new`);
 
   const composer = page.locator('#main .project-chat-start');
   const agentPicker = composer.getByRole('button', { name: 'Choose agent' });
@@ -1316,7 +1326,7 @@ test('new chat top bar stays synchronized and resets local settings', async ({ p
 
 test('chat composers grow only after overflow and send with Enter', async ({ page }) => {
   await mock(page);
-  await page.goto(`/projects/${projectId}/sessions/new`);
+  await page.goto(`/projects/${projectId}/conversations/new`);
   const firstInput = page.getByLabel('Message the agent');
   const initialHeight = (await firstInput.boundingBox())!.height;
   await firstInput.fill('First line\nSecond line');
@@ -1335,7 +1345,7 @@ test('chat composers grow only after overflow and send with Enter', async ({ pag
   await firstInput.press('Shift+Enter');
   await expect(firstInput).toHaveValue('First turn\n');
   await firstInput.press('Enter');
-  await expect(page).toHaveURL(`/projects/${projectId}/sessions/${sessionId}`);
+  await expect(page).toHaveURL(`/projects/${projectId}/conversations/${conversationId}`);
 
   const nextInput = page.getByLabel('Private message', { exact: true });
   if (!(await page.getByLabel('AI provider').isVisible()))
@@ -1365,10 +1375,10 @@ test('new chat keeps its first message and session when the first send fails', a
   let creations = 0;
   const requestIds: string[] = [];
   page.on('request', (request) => {
-    if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/sessions')
+    if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/conversations')
       creations += 1;
   });
-  await page.route('**/api/v1/sessions/*/events', (route) => {
+  await page.route('**/api/v1/conversations/*/events', (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
     requestIds.push(route.request().postDataJSON().client_request_id);
     if (requestIds.length === 1)
@@ -1377,12 +1387,12 @@ test('new chat keeps its first message and session when the first send fails', a
       status: 202,
       json: {
         type: 'message',
-        item: messageItemFixture({ session_id: sessionId }),
-        run: runFixture({ id: runId, session_id: sessionId }),
+        item: messageItemFixture({ conversation_id: conversationId }),
+        run: runFixture({ id: runId, conversation_id: conversationId }),
       },
     });
   });
-  await page.goto(`/projects/${projectId}/sessions/new`);
+  await page.goto(`/projects/${projectId}/conversations/new`);
   const reason = page.locator('.project-chat-start-footer .project-chat-send-reason');
   await expect(reason).toHaveText('Write a message to send.');
   await expect(page.getByText('Choose an AI provider in Customize.')).toHaveCount(0);
@@ -1401,7 +1411,7 @@ test('new chat keeps its first message and session when the first send fails', a
     'Check the smallest counterexample.',
   );
   await send.click();
-  await expect(page).toHaveURL(`/projects/${projectId}/sessions/${sessionId}`);
+  await expect(page).toHaveURL(`/projects/${projectId}/conversations/${conversationId}`);
   expect(creations).toBe(1);
   expect(requestIds).toHaveLength(2);
   expect(requestIds[0]).toBe(requestIds[1]);
@@ -1412,7 +1422,7 @@ test('failed agent message remains editable and successful retry uses the same r
 }) => {
   await mock(page);
   const bodies: Record<string, unknown>[] = [];
-  await page.route('**/api/v1/sessions/*/events', async (route) => {
+  await page.route('**/api/v1/conversations/*/events', async (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
     const body = route.request().postDataJSON();
     bodies.push(body);
@@ -1422,14 +1432,14 @@ test('failed agent message remains editable and successful retry uses the same r
       json: {
         type: 'message',
         item: messageItemFixture({
-          session_id: sessionId,
+          conversation_id: conversationId,
           data: { role: 'user', content_md: body.content_md },
         }),
-        run: runFixture({ id: runId, session_id: sessionId }),
+        run: runFixture({ id: runId, conversation_id: conversationId }),
       },
     });
   });
-  await page.goto(`/projects/${projectId}/sessions/${sessionId}`);
+  await page.goto(`/projects/${projectId}/conversations/${conversationId}`);
   if (!(await page.getByLabel('AI provider').isVisible()))
     await page.getByRole('tab', { name: 'Agent history', exact: true }).click();
   await expect(page.getByLabel('AI provider')).toBeVisible();
@@ -1466,12 +1476,12 @@ test('streams committed agent events, reconnects from cursor and cancels the run
   let connections = 0;
   const cursors: (string | undefined)[] = [];
   let cancelled = false;
-  await page.route('**/api/v1/sessions/*/runs*', (route) =>
+  await page.route('**/api/v1/conversations/*/runs*', (route) =>
     route.fulfill({
       json: [
         runFixture({
           id: runId,
-          session_id: sessionId,
+          conversation_id: conversationId,
           status: cancelled ? 'CANCELLED' : 'RUNNING',
           can_interrupt: !cancelled,
         }),
@@ -1479,9 +1489,11 @@ test('streams committed agent events, reconnects from cursor and cancels the run
     }),
   );
   await page.route('**/api/v1/runs/*', (route) =>
-    route.fulfill({ json: runFixture({ id: runId, session_id: sessionId, status: 'RUNNING' }) }),
+    route.fulfill({
+      json: runFixture({ id: runId, conversation_id: conversationId, status: 'RUNNING' }),
+    }),
   );
-  await page.route('**/api/v1/sessions/*/events', (route) => {
+  await page.route('**/api/v1/conversations/*/events', (route) => {
     expect(route.request().postDataJSON()).toEqual({ type: 'interrupt', run_id: runId });
     cancelled = true;
     return route.fulfill({
@@ -1490,14 +1502,14 @@ test('streams committed agent events, reconnects from cursor and cancels the run
         type: 'interrupt',
         run: runFixture({
           id: runId,
-          session_id: sessionId,
+          conversation_id: conversationId,
           status: 'CANCELLED',
           can_interrupt: false,
         }),
       },
     });
   });
-  await page.route('**/api/v1/sessions/*/stream', (route) => {
+  await page.route('**/api/v1/conversations/*/stream', (route) => {
     cursors.push(route.request().headers()['last-event-id']);
     connections++;
     const event = {
@@ -1521,7 +1533,7 @@ test('streams committed agent events, reconnects from cursor and cancels the run
           : `id: 1:2\nevent: ASSISTANT_DELTA\ndata: ${JSON.stringify(delta)}\n\n`,
     });
   });
-  await page.goto(`/projects/${projectId}/sessions/${sessionId}`);
+  await page.goto(`/projects/${projectId}/conversations/${conversationId}`);
   await expect(page.getByText('A useful next step.', { exact: true })).toBeVisible();
   await expect.poll(() => connections).toBeGreaterThan(1);
   expect(cursors[1]).toBe('1:2');
@@ -1537,13 +1549,13 @@ test('revoked session access clears private messages and stops event reconnects'
 }) => {
   await mock(page);
   let eventRequests = 0;
-  await page.route('**/api/v1/sessions/*/items*', (route) =>
+  await page.route('**/api/v1/conversations/*/items*', (route) =>
     route.fulfill({
       json: {
         items: [
           messageItemFixture({
             id: 'private-message-1',
-            session_id: sessionId,
+            conversation_id: conversationId,
             data: {
               role: 'user',
               content_md: 'Private draft that must be cleared after revocation.',
@@ -1554,7 +1566,7 @@ test('revoked session access clears private messages and stops event reconnects'
       },
     }),
   );
-  await page.route('**/api/v1/sessions/*/stream', (route) => {
+  await page.route('**/api/v1/conversations/*/stream', (route) => {
     eventRequests += 1;
     return route.fulfill({
       status: 403,
@@ -1562,7 +1574,7 @@ test('revoked session access clears private messages and stops event reconnects'
     });
   });
 
-  await page.goto(`/projects/${projectId}/sessions/${sessionId}`);
+  await page.goto(`/projects/${projectId}/conversations/${conversationId}`);
   await expect(page.getByRole('alert')).toContainText('access changed');
   await expect(page.getByText('Private draft that must be cleared after revocation.')).toHaveCount(
     0,
@@ -2055,7 +2067,7 @@ for (const width of [1440, 1024, 390]) {
   test(`project rail and panels fit a ${width}px viewport`, async ({ page }) => {
     await mock(page);
     await page.setViewportSize({ width, height: 900 });
-    await page.goto(`/projects/${projectId}/sessions/new`);
+    await page.goto(`/projects/${projectId}/conversations/new`);
     await expect(page.getByLabel('Message the agent')).toBeVisible();
     if (width > 760) {
       const rail = page.getByRole('complementary', { name: 'Project navigation', exact: true });
@@ -2081,13 +2093,13 @@ test('hosted run history keeps prior files and offers explicit resume after lost
   await page.route('**/api/v1/agent-capabilities', (route) =>
     route.fulfill({
       json: {
-        sessions: true,
+        conversations: true,
         execution_available: false,
         hosted_agents: false,
       },
     }),
   );
-  await page.route('**/api/v1/sessions/*/runs*', (route) =>
+  await page.route('**/api/v1/conversations/*/runs*', (route) =>
     route.fulfill({
       json: [
         runFixture({ id: 'completed-run', status: 'COMPLETED', can_interrupt: false }),
@@ -2104,7 +2116,7 @@ test('hosted run history keeps prior files and offers explicit resume after lost
   await page.route('**/api/v1/runs/completed-run/artifacts', (route) =>
     route.fulfill({ json: [{ artifact_id: 'saved-file', display_name: 'Saved result.txt' }] }),
   );
-  await page.goto(`/projects/${projectId}/sessions/${sessionId}`);
+  await page.goto(`/projects/${projectId}/conversations/${conversationId}`);
   await expect(
     page.getByText('Review its history before sending another message', { exact: false }),
   ).toBeVisible();
@@ -2240,7 +2252,7 @@ test('project overview shows a quiet empty description', async ({ page }) => {
 
 test('project remembers resized panels and collapsed tools after reload', async ({ page }) => {
   await mock(page);
-  await page.goto(`/projects/${projectId}/sessions/new`);
+  await page.goto(`/projects/${projectId}/conversations/new`);
   await page.getByRole('separator', { name: 'Resize left panel', exact: true }).press('ArrowLeft');
   await page.getByRole('button', { name: 'Collapse tools', exact: true }).click();
   await page.reload();
@@ -2405,7 +2417,7 @@ test('project Agent connect provides scoped instructions and a collapsed navigat
     .getByRole('complementary', { name: 'Project navigation', exact: true })
     .getByRole('button', { name: 'Agent connect', exact: true });
   await agentConnect.click();
-  await expect(page).toHaveURL(`/projects/${projectId}/sessions/new`);
+  await expect(page).toHaveURL(`/projects/${projectId}/conversations/new`);
   await expect(page.getByRole('heading', { name: 'Agent connect', exact: true })).toBeVisible();
   const instructions = page.getByRole('textbox', { name: 'Agent connection instructions' });
   await expect(instructions).toHaveValue(new RegExp(`Project ID: ${projectId}`));
@@ -2435,7 +2447,7 @@ test('project Agent connect provides scoped instructions and a collapsed navigat
   await expect(issuedDialog).toBeVisible();
   await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Your API key' })).toHaveCount(0);
-  await expect(page).toHaveURL(`/projects/${projectId}/sessions/new`);
+  await expect(page).toHaveURL(`/projects/${projectId}/conversations/new`);
   await expect(page.getByRole('dialog', { name: 'Agent connect', exact: true })).toContainText(
     'not limited to this project',
   );
@@ -2694,7 +2706,7 @@ test('Files workbench keeps tab drafts, explores folders, and reviews an agent c
 }) => {
   await mock(page);
   await page.setViewportSize({ width: 1440, height: 1000 });
-  const agentBranch = `sessions/${sessionId}`;
+  const agentBranch = `sessions/${conversationId}`;
   const files: Record<string, string> = {
     'README.md':
       '# Spectral gaps\n\nResearch notes, proofs, and computational experiments.\n\n## Current direction\n\nExplore expansion in finite graphs and document the assumptions.\n\n- Work through the cycle graph example\n- Formalize the spectral gap bound\n- Compare numerical estimates with the proof\n',
@@ -2758,7 +2770,7 @@ test('Files workbench keeps tab drafts, explores folders, and reviews an agent c
     page,
     () => [
       nativeTree(mainWorktreeId, 'Main', 'main', 'a'.repeat(40), files),
-      nativeTree(sessionId, 'Agent worktree', agentBranch, 'b'.repeat(40), files),
+      nativeTree(conversationId, 'Agent worktree', agentBranch, 'b'.repeat(40), files),
     ],
     (_id, path) => files[path]!,
   );
@@ -2808,7 +2820,7 @@ test('Files workbench keeps tab drafts, explores folders, and reviews an agent c
   await navigator.getByRole('button', { name: 'README.md', exact: true }).click();
   await expect(await plainFileEditor(page)).toHaveValue('# My unsaved overview');
   await page.getByRole('tab', { name: 'New chat', exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/sessions/new\\?draft=`));
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/conversations/new\\?draft=`));
   await page.getByRole('tab', { name: 'README.md' }).click();
   await expect(await plainFileEditor(page)).toHaveValue('# My unsaved overview');
   await expect(page.getByText('2 unsaved files', { exact: true })).toBeVisible();
@@ -2881,9 +2893,9 @@ test('agent workbench retains chat and file drafts across unified tabs and mobil
   const second = { ...session, id: secondId, title: 'Second investigation' };
   const requests = await mock(page, 'OWNER', 0, [session, second]);
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.route('**/api/v1/sessions*', async (route) => {
+  await page.route('**/api/v1/conversations*', async (route) => {
     const path = new URL(route.request().url()).pathname;
-    if (path === '/api/v1/sessions')
+    if (path === '/api/v1/conversations')
       return route.fulfill({
         json: [
           {
@@ -2895,8 +2907,10 @@ test('agent workbench retains chat and file drafts across unified tabs and mobil
       });
     return route.fallback();
   });
-  await page.route(`**/api/v1/sessions/${secondId}`, (route) => route.fulfill({ json: second }));
-  await page.route('**/api/v1/sessions/*/runs*', (route) => route.fulfill({ json: [] }));
+  await page.route(`**/api/v1/conversations/${secondId}`, (route) =>
+    route.fulfill({ json: second }),
+  );
+  await page.route('**/api/v1/conversations/*/runs*', (route) => route.fulfill({ json: [] }));
   await page.route(`**/api/v1/projects/${projectId}/repository**`, (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.endsWith('/file'))
@@ -2941,7 +2955,7 @@ test('agent workbench retains chat and file drafts across unified tabs and mobil
     () => 'Saved note',
   );
   await page.goto(`/projects/${projectId}`);
-  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/sessions/new$`));
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/conversations/new$`));
   await expect(page.getByLabel('Message the agent').filter({ visible: true })).toBeVisible();
   const rail = page.getByRole('complementary', { name: 'Project navigation', exact: true });
   const agents = page.getByRole('complementary', { name: 'Worktrees', exact: true });
@@ -2992,7 +3006,7 @@ test('agent workbench retains chat and file drafts across unified tabs and mobil
     .filter({ visible: true })
     .fill('Unsent new chat draft');
   await agents.getByRole('button', { name: /Gap investigation Researcher running/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}$`));
+  await expect(page).toHaveURL(new RegExp(`/conversations/${conversationId}$`));
   await page
     .getByLabel('Private message', { exact: true })
     .filter({ visible: true })
@@ -3001,7 +3015,7 @@ test('agent workbench retains chat and file drafts across unified tabs and mobil
     page.getByLabel('Private message', { exact: true }).filter({ visible: true }),
   ).toHaveValue('First chat draft');
   await agents.getByRole('button', { name: /Second investigation Researcher/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/sessions/${secondId}$`));
+  await expect(page).toHaveURL(new RegExp(`/conversations/${secondId}$`));
   await expect(page.getByRole('tab', { name: /^Second investigation/ })).toHaveAttribute(
     'aria-selected',
     'true',
@@ -3013,12 +3027,12 @@ test('agent workbench retains chat and file drafts across unified tabs and mobil
   await tools.getByRole('button', { name: 'notes.md', exact: true }).click();
   await (await plainFileEditor(page)).fill('Unsent file draft');
   await page.getByRole('tab', { name: /^Gap investigation/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}$`));
+  await expect(page).toHaveURL(new RegExp(`/conversations/${conversationId}$`));
   await expect(
     page.getByLabel('Private message', { exact: true }).filter({ visible: true }),
   ).toHaveValue('First chat draft');
   await page.getByRole('tab', { name: /^Second investigation/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/sessions/${secondId}$`));
+  await expect(page).toHaveURL(new RegExp(`/conversations/${secondId}$`));
   await expect(
     page.getByLabel('Private message', { exact: true }).filter({ visible: true }),
   ).toHaveValue('Second chat draft');
@@ -3072,18 +3086,18 @@ test('retained chat tabs pause streams and resume with their cursor and draft', 
     title: `Stream investigation ${index + 1}`,
   }));
   const requests = await mock(page, 'OWNER', 0, chats);
-  await page.route('**/api/v1/sessions/*', (route) => {
+  await page.route('**/api/v1/conversations/*', (route) => {
     const id = new URL(route.request().url()).pathname.split('/').at(-1);
     return route.fulfill({ json: chats.find((chat) => chat.id === id) });
   });
-  await page.route('**/api/v1/sessions/*/runs*', (route) => route.fulfill({ json: [] }));
+  await page.route('**/api/v1/conversations/*/runs*', (route) => route.fulfill({ json: [] }));
   await page.addInitScript(() => {
     const originalFetch = window.fetch.bind(window);
     const monitor = { active: 0, maximum: 0, aborted: 0, cursors: [] as string[] };
     Object.assign(window, { chatStreamMonitor: monitor });
     window.fetch = async (input, init) => {
       const request = new Request(input, init);
-      if (!/\/sessions\/[^/]+\/stream$/.test(new URL(request.url).pathname))
+      if (!/\/conversations\/[^/]+\/stream$/.test(new URL(request.url).pathname))
         return originalFetch(input, init);
       monitor.active++;
       monitor.maximum = Math.max(monitor.maximum, monitor.active);
@@ -3133,7 +3147,7 @@ test('retained chat tabs pause streams and resume with their cursor and draft', 
           }
         ).chatStreamMonitor,
     );
-  await page.goto(`/projects/${projectId}/sessions/${chats[0]!.id}`);
+  await page.goto(`/projects/${projectId}/conversations/${chats[0]!.id}`);
   const agents = page.getByRole('complementary', { name: 'Worktrees', exact: true });
   await expect.poll(async () => (await monitor()).active).toBe(1);
   await page
@@ -3142,7 +3156,7 @@ test('retained chat tabs pause streams and resume with their cursor and draft', 
     .fill('Keep this draft');
   for (const chat of chats.slice(1)) {
     await agents.getByRole('button', { name: new RegExp(chat.title) }).click();
-    await expect(page).toHaveURL(new RegExp(`/sessions/${chat.id}$`));
+    await expect(page).toHaveURL(new RegExp(`/conversations/${chat.id}$`));
     await expect.poll(async () => (await monitor()).active).toBe(1);
   }
   await expect.poll(async () => (await monitor()).aborted).toBeGreaterThanOrEqual(7);
@@ -3169,19 +3183,19 @@ test('middle panel plus creates independent new chat tabs and preserves their dr
   page,
 }) => {
   const requests = await mock(page);
-  await page.route(`**/api/v1/sessions/${sessionId}/events`, (route) =>
+  await page.route(`**/api/v1/conversations/${conversationId}/events`, (route) =>
     route.request().method() === 'POST'
       ? route.fulfill({
           status: 202,
           json: {
             type: 'message',
-            item: messageItemFixture({ session_id: sessionId }),
-            run: runFixture({ id: runId, session_id: sessionId }),
+            item: messageItemFixture({ conversation_id: conversationId }),
+            run: runFixture({ id: runId, conversation_id: conversationId }),
           },
         })
       : route.fallback(),
   );
-  await page.goto(`/projects/${projectId}/sessions/new`);
+  await page.goto(`/projects/${projectId}/conversations/new`);
   const tabs = page.getByRole('tab', { name: /^New chat(?: Unsaved changes)?$/ });
   const composer = page.getByLabel('Message the agent').filter({ visible: true });
   const plus = page.getByRole('button', { name: 'New chat tab', exact: true });
@@ -3189,7 +3203,7 @@ test('middle panel plus creates independent new chat tabs and preserves their dr
   await plus.click();
   await expect(tabs).toHaveCount(2);
   await expect(composer).toHaveValue('');
-  await expect(page).toHaveURL(new RegExp('/sessions/new\\?draft='));
+  await expect(page).toHaveURL(new RegExp('/conversations/new\\?draft='));
   const secondUrl = page.url();
   await composer.fill('Second draft');
   await plus.click();
@@ -3197,7 +3211,7 @@ test('middle panel plus creates independent new chat tabs and preserves their dr
   await expect(composer).toHaveValue('');
   await expect(page).not.toHaveURL(secondUrl);
   await composer.fill('Third draft');
-  expect(requests.filter((request) => request === 'POST /api/v1/sessions')).toHaveLength(0);
+  expect(requests.filter((request) => request === 'POST /api/v1/conversations')).toHaveLength(0);
 
   await tabs.nth(0).click();
   await expect(composer).toHaveValue('First draft');
@@ -3214,7 +3228,7 @@ test('middle panel plus creates independent new chat tabs and preserves their dr
 
   await tabs.nth(0).click();
   await page.getByRole('button', { name: 'Send message', exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}$`));
+  await expect(page).toHaveURL(new RegExp(`/conversations/${conversationId}$`));
   await expect(tabs).toHaveCount(1);
   await tabs.click();
   await expect(composer).toHaveValue('Third draft');
@@ -3285,7 +3299,7 @@ async function mockTaskWorkbench(page: Page) {
     }
     return route.fulfill({ json: id ? tasks.find((task) => task.id === id) : tasks });
   });
-  await page.route('**/api/v1/sessions', (route) => {
+  await page.route('**/api/v1/conversations', (route) => {
     if (route.request().method() === 'POST') {
       sessionCreate = route.request().postDataJSON();
       const created = {
@@ -3301,20 +3315,20 @@ async function mockTaskWorkbench(page: Page) {
     }
     return route.fulfill({ json: chats });
   });
-  await page.route('**/api/v1/sessions/*', (route) => {
+  await page.route('**/api/v1/conversations/*', (route) => {
     const id = new URL(route.request().url()).pathname.split('/').at(-1);
     const chat = chats.find((item) => item.id === id);
     return chat ? route.fulfill({ json: chat }) : route.fallback();
   });
-  await page.route('**/api/v1/sessions/*/runs*', (route) => route.fulfill({ json: [] }));
-  await page.route('**/api/v1/sessions/*/events', (route) =>
+  await page.route('**/api/v1/conversations/*/runs*', (route) => route.fulfill({ json: [] }));
+  await page.route('**/api/v1/conversations/*/events', (route) =>
     route.fulfill({
       json:
         route.request().method() === 'POST'
           ? {
               type: 'message',
-              item: messageItemFixture({ session_id: chats.at(-1)!.id }),
-              run: runFixture({ id: runId, session_id: chats.at(-1)!.id }),
+              item: messageItemFixture({ conversation_id: chats.at(-1)!.id }),
+              run: runFixture({ id: runId, conversation_id: chats.at(-1)!.id }),
             }
           : [],
     }),
@@ -3399,7 +3413,7 @@ test('worktrees group conversations and switch saved files on desktop and mobile
     group.getByRole('button', { name: /Second proof conversation Researcher/ }),
   ).toBeVisible();
   await group.getByRole('button', { name: /Gap investigation Researcher/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}$`));
+  await expect(page).toHaveURL(new RegExp(`/conversations/${conversationId}$`));
   await tools.getByRole('button', { name: 'notes.md', exact: true }).click();
   await expect(await plainFileEditor(page)).toHaveValue(`Saved files in tasks/${workbenchTaskId}`);
   await (await plainFileEditor(page)).fill('Keep this worktree draft');
@@ -3433,7 +3447,7 @@ test('worktrees group conversations and switch saved files on desktop and mobile
     .fill('Explore an alternate proof');
   await page.getByRole('button', { name: 'Send message', exact: true }).click();
   await expect.poll(() => fixture.sessionCreate()?.worktree_id).toBe(created.id);
-  await expect(page).toHaveURL(/sessions\/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa$/);
+  await expect(page).toHaveURL(/conversations\/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa$/);
   await page.reload();
   await expect(
     panel
@@ -3447,7 +3461,7 @@ test('worktrees group conversations and switch saved files on desktop and mobile
     .filter({ visible: true })
     .fill('Keep this worktree chat draft');
   await panel.getByRole('button', { name: 'New conversation in Main', exact: true }).click();
-  await expect(page).toHaveURL(/sessions\/new\?draft=/);
+  await expect(page).toHaveURL(/conversations\/new\?draft=/);
   expect(new URL(page.url()).searchParams.get('worktree')).toBe(mainWorktreeId);
   await panel.getByRole('button', { name: 'Select Alternate proof worktree' }).click();
   await expect(
@@ -3472,7 +3486,7 @@ test('worktrees group conversations and switch saved files on desktop and mobile
   ).toBeVisible();
   await page.screenshot({ path: '/tmp/polycolab-worktrees-mobile.png', fullPage: true });
   await drawer.getByRole('button', { name: /Second proof conversation Researcher/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/sessions/${fixture.chats[1]!.id}$`));
+  await expect(page).toHaveURL(new RegExp(`/conversations/${fixture.chats[1]!.id}$`));
   await expect(drawer).toHaveCount(0);
   expect(errors).toEqual([]);
 });
@@ -3511,7 +3525,7 @@ test('conversation navigation ignores a delayed legacy working-copy response', a
   await expect.poll(() => pending).toBe(true);
   await panel.getByRole('button', { name: /Shared conversation Researcher/ }).click();
   release();
-  await expect(page).toHaveURL(new RegExp(`/sessions/${sharedId}$`));
+  await expect(page).toHaveURL(new RegExp(`/conversations/${sharedId}$`));
   await expect(page.getByRole('tab', { name: 'Shared conversation', exact: true })).toHaveAttribute(
     'aria-selected',
     'true',
@@ -3532,7 +3546,7 @@ test('project rail switches page layouts without adding tabs and restores chat d
 }) => {
   await mock(page);
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto(`/projects/${projectId}/sessions/new`);
+  await page.goto(`/projects/${projectId}/conversations/new`);
   const rail = page.getByRole('complementary', { name: 'Project navigation', exact: true });
   await expect(rail.getByRole('link', { name: 'Chat', exact: true })).toHaveCount(0);
   const composer = page.getByLabel('Message the agent').filter({ visible: true });
@@ -3584,7 +3598,9 @@ test('closing the last tab leaves an empty workbench and retains its worktree', 
 }) => {
   await mockTaskWorkbench(page);
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto(`/projects/${projectId}/sessions/new?draft=last&worktree=${workbenchTaskId}`);
+  await page.goto(
+    `/projects/${projectId}/conversations/new?draft=last&worktree=${workbenchTaskId}`,
+  );
   const tabStrip = page.getByRole('tablist', { name: 'Project tabs' });
   const tools = page.getByRole('complementary', { name: 'Project tools', exact: true });
   const empty = page.getByText('Open a conversation or file to get started.', { exact: true });
@@ -3597,7 +3613,7 @@ test('closing the last tab leaves an empty workbench and retains its worktree', 
   await page.getByRole('button', { name: 'Close New chat', exact: true }).click();
   await expect(empty).toBeVisible();
   await expect(tabStrip.getByRole('tab')).toHaveCount(0);
-  await expect(page).toHaveURL(/sessions\?view=empty/);
+  await expect(page).toHaveURL(/conversations\?view=empty/);
   await expect(
     page.getByRole('button', {
       name: `Select ${'Prove the spectral bound'} worktree`,
@@ -3639,7 +3655,7 @@ test('Explorer previews retain edited Monaco models and isolate the same path ac
 }) => {
   await mockTaskWorkbench(page);
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto(`/projects/${projectId}/sessions?view=empty&branch=main`);
+  await page.goto(`/projects/${projectId}/conversations?view=empty&branch=main`);
   const tools = page.getByRole('complementary', { name: 'Project tools', exact: true });
   const tabs = page.getByRole('tablist', { name: 'Project tabs' });
   await tools.getByRole('button', { name: 'notes.md', exact: true }).click();
@@ -3686,7 +3702,7 @@ test('Explorer preview replacement, explicit filter reveal, and clean failure pr
       : route.fallback(),
   );
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto(`/projects/${projectId}/sessions?view=empty&branch=main`);
+  await page.goto(`/projects/${projectId}/conversations?view=empty&branch=main`);
   const tools = page.getByRole('complementary', { name: 'Project tools', exact: true });
   const tabs = page.getByRole('tablist', { name: 'Project tabs' });
   await tools.getByRole('button', { name: 'a.py', exact: true }).click();
@@ -3708,35 +3724,18 @@ test('Explorer preview replacement, explicit filter reveal, and clean failure pr
   await expect(tabs.getByRole('tab', { name: 'b.py', exact: true })).toBeVisible();
 });
 
-test('legacy key settings links redirect to the general settings sections', async ({ page }) => {
+test('retired settings paths show not found without redirects', async ({ page }) => {
   await mock(page);
-  await page.goto('/settings/providers?source=bookmark');
-  await expect(page).toHaveURL('/settings/provider-connections?source=bookmark');
-  await expect(
-    page.getByRole('heading', { name: 'Provider connections', exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole('link', { name: 'Provider connections', exact: true }),
-  ).toHaveAttribute('aria-current', 'page');
-  await page.goto('/settings/agent-keys');
-  await expect(page).toHaveURL('/settings/api-keys');
-  await expect(page.getByRole('heading', { name: 'API keys', exact: true })).toBeVisible();
-  await expect(
-    page
-      .getByRole('group', { name: 'Access' })
-      .getByRole('link', { name: 'API keys', exact: true }),
-  ).toBeVisible();
-  await page.screenshot({ path: '/tmp/polycolab-settings-api-keys.png' });
-  await expect(page.getByRole('link', { name: 'API keys', exact: true })).toHaveAttribute(
-    'aria-current',
-    'page',
-  );
-  await page.getByRole('link', { name: 'Profile', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Profile', exact: true })).toBeVisible();
-  await page.screenshot({ path: '/tmp/polycolab-settings-profile.png' });
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByRole('heading', { name: 'Access', exact: true })).toBeVisible();
-  await page.screenshot({ path: '/tmp/polycolab-settings-profile-mobile.png' });
+  for (const path of [
+    '/settings/providers',
+    '/settings/model-providers',
+    '/settings/agent-keys',
+    '/settings/session-history',
+  ]) {
+    await page.goto(path + '?source=bookmark');
+    await expect(page).toHaveURL(path + '?source=bookmark');
+    await expect(page.getByRole('heading', { name: 'Page not found', exact: true })).toBeVisible();
+  }
 });
 
 test('recovery settings actions use dismissible toasts without moving the form', async ({
@@ -3797,8 +3796,8 @@ test('retired project Chat bookmarks open existing project conversations', async
       chatRequests.push(request.url());
   });
   await page.goto(`/projects/${projectId}/chat`);
-  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/sessions$`));
-  await expect(page.getByRole('heading', { name: 'All sessions', exact: true })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/conversations$`));
+  await expect(page.getByRole('heading', { name: 'All conversations', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Chat', exact: true })).toHaveCount(0);
   expect(chatRequests).toEqual([]);
 });

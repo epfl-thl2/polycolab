@@ -979,7 +979,11 @@ def create_app(
                         "description": "Opaque cursor for the next page, omitted at the end.",
                         "schema": {"type": "string"},
                     }
-                    if operation_id not in {"listSessions", "listSessionRuns", "listChildSessions"}:
+                    if operation_id not in {
+                        "listConversations",
+                        "listConversationRuns",
+                        "listChildConversations",
+                    }:
                         headers["X-Total-Count"] = {
                             "description": "Total items matching the stable listing order.",
                             "schema": {"type": "integer", "minimum": 0},

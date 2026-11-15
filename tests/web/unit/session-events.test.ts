@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { renderMarkdown } from '../../../src/web/src/svelte-lib/markdown';
-import { advancesCursor, statusFromEvent } from '../../../src/web/src/svelte-lib/session-events';
-import type { AgentEvent } from '../../../src/web/src/lib/agent-sessions-api';
+import {
+  advancesCursor,
+  statusFromEvent,
+} from '../../../src/web/src/svelte-lib/conversation-events';
+import type { AgentEvent } from '../../../src/web/src/lib/conversations-api';
 
 describe('Svelte message content and event boundaries', () => {
   it('renders accessible mathematics without enabling injected HTML or unsafe links', () => {

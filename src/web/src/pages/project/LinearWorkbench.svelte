@@ -9,7 +9,10 @@
   import { beforeNavigate, goto } from '$app/navigation';
   import { projectContext, contextKey, explain } from '../../svelte-lib/context';
   import type { Project } from '../../lib/projects-api';
-  import { createProjectSessions, projectSessionItems } from '../../lib/session-queries';
+  import {
+    createProjectConversations,
+    projectConversationItems,
+  } from '../../lib/conversation-queries';
   import type { LinearCheckpoint, LinearDocument } from '../../lib/linear-api';
   import { LinearSession } from '../../lib/linear-session';
   import { bytesToBase64 } from '../../lib/repository-api';
@@ -65,8 +68,8 @@
   const editorSessions = new ProjectEditorSessions();
   let tabs = $state<ProjectTab[]>([]);
   let activeId = $state('');
-  const chats = createProjectSessions(context.agents, () => project.id);
-  const sessions = $derived(projectSessionItems($chats.data));
+  const chats = createProjectConversations(context.agents, () => project.id);
+  const conversations = $derived(projectConversationItems($chats.data));
   const chatsLoaded = $derived(!$chats.isPending);
   const chatsError = $derived($chats.isError ? explain($chats.error) : '');
   const moreChats = $derived($chats.hasNextPage);
@@ -140,9 +143,13 @@
   });
   $effect(() => {
     const pathname = page.url.pathname;
-    if (pathname === `/projects/${project.id}` || pathname === `/projects/${project.id}/sessions`) {
+    if (
+      pathname === `/projects/${project.id}` ||
+      pathname === `/projects/${project.id}/conversations`
+    ) {
       const destination = untrack(
-        () => lastChatHref || `/projects/${project.id}/${canChat ? 'sessions/new' : 'overview'}`,
+        () =>
+          lastChatHref || `/projects/${project.id}/${canChat ? 'conversations/new' : 'overview'}`,
       );
       void goto(destination, { replaceState: true });
       return;
@@ -154,7 +161,7 @@
       untrack(() => {
         if (file) openFile(file.path);
         void goto(
-          lastChatHref || `/projects/${project.id}/${canChat ? 'sessions/new' : 'overview'}`,
+          lastChatHref || `/projects/${project.id}/${canChat ? 'conversations/new' : 'overview'}`,
           { replaceState: true },
         );
       });
@@ -218,7 +225,7 @@
     });
   }
   function newChat() {
-    navigate(`/projects/${project.id}/sessions/new?draft=${crypto.randomUUID()}`);
+    navigate(`/projects/${project.id}/conversations/new?draft=${crypto.randomUUID()}`);
   }
   async function createFile(newPath: string) {
     await attempt(async () => {
@@ -296,7 +303,7 @@
   {activeId}
   {canChat}
   {draftChats}
-  {sessions}
+  {conversations}
   {chatsLoaded}
   {chatsError}
   {chatsLoading}
@@ -320,7 +327,7 @@
     bind:tabs
     {activeId}
     onCreated={(id) => {
-      navigate(`/projects/${project.id}/sessions/${id}`);
+      navigate(`/projects/${project.id}/conversations/${id}`);
     }}
   />
 
@@ -362,7 +369,7 @@
       <LinearBatches projectId={project.id} {live} />
     </div>
     {#if rightMode === 'details'}
-      {#if section === 'sessions'}<div data-chat-panel-host={placement}></div>
+      {#if section === 'conversations'}<div data-chat-panel-host={placement}></div>
         {#if !entity || entity === 'new'}<p class="tool-empty">
             Start a conversation to see its agent run history.
           </p>{/if}

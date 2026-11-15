@@ -54,7 +54,7 @@ from polycolab.entities.conversation import (
     UsageReservation,
     UsageSummary,
 )
-from polycolab.entities.enums import AgentMessageRole, AgentSessionStatus
+from polycolab.entities.enums import AgentMessageRole, StoredConversationStatus
 
 
 class SqlConversationStore:
@@ -73,7 +73,7 @@ class SqlConversationStore:
         if after < 0 or not 1 <= limit <= 101:
             raise ValueError("invalid transcript page")
         query = select(SqlConversationItem).where(
-            SqlConversationItem.session_id == conversation_id,
+            SqlConversationItem.conversation_id == conversation_id,
             SqlConversationItem.sequence > after,
         )
         if not include_model_context:
@@ -116,7 +116,7 @@ class SqlConversationStore:
             raise ValueError("only agent conversations accept new items")
         if execution_id is not None:
             run = self._session.get(SqlAgentRun, execution_id)
-            if run is None or run.session_id != conversation_id:
+            if run is None or run.conversation_id != conversation_id:
                 raise ValueError("execution belongs to another conversation")
         sequence = self._session.scalar(
             update(SqlConversation)
@@ -128,7 +128,7 @@ class SqlConversationStore:
             raise ValueError("conversation not found")
         row = SqlConversationItem(
             id=item_id,
-            session_id=conversation_id,
+            conversation_id=conversation_id,
             sequence=sequence,
             author_user_id=author.user_id if isinstance(author, HumanAuthor) else None,
             agent_version_id=author.agent_version_id
@@ -202,7 +202,11 @@ class SqlConversationStore:
         if archived is not None:
             query = query.where(
                 SqlConversation.status
-                == (AgentSessionStatus.ARCHIVED if archived else AgentSessionStatus.ACTIVE)
+                == (
+                    StoredConversationStatus.ARCHIVED
+                    if archived
+                    else StoredConversationStatus.ACTIVE
+                )
             )
         if after is not None:
             query = query.where(
@@ -239,11 +243,11 @@ class SqlConversationStore:
                 raise ValueError("child must belong to its parent's project and root tree")
             if hierarchy.spawning_run_id is not None:
                 run = self._session.get(SqlAgentRun, hierarchy.spawning_run_id)
-                if run is None or run.session_id != parent.id:
+                if run is None or run.conversation_id != parent.id:
                     raise ValueError("spawning run must belong to the parent")
             if hierarchy.spawning_item_id is not None:
                 item = self._session.get(SqlConversationItem, hierarchy.spawning_item_id)
-                if item is None or item.session_id != parent.id:
+                if item is None or item.conversation_id != parent.id:
                     raise ValueError("spawning item must belong to the parent")
         if value.working_context.worktree_id is not None:
             task = self._session.get(SqlWorktree, value.working_context.worktree_id)
@@ -273,7 +277,7 @@ class SqlConversationStore:
             created_at=value.created_at,
             updated_at=value.updated_at,
             archived_at=value.archived_at,
-            status=AgentSessionStatus(value.status.value.upper()),
+            status=StoredConversationStatus(value.status.value.upper()),
             configuration=SqlConversationConfiguration(
                 agent_version_id=config.agent_version_id,
                 agent_display_name=config.display_name,
@@ -304,7 +308,7 @@ class SqlConversationStore:
         if row is None:
             raise ValueError("conversation not found")
         row.title = title
-        row.status = AgentSessionStatus(status.value.upper())
+        row.status = StoredConversationStatus(status.value.upper())
         row.archived_at = (
             (row.archived_at or updated_at) if status is ConversationStatus.ARCHIVED else None
         )
@@ -422,7 +426,8 @@ class SqlConversationStore:
             for row in self._session.scalars(
                 select(SqlAgentRun)
                 .where(
-                    SqlAgentRun.session_id == conversation_id, SqlAgentRun.queue_sequence > after
+                    SqlAgentRun.conversation_id == conversation_id,
+                    SqlAgentRun.queue_sequence > after,
                 )
                 .order_by(SqlAgentRun.queue_sequence)
                 .limit(limit)
@@ -438,15 +443,16 @@ class SqlConversationStore:
                 SqlAgentRun.id,
                 func.row_number()
                 .over(
-                    partition_by=SqlAgentRun.session_id, order_by=SqlAgentRun.queue_sequence.desc()
+                    partition_by=SqlAgentRun.conversation_id,
+                    order_by=SqlAgentRun.queue_sequence.desc(),
                 )
                 .label("position"),
             )
-            .where(SqlAgentRun.session_id.in_(conversation_ids))
+            .where(SqlAgentRun.conversation_id.in_(conversation_ids))
             .subquery()
         )
         result = {
-            row.session_id: materialize_execution(row)
+            row.conversation_id: materialize_execution(row)
             for row in self._session.scalars(
                 select(SqlAgentRun)
                 .join(ranked, ranked.c.id == SqlAgentRun.id)

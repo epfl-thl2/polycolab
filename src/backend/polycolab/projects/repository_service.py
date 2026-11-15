@@ -278,40 +278,43 @@ class RepositoryService:
                 branch=target, expected=expected_target, key=key, payload=payload, prepare=prepare
             )
 
-    def enable_session(self, session_id: UUID) -> str:
+    def enable_conversation(self, conversation_id: UUID) -> str:
         with self.open():
             self.authorize(True)
-            session = self.store.session(self.project_id, session_id)
-            if session.owner_id != self.user_id:
-                raise RepositoryError("repository_session_not_found", 404)
-            branch = session.branch or f"sessions/{session_id}"
-            if session.enabled:
+            conversation = self.store.conversation(self.project_id, conversation_id)
+            if conversation.owner_id != self.user_id:
+                raise RepositoryError("repository_conversation_not_found", 404)
+            # Persisted Git branch names predate the conversation API terminology.
+            branch = conversation.branch or f"sessions/{conversation_id}"
+            if conversation.enabled:
                 self.transaction.commit()
                 return branch
-            if session.active:
-                raise RepositoryError("repository_session_active")
+            if conversation.active:
+                raise RepositoryError("repository_conversation_active")
             self.transaction.commit()
             commit = self.git.head("main")
             if not self.git.head(branch, missing=True):
                 self.git.advance(branch, "0" * 40, commit)
             self.authorize(True)
-            if self.store.session_active(self.project_id, session_id):
-                raise RepositoryError("repository_session_active")
-            self.store.enable_session(self.project_id, session_id, commit)
+            if self.store.conversation_active(self.project_id, conversation_id):
+                raise RepositoryError("repository_conversation_active")
+            self.store.enable_conversation(self.project_id, conversation_id, commit)
             self.transaction.commit()
             return branch
 
-    def pin_run(self, run_id: UUID, session_id: UUID) -> dict[str, str] | None:
-        session = self.store.session(self.project_id, session_id)
+    def pin_run(self, run_id: UUID, conversation_id: UUID) -> dict[str, str] | None:
+        conversation = self.store.conversation(self.project_id, conversation_id)
         self.transaction.commit()
-        if not session.enabled:
+        if not conversation.enabled:
             return None
         self.transaction.commit()
         with self.open():
             binding = self.store.run(run_id)
-            branch = session.branch or f"sessions/{session_id}"
+            branch = conversation.branch or f"sessions/{conversation_id}"
             if binding is None:
-                self.store.enable_session(self.project_id, session_id, self.git.head(branch))
+                self.store.enable_conversation(
+                    self.project_id, conversation_id, self.git.head(branch)
+                )
                 revision = None
                 worktree_id = None
                 if self.store.native(self.project_id):
@@ -320,7 +323,7 @@ class RepositoryService:
                     revision = native.require_available(worktree)
                     worktree_id = worktree.id
                 self.store.pin_run(
-                    run_id, session_id, self.git.head(branch), branch, revision, worktree_id
+                    run_id, conversation_id, self.git.head(branch), branch, revision, worktree_id
                 )
                 self.transaction.commit()
                 binding = self.store.run(run_id)
@@ -338,7 +341,7 @@ class RepositoryService:
             if binding is None:
                 raise RepositoryError("repository_not_in_run", 403)
             self.transaction.commit()
-            branch = binding.branch or f"sessions/{binding.session_id}"
+            branch = binding.branch or f"sessions/{binding.conversation_id}"
             if binding.input_revision and binding.worktree_id:
                 native = self.native_service()
                 worktree = self.store.worktree(self.project_id, binding.worktree_id)

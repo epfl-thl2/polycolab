@@ -3,44 +3,47 @@
   import { untrack } from 'svelte';
   import ProjectPanelHeader from './ProjectPanelHeader.svelte';
   import { Plus, ChevronRight, GitBranch, MessageSquarePlus } from '@lucide/svelte';
-  import { createProjectSessions, projectSessionItems } from '../../../lib/session-queries';
+  import {
+    createProjectConversations,
+    projectConversationItems,
+  } from '../../../lib/conversation-queries';
   import type { Worktree } from '../../../lib/worktrees-api';
   import { projectContext, explain } from '../../../svelte-lib/context';
 
   let {
     projectId,
     activeWorktreeId,
-    activeSessionId,
+    activeConversationId,
     repositoryEnabled,
     canCreate,
     canChat,
     canReadChats,
     onSelectWorktree,
-    onOpenSession,
+    onOpenConversation,
     onNewChat,
     onWorktreesChange,
   }: {
     projectId: string;
     activeWorktreeId?: string;
-    activeSessionId?: string;
+    activeConversationId?: string;
     repositoryEnabled: boolean;
     canCreate: boolean;
     canChat: boolean;
     canReadChats: boolean;
     onSelectWorktree: (worktree?: Worktree) => Promise<boolean>;
-    onOpenSession: (id: string) => void;
+    onOpenConversation: (id: string) => void;
     onNewChat: (worktree?: Worktree) => void;
     onWorktreesChange: (items: Worktree[]) => void;
   } = $props();
   const { worktrees: api, agents, query } = projectContext();
   let worktrees = $state<Worktree[]>([]);
-  const chats = createProjectSessions(
+  const chats = createProjectConversations(
     agents,
     () => projectId,
     () => canReadChats,
     query,
   );
-  const sessions = $derived(canReadChats ? projectSessionItems($chats.data) : []);
+  const conversations = $derived(canReadChats ? projectConversationItems($chats.data) : []);
   const chatError = $derived(canReadChats && $chats.isError ? explain($chats.error) : '');
   let expanded = $state(new Set<string>(['main']));
   let removedOpen = $state(false);
@@ -53,7 +56,7 @@
   let error = $state('');
   let actionError = $state('');
   let worktreeCursor = $state<string>();
-  const sessionCursor = $derived(canReadChats && $chats.hasNextPage);
+  const conversationCursor = $derived(canReadChats && $chats.hasNextPage);
   let generation = 0;
   let worktreePages = 1;
   let fetching = false;
@@ -64,11 +67,11 @@
       .sort((a, b) => Number(b.branch === 'main') - Number(a.branch === 'main')),
   );
   const removed = $derived(worktrees.filter((item) => item.removed_at));
-  const conversations = (id?: string) =>
-    sessions
+  const conversationsForWorktree = (id?: string) =>
+    conversations
       .filter(
-        (session) =>
-          (session.working_context.worktree_id ||
+        (conversation) =>
+          (conversation.working_context.worktree_id ||
             worktrees.find((tree) => tree.branch === 'main')?.id) === id,
       )
       .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
@@ -291,7 +294,7 @@
           void refresh(projectId, generation);
         }}>Load more worktrees</button
       >{/if}
-    {#if sessionCursor}<button
+    {#if conversationCursor}<button
         class="load-more"
         disabled={$chats.isFetching}
         onclick={() => {
@@ -304,7 +307,7 @@
 {#snippet row(worktree?: Worktree)}
   {@const key = worktree?.id || 'main'}
   {@const title = worktree?.title || 'Main'}
-  {@const chats = conversations(worktree?.id)}
+  {@const chats = conversationsForWorktree(worktree?.id)}
   {@const open = expanded.has(key)}
   <section
     class="tree"
@@ -334,15 +337,15 @@
     </div>
     {#if worktree?.lifecycle === 'unavailable'}<p class="hint">Checkout unavailable</p>{/if}
     {#if open}<div class="conversations">
-        {#each chats as session (session.id)}<button
+        {#each chats as conversation (conversation.id)}<button
             class="conversation"
-            aria-label={`${session.title || 'Untitled conversation'} ${session.configuration?.display_name} ${session.latest_execution?.status.toLowerCase().replaceAll('_', ' ') || 'Ready'}`}
-            class:active={session.id === activeSessionId}
-            aria-current={session.id === activeSessionId ? 'true' : undefined}
-            onclick={() => onOpenSession(session.id)}
+            aria-label={`${conversation.title || 'Untitled conversation'} ${conversation.configuration?.display_name} ${conversation.latest_execution?.status.toLowerCase().replaceAll('_', ' ') || 'Ready'}`}
+            class:active={conversation.id === activeConversationId}
+            aria-current={conversation.id === activeConversationId ? 'true' : undefined}
+            onclick={() => onOpenConversation(conversation.id)}
           >
-            <span>{session.title || 'Untitled conversation'}</span><small
-              >{session.configuration?.display_name} · {session.latest_execution?.status
+            <span>{conversation.title || 'Untitled conversation'}</span><small
+              >{conversation.configuration?.display_name} · {conversation.latest_execution?.status
                 .toLowerCase()
                 .replaceAll('_', ' ') || 'Ready'}</small
             >

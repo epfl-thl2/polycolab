@@ -14,6 +14,7 @@ from polycolab.entities.repositories import RepositoryError
 from polycolab.projects.git_storage import GitRepository, branch_name
 from polycolab.projects.repository_schemas import (
     RepositoryCommit,
+    RepositoryConversationState,
     RepositoryEntry,
     RepositoryFile,
     RepositoryMerge,
@@ -21,7 +22,6 @@ from polycolab.projects.repository_schemas import (
     RepositoryRunState,
     RepositorySave,
     RepositorySaved,
-    RepositorySessionState,
     RepositoryState,
 )
 from polycolab.projects.repository_service import RepositoryService, decode_changes
@@ -188,33 +188,33 @@ def merge(
 
 
 @router.get(
-    "/sessions/{session_id}",
-    response_model=RepositorySessionState,
-    operation_id="getSessionRepository",
+    "/conversations/{conversation_id}",
+    response_model=RepositoryConversationState,
+    operation_id="getConversationRepository",
 )
 def session_state(
-    project_id: UUID, session_id: UUID, request: Request, db: DbSession, user: CurrentUser
-) -> RepositorySessionState:
+    project_id: UUID, conversation_id: UUID, request: Request, db: DbSession, user: CurrentUser
+) -> RepositoryConversationState:
     instance = service(request, db, project_id, user.id)
     instance.authorize()
-    binding = instance.store.session(project_id, session_id)
-    return RepositorySessionState(
+    binding = instance.store.conversation(project_id, conversation_id)
+    return RepositoryConversationState(
         enabled=binding.enabled, branch=binding.branch if binding.enabled else None
     )
 
 
 @router.put(
-    "/sessions/{session_id}",
-    response_model=RepositorySessionState,
-    operation_id="enableSessionRepository",
+    "/conversations/{conversation_id}",
+    response_model=RepositoryConversationState,
+    operation_id="enableConversationRepository",
 )
-def enable_session(
-    project_id: UUID, session_id: UUID, request: Request, db: DbSession, user: CurrentUser
-) -> RepositorySessionState:
+def enable_conversation(
+    project_id: UUID, conversation_id: UUID, request: Request, db: DbSession, user: CurrentUser
+) -> RepositoryConversationState:
     if request.app.state.settings.runtime_codex_image is None:
         raise RepositoryError("repository_hosted_unavailable", 409)
-    branch = service(request, db, project_id, user.id).enable_session(session_id)
-    return RepositorySessionState(enabled=True, branch=branch)
+    branch = service(request, db, project_id, user.id).enable_conversation(conversation_id)
+    return RepositoryConversationState(enabled=True, branch=branch)
 
 
 @router.get(
@@ -230,7 +230,7 @@ def run_state(
     binding = instance.store.run(run_id)
     if binding is None:
         return RepositoryRunState(input_commit=None, output_commit=None)
-    instance.store.session(project_id, binding.session_id)
+    instance.store.conversation(project_id, binding.conversation_id)
     if binding.input_revision:
         return RepositoryRunState(
             input_commit=binding.input_commit,

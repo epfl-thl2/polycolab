@@ -12,6 +12,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from polycolab.agents.context import manifest_for_run
+from polycolab.agents.conversations import (
+    append_user_message_and_queue_run,
+    archive_agent_conversation,
+    claim_next_run,
+    create_agent_conversation,
+    request_cancel,
+    start_claimed_run,
+)
 from polycolab.agents.runtime.contracts import (
     ModelStreamFrame,
     ModelTurn,
@@ -23,14 +31,6 @@ from polycolab.agents.runtime.remote import (
     ApiBackedWorker,
     HttpRuntimeGateway,
     RuntimeGatewayError,
-)
-from polycolab.agents.sessions import (
-    append_user_message_and_queue_run,
-    archive_agent_session,
-    claim_next_run,
-    create_agent_session,
-    request_cancel,
-    start_claimed_run,
 )
 from polycolab.agents.tools import issue_tool_capability
 from polycolab.db.models import (
@@ -126,7 +126,7 @@ def _queue_run(client: TestClient) -> tuple[Any, UUID, UUID, SqlProviderConnecti
     session.commit()
     session.add(SqlMembership(project_id=project.id, user_id=user.id, role=ProjectRole.OWNER))
     session.commit()
-    agent_session = create_agent_session(
+    agent_session = create_agent_conversation(
         session,
         project_id=project.id,
         created_by_user_id=user.id,
@@ -134,7 +134,7 @@ def _queue_run(client: TestClient) -> tuple[Any, UUID, UUID, SqlProviderConnecti
     )
     _, run = append_user_message_and_queue_run(
         session,
-        session_id=agent_session.id,
+        conversation_id=agent_session.id,
         requested_by_user_id=user.id,
         provider_connection_id=profile.id,
         content_md="Investigate the induction step.",
@@ -314,7 +314,7 @@ def test_builtin_worker_commits_normalized_turn_before_exposing_it(
         ]
         messages = list(
             session.query(SqlConversationItem)
-            .filter(SqlConversationItem.session_id == run.session_id)
+            .filter(SqlConversationItem.conversation_id == run.conversation_id)
             .order_by(SqlConversationItem.sequence)
         )
         assert messages[-1].content_md == "The base case holds."
@@ -434,7 +434,7 @@ def test_archiving_a_session_cancels_queued_work_before_worker_claim(
     try:
         run = session.get(SqlAgentRun, run_id)
         assert run is not None
-        archive_agent_session(session, session_id=run.session_id)
+        archive_agent_conversation(session, conversation_id=run.conversation_id)
         session.refresh(run)
         assert run.status is AgentRunStatus.CANCELLED
     finally:
@@ -582,7 +582,7 @@ def test_internal_tool_gateway_denies_current_capability_lifecycle_state(
             )
             session.delete(membership)
         elif state == "session_archived":
-            archive_agent_session(session, session_id=run.session_id)
+            archive_agent_conversation(session, conversation_id=run.conversation_id)
             return_response = _internal_tool_call(client, token)
             assert return_response.status_code == 401
             return
@@ -643,7 +643,7 @@ def test_internal_tool_gateway_rejects_private_creator_scope_mismatch(
         )
         session.add(other)
         session.flush()
-        parent = session.get(SqlConversation, run.session_id)
+        parent = session.get(SqlConversation, run.conversation_id)
         assert parent is not None
         parent.created_by_user_id = other.id
         session.commit()
@@ -666,7 +666,7 @@ def test_internal_tool_gateway_rejects_capability_session_and_tool_scope_mismatc
             )
         )
         assert run is not None and capability is not None
-        other_session = create_agent_session(
+        other_session = create_agent_conversation(
             session,
             project_id=run.project_id,
             created_by_user_id=run.requested_by_user_id,
@@ -687,7 +687,7 @@ def test_internal_tool_gateway_rejects_capability_session_and_tool_scope_mismatc
         )
         assert run is not None and capability is not None
         capability.allowed_tools = ["get_context"]
-        capability.session_id = other_session.id
+        capability.conversation_id = other_session.id
         session.commit()
     finally:
         session.close()

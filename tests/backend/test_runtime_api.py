@@ -12,6 +12,11 @@ from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from sqlalchemy import func, select
 
+from polycolab.agents.conversations import (
+    append_user_message_and_queue_run,
+    create_agent_conversation,
+    request_cancel,
+)
 from polycolab.agents.runtime.contracts import (
     ModelStreamFrame,
     ModelTurn,
@@ -26,11 +31,6 @@ from polycolab.agents.runtime.remote import (
     RuntimeLeaseState,
     WorkerEventKind,
     WorkerTerminalStatus,
-)
-from polycolab.agents.sessions import (
-    append_user_message_and_queue_run,
-    create_agent_session,
-    request_cancel,
 )
 from polycolab.db.models import (
     SqlAgentRun,
@@ -74,7 +74,7 @@ def _queue_run(client: TestClient) -> tuple[Any, UUID]:
     session.commit()
     session.add(SqlMembership(project_id=project.id, user_id=user.id, role=ProjectRole.OWNER))
     session.commit()
-    agent_session = create_agent_session(
+    agent_session = create_agent_conversation(
         session,
         project_id=project.id,
         created_by_user_id=user.id,
@@ -82,7 +82,7 @@ def _queue_run(client: TestClient) -> tuple[Any, UUID]:
     )
     _, run = append_user_message_and_queue_run(
         session,
-        session_id=agent_session.id,
+        conversation_id=agent_session.id,
         requested_by_user_id=user.id,
         provider_connection_id=profile.id,
         content_md="Check the private runtime boundary.",

@@ -90,7 +90,7 @@ def test_readiness_expires_without_hiding_history(client: TestClient) -> None:
     app.state.settings.feature_agent_execution_enabled = True
     before = client.get("/api/v1/agent-capabilities", headers=OWNER).json()
     assert before == {
-        "sessions": True,
+        "conversations": True,
         "execution_available": False,
         "hosted_agents": False,
     }

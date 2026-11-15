@@ -26,8 +26,8 @@ class RepositoryReceipt:
 
 
 @dataclass(frozen=True)
-class RepositorySession:
-    session_id: UUID
+class RepositoryConversation:
+    conversation_id: UUID
     project_id: UUID
     owner_id: UUID
     enabled: bool
@@ -38,7 +38,7 @@ class RepositorySession:
 @dataclass(frozen=True)
 class RepositoryRun:
     run_id: UUID
-    session_id: UUID
+    conversation_id: UUID
     input_commit: str
     output_commit: str | None
     branch: str | None = None

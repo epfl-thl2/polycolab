@@ -11,15 +11,15 @@ from polycolab.db.transaction import SqlAlchemyTransaction
 
 
 def _session_scope(
-    db: Session, *, session_id: UUID, user_id: UUID, action: ProjectAction
+    db: Session, *, conversation_id: UUID, user_id: UUID, action: ProjectAction
 ) -> SqlConversation:
-    value = db.get(SqlConversation, session_id)
+    value = db.get(SqlConversation, conversation_id)
     if value is None:
         raise ProjectNotFound
     if action is ProjectAction.RUN_AGENTS:
-        require_submit(SqlAlchemyTransaction(db), session_id, user_id)
+        require_submit(SqlAlchemyTransaction(db), conversation_id, user_id)
     else:
-        require_read(SqlAlchemyTransaction(db), session_id, user_id)
+        require_read(SqlAlchemyTransaction(db), conversation_id, user_id)
     return value
 
 
@@ -27,7 +27,7 @@ def _run_scope(db: Session, *, run_id: UUID, user_id: UUID, action: ProjectActio
     run = db.get(SqlAgentRun, run_id)
     if run is None:
         raise ProjectNotFound
-    parent = _session_scope(db, session_id=run.session_id, user_id=user_id, action=action)
+    parent = _session_scope(db, conversation_id=run.conversation_id, user_id=user_id, action=action)
     # Mutating or reusing a run's inputs remains restricted to its sender.
     # Interruption has a separate policy allowing the session owner too.
     if (

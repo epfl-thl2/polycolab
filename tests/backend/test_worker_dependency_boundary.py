@@ -18,7 +18,7 @@ def test_production_worker_modules_do_not_import_persistence_or_legacy_harness()
         "polycolab.agents.context",
         "polycolab.db",
         "polycolab.model_gateway.service",
-        "polycolab.agents.sessions",
+        "polycolab.agents.conversations",
         "polycolab.agents.tools",
     )
     violations: list[str] = []

@@ -377,7 +377,7 @@ def test_private_responses_broker_records_provider_usage(
     project = create_project(client)
     profile = create_connection(client, "owner")
     created = client.post(
-        "/api/v1/sessions",
+        "/api/v1/conversations",
         headers={"Authorization": "Bearer owner"},
         json={
             "project_id": project["id"],

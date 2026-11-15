@@ -34,7 +34,7 @@ def repository_claim(
         db.get(SqlUser, run.requested_by_user_id).subject = "owner"
         run.status = AgentRunStatus.FAILED
         url = f"/api/v1/projects/{run.project_id}/repository"
-        session_id = run.session_id
+        conversation_id = run.conversation_id
         db.commit()
     if task_copy:
         from polycolab.db.models.worktrees import SqlWorktree
@@ -44,7 +44,7 @@ def repository_claim(
         # create native worktrees; migration materialization is a separate operation.
         identifier = uuid4()
         with app.state.session_factory() as db:
-            parent = db.get(SqlConversation, session_id)
+            parent = db.get(SqlConversation, conversation_id)
             branch = f"tasks/{identifier}"
             git = GitRepository(tmp_path / "repositories", parent.project_id)
             with git.locked():
@@ -61,7 +61,7 @@ def repository_claim(
             db.flush()
             parent.worktree_id = identifier
             db.commit()
-    enabled = client.put(f"{url}/sessions/{session_id}", headers=OWNER)
+    enabled = client.put(f"{url}/conversations/{conversation_id}", headers=OWNER)
     assert enabled.status_code == 200, enabled.text
     if native_copy:
         from polycolab.db.stores.repositories import SqlRepositoryStore
@@ -81,7 +81,7 @@ def repository_claim(
             with instance.open():
                 instance.materialize()
                 main = instance.worktree_for_branch("main")
-                db.get(SqlConversation, session_id).worktree_id = main.id
+                db.get(SqlConversation, conversation_id).worktree_id = main.id
                 db.commit()
         trees_url = url.removesuffix("/repository") + "/worktrees"
         tree = client.get(f"{trees_url}/{main.id}", headers=OWNER).json()
@@ -95,12 +95,12 @@ def repository_claim(
         )
         assert seeded.status_code == 200, seeded.text
     with app.state.session_factory() as db:
-        from polycolab.agents.sessions import append_user_message_and_queue_run
+        from polycolab.agents.conversations import append_user_message_and_queue_run
 
         previous = db.get(SqlAgentRun, run_id)
         _, run = append_user_message_and_queue_run(
             db,
-            session_id=previous.session_id,
+            conversation_id=previous.conversation_id,
             requested_by_user_id=previous.requested_by_user_id,
             provider_connection_id=previous.provider_connection_id,
             content_md="Work on the saved repository.",
@@ -114,7 +114,7 @@ def repository_claim(
     if disabled:
         app.state.settings.project_repository_directory = None
     if native_copy:
-        for protocol in (3, 5):
+        for protocol in (3, 5, 6):
             old_controller = client.post(
                 "/internal/v1/runtime/claims",
                 headers=WORKER,

@@ -16,7 +16,7 @@ export function accountReturnPath(value: string | null | undefined) {
       /^\/(signin|signup|auth|oidc)(\/|$)/.test(decodeURIComponent(url.pathname))
     )
       return '/projects';
-    return url.pathname.replace(/^\/workspaces(?=\/|$)/, '/projects') + url.search + url.hash;
+    return url.pathname + url.search + url.hash;
   } catch {
     return '/projects';
   }

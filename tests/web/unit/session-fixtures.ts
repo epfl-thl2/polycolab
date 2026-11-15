@@ -1,6 +1,6 @@
 import type { components } from '../../../src/web/src/lib/api-client';
 
-type Session = components['schemas']['SessionRead'];
+type Session = components['schemas']['ConversationRead'];
 type Run = components['schemas']['RunRead'];
 type Message = components['schemas']['MessageItemRead'];
 export const sessionTime = '2026-01-01T00:00:00Z';
@@ -47,7 +47,7 @@ export function sessionFixture(overrides: Partial<Session> = {}): Session {
 export function runFixture(overrides: Partial<Run> = {}): Run {
   return {
     id: 'run-1',
-    session_id: '44444444-4444-4444-8444-444444444444',
+    conversation_id: '44444444-4444-4444-8444-444444444444',
     project_id: '11111111-1111-1111-1111-111111111111',
     origin: 'agent',
     client_request_id: 'request-1',
@@ -77,7 +77,7 @@ export function runFixture(overrides: Partial<Run> = {}): Run {
 export function messageItemFixture(overrides: Partial<Message> = {}): Message {
   return {
     id: 'message-1',
-    session_id: '44444444-4444-4444-8444-444444444444',
+    conversation_id: '44444444-4444-4444-8444-444444444444',
     sequence: 1,
     type: 'message',
     author: { type: 'human', user_id: sessionOwner },

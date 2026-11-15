@@ -1,7 +1,7 @@
 # Saved conversations
 
 Application snapshots live in `entities/conversation.py`.
-A public session's identity is its conversation UUID; there is no second session entity.
+Each saved conversation has one stable UUID.
 `Conversation` holds ownership, optional project scope, lifecycle, sharing, pinned
 configuration, working context, and hierarchy. Transcript pages are separate values.
 Execution and usage summaries remain explicitly absent when not loaded.
@@ -34,7 +34,7 @@ does not make them additional model input.
 
 ## Historical cutover
 
-The session and workspace-only migration branches join at a merge revision; either
+The conversation and workspace-only migration branches join at a merge revision; either
 previous branch head can upgrade without stamping or rewriting its history.
 Paired forward migrations rename agent tables in place, preserving their IDs and
 dependent foreign keys. A causal merge preserves message order and each run's event
@@ -45,7 +45,7 @@ payloads remain unchanged. Backfill runs online; offline SQL is for schema inspe
 Direct-provider histories become private `legacy_direct` conversations. Their saved
 request and response text becomes transcript items, and their original turn UUIDs
 become immutable `legacy_conversation_executions` identities. Request IDs, selected
-profiles/models, recorded failures, token observations, and reservations are retained.
+provider connections/models, recorded failures, token observations, and reservations are retained.
 Pending requests become interrupted with a stable failure code. Copy verification
 precedes removal of the superseded direct-chat tables.
 
@@ -54,35 +54,34 @@ compatibility API. Shared model-gateway infrastructure remains available to agen
 Legacy history permits owner reads and title/archive changes, but no new execution,
 resumption, sharing expansion, or conversion into an agent conversation.
 
-## Session API and participation
+## Conversation API and participation
 
-`/api/v1/sessions` is the single human session API. Creating a session requires a
+`/api/v1/conversations` is the single human conversation API. Creating a conversation requires a
 project and current editor or owner membership. Agent version, harness and
 prompt configuration are fixed at creation. The server admits supported execution
 capabilities; storing an arbitrary harness identifier does not enable it.
 
 | Operation                                           | Endpoint                                                 |
 | --------------------------------------------------- | -------------------------------------------------------- |
-| Create or list accessible sessions                  | `POST/GET /api/v1/sessions`                              |
-| Read metadata; owner changes title or archive state | `GET/PATCH /api/v1/sessions/{id}`                        |
-| Paginated typed transcript                          | `GET /api/v1/sessions/{id}/items`                        |
-| Authorized immediate children                       | `GET /api/v1/sessions/{id}/child_sessions`               |
-| Submit a human message or interrupt one named run   | `POST /api/v1/sessions/{id}/events`                      |
-| Committed updates and reconnect                     | `GET /api/v1/sessions/{id}/stream`                       |
-| Read sharing; owner changes sharing                 | `GET/PATCH /api/v1/sessions/{id}/sharing`                |
-| Paginated run history                               | `GET /api/v1/sessions/{id}/runs`                         |
+| Create or list accessible conversations             | `POST/GET /api/v1/conversations`                         |
+| Read metadata; owner changes title or archive state | `GET/PATCH /api/v1/conversations/{id}`                   |
+| Paginated typed transcript                          | `GET /api/v1/conversations/{id}/items`                   |
+| Authorized immediate children                       | `GET /api/v1/conversations/{id}/child_conversations`     |
+| Submit a human message or interrupt one named run   | `POST /api/v1/conversations/{id}/events`                 |
+| Committed updates and reconnect                     | `GET /api/v1/conversations/{id}/stream`                  |
+| Read sharing; owner changes sharing                 | `GET/PATCH /api/v1/conversations/{id}/sharing`           |
+| Paginated run history                               | `GET /api/v1/conversations/{id}/runs`                    |
 | Inspect a run or explicitly queue a successor       | `GET /api/v1/runs/{id}`, `POST /api/v1/runs/{id}/resume` |
 
-Session listings filter by project, archive state and origin. Transcript pages use
-an opaque sequence cursor in `next_cursor`; session, child and run listings return
+Conversation listings filter by project, archive state and origin. Transcript pages use
+an opaque sequence cursor in `next_cursor`; conversation, child and run listings return
 `X-Next-Cursor` when another page exists. Metadata does not embed transcript pages.
-The former agent-session and agent-run APIs have no compatibility routes.
+The former agent-conversation and agent-run APIs have no compatibility routes.
 Run inspection and resumption use human authentication. External agent keys retain
 their separate delegated project-file APIs.
 
-Private sessions remain owner-only even when another user owns the project.
-Project-readable sharing permits current members to read. Project-contributable
-sharing additionally permits editors and owners to submit messages. Child
+Private conversations remain owner-only even when another user owns the project.
+Members can view sharing permits current members to read. Members can participate sharing additionally permits editors and owners to submit messages. Child
 sharing is independent; neither hierarchy links nor child listings reveal
 inaccessible descendants.
 
@@ -94,7 +93,7 @@ still requires current read access and the original sender. New admissions use t
 sender's provider connection, quota and delegated authority. Human events cannot append
 worker output or impersonate transcript authors.
 
-The sender can interrupt their own runs; the session owner can interrupt any run.
+The sender can interrupt their own runs; the conversation owner can interrupt any run.
 Interrupting a terminal run does not affect its successor. Resuming private context
 and authority is restricted to the original sender. Claims, model dispatch, tools,
 workspace operations, transcript output and completion recheck current membership
@@ -128,7 +127,7 @@ no mixed-version compatibility window. See the [rollout gates](../roadmap.md#uni
 
 Deterministic tests cover SQLite schema parity, populated mixed-history migration,
 causal ordering, exact text and execution accounting, preserved runtime references,
-store materialization and rollback, hierarchy consistency, and session access policy.
+store materialization and rollback, hierarchy consistency, and conversation access policy.
 PostgreSQL equivalents require `M0_POSTGRES_TEST_URL`. Compilation of offline SQL does
 not establish migration acceptance against a populated PostgreSQL database.
 Native/provider and target-deployment acceptance remain separate release gates.

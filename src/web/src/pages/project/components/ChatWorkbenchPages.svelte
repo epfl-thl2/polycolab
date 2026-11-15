@@ -31,7 +31,7 @@
           const current = tabs.find((item) => item.id === tab.id);
           if (!current) return;
           const label = update.label ?? current.label;
-          // Session effects report state repeatedly; unchanged reports must not rerender the page.
+          // Conversation effects report state repeatedly; unchanged reports must not rerender the page.
           if (label === current.label && update.dirty === Boolean(current.dirty)) return;
           tabs = tabs.map((item) =>
             item.id === current.id ? { ...item, label, dirty: update.dirty } : item,

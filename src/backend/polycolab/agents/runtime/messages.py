@@ -3,7 +3,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from polycolab.agents.sessions import SessionNotFound
+from polycolab.agents.conversations import ConversationNotFound
 from polycolab.db.converters.conversation import agent_message
 from polycolab.db.models import (
     SqlAgentRun,
@@ -15,16 +15,16 @@ from polycolab.db.models import (
 
 def model_messages(session: Session, run: SqlAgentRun) -> list[dict[str, object]]:
     agent = session.get(SqlPlatformAgentVersion, run.agent_version_id)
-    parent = session.get(SqlConversation, run.session_id)
+    parent = session.get(SqlConversation, run.conversation_id)
     if agent is None or parent is None or parent.agent_version_id != agent.id:
-        raise SessionNotFound
+        raise ConversationNotFound
     result: list[dict[str, object]] = [{"role": "system", "content": agent.instructions_text}]
     if parent.system_prompt:
         result.append({"role": "system", "content": parent.system_prompt})
     for message in session.scalars(
         select(SqlConversationItem)
         .where(
-            SqlConversationItem.session_id == run.session_id,
+            SqlConversationItem.conversation_id == run.conversation_id,
             SqlConversationItem.item_type == "message",
             SqlConversationItem.visibility == "user_visible",
             SqlConversationItem.sequence <= run.input_message_sequence,

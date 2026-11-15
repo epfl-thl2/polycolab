@@ -6,8 +6,8 @@
   let { path }: { path: string } = $props();
   const { auth, capabilities } = projectContext();
   const section = $derived(
-    path.startsWith('/settings/session-history')
-      ? 'session-history'
+    path.startsWith('/settings/conversation-history')
+      ? 'conversation-history'
       : path === '/settings/api-keys'
         ? 'agent-keys'
         : path === '/settings/security'
@@ -28,8 +28,8 @@
         ><UserRound aria-hidden="true" />Profile</a
       >
       <a
-        href="/settings/session-history"
-        aria-current={section === 'session-history' ? 'page' : undefined}>Saved chat history</a
+        href="/settings/conversation-history"
+        aria-current={section === 'conversation-history' ? 'page' : undefined}>Saved chat history</a
       >
       {#if capabilities?.enabled('email_recovery')}<a
           href="/settings/recovery"
@@ -78,9 +78,9 @@
           </div>
         </section>
       {/if}
-    {:else if section === 'session-history'}
-      {#await import('./SessionHistory.svelte') then module}<module.default
-          sessionId={path.split('/')[3]}
+    {:else if section === 'conversation-history'}
+      {#await import('./ConversationHistory.svelte') then module}<module.default
+          conversationId={path.split('/')[3]}
         />{/await}
     {:else if section === 'agent-keys'}
       <AgentApiKeys />

@@ -16,7 +16,7 @@ from alembic.migration import MigrationContext
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
-from polycolab.agents.sessions import (
+from polycolab.agents.conversations import (
     LeaseLost,
     claim_next_run_in_transaction,
     start_claimed_run,

@@ -134,8 +134,8 @@ def test_history_remains_available_after_readiness_loss(client: TestClient) -> N
 
     app, run_id, _ = hosted_claim(client)
     with app.state.session_factory() as db:
-        session_id = db.get(SqlAgentRun, run_id).session_id
-    response = client.get(f"/api/v1/sessions/{session_id}/runs?limit=1", headers=OWNER)
+        conversation_id = db.get(SqlAgentRun, run_id).conversation_id
+    response = client.get(f"/api/v1/conversations/{conversation_id}/runs?limit=1", headers=OWNER)
     assert response.status_code == 200
     assert response.json()[0]["id"] == str(run_id)
     assert "X-Next-Cursor" not in response.headers

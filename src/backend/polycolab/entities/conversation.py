@@ -45,8 +45,8 @@ class ConversationStatus(StrEnum):
 
 class ConversationSharing(StrEnum):
     PRIVATE = "private"
-    PROJECT_READABLE = "project_readable"
-    PROJECT_CONTRIBUTABLE = "project_contributable"
+    MEMBERS_CAN_VIEW = "members_can_view"
+    MEMBERS_CAN_PARTICIPATE = "members_can_participate"
 
 
 class MessageRole(StrEnum):

@@ -61,16 +61,16 @@ export function createRepositoryApi(options: AuthenticatedClientOptions = {}) {
     };
   }
   return {
-    session: (project_id: string, session_id: string) =>
+    conversation: (project_id: string, conversation_id: string) =>
       result(
-        client.GET('/api/v1/projects/{project_id}/repository/sessions/{session_id}', {
-          params: { path: { project_id, session_id } },
+        client.GET('/api/v1/projects/{project_id}/repository/conversations/{conversation_id}', {
+          params: { path: { project_id, conversation_id } },
         }),
       ),
-    enableSession: (project_id: string, session_id: string) =>
+    enableConversation: (project_id: string, conversation_id: string) =>
       result(
-        client.PUT('/api/v1/projects/{project_id}/repository/sessions/{session_id}', {
-          params: { path: { project_id, session_id } },
+        client.PUT('/api/v1/projects/{project_id}/repository/conversations/{conversation_id}', {
+          params: { path: { project_id, conversation_id } },
         }),
       ),
     run: (project_id: string, run_id: string) =>

@@ -12,24 +12,24 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import { projectContext, explain } from '../../../svelte-lib/context';
-  import { advancesCursor, statusFromEvent } from '../../../svelte-lib/session-events';
-  import type { AgentRun, SessionSharing } from '../../../lib/agent-sessions-api';
-  import SessionTranscriptItem from '../components/SessionTranscriptItem.svelte';
+  import { advancesCursor, statusFromEvent } from '../../../svelte-lib/conversation-events';
+  import type { AgentRun, ConversationSharing } from '../../../lib/conversations-api';
+  import ConversationTranscriptItem from '../components/ConversationTranscriptItem.svelte';
   import ChatComposer from '../../../ui/ChatComposer.svelte';
   import { ChevronDown, RotateCcw, SlidersHorizontal, Sparkles } from '@lucide/svelte';
   import { Popover } from 'bits-ui';
   import { chatPanelPortal } from '../../../lib/chat-panel-portal';
   import { chatDrafts, ChatDrafts, chatDraftKey } from '../../../lib/chat-drafts.svelte';
   import {
-    createProjectSessions,
-    sessionOptions,
-    sessionKeys,
-    invalidateSession,
-  } from '../../../lib/session-queries';
+    createProjectConversations,
+    conversationOptions,
+    conversationKeys,
+    invalidateConversation,
+  } from '../../../lib/conversation-queries';
   import { tick, untrack } from 'svelte';
   let {
     projectId,
-    sessionId,
+    conversationId,
     worktreeId,
     view,
     isVisible = true,
@@ -37,14 +37,16 @@
     onCreated,
   }: {
     projectId: string;
-    sessionId?: string;
+    conversationId?: string;
     worktreeId?: string;
     view?: 'chat' | 'list';
     isVisible?: boolean;
     draftKey?: string;
     onCreated?: (id: string) => void;
   } = $props();
-  const allSessions = $derived(view ? view === 'list' : page.url.pathname.endsWith('/sessions'));
+  const allConversations = $derived(
+    view ? view === 'list' : page.url.pathname.endsWith('/conversations'),
+  );
   const { api, agents, query, capabilities: applicationCapabilities } = projectContext();
   const executionEnabled = $derived(applicationCapabilities?.enabled('agent_execution') ?? false);
   const repository = projectContext().repository;
@@ -58,11 +60,11 @@
       queryFn: () => repository!.state(projectId),
     })),
   );
-  const sessionRepository = createQuery(
+  const conversationRepository = createQuery(
     toStore(() => ({
-      queryKey: ['session-repository', projectId, sessionId],
-      enabled: Boolean(repository && sessionId && $repositoryState.data?.enabled),
-      queryFn: () => repository!.session(projectId, sessionId!),
+      queryKey: ['conversation-repository', projectId, conversationId],
+      enabled: Boolean(repository && conversationId && $repositoryState.data?.enabled),
+      queryFn: () => repository!.conversation(projectId, conversationId!),
     })),
   );
   let agentId = $state('');
@@ -72,7 +74,7 @@
   let customizationOpen = $state(false);
   let responseStyle = $state('balanced');
   let sharing = $state(false);
-  let sharingMode = $state<SessionSharing>('project_readable');
+  let sharingMode = $state<ConversationSharing>('members_can_view');
   let titleDraft = $state('');
   let editingTitle = $state(false);
   const draftStore = chatDrafts() ?? new ChatDrafts();
@@ -81,8 +83,8 @@
       draftKey ??
       chatDraftKey(
         projectId,
-        sessionId
-          ? `/projects/${projectId}/sessions/${sessionId}`
+        conversationId
+          ? `/projects/${projectId}/conversations/${conversationId}`
           : page.url.pathname + page.url.search,
       ),
   );
@@ -120,26 +122,33 @@
   const runRepository = createQuery(
     toStore(() => ({
       queryKey: ['run-repository', projectId, exportRunId || run?.id, run?.status],
-      enabled: Boolean(repository && $sessionRepository.data?.enabled && (exportRunId || run?.id)),
+      enabled: Boolean(
+        repository && $conversationRepository.data?.enabled && (exportRunId || run?.id),
+      ),
       queryFn: () => repository!.run(projectId, exportRunId || run!.id),
     })),
   );
   let accessDeniedId = $state<string>();
-  const canReadSession = $derived(Boolean(sessionId && accessDeniedId !== sessionId));
+  const canReadConversation = $derived(
+    Boolean(conversationId && accessDeniedId !== conversationId),
+  );
   let streaming = $state('');
-  let streamSessionId: string | undefined;
+  let streamConversationId: string | undefined;
   let streamCursor: string | undefined;
-  const sessions = createProjectSessions(
+  const conversations = createProjectConversations(
     agents,
     () => projectId,
-    () => allSessions,
+    () => allConversations,
   );
-  const session = createQuery(
-    toStore(() => ({ ...sessionOptions(agents, sessionId, isVisible), enabled: canReadSession })),
+  const conversation = createQuery(
+    toStore(() => ({
+      ...conversationOptions(agents, conversationId, isVisible),
+      enabled: canReadConversation,
+    })),
   );
   const worktrees = projectContext().worktrees;
   const currentWorktreeId = $derived(
-    sessionId ? $session.data?.working_context.worktree_id : worktreeId,
+    conversationId ? $conversation.data?.working_context.worktree_id : worktreeId,
   );
   const worktree = createQuery(
     toStore(() => ({
@@ -151,11 +160,11 @@
   );
   const runs = createInfiniteQuery(
     toStore(() => ({
-      queryKey: ['session-runs', sessionId],
-      enabled: canReadSession,
+      queryKey: ['conversation-runs', conversationId],
+      enabled: canReadConversation,
       initialPageParam: undefined as string | undefined,
       queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
-        agents.listRuns(sessionId!, pageParam),
+        agents.listRuns(conversationId!, pageParam),
       getNextPageParam: (p: { nextCursor?: string }) => p.nextCursor,
       refetchInterval: isVisible ? 5000 : false,
     })),
@@ -208,11 +217,11 @@
   );
   const messages = createInfiniteQuery(
     toStore(() => ({
-      queryKey: ['session-items', sessionId],
-      enabled: canReadSession,
+      queryKey: ['conversation-items', conversationId],
+      enabled: canReadConversation,
       initialPageParam: undefined as string | undefined,
       queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
-        agents.listItems(sessionId!, pageParam),
+        agents.listItems(conversationId!, pageParam),
       getNextPageParam: (p: { nextCursor?: string }) => p.nextCursor,
     })),
   );
@@ -231,7 +240,7 @@
     if (!agentId && availableAgents[0]) agentId = availableAgents[0].id;
   });
   $effect(() => {
-    if (!sessionId && !allSessions && !providerConnectionId && availableConnections[0])
+    if (!conversationId && !allConversations && !providerConnectionId && availableConnections[0])
       providerConnectionId = availableConnections[0].id;
   });
   function agentDescription(kind: string) {
@@ -270,14 +279,14 @@
   const newChatVisibleSendReason = $derived(
     newChatSendReason === 'Choose an AI provider.' ? '' : newChatSendReason,
   );
-  const sessionSendReason = $derived.by(() => {
-    if ($session.data?.origin === 'legacy_direct')
+  const conversationSendReason = $derived.by(() => {
+    if ($conversation.data?.origin === 'legacy_direct')
       return 'Retired direct-chat history is read-only.';
-    if (!$session.data?.capabilities.can_send)
+    if (!$conversation.data?.capabilities.can_send)
       return 'You can read this conversation but cannot send messages.';
     if (busy) return 'Working…';
     if ($worktree.data?.removed_at) return 'This worktree is removed.';
-    if ($session.data?.status === 'archived') return 'This session is archived.';
+    if ($conversation.data?.status === 'archived') return 'This conversation is archived.';
     if (!executionEnabled) return 'Hosted execution is disabled.';
     if (!$capabilities.data?.execution_available) return 'Agent execution is unavailable.';
     if (active) return 'Wait for the current run to finish.';
@@ -303,8 +312,8 @@
       const choice = $available.data?.items.find((agent) => agent.id === agentId);
       if (!choice || (choice.version !== 1 && choice.version !== 2 && choice.version !== 3))
         throw new Error('Choose an available agent version.');
-      if (!chatDraft.startingSessionId) {
-        const created = await agents.createSession({
+      if (!chatDraft.startingConversationId) {
+        const created = await agents.createConversation({
           project_id: projectId,
           ...(worktreeId ? { worktree_id: worktreeId } : {}),
           agent_kind: choice.agent_kind,
@@ -313,12 +322,12 @@
             ? { harness: 'codex' as const, system_prompt: customSystemPrompt.trim() }
             : {}),
         });
-        query.setQueryData(sessionKeys.detail(created.id), created);
-        chatDraft.startingSessionId = created.id;
-        await invalidateSession(query, projectId);
+        query.setQueryData(conversationKeys.detail(created.id), created);
+        chatDraft.startingConversationId = created.id;
+        await invalidateConversation(query, projectId);
       }
       if (!worktreeId && useProjectFiles && repository)
-        await repository.enableSession(projectId, chatDraft.startingSessionId);
+        await repository.enableConversation(projectId, chatDraft.startingConversationId);
       const body = {
         content_md: submittedMessage.trim(),
         provider_connection_id: providerConnectionId,
@@ -327,7 +336,7 @@
       if (chatDraft.startRequest?.body !== serialized)
         chatDraft.startRequest = { key: crypto.randomUUID(), body: serialized };
       await linear?.flush();
-      await agents.queueTurn(chatDraft.startingSessionId, {
+      await agents.queueTurn(chatDraft.startingConversationId, {
         ...body,
         client_request_id: chatDraft.startRequest.key,
       });
@@ -335,14 +344,14 @@
       if (chatDraft.message) {
         const savedKey = chatDraftKey(
           projectId,
-          `/projects/${projectId}/sessions/${chatDraft.startingSessionId}`,
+          `/projects/${projectId}/conversations/${chatDraft.startingConversationId}`,
         );
         draftStore.get(savedKey).message = chatDraft.message;
       }
       draftStore.delete(entryKey);
-      void invalidateSession(query, projectId, chatDraft.startingSessionId);
-      if (onCreated) onCreated(chatDraft.startingSessionId);
-      else await goto(`/projects/${projectId}/sessions/${chatDraft.startingSessionId}`);
+      void invalidateConversation(query, projectId, chatDraft.startingConversationId);
+      if (onCreated) onCreated(chatDraft.startingConversationId);
+      else await goto(`/projects/${projectId}/conversations/${chatDraft.startingConversationId}`);
     } catch (reason) {
       error = explain(reason);
     } finally {
@@ -350,17 +359,17 @@
     }
   }
   $effect(() => {
-    const id = sessionId;
+    const id = conversationId;
     if (
       !isVisible ||
-      !canReadSession ||
+      !canReadConversation ||
       !id ||
-      !$session.data?.capabilities.can_stream ||
-      $session.data.project_id !== projectId
+      !$conversation.data?.capabilities.can_stream ||
+      $conversation.data.project_id !== projectId
     )
       return;
-    if (streamSessionId !== id) {
-      streamSessionId = id;
+    if (streamConversationId !== id) {
+      streamConversationId = id;
       streamCursor = undefined;
       streaming = '';
     }
@@ -388,13 +397,13 @@
               'RUN_TIMED_OUT',
             ].includes(kind)
           ) {
-            await query.invalidateQueries({ queryKey: ['session-items', id] });
+            await query.invalidateQueries({ queryKey: ['conversation-items', id] });
             streaming = '';
           }
           const status = statusFromEvent(event.data);
           if (status) {
-            await query.invalidateQueries({ queryKey: ['session-runs', id] });
-            void invalidateSession(query, projectId, id);
+            await query.invalidateQueries({ queryKey: ['conversation-runs', id] });
+            void invalidateConversation(query, projectId, id);
           }
           if (kind === 'RUN_COMPLETED') {
             await query.invalidateQueries({ queryKey: ['messages', id] });
@@ -409,7 +418,11 @@
           accessDeniedId = id;
           streaming = '';
           exportRunId = '';
-          for (const key of [['session-items', id], ['session-runs', id], sessionKeys.detail(id)]) {
+          for (const key of [
+            ['conversation-items', id],
+            ['conversation-runs', id],
+            conversationKeys.detail(id),
+          ]) {
             await query.cancelQueries({ queryKey: key });
             query.removeQueries({ queryKey: key });
           }
@@ -421,8 +434,8 @@
       if (!controller.signal.aborted)
         delay = setTimeout(() => void consume(), Math.min(1000 * 2 ** attempt++, 15000));
     }
-    void query.invalidateQueries({ queryKey: ['session-items', id] });
-    void query.invalidateQueries({ queryKey: ['session-runs', id] });
+    void query.invalidateQueries({ queryKey: ['conversation-items', id] });
+    void query.invalidateQueries({ queryKey: ['conversation-runs', id] });
     void consume();
     return () => {
       controller.abort();
@@ -431,15 +444,17 @@
   });
   async function send(event: SubmitEvent) {
     event.preventDefault();
-    if (busy || !sessionId || !executionEnabled) return;
+    if (busy || !conversationId || !executionEnabled) return;
     busy = true;
     error = '';
     const submittedMessage = chatDraft.message;
     try {
       await linear?.flush();
       if (useProjectFiles && repository) {
-        await repository.enableSession(projectId, sessionId);
-        await query.invalidateQueries({ queryKey: ['session-repository', projectId, sessionId] });
+        await repository.enableConversation(projectId, conversationId);
+        await query.invalidateQueries({
+          queryKey: ['conversation-repository', projectId, conversationId],
+        });
       }
       const body = {
         content_md: submittedMessage.trim(),
@@ -449,16 +464,16 @@
       const serialized = JSON.stringify(body);
       if (chatDraft.request?.body !== serialized)
         chatDraft.request = { key: crypto.randomUUID(), body: serialized };
-      const result = await agents.queueTurn(sessionId, {
+      const result = await agents.queueTurn(conversationId, {
         ...body,
         client_request_id: chatDraft.request.key,
       });
       run = result.run;
-      void invalidateSession(query, projectId, sessionId);
-      await query.invalidateQueries({ queryKey: ['session-runs', sessionId] });
+      void invalidateConversation(query, projectId, conversationId);
+      await query.invalidateQueries({ queryKey: ['conversation-runs', conversationId] });
       if (chatDraft.message === submittedMessage) chatDraft.message = '';
       chatDraft.request = undefined;
-      await query.invalidateQueries({ queryKey: ['session-items', sessionId] });
+      await query.invalidateQueries({ queryKey: ['conversation-items', conversationId] });
     } catch (reason) {
       error = explain(reason);
     } finally {
@@ -469,14 +484,14 @@
     if (run) await stopRun(run);
   }
   async function stopRun(target: Pick<AgentRun, 'id' | 'status' | 'can_interrupt'>) {
-    if (!target.can_interrupt || !sessionId || busy || target.status === 'CANCELLING') return;
+    if (!target.can_interrupt || !conversationId || busy || target.status === 'CANCELLING') return;
     busy = true;
     error = '';
     try {
-      const cancelled = await agents.cancelRun(sessionId, target.id);
+      const cancelled = await agents.cancelRun(conversationId, target.id);
       if (run?.id === target.id) run = cancelled;
-      void invalidateSession(query, projectId, sessionId);
-      void query.invalidateQueries({ queryKey: ['session-runs', sessionId] });
+      void invalidateConversation(query, projectId, conversationId);
+      void query.invalidateQueries({ queryKey: ['conversation-runs', conversationId] });
     } catch (reason) {
       error = explain(reason);
     } finally {
@@ -499,9 +514,9 @@
   action={{ label: 'Retry', run: () => $connections.refetch() }}
 />
 <FeedbackToast
-  message={$sessions.isError ? explain($sessions.error) : ''}
+  message={$conversations.isError ? explain($conversations.error) : ''}
   variant="error"
-  action={{ label: 'Retry', run: () => $sessions.refetch() }}
+  action={{ label: 'Retry', run: () => $conversations.refetch() }}
 />
 <FeedbackToast
   message={$messages.isError ? explain($messages.error) : ''}
@@ -514,21 +529,21 @@
   action={{ label: 'Retry', run: () => $exports.refetch() }}
 />
 
-{#if sessionId && !currentWorktreeId && $repositoryState.data?.enabled && hostedAvailable}
-  <div class="session-repository-controls">
-    {#if $sessionRepository.data?.enabled}
+{#if conversationId && !currentWorktreeId && $repositoryState.data?.enabled && hostedAvailable}
+  <div class="conversation-repository-controls">
+    {#if $conversationRepository.data?.enabled}
       <a
-        href={`/projects/${projectId}/files?branch=${encodeURIComponent($sessionRepository.data.branch || 'main')}`}
+        href={`/projects/${projectId}/files?branch=${encodeURIComponent($conversationRepository.data.branch || 'main')}`}
         >Review saved agent files</a
       >
       <p class="muted">
-        This session uses a saved working copy. Files are shared with project members; chat stays
-        private.
+        This conversation uses a saved working copy. Files are shared with project members; chat
+        stays private.
       </p>
     {:else}
       <label
         ><input type="checkbox" bind:checked={useProjectFiles} disabled={busy} /> Use project files for
-        this session</label
+        this conversation</label
       >
     {/if}
   </div>
@@ -536,18 +551,18 @@
 
 <div
   class="project-chat"
-  class:project-chat-detail={Boolean(sessionId)}
-  class:project-chat-new={!sessionId && !allSessions}
+  class:project-chat-detail={Boolean(conversationId)}
+  class:project-chat-new={!conversationId && !allConversations}
 >
   <span class="project-execution-state" aria-label="Execution status"
     >{executionEnabled ? 'Execution available' : 'Execution disabled'}</span
   >
   <FeedbackToast pending={busy} message={error} variant="error" />
-  {#if !sessionId}
-    {#if allSessions}<header class="project-chat-intro">
-        <h1>All sessions</h1>
+  {#if !conversationId}
+    {#if allConversations}<header class="project-chat-intro">
+        <h1>All conversations</h1>
       </header>{/if}
-    {#if !allSessions}<ChatComposer
+    {#if !allConversations}<ChatComposer
         bind:value={chatDraft.message}
         label="Message the agent"
         onsubmit={create}
@@ -561,7 +576,7 @@
               type="button"
               class="project-chat-customize-trigger"
               aria-label="Customize chat"
-              disabled={Boolean(chatDraft.startingSessionId)}
+              disabled={Boolean(chatDraft.startingConversationId)}
             >
               <SlidersHorizontal class="size-4" aria-hidden="true" />
               <span>{hasCustomSettings ? 'Custom' : 'Customize'}</span>
@@ -588,7 +603,7 @@
                     >Response style<NativeSelect
                       aria-label="Response style"
                       bind:value={responseStyle}
-                      disabled={Boolean(chatDraft.startingSessionId)}
+                      disabled={Boolean(chatDraft.startingConversationId)}
                     >
                       <option value="balanced">Balanced</option>
                       <option value="concise">Concise</option>
@@ -600,12 +615,12 @@
                     type="button"
                     class="project-chat-custom-toggle"
                     aria-pressed={configurationMode === 'custom'}
-                    disabled={Boolean(chatDraft.startingSessionId)}
+                    disabled={Boolean(chatDraft.startingConversationId)}
                     onclick={() => setCustomConfiguration(configurationMode !== 'custom')}
                   >
                     <span>
                       <strong>Custom instructions</strong>
-                      <small>Add a session-specific system prompt through Hosted Codex.</small>
+                      <small>Add a conversation-specific system prompt through Hosted Codex.</small>
                     </span>
                     <span class="project-chat-custom-toggle-state"
                       >{configurationMode === 'custom' ? 'On' : 'Off'}</span
@@ -625,11 +640,11 @@
                         placeholder="Give the agent instructions for this chat…"
                         maxlength={10000}
                         bind:value={customSystemPrompt}
-                        disabled={Boolean(chatDraft.startingSessionId)}
+                        disabled={Boolean(chatDraft.startingConversationId)}
                       /></Field.Label
                     >
                     <p class="muted project-chat-config-help">
-                      Added to the base agent instructions for this session.
+                      Added to the base agent instructions for this conversation.
                     </p>
                     <Field.Label
                       >Harness<NativeSelect aria-label="Harness" value="codex" disabled>
@@ -643,7 +658,7 @@
                     type="button"
                     variant="ghost"
                     class="project-chat-reset"
-                    disabled={Boolean(chatDraft.startingSessionId)}
+                    disabled={Boolean(chatDraft.startingConversationId)}
                     onclick={resetNewChatSettings}
                     ><RotateCcw class="size-4" aria-hidden="true" />Reset to defaults</Button
                   >
@@ -666,7 +681,7 @@
               type="button"
               class="project-chat-agent-trigger"
               aria-label="Choose agent"
-              disabled={Boolean(chatDraft.startingSessionId) || !availableAgents.length}
+              disabled={Boolean(chatDraft.startingConversationId) || !availableAgents.length}
             >
               <Sparkles class="size-4" aria-hidden="true" />
               <span class="project-chat-agent-trigger-copy">
@@ -704,48 +719,51 @@
         {/snippet}
       </ChatComposer>
     {/if}
-    {#if allSessions}<section
+    {#if allConversations}<section
         class="project-chat-history"
-        aria-label={allSessions ? 'All sessions' : 'Recent sessions'}
+        aria-label={allConversations ? 'All conversations' : 'Recent conversations'}
       >
-        <h2>{allSessions ? 'Sessions' : 'Recent sessions'}</h2>
+        <h2>{allConversations ? 'Conversations' : 'Recent conversations'}</h2>
         <ul class="list">
-          {#each ($sessions.data?.pages.flatMap((p) => p.items) ?? []).slice(0, allSessions ? undefined : 5) as value (value)}<li
+          {#each ($conversations.data?.pages.flatMap((p) => p.items) ?? []).slice(0, allConversations ? undefined : 5) as value (value)}<li
             >
               <h3>
-                <a href={`/projects/${projectId}/sessions/${value.id}`}
-                  >{value.title || `${value.configuration?.display_name} session`}</a
+                <a href={`/projects/${projectId}/conversations/${value.id}`}
+                  >{value.title || `${value.configuration?.display_name} conversation`}</a
                 >
               </h3>
               <small>{value.status} · {new Date(value.updated_at).toLocaleString()}</small>
             </li>{/each}
         </ul>
-        {#if $sessions.isPending}<LoadingState>Loading sessions…</LoadingState
-          >{:else if $sessions.isError && !$sessions.data}
-          <Button type="submit" onclick={() => $sessions.refetch()}>Retry</Button
-          >{:else if !$sessions.data?.pages[0].items.length}<p class="empty">
-            No sessions yet. Choose an agent to begin.
-          </p>{/if}{#if allSessions && $sessions.hasNextPage}<Button
+        {#if $conversations.isPending}<LoadingState>Loading conversations…</LoadingState
+          >{:else if $conversations.isError && !$conversations.data}
+          <Button type="submit" onclick={() => $conversations.refetch()}>Retry</Button
+          >{:else if !$conversations.data?.pages[0].items.length}<p class="empty">
+            No conversations yet. Choose an agent to begin.
+          </p>{/if}{#if allConversations && $conversations.hasNextPage}<Button
             type="submit"
-            onclick={() => $sessions.fetchNextPage()}>Load more sessions</Button
+            onclick={() => $conversations.fetchNextPage()}>Load more conversations</Button
           >{/if}
       </section>{/if}
-  {:else if accessDeniedId === sessionId}<p role="status">Session access is no longer available.</p>
-  {:else if $session.isPending}<LoadingState>
-      Opening session…
-    </LoadingState>{:else if ($session.isError && !$session.data) || $session.data?.project_id !== projectId}<FeedbackToast
-      message="Session unavailable. Return to the session list."
+  {:else if accessDeniedId === conversationId}<p role="status">
+      Conversation access is no longer available.
+    </p>
+  {:else if $conversation.isPending}<LoadingState>
+      Opening conversation…
+    </LoadingState>{:else if ($conversation.isError && !$conversation.data) || $conversation.data?.project_id !== projectId}<FeedbackToast
+      message="Conversation unavailable. Return to the conversation list."
       variant="error"
     />{:else}
     <header class="project-chat-thread-header" use:threadHeaderPortal={isVisible}>
-      {#if !linear && !defaultFiles}<a href={`/projects/${projectId}/sessions`}>← All sessions</a
+      {#if !linear && !defaultFiles}<a href={`/projects/${projectId}/conversations`}
+          >← All conversations</a
         >{/if}
-      <h1>{$session.data?.title || $session.data?.configuration?.display_name}</h1>
-      {#if $session.data?.capabilities.can_manage}
+      <h1>{$conversation.data?.title || $conversation.data?.configuration?.display_name}</h1>
+      {#if $conversation.data?.capabilities.can_manage}
         <Button
           variant="outline"
           onclick={() => {
-            titleDraft = $session.data?.title || '';
+            titleDraft = $conversation.data?.title || '';
             editingTitle = true;
           }}>Rename</Button
         >
@@ -753,33 +771,40 @@
           variant="outline"
           onclick={async () => {
             try {
-              await agents.updateSession(sessionId!, {
-                archived: $session.data?.status !== 'archived',
+              await agents.updateConversation(conversationId!, {
+                archived: $conversation.data?.status !== 'archived',
               });
-              await invalidateSession(query, projectId, sessionId);
+              await invalidateConversation(query, projectId, conversationId);
             } catch (reason) {
               error = explain(reason);
             }
-          }}>{$session.data?.status === 'archived' ? 'Restore session' : 'Archive session'}</Button
+          }}
+          >{$conversation.data?.status === 'archived'
+            ? 'Restore conversation'
+            : 'Archive conversation'}</Button
         >
       {/if}
       {#if editingTitle}<form
           onsubmit={async (event) => {
             event.preventDefault();
             try {
-              await agents.updateSession(sessionId!, { title: titleDraft.trim() || null });
+              await agents.updateConversation(conversationId!, {
+                title: titleDraft.trim() || null,
+              });
               editingTitle = false;
-              await invalidateSession(query, projectId, sessionId);
+              await invalidateConversation(query, projectId, conversationId);
             } catch (reason) {
               error = explain(reason);
             }
           }}
         >
-          <Field.Label>Session title<Input bind:value={titleDraft} maxlength={300} /></Field.Label>
+          <Field.Label
+            >Conversation title<Input bind:value={titleDraft} maxlength={300} /></Field.Label
+          >
           <Button type="submit">Save title</Button>
           <Button variant="outline" onclick={() => (editingTitle = false)}>Cancel</Button>
         </form>{/if}
-      {#if $session.data?.capabilities.can_share}<Button
+      {#if $conversation.data?.capabilities.can_share}<Button
           variant="outline"
           onclick={async () => {
             try {
@@ -788,7 +813,9 @@
                 await tick();
               }
               sharingMode =
-                $session.data?.sharing === 'private' ? 'project_readable' : $session.data!.sharing;
+                $conversation.data?.sharing === 'private'
+                  ? 'members_can_view'
+                  : $conversation.data!.sharing;
               sharing = true;
             } catch (reason) {
               error = explain(reason);
@@ -800,28 +827,28 @@
           <Field.Label
             >Project access<NativeSelect bind:value={sharingMode}>
               <option value="private">Private · only me</option>
-              <option value="project_readable">Project members can read</option>
-              <option value="project_contributable">Project editors can participate</option>
+              <option value="members_can_view">Members can view</option>
+              <option value="members_can_participate">Members can participate</option>
             </NativeSelect></Field.Label
           >
           <p>
-            Project sharing includes this full transcript and future messages. Editors use
-            their own provider connections when participation is enabled. Private prompts, tool
-            inputs, and artifacts keep their existing permissions.
+            Project sharing includes this full transcript and future messages. Editors use their own
+            provider connections when participation is enabled. Private prompts, tool inputs, and
+            artifacts keep their existing permissions.
           </p>
           {#each $messages.data?.pages.flatMap((p) => p.items) ?? [] as item (item.id)}
-            <SessionTranscriptItem
+            <ConversationTranscriptItem
               {item}
-              ownerId={$session.data?.owner_id}
-              agentName={$session.data?.configuration?.display_name}
+              ownerId={$conversation.data?.owner_id}
+              agentName={$conversation.data?.configuration?.display_name}
             />
           {/each}
           <Button
             onclick={async () => {
               try {
-                await agents.shareSession(sessionId!, sharingMode);
+                await agents.shareConversation(conversationId!, sharingMode);
                 sharing = false;
-                await invalidateSession(query, projectId, sessionId);
+                await invalidateConversation(query, projectId, conversationId);
               } catch (reason) {
                 error = explain(reason);
               }
@@ -830,26 +857,26 @@
           <Button variant="outline" onclick={() => (sharing = false)}>Cancel</Button>
         </section>{/if}
       <FeedbackToast
-        message={linear && $session.data?.working_context.worktree_id
+        message={linear && $conversation.data?.working_context.worktree_id
           ? 'This conversation began in Git mode. New turns use the linear project; earlier snapshots remain in the Git archive.'
           : ''}
         variant="info"
       />
-      {#if $session.data?.origin === 'legacy_direct'}<p>
+      {#if $conversation.data?.origin === 'legacy_direct'}<p>
           Retired direct-chat history · Read only
-        </p>{:else if !$session.data?.capabilities.can_send}<p>
+        </p>{:else if !$conversation.data?.capabilities.can_send}<p>
           Shared conversation · View only
         </p>{/if}
     </header>
     <div class="project-chat-panel-meta" use:chatPanelPortal={isVisible}>
-      <h2>Session</h2>
+      <h2>Conversation</h2>
       <p role="status">{run?.status ?? connection}</p>
-      {#if $session.data?.configuration?.harness === 'codex'}
+      {#if $conversation.data?.configuration?.harness === 'codex'}
         <p>Hosted Codex</p>
         <details>
           <summary>System prompt</summary>
           <p class="project-chat-saved-prompt">
-            {$session.data.configuration?.system_prompt_override}
+            {$conversation.data.configuration?.system_prompt_override}
           </p>
         </details>
       {/if}
@@ -858,10 +885,10 @@
       <Button type="submit" onclick={() => $messages.refetch()}>Retry messages</Button>{/if}
     <div class="transcript">
       {#each $messages.data?.pages.flatMap((p) => p.items) ?? [] as item (item.id)}
-        <SessionTranscriptItem
+        <ConversationTranscriptItem
           {item}
-          ownerId={$session.data?.owner_id}
-          agentName={$session.data?.configuration?.display_name}
+          ownerId={$conversation.data?.owner_id}
+          agentName={$conversation.data?.configuration?.display_name}
         />
       {/each}
     </div>
@@ -875,7 +902,7 @@
         <p class="message-author">Agent · responding</p>
         <p class="message-stream">{streaming}</p>
       </article>{/if}
-    {#if $session.data?.origin === 'agent'}<details
+    {#if $conversation.data?.origin === 'agent'}<details
         class="project-chat-files"
         use:chatPanelPortal={isVisible}
       >
@@ -926,7 +953,7 @@
         >
 
         {#if $exports.data?.length}
-          <div aria-label="Session files">
+          <div aria-label="Conversation files">
             {#each $exports.data as file (file.artifact_id)}
               <Button onclick={() => downloadExport(file.artifact_id, file.display_name)}>
                 Download {file.display_name}
@@ -943,12 +970,12 @@
       />
     {/if}
     {#if $capabilities.data && !$capabilities.data.execution_available}
-      <span class="project-session-state">Execution unavailable</span>
+      <span class="project-conversation-state">Execution unavailable</span>
     {/if}
-    {#if $session.data?.capabilities.can_send}<div class="project-chat-reply">
+    {#if $conversation.data?.capabilities.can_send}<div class="project-chat-reply">
         <ChatComposer
           bind:value={chatDraft.message}
-          label={$session.data && $session.data.sharing !== 'private'
+          label={$conversation.data && $conversation.data.sharing !== 'private'
             ? 'Message shared with project'
             : 'Private message'}
           placeholder="Ask a question or describe what you want to do…"
@@ -957,19 +984,19 @@
           onstop={active && run?.can_interrupt ? stopAgent : undefined}
           stopping={run?.status === 'CANCELLING'}
           stopDisabled={busy}
-          disabled={Boolean(sessionSendReason)}
+          disabled={Boolean(conversationSendReason)}
           sendReason={run?.status === 'CANCELLING'
             ? 'Stopping agent…'
             : active
               ? ''
-              : sessionSendReason === 'Write a message to send.'
+              : conversationSendReason === 'Write a message to send.'
                 ? ''
-                : sessionSendReason}
+                : conversationSendReason}
           submitLabel="Send message"
         >
           {#snippet preset()}
             <span class="project-chat-reply-agent"
-              ><Sparkles size={16} aria-hidden="true" />{$session.data?.configuration
+              ><Sparkles size={16} aria-hidden="true" />{$conversation.data?.configuration
                 ?.display_name}</span
             >
           {/snippet}
@@ -1000,10 +1027,10 @@
           {/snippet}
         </ChatComposer>
       </div>{:else}<p role="status">
-        {$session.data?.origin === 'legacy_direct'
+        {$conversation.data?.origin === 'legacy_direct'
           ? 'This saved direct-chat history cannot execute new messages.'
-          : $session.data?.status === 'archived'
-            ? 'This session is archived.'
+          : $conversation.data?.status === 'archived'
+            ? 'This conversation is archived.'
             : 'You have read-only access to this conversation.'}
       </p>
       {#if active && run?.can_interrupt}<Button

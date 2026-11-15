@@ -3,9 +3,9 @@ import type { components } from '$lib/api-client';
 import { createWebApiClient } from './runtime';
 import { ApiError } from './projects-api';
 
-export type AgentSession = components['schemas']['SessionRead'];
-export type SessionItem = components['schemas']['ItemPage']['items'][number];
-export type SessionSharing = components['schemas']['ConversationSharing'];
+export type Conversation = components['schemas']['ConversationRead'];
+export type ConversationItem = components['schemas']['ItemPage']['items'][number];
+export type ConversationSharing = components['schemas']['ConversationSharing'];
 export type AgentRun = components['schemas']['RunRead'];
 export type PlatformAgent = components['schemas']['PlatformAgentRead'];
 export type ProviderConnection = components['schemas']['ProviderConnectionRead'];
@@ -17,7 +17,7 @@ export type AgentEvent = {
   occurred_at: string;
 };
 
-export type AgentSessionsApi = ReturnType<typeof createAgentSessionsApi>;
+export type ConversationsApi = ReturnType<typeof createConversationsApi>;
 
 type ErrorBody = { error?: { code?: string } };
 
@@ -44,7 +44,7 @@ async function unwrapPage<T>(
   );
 }
 
-export function createAgentSessionsApi(
+export function createConversationsApi(
   options: {
     baseUrl?: string;
     signal?: AbortSignal;
@@ -94,81 +94,85 @@ export function createAgentSessionsApi(
           params: { query: { limit: 25, cursor } },
         }),
       ),
-    listSessions: (projectId: string, cursor?: string) =>
+    listConversations: (projectId: string, cursor?: string) =>
       unwrapPage(
-        client.GET('/api/v1/sessions', {
+        client.GET('/api/v1/conversations', {
           params: { query: { project_id: projectId, limit: 25, cursor } },
         }),
       ),
     listHistory: (cursor?: string) =>
       unwrapPage(
-        client.GET('/api/v1/sessions', {
+        client.GET('/api/v1/conversations', {
           params: { query: { origin: 'legacy_direct', limit: 25, cursor } },
         }),
       ),
-    createSession: (
-      input: Omit<components['schemas']['SessionCreate'], 'agent_version'> & {
+    createConversation: (
+      input: Omit<components['schemas']['ConversationCreate'], 'agent_version'> & {
         agent_version?: 1 | 2 | 3;
       },
-    ) => unwrap(client.POST('/api/v1/sessions', { body: { agent_version: 3, ...input } })),
-    shareSession: (sessionId: string, mode: SessionSharing) =>
+    ) => unwrap(client.POST('/api/v1/conversations', { body: { agent_version: 3, ...input } })),
+    shareConversation: (conversationId: string, mode: ConversationSharing) =>
       unwrap(
-        client.PATCH('/api/v1/sessions/{session_id}/sharing', {
-          params: { path: { session_id: sessionId } },
+        client.PATCH('/api/v1/conversations/{conversation_id}/sharing', {
+          params: { path: { conversation_id: conversationId } },
           body: { mode },
         }),
       ),
-    getSession: (sessionId: string) =>
+    getConversation: (conversationId: string) =>
       unwrap(
-        client.GET('/api/v1/sessions/{session_id}', {
-          params: { path: { session_id: sessionId } },
+        client.GET('/api/v1/conversations/{conversation_id}', {
+          params: { path: { conversation_id: conversationId } },
         }),
       ),
-    listRuns: (sessionId: string, cursor?: string) =>
+    listRuns: (conversationId: string, cursor?: string) =>
       unwrapPage(
-        client.GET('/api/v1/sessions/{session_id}/runs', {
-          params: { path: { session_id: sessionId }, query: { limit: 100, cursor } },
+        client.GET('/api/v1/conversations/{conversation_id}/runs', {
+          params: { path: { conversation_id: conversationId }, query: { limit: 100, cursor } },
         }),
       ),
-    listItems: async (sessionId: string, cursor?: string) => {
+    listItems: async (conversationId: string, cursor?: string) => {
       const page = await unwrap(
-        client.GET('/api/v1/sessions/{session_id}/items', {
-          params: { path: { session_id: sessionId }, query: { limit: 100, cursor } },
+        client.GET('/api/v1/conversations/{conversation_id}/items', {
+          params: { path: { conversation_id: conversationId }, query: { limit: 100, cursor } },
         }),
       );
       return { items: page.items, nextCursor: page.next_cursor ?? undefined };
     },
-    updateSession: (sessionId: string, input: components['schemas']['SessionPatch']) =>
+    updateConversation: (
+      conversationId: string,
+      input: components['schemas']['ConversationPatch'],
+    ) =>
       unwrap(
-        client.PATCH('/api/v1/sessions/{session_id}', {
-          params: { path: { session_id: sessionId } },
+        client.PATCH('/api/v1/conversations/{conversation_id}', {
+          params: { path: { conversation_id: conversationId } },
           body: input,
         }),
       ),
     queueTurn: async (
-      sessionId: string,
-      input: Omit<components['schemas']['SessionMessage'], 'type'>,
+      conversationId: string,
+      input: Omit<components['schemas']['ConversationMessage'], 'type'>,
     ) => {
       const accepted = await unwrap(
-        client.POST('/api/v1/sessions/{session_id}/events', {
-          params: { path: { session_id: sessionId } },
+        client.POST('/api/v1/conversations/{conversation_id}/events', {
+          params: { path: { conversation_id: conversationId } },
           body: { ...input, type: 'message' },
         }),
       );
-      if (accepted.type !== 'message') throw new ApiError(502, 'invalid_session_acknowledgement');
+      if (accepted.type !== 'message')
+        throw new ApiError(502, 'invalid_conversation_acknowledgement');
       return accepted;
     },
     getRun: async (runId: string): Promise<AgentRun> => {
       const run = await unwrap(
         client.GET('/api/v1/runs/{run_id}', { params: { path: { run_id: runId } } }),
       );
-      if (!('session_id' in run)) throw new ApiError(404, 'session_run_not_found');
+      if (!('conversation_id' in run)) throw new ApiError(404, 'conversation_run_not_found');
       return run;
     },
-    cancelRun: async (sessionId: string, runId: string) => {
+    cancelRun: async (conversationId: string, runId: string) => {
       const accepted = await unwrap(
-        client.POST('/api/v1/sessions/{session_id}/events', {
-          params: { path: { session_id: sessionId } },
+        client.POST('/api/v1/conversations/{conversation_id}/events', {
+          params: { path: { conversation_id: conversationId } },
           body: { type: 'interrupt', run_id: runId },
         }),
       );
@@ -182,12 +186,15 @@ export function createAgentSessionsApi(
         }),
       ),
     stream: async function* (
-      sessionId: string,
+      conversationId: string,
       lastEventId?: string,
       signal?: AbortSignal,
     ): AsyncGenerator<{ id: string; event: string; data: AgentEvent }> {
-      const result = await client.GET('/api/v1/sessions/{session_id}/stream', {
-        params: { path: { session_id: sessionId }, header: { 'Last-Event-ID': lastEventId } },
+      const result = await client.GET('/api/v1/conversations/{conversation_id}/stream', {
+        params: {
+          path: { conversation_id: conversationId },
+          header: { 'Last-Event-ID': lastEventId },
+        },
         parseAs: 'stream',
         signal,
       });

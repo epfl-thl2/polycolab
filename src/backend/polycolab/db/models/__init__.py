@@ -63,7 +63,6 @@ from polycolab.entities.enums import AccountTokenPurpose as AccountTokenPurpose
 from polycolab.entities.enums import AgentMessageRole as AgentMessageRole
 from polycolab.entities.enums import AgentRunEventKind as AgentRunEventKind
 from polycolab.entities.enums import AgentRunStatus as AgentRunStatus
-from polycolab.entities.enums import AgentSessionStatus as AgentSessionStatus
 from polycolab.entities.enums import ArtifactState as ArtifactState
 from polycolab.entities.enums import ExecutionProfile as ExecutionProfile
 from polycolab.entities.enums import ExecutionTenantKind as ExecutionTenantKind
@@ -80,6 +79,7 @@ from polycolab.entities.enums import RuntimeRunBindingStatus as RuntimeRunBindin
 from polycolab.entities.enums import SocialAuthPurpose as SocialAuthPurpose
 from polycolab.entities.enums import SocialIdentityAuditAction as SocialIdentityAuditAction
 from polycolab.entities.enums import SocialProviderKind as SocialProviderKind
+from polycolab.entities.enums import StoredConversationStatus as StoredConversationStatus
 from polycolab.entities.enums import UsageSource as UsageSource
 
 __all__ = [
@@ -102,7 +102,7 @@ __all__ = [
     "ExecutionTenantKind",
     "PlatformAgentKind",
     "ExecutionProfile",
-    "AgentSessionStatus",
+    "StoredConversationStatus",
     "AgentMessageRole",
     "AgentRunStatus",
     "AgentRunEventKind",
@@ -156,7 +156,7 @@ __all__ = [
     "SqlHostedSlot",
     "SqlRepositoryMutation",
     "SqlRepositoryRun",
-    "SqlRepositorySession",
+    "SqlRepositoryConversation",
     "SqlProjectRepository",
     "SqlWorktree",
     "SqlLegacyConversationExecution",
@@ -205,12 +205,12 @@ from polycolab.db.models.repositories import (
     SqlProjectRepository as SqlProjectRepository,
 )
 from polycolab.db.models.repositories import (
+    SqlRepositoryConversation as SqlRepositoryConversation,
+)
+from polycolab.db.models.repositories import (
     SqlRepositoryMutation as SqlRepositoryMutation,
 )
 from polycolab.db.models.repositories import (
     SqlRepositoryRun as SqlRepositoryRun,
-)
-from polycolab.db.models.repositories import (
-    SqlRepositorySession as SqlRepositorySession,
 )
 from polycolab.db.models.worktrees import SqlWorktree as SqlWorktree

@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
 from test_sessions_store import _new_run
 
-from polycolab.agents.sessions import claim_next_run_in_transaction
+from polycolab.agents.conversations import claim_next_run_in_transaction
 from polycolab.db.models import (
     SqlAgentRun,
     SqlExecutionClassState,

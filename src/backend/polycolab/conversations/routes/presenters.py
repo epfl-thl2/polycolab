@@ -5,6 +5,8 @@ from uuid import UUID
 from polycolab.conversations.routes.schemas import (
     AgentAuthorRead,
     AgentConfigurationRead,
+    ConversationCapabilities,
+    ConversationRead,
     ErrorItemRead,
     ErrorPayloadRead,
     ExecutionSummaryRead,
@@ -15,8 +17,6 @@ from polycolab.conversations.routes.schemas import (
     MessageItemRead,
     MessagePayloadRead,
     RunRead,
-    SessionCapabilities,
-    SessionRead,
     SystemAuthorRead,
     ToolAuthorRead,
     ToolCallItemRead,
@@ -81,7 +81,7 @@ def run_read(
     summary = execution_summary_read(value, viewer_id=viewer_id, owner_id=owner_id)
     return RunRead(
         **summary.model_dump(),
-        session_id=value.conversation_id,
+        conversation_id=value.conversation_id,
         project_id=value.project_id,
         origin=value.origin,
         client_request_id=value.request_id,
@@ -104,13 +104,13 @@ def run_read(
     )
 
 
-def session_read(
+def conversation_read(
     value: Conversation,
     *,
     viewer_id: UUID,
-    capabilities: SessionCapabilities,
+    capabilities: ConversationCapabilities,
     latest_execution: ConversationExecution | None,
-) -> SessionRead:
+) -> ConversationRead:
     configuration = (
         AgentConfigurationRead.model_validate(value.configuration)
         if value.configuration is not None
@@ -118,7 +118,7 @@ def session_read(
     )
     if configuration is not None and viewer_id != value.owner_id:
         configuration = configuration.model_copy(update={"system_prompt_override": None})
-    return SessionRead(
+    return ConversationRead(
         id=value.id,
         owner_id=value.owner_id,
         project_id=value.project_id,
@@ -167,7 +167,7 @@ def item_read(value: ConversationItem[ConversationItemData]) -> TranscriptItem:
         raise ValueError("model-only context is not a public transcript item")
     base = ItemRead(
         id=value.id,
-        session_id=value.conversation_id,
+        conversation_id=value.conversation_id,
         sequence=value.sequence,
         author=author_read(value.author),
         execution_id=value.execution_id,

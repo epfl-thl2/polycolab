@@ -13,11 +13,11 @@ from sqlalchemy import select, text
 from test_codex_runtime import spec
 from test_runtime_api import _queue_run
 
-from polycolab.agents.runtime.spec import RuntimeSpec
-from polycolab.agents.sessions import (
+from polycolab.agents.conversations import (
     append_user_message_and_queue_run,
-    create_agent_session,
+    create_agent_conversation,
 )
+from polycolab.agents.runtime.spec import RuntimeSpec
 from polycolab.app.application import create_app
 from polycolab.db.models import SqlAgentRun, SqlExecutionSlotLease, SqlUser
 from polycolab.entities.enums import AgentRunStatus, PlatformAgentKind
@@ -59,7 +59,7 @@ def new_hosted(
             db.commit()
     with app.state.session_factory() as db:
         previous = db.get(SqlAgentRun, ancestor)
-        parent = create_agent_session(
+        parent = create_agent_conversation(
             db,
             project_id=previous.project_id,
             created_by_user_id=previous.requested_by_user_id,
@@ -67,7 +67,7 @@ def new_hosted(
         )
         _, run = append_user_message_and_queue_run(
             db,
-            session_id=parent.id,
+            conversation_id=parent.id,
             requested_by_user_id=previous.requested_by_user_id,
             provider_connection_id=previous.provider_connection_id,
             content_md="Hosted execution",
@@ -149,7 +149,7 @@ def test_executor_identity_and_quarantine_fence(hosted_client: TestClient) -> No
             incarnation="current",
             image="a" * 64,
             states={0: "AVAILABLE", 1: "QUARANTINED"},
-            protocol=6,
+            protocol=7,
         )
 
         def attempt(incarnation: str, slot_id: int) -> SqlAgentRun | None:
@@ -177,7 +177,7 @@ def test_executor_identity_and_quarantine_fence(hosted_client: TestClient) -> No
             incarnation="current",
             image="a" * 64,
             states={0: "QUARANTINED", 1: "QUARANTINED"},
-            protocol=6,
+            protocol=7,
         )
         from polycolab.execution.hosts import release_elapsed
 
@@ -251,7 +251,7 @@ def test_merge_upgrade_preserves_existing_branch_data(
         assert retained is not None and retained.subject == "retained-account"
     from alembic.script import ScriptDirectory
 
-    assert ScriptDirectory.from_config(config).get_heads() == ["20261115_roles"]
+    assert ScriptDirectory.from_config(config).get_heads() == ["20261115_conversation_names"]
 
 
 def test_claim_requires_frozen_backend_version_and_image(
@@ -279,7 +279,7 @@ def test_claim_requires_frozen_backend_version_and_image(
                 incarnation="current",
                 image=image,
                 states={0: "AVAILABLE"},
-                protocol=6,
+                protocol=7,
                 backend=backend,
                 version=version,
             )

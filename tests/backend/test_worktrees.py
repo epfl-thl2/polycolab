@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from test_sessions_api import add_member, create_connection, create_project, headers
 
-from polycolab.agents.sessions import (
+from polycolab.agents.conversations import (
     append_user_message_and_queue_run,
     claim_next_run,
     request_cancel,
@@ -53,7 +53,7 @@ def task_chat(
     client: TestClient, project_id: str, worktree_id: str, token: str = "owner"
 ) -> dict[str, Any]:
     response = client.post(
-        "/api/v1/sessions",
+        "/api/v1/conversations",
         headers=headers(token),
         json={
             "project_id": project_id,
@@ -99,7 +99,8 @@ def test_task_working_copy_retry_archive_and_member_privacy(
     add_member(client, project_id, "reader", "VIEWER")
     assert task["id"] in [row["id"] for row in client.get(url, headers=headers("reader")).json()]
     assert (
-        client.get(f"/api/v1/sessions/{chat['id']}", headers=headers("reader")).status_code == 404
+        client.get(f"/api/v1/conversations/{chat['id']}", headers=headers("reader")).status_code
+        == 404
     )
     assert "Private secret conversation" not in client.get(url, headers=headers("reader")).text
     assert client.get(url, headers=headers("outsider")).status_code == 404
@@ -135,7 +136,7 @@ def test_task_working_copy_retry_archive_and_member_privacy(
     ).json()["writable"]
     assert (
         client.post(
-            "/api/v1/sessions",
+            "/api/v1/conversations",
             headers=headers("owner"),
             json={
                 "project_id": project_id,
@@ -158,7 +159,7 @@ def test_task_serializes_runs_across_private_chats_and_pins_shared_branch(
     runs = []
     for chat in chats:
         response = client.post(
-            f"/api/v1/sessions/{chat['id']}/events",
+            f"/api/v1/conversations/{chat['id']}/events",
             headers=headers("owner"),
             json={
                 "type": "message",
@@ -210,7 +211,7 @@ def test_task_serializes_runs_across_private_chats_and_pins_shared_branch(
             UUID(project_id),
             first.requested_by_user_id,
         )
-        binding = service.pin_run(first.id, first.session_id)
+        binding = service.pin_run(first.id, first.conversation_id)
         assert binding is not None
         assert binding["branch"] == task["branch"]
         assert binding["worktree_id"] == task["id"]
@@ -231,12 +232,12 @@ def test_task_serializes_runs_across_private_chats_and_pins_shared_branch(
             provider_connection_id=first.provider_connection_id,
             client_request_id=uuid4(),
         )
-        assert resumed.session_id == first.session_id
+        assert resumed.conversation_id == first.conversation_id
         assert claim_next_run(db, worker_id="worker-three", lease_for=timedelta(minutes=1)) is None
         request_cancel(db, run_id=resumed.id)
         _, old_intent = append_user_message_and_queue_run(
             db,
-            session_id=first.session_id,
+            conversation_id=first.conversation_id,
             requested_by_user_id=first.requested_by_user_id,
             provider_connection_id=first.provider_connection_id,
             content_md="Old-timestamp intent",
@@ -269,7 +270,7 @@ def test_task_disabled_and_foreign_attachment(client: TestClient, tmp_path: Path
     other = str(create_project(client)["id"])
     assert (
         client.post(
-            "/api/v1/sessions",
+            "/api/v1/conversations",
             headers=headers("owner"),
             json={
                 "project_id": other,

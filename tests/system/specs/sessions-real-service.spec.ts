@@ -77,11 +77,11 @@ test('unified sessions persist shared browser participation and fence concurrent
     await browserUser(contributor, 'contributor');
     await browserUser(reader, 'reader');
     const ownerPage = await owner.newPage();
-    await ownerPage.goto(`/projects/${project.id}/sessions/new`);
+    await ownerPage.goto(`/projects/${project.id}/conversations/new`);
     await ownerPage.getByLabel('Message the agent').fill('Start our shared investigation.');
     await ownerPage.getByRole('button', { name: 'Send message', exact: true }).click();
-    await expect(ownerPage).toHaveURL(/\/sessions\/[0-9a-f-]+$/);
-    const sessionId = new URL(ownerPage.url()).pathname.split('/').at(-1)!;
+    await expect(ownerPage).toHaveURL(/\/conversations\/[0-9a-f-]+$/);
+    const conversationId = new URL(ownerPage.url()).pathname.split('/').at(-1)!;
     await expect(ownerPage.getByText('Project context is ready.', { exact: true })).toBeVisible({
       timeout: 30_000,
     });
@@ -90,10 +90,10 @@ test('unified sessions persist shared browser participation and fence concurrent
       ownerPage.getByText('Start our shared investigation.', { exact: true }),
     ).toBeVisible();
     await ownerPage.getByRole('button', { name: 'Sharing', exact: true }).click();
-    await ownerPage.getByLabel('Project access').selectOption('project_contributable');
+    await ownerPage.getByLabel('Project access').selectOption('members_can_participate');
     await ownerPage.getByRole('button', { name: 'Save sharing', exact: true }).click();
     const contributorPage = await contributor.newPage();
-    await contributorPage.goto(`/projects/${project.id}/sessions/${sessionId}`);
+    await contributorPage.goto(`/projects/${project.id}/conversations/${conversationId}`);
     await contributorPage.getByRole('tab', { name: 'Agent history', exact: true }).click();
     await contributorPage.getByLabel('AI provider').selectOption(profiles.contributor);
     await contributorPage
@@ -103,7 +103,9 @@ test('unified sessions persist shared browser participation and fence concurrent
     await expect
       .poll(
         async () =>
-          (await call(request, 'get', `/sessions/${sessionId}/runs`, 'contributor')).at(-1).status,
+          (await call(request, 'get', `/conversations/${conversationId}/runs`, 'contributor')).at(
+            -1,
+          ).status,
         { timeout: 30_000 },
       )
       .toBe('COMPLETED');
@@ -114,7 +116,7 @@ test('unified sessions persist shared browser participation and fence concurrent
     const runs = (await call(
       request,
       'get',
-      `/sessions/${sessionId}/runs`,
+      `/conversations/${conversationId}/runs`,
       'owner',
     )) as components['schemas']['RunRead'][];
     expect(runs).toHaveLength(2);
@@ -126,7 +128,7 @@ test('unified sessions persist shared browser participation and fence concurrent
       ).status(),
     ).toBe(404);
     const readerPage = await reader.newPage();
-    await readerPage.goto(`/projects/${project.id}/sessions/${sessionId}`);
+    await readerPage.goto(`/projects/${project.id}/conversations/${conversationId}`);
     await expect(
       readerPage.getByText('Contribute with my own provider.', { exact: true }),
     ).toBeVisible();
@@ -143,13 +145,14 @@ test('unified sessions persist shared browser participation and fence concurrent
     await expect
       .poll(
         async () =>
-          (await call(request, 'get', `/sessions/${sessionId}/runs`, 'owner')).at(-1).status,
+          (await call(request, 'get', `/conversations/${conversationId}/runs`, 'owner')).at(-1)
+            .status,
       )
       .toBe('RUNNING');
     const queued = await Promise.all(
       Array.from({ length: 2 }, (_, index) => {
         const user = index % 2 ? 'contributor' : 'owner';
-        return call(request, 'post', `/sessions/${sessionId}/events`, user, {
+        return call(request, 'post', `/conversations/${conversationId}/events`, user, {
           type: 'message',
           client_request_id: randomUUID(),
           content_md: `Concurrent contribution ${index}`,
@@ -159,13 +162,13 @@ test('unified sessions persist shared browser participation and fence concurrent
     );
     expect(new Set(queued.map((value) => value.item.sequence)).size).toBe(2);
     expect(new Set(queued.map((value) => value.run.queue_sequence)).size).toBe(2);
-    const denied = await request.post(`${apiUrl}/api/v1/sessions/${sessionId}/events`, {
+    const denied = await request.post(`${apiUrl}/api/v1/conversations/${conversationId}/events`, {
       headers: auth('contributor'),
       data: { type: 'interrupt', run_id: queued[0].run.id },
     });
     expect(denied.status()).toBe(403);
     for (const value of queued)
-      await call(request, 'post', `/sessions/${sessionId}/events`, 'owner', {
+      await call(request, 'post', `/conversations/${conversationId}/events`, 'owner', {
         type: 'interrupt',
         run_id: value.run.id,
       });
@@ -175,7 +178,7 @@ test('unified sessions persist shared browser participation and fence concurrent
     await expect
       .poll(
         async () =>
-          (await call(request, 'get', `/sessions/${sessionId}/runs`, 'owner')).filter(
+          (await call(request, 'get', `/conversations/${conversationId}/runs`, 'owner')).filter(
             (value: { status: string }) =>
               ['RUNNING', 'CANCELLING', 'QUEUED', 'CLAIMED'].includes(value.status),
           ).length,
@@ -185,7 +188,7 @@ test('unified sessions persist shared browser participation and fence concurrent
     await ownerPage.reload();
     await ownerPage.getByRole('button', { name: 'Archive session', exact: true }).click();
     await expect(ownerPage.getByText('This session is archived.', { exact: true })).toBeVisible();
-    const stream = await request.get(`${apiUrl}/api/v1/sessions/${sessionId}/stream`, {
+    const stream = await request.get(`${apiUrl}/api/v1/conversations/${conversationId}/stream`, {
       headers: auth('reader'),
     });
     expect(stream.status()).toBe(200);
@@ -195,7 +198,7 @@ test('unified sessions persist shared browser participation and fence concurrent
       .map((line) => line.slice(4));
     expect(cursors.length).toBeGreaterThan(8);
     expect(new Set(cursors).size).toBe(cursors.length);
-    const replay = await request.get(`${apiUrl}/api/v1/sessions/${sessionId}/stream`, {
+    const replay = await request.get(`${apiUrl}/api/v1/conversations/${conversationId}/stream`, {
       headers: { ...auth('reader'), 'Last-Event-ID': cursors[2] },
     });
     expect(
@@ -204,17 +207,19 @@ test('unified sessions persist shared browser participation and fence concurrent
         .filter((line) => line.startsWith('id: '))
         .map((line) => line.slice(4)),
     ).toEqual(cursors.slice(3));
-    await call(request, 'patch', `/sessions/${sessionId}/sharing`, 'owner', { mode: 'private' });
+    await call(request, 'patch', `/conversations/${conversationId}/sharing`, 'owner', {
+      mode: 'private',
+    });
     expect(
       (
-        await request.get(`${apiUrl}/api/v1/sessions/${sessionId}/stream`, {
+        await request.get(`${apiUrl}/api/v1/conversations/${conversationId}/stream`, {
           headers: auth('reader'),
         })
       ).status(),
     ).toBe(404);
     expect(
       (
-        await request.get(`${apiUrl}/api/v1/sessions/${sessionId}/items`, {
+        await request.get(`${apiUrl}/api/v1/conversations/${conversationId}/items`, {
           headers: auth('reader'),
         })
       ).status(),

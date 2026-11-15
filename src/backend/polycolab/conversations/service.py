@@ -1,4 +1,4 @@
-"""Session access policy independent of HTTP schemas and database adapters."""
+"""Conversation access policy independent of HTTP schemas and database adapters."""
 
 from datetime import datetime
 from uuid import UUID
@@ -24,7 +24,7 @@ class ConversationStateError(Exception):
 
 
 def can_execute(transaction: Transaction, conversation_id: UUID, user_id: UUID) -> bool:
-    """Recheck the sender's current session and project authority at worker boundaries."""
+    """Recheck the sender's current conversation and project authority at worker boundaries."""
     value = transaction.conversations.conversation(conversation_id)
     return bool(
         value is not None
@@ -32,7 +32,8 @@ def can_execute(transaction: Transaction, conversation_id: UUID, user_id: UUID) 
         and value.status is ConversationStatus.ACTIVE
         and value.project_id is not None
         and (
-            value.owner_id == user_id or value.sharing is ConversationSharing.PROJECT_CONTRIBUTABLE
+            value.owner_id == user_id
+            or value.sharing is ConversationSharing.MEMBERS_CAN_PARTICIPATE
         )
         and project_policy.can(transaction, value.project_id, user_id, ProjectAction.RUN_AGENTS)
     )
@@ -59,7 +60,10 @@ def require_submit(transaction: Transaction, conversation_id: UUID, user_id: UUI
         or value.project_id is None
     ):
         raise ConversationStateError("conversation is read-only")
-    if value.owner_id != user_id and value.sharing is not ConversationSharing.PROJECT_CONTRIBUTABLE:
+    if (
+        value.owner_id != user_id
+        and value.sharing is not ConversationSharing.MEMBERS_CAN_PARTICIPATE
+    ):
         raise AuthorizationDenied
     project_policy.require_scope(transaction, value.project_id, user_id, ProjectAction.RUN_AGENTS)
     return value

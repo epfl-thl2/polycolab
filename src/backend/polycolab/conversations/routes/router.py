@@ -1,4 +1,4 @@
-"""One public session API over canonical conversations and durable run updates."""
+"""One public conversation API over canonical conversations and durable run updates."""
 
 from __future__ import annotations
 
@@ -21,20 +21,27 @@ from polycolab.access.authorization import (
     ProjectNotFound,
     project_policy,
 )
-from polycolab.agents.schemas import AgentRunEventRead, PlatformAgentRead
-from polycolab.agents.sessions import (
+from polycolab.agents.conversations import (
     accepted_user_message,
     append_user_message_and_queue_run,
-    create_agent_session,
+    create_agent_conversation,
     ensure_platform_agent_versions,
     request_cancel,
     resume_run,
-    update_session_metadata,
+    update_conversation_metadata,
 )
+from polycolab.agents.schemas import AgentRunEventRead, PlatformAgentRead
 from polycolab.app.dependencies import CurrentUser, DbSession, Page, paginated
 from polycolab.artifacts import service as artifacts
-from polycolab.conversations.routes.presenters import item_read, run_read, session_read
+from polycolab.conversations.routes.presenters import conversation_read, item_read, run_read
 from polycolab.conversations.routes.schemas import (
+    ConversationCapabilities,
+    ConversationCreate,
+    ConversationEvent,
+    ConversationInterrupt,
+    ConversationMessage,
+    ConversationPatch,
+    ConversationRead,
     EventAccepted,
     InterruptAccepted,
     ItemPage,
@@ -42,13 +49,6 @@ from polycolab.conversations.routes.schemas import (
     MessageItemRead,
     RunRead,
     RunResume,
-    SessionCapabilities,
-    SessionCreate,
-    SessionEvent,
-    SessionInterrupt,
-    SessionMessage,
-    SessionPatch,
-    SessionRead,
     SharingPatch,
     SharingRead,
 )
@@ -239,7 +239,7 @@ def _capabilities(
     value: Conversation,
     user_id: UUID,
     project_rights: dict[UUID, bool] | None = None,
-) -> SessionCapabilities:
+) -> ConversationCapabilities:
     rights = project_rights if project_rights is not None else {}
     project_can_run = False
     if value.project_id is not None:
@@ -250,12 +250,12 @@ def _capabilities(
         project_can_run = rights[value.project_id]
     agent = value.origin is ConversationOrigin.AGENT
     owner = value.owner_id == user_id
-    return SessionCapabilities(
+    return ConversationCapabilities(
         can_send=(
             agent
             and value.status is ConversationStatus.ACTIVE
             and project_can_run
-            and (owner or value.sharing is ConversationSharing.PROJECT_CONTRIBUTABLE)
+            and (owner or value.sharing is ConversationSharing.MEMBERS_CAN_PARTICIPATE)
             and value.configuration is not None
             and value.configuration.harness in {"platform", "codex"}
         ),
@@ -265,9 +265,9 @@ def _capabilities(
     )
 
 
-def _read_session(db: DbSession, value: Conversation, user_id: UUID) -> SessionRead:
+def _read_conversation(db: DbSession, value: Conversation, user_id: UUID) -> ConversationRead:
     latest = SqlAlchemyTransaction(db).conversations.latest_executions([value.id]).get(value.id)
-    return session_read(
+    return conversation_read(
         value,
         viewer_id=user_id,
         capabilities=_capabilities(db, value, user_id),
@@ -275,13 +275,15 @@ def _read_session(db: DbSession, value: Conversation, user_id: UUID) -> SessionR
     )
 
 
-def _read_sessions(db: DbSession, values: list[Conversation], user_id: UUID) -> list[SessionRead]:
+def _read_conversations(
+    db: DbSession, values: list[Conversation], user_id: UUID
+) -> list[ConversationRead]:
     latest = SqlAlchemyTransaction(db).conversations.latest_executions(
         [value.id for value in values]
     )
     rights: dict[UUID, bool] = {}
     return [
-        session_read(
+        conversation_read(
             value,
             viewer_id=user_id,
             capabilities=_capabilities(db, value, user_id, rights),
@@ -315,19 +317,19 @@ def _read_run(db: DbSession, run_id: UUID, user_id: UUID) -> RunRead:
 
 
 @router.post(
-    "/sessions",
-    response_model=SessionRead,
+    "/conversations",
+    response_model=ConversationRead,
     status_code=201,
-    operation_id="createSession",
-    tags=["sessions"],
+    operation_id="createConversation",
+    tags=["conversations"],
 )
 def create(
-    payload: SessionCreate, request: Request, db: DbSession, user: CurrentUser
-) -> SessionRead:
+    payload: ConversationCreate, request: Request, db: DbSession, user: CurrentUser
+) -> ConversationRead:
     _agent_execution_enabled(request)
     if payload.harness == "codex" and request.app.state.settings.runtime_codex_image is None:
         raise HTTPException(409, "hosted_harness_unavailable")
-    value = create_agent_session(
+    value = create_agent_conversation(
         db,
         project_id=payload.project_id,
         created_by_user_id=user.id,
@@ -338,13 +340,18 @@ def create(
         system_prompt=payload.system_prompt,
         worktree_id=payload.worktree_id,
     )
-    return _read_session(db, require_read(SqlAlchemyTransaction(db), value.id, user.id), user.id)
+    return _read_conversation(
+        db, require_read(SqlAlchemyTransaction(db), value.id, user.id), user.id
+    )
 
 
 @router.get(
-    "/sessions", response_model=list[SessionRead], operation_id="listSessions", tags=["sessions"]
+    "/conversations",
+    response_model=list[ConversationRead],
+    operation_id="listConversations",
+    tags=["conversations"],
 )
-def list_sessions(
+def list_conversations(
     response: Response,
     db: DbSession,
     user: CurrentUser,
@@ -353,7 +360,7 @@ def list_sessions(
     origin: ConversationOrigin | None = None,
     cursor: str | None = Query(default=None, max_length=512),
     limit: int = Query(default=25, ge=1, le=100),
-) -> list[SessionRead]:
+) -> list[ConversationRead]:
     transaction = SqlAlchemyTransaction(db)
     if project_id is not None:
         project_policy.require_scope(transaction, project_id, user.id, ProjectAction.VIEW)
@@ -370,56 +377,58 @@ def list_sessions(
         response.headers["X-Next-Cursor"] = _encode_cursor(
             [last.updated_at.isoformat(), str(last.id)]
         )
-    return _read_sessions(db, values[:limit], user.id)
+    return _read_conversations(db, values[:limit], user.id)
 
 
 @router.get(
-    "/sessions/{session_id}",
-    response_model=SessionRead,
-    operation_id="getSession",
-    tags=["sessions"],
+    "/conversations/{conversation_id}",
+    response_model=ConversationRead,
+    operation_id="getConversation",
+    tags=["conversations"],
 )
-def get_session(session_id: UUID, db: DbSession, user: CurrentUser) -> SessionRead:
-    return _read_session(db, require_read(SqlAlchemyTransaction(db), session_id, user.id), user.id)
+def get_conversation(conversation_id: UUID, db: DbSession, user: CurrentUser) -> ConversationRead:
+    return _read_conversation(
+        db, require_read(SqlAlchemyTransaction(db), conversation_id, user.id), user.id
+    )
 
 
 @router.patch(
-    "/sessions/{session_id}",
-    response_model=SessionRead,
-    operation_id="updateSession",
-    tags=["sessions"],
+    "/conversations/{conversation_id}",
+    response_model=ConversationRead,
+    operation_id="updateConversation",
+    tags=["conversations"],
 )
-def patch_session(
-    session_id: UUID, payload: SessionPatch, db: DbSession, user: CurrentUser
-) -> SessionRead:
-    value = update_session_metadata(
+def patch_conversation(
+    conversation_id: UUID, payload: ConversationPatch, db: DbSession, user: CurrentUser
+) -> ConversationRead:
+    value = update_conversation_metadata(
         db,
-        session_id=session_id,
+        conversation_id=conversation_id,
         user_id=user.id,
         title=payload.title,
         change_title="title" in payload.model_fields_set,
         archived=payload.archived,
     )
-    return _read_session(db, value, user.id)
+    return _read_conversation(db, value, user.id)
 
 
 @router.get(
-    "/sessions/{session_id}/items",
+    "/conversations/{conversation_id}/items",
     response_model=ItemPage,
-    operation_id="listSessionItems",
-    tags=["sessions"],
+    operation_id="listConversationItems",
+    tags=["conversations"],
 )
 def items(
-    session_id: UUID,
+    conversation_id: UUID,
     db: DbSession,
     user: CurrentUser,
     cursor: str | None = Query(default=None, max_length=512),
     limit: int = Query(default=100, ge=1, le=100),
 ) -> ItemPage:
     transaction = SqlAlchemyTransaction(db)
-    require_read(transaction, session_id, user.id)
+    require_read(transaction, conversation_id, user.id)
     values = transaction.conversations.items(
-        session_id, after=_sequence_cursor(cursor), limit=limit + 1
+        conversation_id, after=_sequence_cursor(cursor), limit=limit + 1
     )
     return ItemPage(
         items=[item_read(value) for value in values[:limit]],
@@ -428,22 +437,22 @@ def items(
 
 
 @router.get(
-    "/sessions/{session_id}/child_sessions",
-    response_model=list[SessionRead],
-    operation_id="listChildSessions",
-    tags=["sessions"],
+    "/conversations/{conversation_id}/child_conversations",
+    response_model=list[ConversationRead],
+    operation_id="listChildConversations",
+    tags=["conversations"],
 )
-def child_sessions(
-    session_id: UUID,
+def child_conversations(
+    conversation_id: UUID,
     response: Response,
     db: DbSession,
     user: CurrentUser,
     cursor: str | None = Query(default=None, max_length=512),
     limit: int = Query(default=25, ge=1, le=100),
-) -> list[SessionRead]:
+) -> list[ConversationRead]:
     values = children(
         SqlAlchemyTransaction(db),
-        session_id,
+        conversation_id,
         user.id,
         after=_activity_cursor(cursor),
         limit=limit + 1,
@@ -453,17 +462,17 @@ def child_sessions(
         response.headers["X-Next-Cursor"] = _encode_cursor(
             [last.updated_at.isoformat(), str(last.id)]
         )
-    return _read_sessions(db, values[:limit], user.id)
+    return _read_conversations(db, values[:limit], user.id)
 
 
 @router.get(
-    "/sessions/{session_id}/sharing",
+    "/conversations/{conversation_id}/sharing",
     response_model=SharingRead,
-    operation_id="getSessionSharing",
-    tags=["sessions"],
+    operation_id="getConversationSharing",
+    tags=["conversations"],
 )
-def get_sharing(session_id: UUID, db: DbSession, user: CurrentUser) -> SharingRead:
-    value = require_read(SqlAlchemyTransaction(db), session_id, user.id)
+def get_sharing(conversation_id: UUID, db: DbSession, user: CurrentUser) -> SharingRead:
+    value = require_read(SqlAlchemyTransaction(db), conversation_id, user.id)
     return SharingRead(
         mode=value.sharing,
         can_manage=value.owner_id == user.id and value.origin is ConversationOrigin.AGENT,
@@ -471,26 +480,26 @@ def get_sharing(session_id: UUID, db: DbSession, user: CurrentUser) -> SharingRe
 
 
 @router.patch(
-    "/sessions/{session_id}/sharing",
+    "/conversations/{conversation_id}/sharing",
     response_model=SharingRead,
-    operation_id="setSessionSharing",
-    tags=["sessions"],
+    operation_id="setConversationSharing",
+    tags=["conversations"],
 )
 def patch_sharing(
-    session_id: UUID, payload: SharingPatch, db: DbSession, user: CurrentUser
+    conversation_id: UUID, payload: SharingPatch, db: DbSession, user: CurrentUser
 ) -> SharingRead:
-    value = set_sharing(SqlAlchemyTransaction(db), session_id, user.id, payload.mode)
+    value = set_sharing(SqlAlchemyTransaction(db), conversation_id, user.id, payload.mode)
     return SharingRead(mode=value.sharing, can_manage=value.origin is ConversationOrigin.AGENT)
 
 
 @router.get(
-    "/sessions/{session_id}/runs",
+    "/conversations/{conversation_id}/runs",
     response_model=list[RunRead],
-    operation_id="listSessionRuns",
-    tags=["sessions"],
+    operation_id="listConversationRuns",
+    tags=["conversations"],
 )
 def list_runs(
-    session_id: UUID,
+    conversation_id: UUID,
     response: Response,
     db: DbSession,
     user: CurrentUser,
@@ -498,9 +507,9 @@ def list_runs(
     limit: int = Query(default=100, ge=1, le=100),
 ) -> list[RunRead]:
     transaction = SqlAlchemyTransaction(db)
-    parent = require_read(transaction, session_id, user.id)
+    parent = require_read(transaction, conversation_id, user.id)
     values = transaction.conversations.executions(
-        session_id, after=_sequence_cursor(cursor), limit=limit + 1
+        conversation_id, after=_sequence_cursor(cursor), limit=limit + 1
     )
     if len(values) > limit:
         response.headers["X-Next-Cursor"] = _encode_cursor([values[limit - 1].sequence])
@@ -553,14 +562,18 @@ def _accepted_message(
 
 
 def _message(
-    session_id: UUID, payload: SessionMessage, request: Request, db: DbSession, user: CurrentUser
+    conversation_id: UUID,
+    payload: ConversationMessage,
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
 ) -> MessageAccepted:
-    value = require_read(SqlAlchemyTransaction(db), session_id, user.id)
+    value = require_read(SqlAlchemyTransaction(db), conversation_id, user.id)
     if value.origin is not ConversationOrigin.AGENT:
         raise ConversationStateError("legacy history is read-only")
     accepted = accepted_user_message(
         db,
-        session_id=session_id,
+        conversation_id=conversation_id,
         requested_by_user_id=user.id,
         provider_connection_id=payload.provider_connection_id,
         content_md=payload.content_md,
@@ -569,13 +582,13 @@ def _message(
     )
     if accepted is not None:
         return _accepted_message(db, *accepted, user.id)
-    value = require_submit(SqlAlchemyTransaction(db), session_id, user.id)
+    value = require_submit(SqlAlchemyTransaction(db), conversation_id, user.id)
     _agent_execution_enabled(request)
     assert value.project_id is not None
     _validate_context(db, value, user.id, payload.context_artifact_ids)
     message, run = append_user_message_and_queue_run(
         db,
-        session_id=value.id,
+        conversation_id=value.id,
         requested_by_user_id=user.id,
         provider_connection_id=payload.provider_connection_id,
         content_md=payload.content_md,
@@ -590,28 +603,32 @@ def _message(
 
 
 @router.post(
-    "/sessions/{session_id}/events",
+    "/conversations/{conversation_id}/events",
     response_model=EventAccepted,
     status_code=202,
-    operation_id="submitSessionEvent",
-    tags=["sessions"],
+    operation_id="submitConversationEvent",
+    tags=["conversations"],
 )
 def submit_event(
-    session_id: UUID, payload: SessionEvent, request: Request, db: DbSession, user: CurrentUser
+    conversation_id: UUID,
+    payload: ConversationEvent,
+    request: Request,
+    db: DbSession,
+    user: CurrentUser,
 ) -> EventAccepted:
-    if isinstance(payload, SessionInterrupt):
+    if isinstance(payload, ConversationInterrupt):
         parent, execution = _execution(db, payload.run_id, user.id)
-        if parent.id != session_id:
+        if parent.id != conversation_id:
             raise ProjectNotFound
         require_interrupt(
             SqlAlchemyTransaction(db),
-            session_id,
+            conversation_id,
             user.id,
             requested_by_user_id=execution.requested_by_user_id,
         )
         request_cancel(db, run_id=execution.id)
         return InterruptAccepted(run=_read_run(db, execution.id, user.id))
-    return _message(session_id, payload, request, db, user)
+    return _message(conversation_id, payload, request, db, user)
 
 
 @router.post(
@@ -650,7 +667,7 @@ def resume(
     return _read_run(db, successor.id, user.id)
 
 
-def _session_participant(db: DbSession, *, value: SqlConversation, user_id: UUID) -> bool:
+def _conversation_participant(db: DbSession, *, value: SqlConversation, user_id: UUID) -> bool:
     try:
         require_read(SqlAlchemyTransaction(db), value.id, user_id)
     except AuthorizationDenied, ProjectNotFound:
@@ -682,7 +699,7 @@ def _event_bytes(event: SqlAgentRunEvent, event_id: str) -> bytes:
     return f"id: {event_id}\nevent: {event.kind.value.lower()}\ndata: {encoded}\n\n".encode()
 
 
-def _last_session_cursor(value: str | None) -> tuple[int, int]:
+def _last_conversation_cursor(value: str | None) -> tuple[int, int]:
     if value is None:
         return 0, 0
     try:
@@ -696,8 +713,8 @@ def _last_session_cursor(value: str | None) -> tuple[int, int]:
     return run_sequence, event_cursor
 
 
-async def _session_event_stream(
-    request: Request, *, session_id: UUID, user_id: UUID, cursor: tuple[int, int]
+async def _conversation_event_stream(
+    request: Request, *, conversation_id: UUID, user_id: UUID, cursor: tuple[int, int]
 ) -> AsyncIterator[bytes]:
     heartbeat_at = time.monotonic()
     settings = request.app.state.settings
@@ -706,14 +723,14 @@ async def _session_event_stream(
         while not await request.is_disconnected():
             db = request.app.state.session_factory()
             try:
-                session_value = db.get(SqlConversation, session_id)
-                if session_value is None or not _session_participant(
-                    db, value=session_value, user_id=user_id
+                conversation_value = db.get(SqlConversation, conversation_id)
+                if conversation_value is None or not _conversation_participant(
+                    db, value=conversation_value, user_id=user_id
                 ):
                     return
                 first_pending = db.scalar(
                     select(func.min(SqlAgentRun.queue_sequence)).where(
-                        SqlAgentRun.session_id == session_id,
+                        SqlAgentRun.conversation_id == conversation_id,
                         SqlAgentRun.status.not_in(_TERMINAL),
                     )
                 )
@@ -722,7 +739,7 @@ async def _session_event_stream(
                         select(SqlAgentRun, SqlAgentRunEvent)
                         .join(SqlAgentRunEvent, SqlAgentRunEvent.run_id == SqlAgentRun.id)
                         .where(
-                            SqlAgentRun.session_id == session_id,
+                            SqlAgentRun.conversation_id == conversation_id,
                             SqlAgentRun.queue_sequence <= first_pending
                             if first_pending is not None
                             else true(),
@@ -736,11 +753,12 @@ async def _session_event_stream(
                         .limit(settings.runtime_event_batch_size)
                     )
                 )
-                archived = session_value.archived_at is not None
+                archived = conversation_value.archived_at is not None
                 active_runs = db.scalar(
                     select(SqlAgentRun.id)
                     .where(
-                        SqlAgentRun.session_id == session_id, SqlAgentRun.status.not_in(_TERMINAL)
+                        SqlAgentRun.conversation_id == conversation_id,
+                        SqlAgentRun.status.not_in(_TERMINAL),
                     )
                     .limit(1)
                 )
@@ -761,30 +779,32 @@ async def _session_event_stream(
 
 
 @router.get(
-    "/sessions/{session_id}/stream",
+    "/conversations/{conversation_id}/stream",
     response_class=StreamingResponse,
-    operation_id="streamSession",
-    tags=["sessions"],
+    operation_id="streamConversation",
+    tags=["conversations"],
     responses={200: {"content": {"text/event-stream": {}}}},
 )
-def stream_session(
-    session_id: UUID,
+def stream_conversation(
+    conversation_id: UUID,
     request: Request,
     db: DbSession,
     user: CurrentUser,
     last_event_id: str | None = Header(default=None, alias="Last-Event-ID"),
 ) -> StreamingResponse:
-    value = require_read(SqlAlchemyTransaction(db), session_id, user.id)
+    value = require_read(SqlAlchemyTransaction(db), conversation_id, user.id)
     if value.origin is not ConversationOrigin.AGENT:
         raise ConversationStateError("legacy history has no live execution stream")
-    cursor = _last_session_cursor(last_event_id)
+    cursor = _last_conversation_cursor(last_event_id)
     _consume_sse_reconnect(
         db, request=request, user_id=user.id, is_reconnect=last_event_id is not None
     )
     if last_event_id is not None:
-        metrics.increment("polycolab_sse_reconnects_total", outcome="session_cursor")
+        metrics.increment("polycolab_sse_reconnects_total", outcome="conversation_cursor")
     return StreamingResponse(
-        _session_event_stream(request, session_id=session_id, user_id=user.id, cursor=cursor),
+        _conversation_event_stream(
+            request, conversation_id=conversation_id, user_id=user.id, cursor=cursor
+        ),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
     )

@@ -232,12 +232,12 @@ def test_shared_chat_read_access_and_unshare(
     add_member(client, project, "reader", "VIEWER")
     add_member(client, project, "contributor", "EDITOR")
     chat = create_session(client, project)
-    url = f"/api/v1/sessions/{chat['id']}"
-    listing = f"/api/v1/sessions?project_id={project}"
+    url = f"/api/v1/conversations/{chat['id']}"
+    listing = f"/api/v1/conversations?project_id={project}"
     assert client.get(listing, headers=headers("reader")).json() == []
     assert client.get(url, headers=headers("contributor")).status_code == 404
     shared = client.patch(
-        url + "/sharing", headers=headers("owner"), json={"mode": "project_readable"}
+        url + "/sharing", headers=headers("owner"), json={"mode": "members_can_view"}
     )
     assert shared.status_code == 200, shared.text
     assert [item["id"] for item in client.get(listing, headers=headers("reader")).json()] == [

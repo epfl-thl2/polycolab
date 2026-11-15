@@ -115,7 +115,7 @@ test('account shortcuts are reachable on desktop and a short mobile screen', asy
   }
 });
 
-test('saved Connections links redirect to agent key settings', async ({ page }) => {
+test('retired Connections links show not found', async ({ page }) => {
   await account(page, true);
   const retiredRequests: string[] = [];
   page.on('request', (request) => {
@@ -129,7 +129,7 @@ test('saved Connections links redirect to agent key settings', async ({ page }) 
     route.fulfill({ json: { kind: 'human', user_id: 'ada' } }),
   );
   await page.goto('/agents/connections');
-  await expect(page).toHaveURL(/\/settings\/api-keys$/);
-  await expect(page.getByRole('heading', { name: 'API keys', exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/agents\/connections$/);
+  await expect(page.getByRole('heading', { name: 'Page not found', exact: true })).toBeVisible();
   expect(retiredRequests).toEqual([]);
 });

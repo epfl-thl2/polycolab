@@ -226,7 +226,7 @@ def test_main_protection_missing_checkout_and_conflicting_alias(
     assert restored.json()["revision"] == save["revision"]
     assert (WorktreeStorage(git).path(UUID(main["id"])) / "a").read_text() == "a"
     mismatch = client.post(
-        "/api/v1/sessions",
+        "/api/v1/conversations",
         headers=auth,
         json={
             "project_id": project,
@@ -419,13 +419,13 @@ def test_task_routes_and_session_alias_are_retired(
             == 404
         )
     response = client.post(
-        "/api/v1/sessions",
+        "/api/v1/conversations",
         headers=auth,
         json={"project_id": project, "agent_kind": "RESEARCHER", "task_id": tree["id"]},
     )
     assert response.status_code == 422
     response = client.post(
-        "/api/v1/sessions",
+        "/api/v1/conversations",
         headers=auth,
         json={"project_id": project, "agent_kind": "RESEARCHER", "worktree_id": tree["id"]},
     )

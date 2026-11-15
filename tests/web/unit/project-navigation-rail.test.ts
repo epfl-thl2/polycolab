@@ -25,7 +25,7 @@ it('uses explicit overview and project paths with the selected section', async (
   await fireEvent.click(screen.getByRole('link', { name: 'Overview' }));
   expect(onNavigate).toHaveBeenCalledWith('/projects/project/overview');
   await fireEvent.click(screen.getByRole('link', { name: /^Project$/ }));
-  expect(onNavigate).toHaveBeenCalledWith('/projects/project/sessions');
+  expect(onNavigate).toHaveBeenCalledWith('/projects/project/conversations');
   expect(
     screen.getByRole('complementary', { name: 'Project navigation' }).classList.contains('open'),
   ).toBe(false);

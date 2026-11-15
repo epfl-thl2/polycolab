@@ -84,9 +84,9 @@ the former contents available. There is no history rewrite.
 
 ## Agent execution
 
-API and execution controllers must be upgraded together to protocol 6, with a rebuilt
+API and execution controllers must be upgraded together to protocol 7, with a rebuilt
 curated guest image. Protocol-4 controllers are rejected for both project modes.
-Private runtime protocol 6 pins an exact checkpoint for each turn. The normal
+Private runtime protocol 7 pins an exact checkpoint for each turn. The normal
 execution allocator and existing per-user/project limits still apply; linear
 projects introduce no extra one- or two-chat cap and do not serialize unrelated
 conversations on an archived Git worktree.

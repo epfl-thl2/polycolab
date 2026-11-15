@@ -7,11 +7,11 @@ from sqlalchemy.orm import Session
 
 from polycolab.access.authorization import ProjectAction
 from polycolab.agents.access import _run_scope
+from polycolab.agents.conversations import _require_live_lease
 from polycolab.agents.recovery import lock_run
 from polycolab.agents.runtime.artifacts import UploadRequest
 from polycolab.agents.runtime.errors import RuntimeApiConflict
 from polycolab.agents.runtime.spec import RuntimeSpec
-from polycolab.agents.sessions import _require_live_lease
 from polycolab.artifacts import service as artifacts
 from polycolab.artifacts.contracts import ArtifactUploadDeclaration
 from polycolab.db.converters.artifacts import artifact as artifact_snapshot

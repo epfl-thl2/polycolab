@@ -28,12 +28,12 @@ function setup(options = {}) {
     update: vi.fn(),
   };
   const agents = {
-    listSessions: vi.fn().mockResolvedValue({
+    listConversations: vi.fn().mockResolvedValue({
       items: [chat('General', null), chat('Approach one', 'proof'), chat('Approach two', 'proof')],
     }),
   };
   const onSelectWorktree = vi.fn().mockResolvedValue(true);
-  const onOpenSession = vi.fn();
+  const onOpenConversation = vi.fn();
   const onNewChat = vi.fn();
   const query = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   clients.push(query);
@@ -45,17 +45,17 @@ function setup(options = {}) {
       canChat: true,
       canReadChats: true,
       onSelectWorktree,
-      onOpenSession,
+      onOpenConversation,
       onNewChat,
       onWorktreesChange: vi.fn(),
       ...options,
     },
     context: new Map([[contextKey, { worktrees, agents, query }]]),
   });
-  return { worktrees, agents, onSelectWorktree, onOpenSession, onNewChat };
+  return { worktrees, agents, onSelectWorktree, onOpenConversation, onNewChat };
 }
 it('groups conversations under Main and their saved worktree without search controls', async () => {
-  const { onOpenSession, onNewChat } = setup();
+  const { onOpenConversation, onNewChat } = setup();
   await screen.findByRole('button', { name: 'Select Proof worktree' });
   expect(
     await within(screen.getByRole('region', { name: 'Main worktree' })).findByRole('button', {
@@ -66,7 +66,7 @@ it('groups conversations under Main and their saved worktree without search cont
   await fireEvent.click(screen.getByRole('button', { name: 'Toggle Proof conversations' }));
   const group = within(screen.getByRole('region', { name: 'Proof worktree' }));
   await fireEvent.click(group.getByRole('button', { name: /Approach two Researcher/ }));
-  expect(onOpenSession).toHaveBeenCalledWith('Approach two');
+  expect(onOpenConversation).toHaveBeenCalledWith('Approach two');
   await fireEvent.click(group.getByRole('button', { name: 'New conversation in Proof' }));
   expect(onNewChat).toHaveBeenCalledWith(tree);
   expect(screen.queryByRole('textbox')).toBeNull();
@@ -100,7 +100,7 @@ it('retains the name and retry identity after a failed worktree creation', async
 it('allows read-only members to inspect worktrees without fetching private chats', async () => {
   const { agents } = setup({ canCreate: false, canChat: false, canReadChats: false });
   await screen.findByRole('button', { name: 'Select Proof worktree' });
-  expect(agents.listSessions).not.toHaveBeenCalled();
+  expect(agents.listConversations).not.toHaveBeenCalled();
   expect((screen.getByRole('button', { name: 'New worktree' }) as HTMLButtonElement).disabled).toBe(
     true,
   );

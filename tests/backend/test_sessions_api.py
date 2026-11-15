@@ -50,7 +50,7 @@ def add_member(client: TestClient, project_id: str, token: str, role: str) -> No
 
 def create_session(client: TestClient, project_id: str, token: str = "owner") -> dict[str, object]:
     response = client.post(
-        "/api/v1/sessions",
+        "/api/v1/conversations",
         headers=headers(token),
         json={
             "project_id": project_id,
@@ -64,7 +64,7 @@ def create_session(client: TestClient, project_id: str, token: str = "owner") ->
 
 def send(
     client: TestClient,
-    session_id: str,
+    conversation_id: str,
     provider_connection_id: str,
     token: str = "owner",
     **changes: object,
@@ -72,7 +72,7 @@ def send(
     return cast(
         Response,
         client.post(
-            f"/api/v1/sessions/{session_id}/events",
+            f"/api/v1/conversations/{conversation_id}/events",
             headers=headers(token),
             json={
                 "type": "message",
@@ -85,51 +85,73 @@ def send(
     )
 
 
-def interrupt(client: TestClient, session_id: str, run_id: str, token: str = "owner") -> Response:
+def interrupt(
+    client: TestClient, conversation_id: str, run_id: str, token: str = "owner"
+) -> Response:
     return cast(
         Response,
         client.post(
-            f"/api/v1/sessions/{session_id}/events",
+            f"/api/v1/conversations/{conversation_id}/events",
             headers=headers(token),
             json={"type": "interrupt", "run_id": run_id},
         ),
     )
 
 
+def test_conversation_names_replace_session_routes_and_sharing_values(client: TestClient) -> None:
+    project_id = str(create_project(client)["id"])
+    conversation_id = str(create_session(client, project_id)["id"])
+    for path in ("/api/v1/sessions", f"/api/v1/sessions/{conversation_id}"):
+        assert client.get(path, headers=headers("owner")).status_code == 404
+    for mode in ("project_readable", "project_contributable"):
+        response = client.patch(
+            f"/api/v1/conversations/{conversation_id}/sharing",
+            headers=headers("owner"),
+            json={"mode": mode},
+        )
+        assert response.status_code == 422
+    connection_id = str(create_connection(client, "owner")["id"])
+    accepted = send(client, conversation_id, connection_id)
+    assert accepted.status_code == 202
+    for key in ("item", "run"):
+        assert accepted.json()[key]["conversation_id"] == conversation_id
+        assert "session_id" not in accepted.json()[key]
+
+
 def test_local_browser_can_read_pagination_cursor(client: TestClient) -> None:
     app = cast(FastAPI, client.app)
     origin = str(app.state.settings.allowed_origins[0]).rstrip("/")
     project_id = str(create_project(client)["id"])
-    session_id = str(create_session(client, project_id)["id"])
+    conversation_id = str(create_session(client, project_id)["id"])
     provider_connection_id = str(create_connection(client, "owner")["id"])
     run_ids = []
     for _ in range(2):
-        accepted = send(client, session_id, provider_connection_id)
+        accepted = send(client, conversation_id, provider_connection_id)
         assert accepted.status_code == 202, accepted.text
         run_id = accepted.json()["run"]["id"]
         run_ids.append(run_id)
-        assert interrupt(client, session_id, run_id).status_code == 202
+        assert interrupt(client, conversation_id, run_id).status_code == 202
     first = client.get(
-        f"/api/v1/sessions/{session_id}/runs",
+        f"/api/v1/conversations/{conversation_id}/runs",
         params={"limit": 1},
         headers={**headers("owner"), "Origin": origin},
     )
     assert first.status_code == 200
     assert "x-next-cursor" in first.headers["access-control-expose-headers"].lower()
     second = client.get(
-        f"/api/v1/sessions/{session_id}/runs",
+        f"/api/v1/conversations/{conversation_id}/runs",
         params={"limit": 1, "cursor": first.headers["X-Next-Cursor"]},
         headers=headers("owner"),
     )
     assert [first.json()[0]["id"], second.json()[0]["id"]] == run_ids
     items = client.get(
-        f"/api/v1/sessions/{session_id}/items",
+        f"/api/v1/conversations/{conversation_id}/items",
         params={"limit": 1},
         headers=headers("owner"),
     )
     assert items.json()["items"][0]["type"] == "message"
     next_items = client.get(
-        f"/api/v1/sessions/{session_id}/items",
+        f"/api/v1/conversations/{conversation_id}/items",
         params={"cursor": items.json()["next_cursor"]},
         headers=headers("owner"),
     )
@@ -145,7 +167,7 @@ def test_session_list_orders_by_latest_activity(client: TestClient) -> None:
     accepted = send(client, str(older["id"]), str(create_connection(client, "owner")["id"]))
     assert accepted.status_code == 202
     listed = client.get(
-        "/api/v1/sessions",
+        "/api/v1/conversations",
         params={"project_id": project_id, "limit": 1},
         headers=headers("owner"),
     )
@@ -153,7 +175,7 @@ def test_session_list_orders_by_latest_activity(client: TestClient) -> None:
     assert listed.json()[0]["latest_execution"]["id"] == accepted.json()["run"]["id"]
     assert listed.json()[0]["latest_execution"]["status"] == "QUEUED"
     second = client.get(
-        "/api/v1/sessions",
+        "/api/v1/conversations",
         params={"project_id": project_id, "cursor": listed.headers["X-Next-Cursor"]},
         headers=headers("owner"),
     )
@@ -164,10 +186,10 @@ def test_session_run_summaries_are_batched(client: TestClient) -> None:
     project_id = str(create_project(client)["id"])
     provider_connection_id = str(create_connection(client, "owner")["id"])
     for _ in range(4):
-        session_id = str(create_session(client, project_id)["id"])
-        accepted = send(client, session_id, provider_connection_id)
+        conversation_id = str(create_session(client, project_id)["id"])
+        accepted = send(client, conversation_id, provider_connection_id)
         assert accepted.status_code == 202
-        assert interrupt(client, session_id, accepted.json()["run"]["id"]).status_code == 202
+        assert interrupt(client, conversation_id, accepted.json()["run"]["id"]).status_code == 202
     queries: list[str] = []
 
     def collect_queries(*args: object) -> None:
@@ -177,7 +199,7 @@ def test_session_run_summaries_are_batched(client: TestClient) -> None:
     event.listen(engine, "before_cursor_execute", collect_queries)
     try:
         listed = client.get(
-            "/api/v1/sessions",
+            "/api/v1/conversations",
             params={"project_id": project_id},
             headers=headers("owner"),
         )
@@ -198,29 +220,29 @@ def test_session_turn_authorization_idempotency_and_no_private_binding_leakage(
     add_member(client, project_id, "reader", "VIEWER")
     assert (
         client.post(
-            "/api/v1/sessions",
+            "/api/v1/conversations",
             headers=headers("reader"),
             json={"project_id": project_id, "agent_kind": "CRITIC"},
         ).status_code
         == 403
     )
-    session_id = str(create_session(client, project_id, "contributor")["id"])
+    conversation_id = str(create_session(client, project_id, "contributor")["id"])
     provider_connection_id = str(create_connection(client, "contributor")["id"])
     key = str(uuid4())
     accepted = send(
-        client, session_id, provider_connection_id, "contributor", client_request_id=key
+        client, conversation_id, provider_connection_id, "contributor", client_request_id=key
     )
     assert accepted.status_code == 202
     assert (
         send(
-            client, session_id, provider_connection_id, "contributor", client_request_id=key
+            client, conversation_id, provider_connection_id, "contributor", client_request_id=key
         ).json()
         == accepted.json()
     )
     assert (
         send(
             client,
-            session_id,
+            conversation_id,
             provider_connection_id,
             "contributor",
             client_request_id=key,
@@ -228,18 +250,24 @@ def test_session_turn_authorization_idempotency_and_no_private_binding_leakage(
         ).status_code
         == 409
     )
-    response = client.get(f"/api/v1/sessions/{session_id}", headers=headers("contributor"))
+    response = client.get(
+        f"/api/v1/conversations/{conversation_id}", headers=headers("contributor")
+    )
     assert response.json()["configuration"]["agent_version"] == 3
     assert "opaque_runtime_ref" not in response.text and "lease_owner" not in response.text
     assert response.json()["usage"] is None
     assert accepted.json()["item"]["author"]["type"] == "human"
     assert (
         send(
-            client, session_id, provider_connection_id, "contributor", author_user_id=str(uuid4())
+            client,
+            conversation_id,
+            provider_connection_id,
+            "contributor",
+            author_user_id=str(uuid4()),
         ).status_code
         == 422
     )
-    assert send(client, session_id, provider_connection_id, "reader").status_code == 404
+    assert send(client, conversation_id, provider_connection_id, "reader").status_code == 404
 
 
 def test_session_and_run_history_are_private_to_the_current_requester(
@@ -249,22 +277,24 @@ def test_session_and_run_history_are_private_to_the_current_requester(
     add_member(client, project_id, "contributor", "EDITOR")
     add_member(client, project_id, "reader", "VIEWER")
     add_member(client, project_id, "same-email", "OWNER")
-    session_id = str(create_session(client, project_id, "contributor")["id"])
+    conversation_id = str(create_session(client, project_id, "contributor")["id"])
     provider_connection_id = str(create_connection(client, "contributor")["id"])
-    run_id = send(client, session_id, provider_connection_id, "contributor").json()["run"]["id"]
+    run_id = send(client, conversation_id, provider_connection_id, "contributor").json()["run"][
+        "id"
+    ]
     for token in ("owner", "same-email", "reader", "outsider"):
         for path in (
-            f"/api/v1/sessions/{session_id}",
-            f"/api/v1/sessions/{session_id}/items",
-            f"/api/v1/sessions/{session_id}/stream",
-            f"/api/v1/sessions/{session_id}/child_sessions",
+            f"/api/v1/conversations/{conversation_id}",
+            f"/api/v1/conversations/{conversation_id}/items",
+            f"/api/v1/conversations/{conversation_id}/stream",
+            f"/api/v1/conversations/{conversation_id}/child_conversations",
             f"/api/v1/runs/{run_id}",
         ):
             assert client.get(path, headers=headers(token)).status_code == 404
-        assert interrupt(client, session_id, run_id, token).status_code == 404
+        assert interrupt(client, conversation_id, run_id, token).status_code == 404
         assert (
             client.patch(
-                f"/api/v1/sessions/{session_id}",
+                f"/api/v1/conversations/{conversation_id}",
                 headers=headers(token),
                 json={"archived": True},
             ).status_code
@@ -283,7 +313,7 @@ def test_session_and_run_history_are_private_to_the_current_requester(
         )
     assert (
         client.get(
-            "/api/v1/sessions",
+            "/api/v1/conversations",
             params={"project_id": project_id},
             headers=headers("reader"),
         ).json()
@@ -299,7 +329,7 @@ def test_session_and_run_history_are_private_to_the_current_requester(
     )
     assert (
         client.get(
-            f"/api/v1/sessions/{session_id}/stream",
+            f"/api/v1/conversations/{conversation_id}/stream",
             headers={**headers("contributor"), "Last-Event-ID": "1:1"},
         ).status_code
         == 404
@@ -309,38 +339,38 @@ def test_session_and_run_history_are_private_to_the_current_requester(
 def test_cancel_resume_and_committed_cursor_sse_reconnect(client: TestClient) -> None:
     project_id = str(create_project(client)["id"])
     provider_connection_id = str(create_connection(client, "owner")["id"])
-    session_id = str(create_session(client, project_id)["id"])
-    run_id = send(client, session_id, provider_connection_id).json()["run"]["id"]
-    cancelled = interrupt(client, session_id, run_id)
+    conversation_id = str(create_session(client, project_id)["id"])
+    run_id = send(client, conversation_id, provider_connection_id).json()["run"]["id"]
+    cancelled = interrupt(client, conversation_id, run_id)
     assert cancelled.status_code == 202 and cancelled.json()["run"]["status"] == "CANCELLED"
-    assert interrupt(client, session_id, run_id).json() == cancelled.json()
+    assert interrupt(client, conversation_id, run_id).json() == cancelled.json()
     assert (
         client.patch(
-            f"/api/v1/sessions/{session_id}",
+            f"/api/v1/conversations/{conversation_id}",
             headers=headers("owner"),
             json={"archived": True},
         ).status_code
         == 200
     )
-    events = client.get(f"/api/v1/sessions/{session_id}/stream", headers=headers("owner"))
+    events = client.get(f"/api/v1/conversations/{conversation_id}/stream", headers=headers("owner"))
     assert events.status_code == 200
     assert "id: 1:1\n" in events.text and "id: 1:2\n" in events.text
     assert "runtime" not in events.text.casefold()
     replay = client.get(
-        f"/api/v1/sessions/{session_id}/stream",
+        f"/api/v1/conversations/{conversation_id}/stream",
         headers={**headers("owner"), "Last-Event-ID": "1:1"},
     )
     assert "id: 1:1\n" not in replay.text and "id: 1:2\n" in replay.text
     assert (
         client.get(
-            f"/api/v1/sessions/{session_id}/stream",
+            f"/api/v1/conversations/{conversation_id}/stream",
             headers={**headers("owner"), "Last-Event-ID": "invalid"},
         ).status_code
         == 422
     )
     assert (
         client.patch(
-            f"/api/v1/sessions/{session_id}",
+            f"/api/v1/conversations/{conversation_id}",
             headers=headers("owner"),
             json={"archived": False},
         ).status_code
@@ -357,7 +387,7 @@ def test_cancel_resume_and_committed_cursor_sse_reconnect(client: TestClient) ->
     )
     assert resumed.json()["parent_run_id"] == run_id
     assert (
-        client.get(f"/api/v1/sessions/{session_id}", headers=headers("owner")).json()[
+        client.get(f"/api/v1/conversations/{conversation_id}", headers=headers("owner")).json()[
             "latest_execution"
         ]["id"]
         == resumed.json()["id"]
@@ -367,30 +397,30 @@ def test_cancel_resume_and_committed_cursor_sse_reconnect(client: TestClient) ->
 def test_only_creator_archives_private_session(client: TestClient) -> None:
     project_id = str(create_project(client)["id"])
     add_member(client, project_id, "contributor", "EDITOR")
-    session_id = str(create_session(client, project_id)["id"])
+    conversation_id = str(create_session(client, project_id)["id"])
     assert (
         client.patch(
-            f"/api/v1/sessions/{session_id}",
+            f"/api/v1/conversations/{conversation_id}",
             headers=headers("contributor"),
             json={"archived": True},
         ).status_code
         == 404
     )
     archived = client.patch(
-        f"/api/v1/sessions/{session_id}",
+        f"/api/v1/conversations/{conversation_id}",
         headers=headers("owner"),
         json={"archived": True, "title": "Saved investigation"},
     )
     assert archived.status_code == 200 and archived.json()["status"] == "archived"
     assert archived.json()["title"] == "Saved investigation"
     assert not archived.json()["capabilities"]["can_send"]
-    response = send(client, session_id, str(create_connection(client, "owner")["id"]))
+    response = send(client, conversation_id, str(create_connection(client, "owner")["id"]))
     assert (
         response.status_code == 409 and response.json()["error"]["code"] == "session_state_conflict"
     )
     assert (
         client.get(
-            "/api/v1/sessions",
+            "/api/v1/conversations",
             params={"project_id": project_id, "archived": False},
             headers=headers("owner"),
         ).json()
@@ -400,10 +430,10 @@ def test_only_creator_archives_private_session(client: TestClient) -> None:
 
 def test_project_archive_atomically_stops_queued_agent_work(client: TestClient) -> None:
     project_id = str(create_project(client)["id"])
-    session_id = str(create_session(client, project_id)["id"])
-    run_id = send(client, session_id, str(create_connection(client, "owner")["id"])).json()["run"][
-        "id"
-    ]
+    conversation_id = str(create_session(client, project_id)["id"])
+    run_id = send(client, conversation_id, str(create_connection(client, "owner")["id"])).json()[
+        "run"
+    ]["id"]
     assert (
         client.patch(
             f"/api/v1/projects/{project_id}",
@@ -417,7 +447,9 @@ def test_project_archive_atomically_stops_queued_agent_work(client: TestClient) 
         == "CANCELLED"
     )
     assert (
-        client.get(f"/api/v1/sessions/{session_id}", headers=headers("owner")).json()["status"]
+        client.get(f"/api/v1/conversations/{conversation_id}", headers=headers("owner")).json()[
+            "status"
+        ]
         == "archived"
     )
 
@@ -446,29 +478,29 @@ def test_message_receipt_replays_after_archival_without_new_execution(
     client: TestClient,
 ) -> None:
     project_id = str(create_project(client)["id"])
-    session_id = str(create_session(client, project_id)["id"])
+    conversation_id = str(create_session(client, project_id)["id"])
     provider_connection_id = str(create_connection(client, "owner")["id"])
     request_id = str(uuid4())
-    accepted = send(client, session_id, provider_connection_id, client_request_id=request_id)
+    accepted = send(client, conversation_id, provider_connection_id, client_request_id=request_id)
     assert accepted.status_code == 202
     archived = client.patch(
-        f"/api/v1/sessions/{session_id}",
+        f"/api/v1/conversations/{conversation_id}",
         headers=headers("owner"),
         json={"archived": True},
     )
     assert archived.status_code == 200
-    replay = send(client, session_id, provider_connection_id, client_request_id=request_id)
+    replay = send(client, conversation_id, provider_connection_id, client_request_id=request_id)
     assert replay.status_code == 202 and replay.json() == accepted.json()
     changed = send(
         client,
-        session_id,
+        conversation_id,
         provider_connection_id,
         client_request_id=request_id,
         content_md="Different request",
     )
     assert changed.status_code == 409
-    assert send(client, session_id, provider_connection_id).status_code == 409
+    assert send(client, conversation_id, provider_connection_id).status_code == 409
     run = client.get(f"/api/v1/runs/{accepted.json()['run']['id']}", headers=headers("owner"))
     assert run.json()["status"] == "CANCELLED"
-    runs = client.get(f"/api/v1/sessions/{session_id}/runs", headers=headers("owner"))
+    runs = client.get(f"/api/v1/conversations/{conversation_id}/runs", headers=headers("owner"))
     assert len(runs.json()) == 1

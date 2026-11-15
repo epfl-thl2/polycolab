@@ -15,7 +15,7 @@ REFERENCE_GROUPS = [
     },
     {
         "name": "Optional hosted services",
-        "tags": ["agents", "sessions", "runs", "provider-connections"],
+        "tags": ["agents", "conversations", "runs", "provider-connections"],
     },
 ]
 
@@ -76,17 +76,17 @@ REFERENCE_TAGS = {
         "description": "Optional platform-managed agents, distinct from external agents "
         "using account keys.",
     },
-    "sessions": {
-        "name": "sessions",
-        "x-displayName": "Sessions",
+    "conversations": {
+        "name": "conversations",
+        "x-displayName": "Conversations",
         "description": (
-            "Saved project conversations, shared participation, and read-only historical sessions."
+            "Saved project conversations, shared participation, and read-only history."
         ),
     },
     "runs": {
         "name": "runs",
         "x-displayName": "Hosted runs",
-        "description": "Session executions scoped to the user and project permissions.",
+        "description": "Conversation runs scoped to the user and project permissions.",
     },
     "provider-connections": {
         "name": "provider-connections",
@@ -112,7 +112,7 @@ OPERATION_SECTIONS = {
     "downloadAgentLibrarySkill": "agent-library",
     "previewLinearConversion": "projects",
     "convertProjectToLinear": "projects",
-    "setSessionSharing": "sessions",
+    "setConversationSharing": "conversations",
     "listLinearBatches": "projects",
     "retryLinearBatch": "projects",
     "resolveLinearBatch": "projects",
@@ -144,8 +144,8 @@ OPERATION_SECTIONS = {
     "discardWorktree": "projects",
     "removeWorktree": "projects",
     "restoreWorktree": "projects",
-    "getSessionRepository": "projects",
-    "enableSessionRepository": "projects",
+    "getConversationRepository": "projects",
+    "enableConversationRepository": "projects",
     "getRunRepository": "projects",
     "getProjectRepository": "projects",
     "getProjectFile": "projects",
@@ -167,16 +167,16 @@ OPERATION_SECTIONS = {
     "listHostedRunArtifacts": "runs",
     "downloadHostedRunArtifact": "runs",
     "resumeRun": "runs",
-    "listSessions": "sessions",
-    "createSession": "sessions",
-    "getSession": "sessions",
-    "getSessionSharing": "sessions",
-    "listChildSessions": "sessions",
-    "updateSession": "sessions",
-    "streamSession": "sessions",
-    "listSessionRuns": "sessions",
-    "listSessionItems": "sessions",
-    "submitSessionEvent": "sessions",
+    "listConversations": "conversations",
+    "createConversation": "conversations",
+    "getConversation": "conversations",
+    "getConversationSharing": "conversations",
+    "listChildConversations": "conversations",
+    "updateConversation": "conversations",
+    "streamConversation": "conversations",
+    "listConversationRuns": "conversations",
+    "listConversationItems": "conversations",
+    "submitConversationEvent": "conversations",
     "readArtifact": "artifacts",
     "downloadArtifact": "artifacts",
     "listProviderConnections": "provider-connections",
@@ -249,7 +249,7 @@ def arrange_reference(schema: dict[str, Any]) -> None:
             notes = [operation.get("description", ""), "**Access:** " + access]
             if section in {
                 "agents",
-                "sessions",
+                "conversations",
                 "runs",
                 "provider-connections",
                 "account recovery",

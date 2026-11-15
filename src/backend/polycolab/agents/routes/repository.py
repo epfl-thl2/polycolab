@@ -11,13 +11,13 @@ from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from polycolab.access.authorization import ProjectAction, project_policy
+from polycolab.agents.conversations import LeaseLost, _locked_run, _require_live_lease, _utc
 from polycolab.agents.routes.runtime import (
     LeaseRequest,
     RuntimeApiConflict,
     _authorize_worker,
     _lease_or_conflict,
 )
-from polycolab.agents.sessions import LeaseLost, _locked_run, _require_live_lease, _utc
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.enums import AgentRunStatus
 from polycolab.entities.repositories import RepositoryError
@@ -61,7 +61,7 @@ def checkout(run_id: UUID, request: Request, payload: Annotated[LeaseRequest, Qu
                 raise RepositoryError("repository_not_in_run", 403)
             db.commit()
             data = git.bundle(
-                binding.branch or f"sessions/{binding.session_id}",
+                binding.branch or f"sessions/{binding.conversation_id}",
                 commit=binding.input_revision or binding.input_commit,
             )
             _lease_or_conflict(
@@ -122,7 +122,7 @@ def require_authority(
     current = _locked_run(db, run_id)
     from polycolab.conversations.service import can_execute
 
-    if not can_execute(SqlAlchemyTransaction(db), current.session_id, user_id):
+    if not can_execute(SqlAlchemyTransaction(db), current.conversation_id, user_id):
         raise RuntimeApiConflict("authorization_revoked")
     try:
         _require_live_lease(

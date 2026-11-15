@@ -27,9 +27,9 @@ from polycolab.db.models import (
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.enums import (
     AgentRunStatus,
-    AgentSessionStatus,
     ExecutionTenantKind,
     ExecutionWorkloadClass,
+    StoredConversationStatus,
 )
 from polycolab.entities.time import utc_now
 from polycolab.execution.limits import _lock_scopes
@@ -180,7 +180,7 @@ def _candidate(
     return session.scalar(
         select(SqlAgentRun)
         .join(SqlExecutionWorkItem, SqlExecutionWorkItem.agent_run_id == SqlAgentRun.id)
-        .join(SqlConversation, SqlConversation.id == SqlAgentRun.session_id)
+        .join(SqlConversation, SqlConversation.id == SqlAgentRun.conversation_id)
         .outerjoin(
             user,
             (user.workload_class == AGENT)
@@ -204,14 +204,14 @@ def _candidate(
                 else []
             ),
             SqlAgentRun.status == AgentRunStatus.QUEUED,
-            SqlConversation.status == AgentSessionStatus.ACTIVE,
+            SqlConversation.status == StoredConversationStatus.ACTIVE,
             SqlExecutionWorkItem.policy_version == POLICY.version,
             ~occupied,
             count_scope(True) < tenant_capacity,
             count_scope(False) < project_capacity,
             ~exists(
                 select(previous.id).where(
-                    previous.session_id == SqlAgentRun.session_id,
+                    previous.conversation_id == SqlAgentRun.conversation_id,
                     previous.queue_sequence < SqlAgentRun.queue_sequence,
                     previous.status.not_in(TERMINAL),
                 )
@@ -236,7 +236,7 @@ def claim(
     sandbox_backend: str = "microsandbox",
     sandbox_version: str = "0.6.18",
 ) -> SqlAgentRun | None:
-    from polycolab.agents.sessions import _append_event_locked, claim_next_run_in_transaction
+    from polycolab.agents.conversations import _append_event_locked, claim_next_run_in_transaction
     from polycolab.entities.enums import AgentRunEventKind
 
     if min(capacity, user_capacity, project_capacity) <= 0:
@@ -269,7 +269,7 @@ def claim(
                 if (
                     executor is None
                     or executor.incarnation != incarnation
-                    or executor.protocol_version != 6
+                    or executor.protocol_version != 7
                     or utc(executor.expires_at) <= utc_now()
                     or executor.image_digest != image_digest
                     or executor.sandbox_backend != sandbox_backend
@@ -327,7 +327,7 @@ def claim(
                 select(SqlAgentRun).where(SqlAgentRun.id == run_id).with_for_update()
             )
             assert run is not None
-            if not can_execute(SqlAlchemyTransaction(session), run.session_id, user_id):
+            if not can_execute(SqlAlchemyTransaction(session), run.conversation_id, user_id):
                 run.status = AgentRunStatus.FAILED
                 run.failure_code = "authorization_revoked"
                 run.finished_at = now

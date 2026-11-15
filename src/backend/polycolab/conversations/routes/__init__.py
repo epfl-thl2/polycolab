@@ -1,1 +1,1 @@
-"""Public session transport, separate from immutable conversation values."""
+"""Public conversation transport, separate from immutable conversation values."""

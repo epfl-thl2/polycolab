@@ -42,7 +42,7 @@ def stream_chat_completions(payload: ModelStreamRequest, request: Request) -> St
             run is None
             or run.status is not AgentRunStatus.RUNNING
             or not can_execute(
-                SqlAlchemyTransaction(session), run.session_id, run.requested_by_user_id
+                SqlAlchemyTransaction(session), run.conversation_id, run.requested_by_user_id
             )
         ):
             raise GrantInvalid

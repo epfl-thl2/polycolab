@@ -1,13 +1,13 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import type { Project } from '../../../lib/projects-api';
-  import type { AgentSession } from '../../../lib/agent-sessions-api';
+  import type { Conversation } from '../../../lib/conversations-api';
   import type { ProjectTab } from '../../../lib/project-tabs';
   import { projectContext } from '../../../svelte-lib/context';
   import { Button } from '../../../lib/components/ui/button';
   import { SquarePen, PanelLeftClose } from '@lucide/svelte';
   import { untrack } from 'svelte';
-  import { sessionTitles } from '../../../lib/session-queries';
+  import { conversationTitles } from '../../../lib/conversation-queries';
   import { projectDialogs } from '../project-dialogs';
   import ProjectShell from './ProjectShell.svelte';
   import ProjectNavigationRail from './ProjectNavigationRail.svelte';
@@ -19,7 +19,7 @@
     activeId,
     canChat,
     draftChats,
-    sessions,
+    conversations,
     chatsLoaded,
     chatsError,
     chatsLoading,
@@ -38,7 +38,7 @@
     activeId: string;
     canChat: boolean;
     draftChats: ProjectTab[];
-    sessions: AgentSession[];
+    conversations: Conversation[];
     chatsLoaded: boolean;
     chatsError: string;
     chatsLoading: boolean;
@@ -52,7 +52,7 @@
     files: Snippet;
   } = $props();
   const context = projectContext();
-  const titles = sessionTitles(
+  const titles = conversationTitles(
     context.query,
     untrack(() => project.id),
   );
@@ -93,7 +93,7 @@
 >
   {#snippet toolbar()}
     <div class="chat-title">
-      {#if section === 'sessions' && entity && entity !== 'new'}
+      {#if section === 'conversations' && entity && entity !== 'new'}
         {$titles[entity] || ''}
       {/if}
     </div>
@@ -101,7 +101,7 @@
   {#snippet navigation(expanded)}<ProjectNavigationRail
       auth={context.auth}
       projectId={project.id}
-      section={['files', 'sessions'].includes(section) ? 'sessions' : section}
+      section={['files', 'conversations'].includes(section) ? 'conversations' : section}
       canManage={project.current_user_role === 'OWNER'}
       {expanded}
       selectedPanel={leftMode}
@@ -126,12 +126,12 @@
             }}><PanelLeftClose size={14} /></Button
           >{/snippet}
       </ProjectPanelHeader>
-      <div class="conversations" hidden={leftMode !== 'chats'}>{@render conversations()}</div>
+      <div class="conversations" hidden={leftMode !== 'chats'}>{@render conversationList()}</div>
       <div class="files" hidden={leftMode !== 'files'}>{@render files()}</div>
     </div>{/snippet}
   <div class="chat-content">{@render children()}</div>
 </ProjectShell>
-{#snippet conversations()}
+{#snippet conversationList()}
   {#if canChat}<div class="new-chat">
       <Button variant="ghost" onclick={newChat}
         ><SquarePen size={16} aria-hidden="true" />New chat</Button
@@ -149,17 +149,22 @@
           onclick={(event) => openChat(event, draft.href)}
           ><span>New chat</span><small>Draft</small></a
         >{/each}
-      {#each sessions as session (session.id)}
-        {@const href = `/projects/${project.id}/sessions/${session.id}`}
+      {#each conversations as conversation (conversation.id)}
+        {@const href = `/projects/${project.id}/conversations/${conversation.id}`}
         <a
           {href}
-          aria-current={entity === session.id && section === 'sessions' ? 'page' : undefined}
+          aria-current={entity === conversation.id && section === 'conversations'
+            ? 'page'
+            : undefined}
           onclick={(event) => openChat(event, href)}
-          ><span>{$titles[session.id] || session.title || session.configuration?.display_name}</span
-          >{#if session.sharing !== 'private'}<small>Shared</small>{/if}</a
+          ><span
+            >{$titles[conversation.id] ||
+              conversation.title ||
+              conversation.configuration?.display_name}</span
+          >{#if conversation.sharing !== 'private'}<small>Shared</small>{/if}</a
         >
       {/each}
-      {#if chatsLoaded && !draftChats.length && !sessions.length}<p class="muted">
+      {#if chatsLoaded && !draftChats.length && !conversations.length}<p class="muted">
           Your recent conversations will appear here.
         </p>{/if}
     </nav>

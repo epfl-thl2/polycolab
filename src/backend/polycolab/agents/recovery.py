@@ -9,14 +9,14 @@ from uuid import UUID
 from sqlalchemy import exists, or_, select
 from sqlalchemy.orm import Session
 
-from polycolab.agents.runtime.spec import RuntimeSpec
-from polycolab.agents.sessions import (
+from polycolab.agents.conversations import (
     IdempotencyConflict,
     LeaseLost,
     _append_event_locked,
     _revoke_run_capabilities,
     finish_run,
 )
+from polycolab.agents.runtime.spec import RuntimeSpec
 from polycolab.db.models import (
     SqlAgentRun,
     SqlAgentRunEvent,
@@ -44,7 +44,9 @@ def lock_run(session: Session, run_id: UUID) -> SqlAgentRun:
         raise LeaseLost
     _lock_scopes(session, user_id=initial.requested_by_user_id, project_id=initial.project_id)
     session.execute(
-        select(SqlConversation).where(SqlConversation.id == initial.session_id).with_for_update()
+        select(SqlConversation)
+        .where(SqlConversation.id == initial.conversation_id)
+        .with_for_update()
     )
     run = session.scalar(
         select(SqlAgentRun)

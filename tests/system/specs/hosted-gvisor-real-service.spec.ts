@@ -44,22 +44,22 @@ test('native gVisor chat completes and survives reload', async ({ page }) => {
       { timeout: 60_000 },
     )
     .toBe(true);
-  await page.goto(`/projects/${projectId}/sessions/new`);
+  await page.goto(`/projects/${projectId}/conversations/new`);
   await page
     .getByLabel('Message the agent')
     .filter({ visible: true })
     .fill('Summarize the native execution check.');
   await page.getByRole('button', { name: 'Send message', exact: true }).click();
-  await expect(page).toHaveURL(/\/sessions\/[0-9a-f-]{36}$/);
+  await expect(page).toHaveURL(/\/conversations\/[0-9a-f-]{36}$/);
   await expect(page.getByText('Native gVisor research completed.', { exact: true })).toBeVisible({
     timeout: 60_000,
   });
   await page.reload();
   await expect(page.getByText('Native gVisor research completed.', { exact: true })).toBeVisible();
-  const sessionId = new URL(page.url()).pathname.split('/').at(-1);
+  const conversationId = new URL(page.url()).pathname.split('/').at(-1);
   await expect
     .poll(async () => {
-      const response = await page.request.get(`/api/v1/sessions/${sessionId}/runs`);
+      const response = await page.request.get(`/api/v1/conversations/${conversationId}/runs`);
       return (await response.json())[0]?.status;
     })
     .toBe('COMPLETED');
@@ -67,7 +67,7 @@ test('native gVisor chat completes and survives reload', async ({ page }) => {
   await expect(
     page.getByRole('navigation', { name: 'File tree' }).getByText('native.txt', { exact: true }),
   ).toBeVisible({ timeout: 15_000 });
-  await page.goto(`/projects/${projectId}/sessions/${sessionId}`);
+  await page.goto(`/projects/${projectId}/conversations/${conversationId}`);
   await page.getByRole('tab', { name: 'Agent history', exact: true }).click();
   await page.getByText('Files and run history', { exact: true }).click();
   await page.getByLabel('Files from completed run').selectOption({ index: 1 });
@@ -85,7 +85,7 @@ test('native gVisor chat completes and survives reload', async ({ page }) => {
   );
   await expect
     .poll(async () => {
-      const response = await page.request.get(`/api/v1/sessions/${sessionId}/runs`);
+      const response = await page.request.get(`/api/v1/conversations/${conversationId}/runs`);
       const runs: { status: string }[] = await response.json();
       return runs.filter((run) => run.status === 'COMPLETED').length;
     })

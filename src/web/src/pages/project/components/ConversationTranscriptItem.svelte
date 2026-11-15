@@ -1,12 +1,15 @@
 <script lang="ts">
   import Markdown from '../../../ui/Markdown.svelte';
-  import type { SessionItem } from '../../../lib/agent-sessions-api';
+  import type { ConversationItem } from '../../../lib/conversations-api';
 
-  let { item, ownerId, agentName }: { item: SessionItem; ownerId?: string; agentName?: string } =
-    $props();
+  let {
+    item,
+    ownerId,
+    agentName,
+  }: { item: ConversationItem; ownerId?: string; agentName?: string } = $props();
   const author = $derived(
     item.author.type === 'human'
-      ? `${item.author.user_id === ownerId ? 'Session owner' : 'Participant'} · ${item.author.user_id.slice(0, 8)}`
+      ? `${item.author.user_id === ownerId ? 'Conversation owner' : 'Participant'} · ${item.author.user_id.slice(0, 8)}`
       : item.author.type === 'agent'
         ? item.author.display_name ||
           (item.author.agent_version_id ? agentName || 'Agent' : 'Assistant')

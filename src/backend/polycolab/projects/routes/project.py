@@ -18,7 +18,7 @@ from polycolab.access.authorization import (
     require_manage_members,
     require_project_management,
 )
-from polycolab.agents.sessions import archive_project_conversations
+from polycolab.agents.conversations import archive_project_conversations
 from polycolab.app.dependencies import CurrentActor, CurrentUser, DbSession, Page, paginated
 from polycolab.db.converters.projects import invitation as invitation_entity
 from polycolab.db.models import (

@@ -2,72 +2,75 @@
   import FeedbackToast from '../../../ui/FeedbackToast.svelte';
   import { MessageSquarePlus, Square, RotateCcw } from '@lucide/svelte';
   import {
-    createProjectSessions,
-    projectSessionItems,
-    invalidateSession,
-  } from '../../../lib/session-queries';
-  import type { AgentSession } from '../../../lib/agent-sessions-api';
+    createProjectConversations,
+    projectConversationItems,
+    invalidateConversation,
+  } from '../../../lib/conversation-queries';
+  import type { Conversation } from '../../../lib/conversations-api';
   import { projectContext, explain } from '../../../svelte-lib/context';
 
   let {
     projectId,
-    activeSessionId,
-    onOpenSession,
+    activeConversationId,
+    onOpenConversation,
     onNewChat,
     canChat = true,
     canReadChats = true,
   }: {
     projectId: string;
-    activeSessionId?: string;
-    onOpenSession: (id: string) => void;
+    activeConversationId?: string;
+    onOpenConversation: (id: string) => void;
     onNewChat: () => void;
     canChat?: boolean;
     canReadChats?: boolean;
   } = $props();
   const { agents, query } = projectContext();
-  const chats = createProjectSessions(
+  const chats = createProjectConversations(
     agents,
     () => projectId,
     () => canReadChats,
     query,
   );
-  const sessions = $derived(canReadChats ? projectSessionItems($chats.data) : []);
+  const conversations = $derived(canReadChats ? projectConversationItems($chats.data) : []);
   const loading = $derived(canReadChats && ($chats.isPending || $chats.isFetchingNextPage));
   const error = $derived(canReadChats && $chats.isError ? explain($chats.error) : '');
   const cursor = $derived(canReadChats && $chats.hasNextPage);
-  let actionError = $state<{ sessionId: string; message: string }>();
+  let actionError = $state<{ conversationId: string; message: string }>();
   let cancelling = $state('');
-  const cancellable = (session: AgentSession) =>
-    session.latest_execution?.can_interrupt &&
-    ['QUEUED', 'CLAIMED', 'RUNNING'].includes(session.latest_execution.status) &&
-    !session.latest_execution.cancel_requested_at;
-  const resumable = (session: AgentSession) =>
-    session.status !== 'archived' &&
-    session.capabilities.can_send &&
-    session.latest_execution &&
-    ['CANCELLED', 'FAILED', 'TIMED_OUT'].includes(session.latest_execution.status);
-  const title = (session: AgentSession) => session.title?.trim() || 'Untitled chat';
-  const status = (session: AgentSession) =>
-    session.latest_execution?.cancel_requested_at &&
-    ['QUEUED', 'CLAIMED', 'RUNNING', 'CANCELLING'].includes(session.latest_execution.status)
+  const cancellable = (conversation: Conversation) =>
+    conversation.latest_execution?.can_interrupt &&
+    ['QUEUED', 'CLAIMED', 'RUNNING'].includes(conversation.latest_execution.status) &&
+    !conversation.latest_execution.cancel_requested_at;
+  const resumable = (conversation: Conversation) =>
+    conversation.status !== 'archived' &&
+    conversation.capabilities.can_send &&
+    conversation.latest_execution &&
+    ['CANCELLED', 'FAILED', 'TIMED_OUT'].includes(conversation.latest_execution.status);
+  const title = (conversation: Conversation) => conversation.title?.trim() || 'Untitled chat';
+  const status = (conversation: Conversation) =>
+    conversation.latest_execution?.cancel_requested_at &&
+    ['QUEUED', 'CLAIMED', 'RUNNING', 'CANCELLING'].includes(conversation.latest_execution.status)
       ? 'Cancelling'
-      : (session.latest_execution?.status ?? session.status).toLowerCase().replaceAll('_', ' ');
+      : (conversation.latest_execution?.status ?? conversation.status)
+          .toLowerCase()
+          .replaceAll('_', ' ');
   const visible = $derived(
-    [...sessions].sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at)),
+    [...conversations].sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at)),
   );
 
-  async function cancel(session: AgentSession) {
-    if (!cancellable(session) || cancelling) return;
+  async function cancel(conversation: Conversation) {
+    if (!cancellable(conversation) || cancelling) return;
     const id = projectId;
-    cancelling = session.id;
+    cancelling = conversation.id;
     actionError = undefined;
     try {
-      await agents.cancelRun(session.id, session.latest_execution!.id);
+      await agents.cancelRun(conversation.id, conversation.latest_execution!.id);
       if (id !== projectId) return;
-      await query.invalidateQueries({ queryKey: ['session-runs', session.id] });
-      await invalidateSession(query, id, session.id);
+      await query.invalidateQueries({ queryKey: ['conversation-runs', conversation.id] });
+      await invalidateConversation(query, id, conversation.id);
     } catch (reason) {
-      if (id === projectId) actionError = { sessionId: session.id, message: explain(reason) };
+      if (id === projectId)
+        actionError = { conversationId: conversation.id, message: explain(reason) };
     } finally {
       cancelling = '';
     }
@@ -88,8 +91,8 @@
     variant="error"
     action={{ label: 'Retry', run: () => $chats.refetch() }}
   />
-  <div class="session-list" aria-busy={loading}>
-    {#if loading && !sessions.length}<p class="empty" role="status">Loading chats…</p>
+  <div class="conversation-list" aria-busy={loading}>
+    {#if loading && !conversations.length}<p class="empty" role="status">Loading chats…</p>
     {:else if !visible.length}<p class="empty">
         {error
           ? 'Conversations unavailable.'
@@ -97,37 +100,38 @@
             ? 'No conversations yet.'
             : 'Conversations are unavailable for your role.'}
       </p>{/if}
-    {#each visible as session (session.id)}
-      <div class="session" class:selected={session.id === activeSessionId}>
+    {#each visible as conversation (conversation.id)}
+      <div class="conversation" class:selected={conversation.id === activeConversationId}>
         <button
-          class="open-session"
-          onclick={() => onOpenSession(session.id)}
-          aria-current={session.id === activeSessionId ? 'true' : undefined}
+          class="open-conversation"
+          onclick={() => onOpenConversation(conversation.id)}
+          aria-current={conversation.id === activeConversationId ? 'true' : undefined}
         >
-          <span class="session-title">{title(session)}</span>
-          <span class="agent-name">{session.configuration?.display_name}</span>
+          <span class="conversation-title">{title(conversation)}</span>
+          <span class="agent-name">{conversation.configuration?.display_name}</span>
           <span
             class="run-status"
             class:running={Boolean(
-              session.latest_execution &&
+              conversation.latest_execution &&
               ['QUEUED', 'CLAIMED', 'RUNNING', 'CANCELLING'].includes(
-                session.latest_execution.status,
+                conversation.latest_execution.status,
               ),
-            )}><span class="status-dot"></span>{status(session)}</span
+            )}><span class="status-dot"></span>{status(conversation)}</span
           >
         </button>
-        {#if cancellable(session)}<button
+        {#if cancellable(conversation)}<button
             class="run-action"
-            aria-label={`Cancel run for ${title(session)}`}
+            aria-label={`Cancel run for ${title(conversation)}`}
             disabled={Boolean(cancelling)}
-            onclick={() => cancel(session)}
-            ><Square size={11} />{cancelling === session.id ? 'Cancelling…' : 'Cancel'}</button
+            onclick={() => cancel(conversation)}
+            ><Square size={11} />{cancelling === conversation.id ? 'Cancelling…' : 'Cancel'}</button
           >
-        {:else if canChat && resumable(session)}<button
+        {:else if canChat && resumable(conversation)}<button
             class="run-action"
-            aria-label={`Resume run for ${title(session)}`}
+            aria-label={`Resume run for ${title(conversation)}`}
             title="Open this chat to choose an AI provider and resume the run"
-            onclick={() => onOpenSession(session.id)}><RotateCcw size={12} />Resume in chat</button
+            onclick={() => onOpenConversation(conversation.id)}
+            ><RotateCcw size={12} />Resume in chat</button
           >{/if}
       </div>
     {/each}
@@ -182,12 +186,12 @@
     background: transparent;
     color: var(--muted-foreground);
   }
-  .session-list {
+  .conversation-list {
     min-height: 0;
     overflow-y: auto;
     flex: 1;
   }
-  .session {
+  .conversation {
     margin-bottom: 5px;
     padding: 2px;
     border-radius: 8px;
@@ -196,10 +200,10 @@
     background: var(--brand-soft);
     box-shadow: inset 2px 0 var(--primary);
   }
-  .session:hover {
+  .conversation:hover {
     background: var(--brand-soft);
   }
-  .open-session {
+  .open-conversation {
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -210,7 +214,7 @@
     border: 0;
     border-radius: 6px;
   }
-  .session-title {
+  .conversation-title {
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;

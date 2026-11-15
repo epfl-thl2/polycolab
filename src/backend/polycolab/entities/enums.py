@@ -88,7 +88,7 @@ class ExecutionProfile(StrEnum):
     TRUSTED_HOSTED = "TRUSTED_HOSTED"
 
 
-class AgentSessionStatus(StrEnum):
+class StoredConversationStatus(StrEnum):
     ACTIVE = "ACTIVE"
     ARCHIVED = "ARCHIVED"
 
@@ -149,7 +149,7 @@ __all__ = [
     "AgentMessageRole",
     "AgentRunEventKind",
     "AgentRunStatus",
-    "AgentSessionStatus",
+    "StoredConversationStatus",
     "ArtifactState",
     "ExecutionProfile",
     "ExecutionTenantKind",

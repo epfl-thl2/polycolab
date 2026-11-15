@@ -14,19 +14,18 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from polycolab.access.authorization import ProjectNotFound
-from polycolab.agents.runtime.messages import model_messages
-from polycolab.agents.sessions import (
+from polycolab.agents.conversations import (
     CRITIC_VERSION_ID,
     RESEARCHER_VERSION_ID,
+    ConversationStateError,
     IdempotencyConflict,
     LeaseLost,
-    SessionStateError,
     activate_runtime_session_binding,
     append_user_message_and_queue_run,
     append_worker_event,
     claim_next_run,
     claim_next_run_in_transaction,
-    create_agent_session,
+    create_agent_conversation,
     create_runtime_run_binding,
     finish_run,
     platform_agent_version,
@@ -36,7 +35,8 @@ from polycolab.agents.sessions import (
     resume_run,
     start_claimed_run,
 )
-from polycolab.conversations.routes.schemas import SessionCreate
+from polycolab.agents.runtime.messages import model_messages
+from polycolab.conversations.routes.schemas import ConversationCreate
 from polycolab.db.models import (
     SqlAgentRun,
     SqlAgentRunEvent,
@@ -90,7 +90,7 @@ def _domain_setup(
 
 def _new_run(client: TestClient) -> tuple[Any, SqlUser, SqlProviderConnection, UUID]:
     session, user, project, profile = _domain_setup(client)
-    agent_session = create_agent_session(
+    agent_session = create_agent_conversation(
         session,
         project_id=project.id,
         created_by_user_id=user.id,
@@ -98,7 +98,7 @@ def _new_run(client: TestClient) -> tuple[Any, SqlUser, SqlProviderConnection, U
     )
     _, run = append_user_message_and_queue_run(
         session,
-        session_id=agent_session.id,
+        conversation_id=agent_session.id,
         requested_by_user_id=user.id,
         provider_connection_id=profile.id,
         content_md="Explore the claim",
@@ -129,7 +129,7 @@ def test_custom_session_keeps_its_prompt_and_uses_it_for_model_input(
     session, user, project, profile = _domain_setup(client)
     try:
         prompt = "Look for counterexamples before proposing a proof."
-        created = create_agent_session(
+        created = create_agent_conversation(
             session,
             project_id=project.id,
             created_by_user_id=user.id,
@@ -139,7 +139,7 @@ def test_custom_session_keeps_its_prompt_and_uses_it_for_model_input(
         )
         _, run = append_user_message_and_queue_run(
             session,
-            session_id=created.id,
+            conversation_id=created.id,
             requested_by_user_id=user.id,
             provider_connection_id=profile.id,
             content_md="Explore this statement.",
@@ -165,7 +165,7 @@ def test_custom_session_requires_a_harness_and_nonblank_prompt() -> None:
         {"harness": "codex", "system_prompt": "  "},
     ):
         with pytest.raises(ValueError):
-            SessionCreate.model_validate({**base, **fields})
+            ConversationCreate.model_validate({**base, **fields})
 
 
 def test_message_and_run_are_ordered_atomically_and_profile_is_snapshotted(
@@ -173,7 +173,7 @@ def test_message_and_run_are_ordered_atomically_and_profile_is_snapshotted(
 ) -> None:
     session, user, project, profile = _domain_setup(client)
     try:
-        agent_session = create_agent_session(
+        agent_session = create_agent_conversation(
             session,
             project_id=project.id,
             created_by_user_id=user.id,
@@ -181,14 +181,14 @@ def test_message_and_run_are_ordered_atomically_and_profile_is_snapshotted(
         )
         message_one, run_one = append_user_message_and_queue_run(
             session,
-            session_id=agent_session.id,
+            conversation_id=agent_session.id,
             requested_by_user_id=user.id,
             provider_connection_id=profile.id,
             content_md="Check the first proof.",
         )
         message_two, run_two = append_user_message_and_queue_run(
             session,
-            session_id=agent_session.id,
+            conversation_id=agent_session.id,
             requested_by_user_id=user.id,
             provider_connection_id=profile.id,
             content_md="Now find a counterexample.",
@@ -221,7 +221,7 @@ def test_message_and_run_are_ordered_atomically_and_profile_is_snapshotted(
         messages = list(
             session.scalars(
                 select(SqlConversationItem)
-                .where(SqlConversationItem.session_id == agent_session.id)
+                .where(SqlConversationItem.conversation_id == agent_session.id)
                 .order_by(SqlConversationItem.sequence)
             )
         )
@@ -282,7 +282,7 @@ def test_private_session_is_concealed_from_other_run_requesters(
         )
         session.add(profile)
         session.commit()
-        private_session = create_agent_session(
+        private_session = create_agent_conversation(
             session,
             project_id=project.id,
             created_by_user_id=owner.id,
@@ -291,7 +291,7 @@ def test_private_session_is_concealed_from_other_run_requesters(
         with pytest.raises(ProjectNotFound):
             append_user_message_and_queue_run(
                 session,
-                session_id=private_session.id,
+                conversation_id=private_session.id,
                 requested_by_user_id=contributor.id,
                 provider_connection_id=profile.id,
                 content_md="Attempt to cross the private session boundary.",
@@ -429,12 +429,12 @@ def test_cancel_resume_and_runtime_bindings_preserve_history(
         assert successor.status is AgentRunStatus.QUEUED
         original = session.get(type(cancelled), run_id)
         assert original is not None and original.status is AgentRunStatus.CANCELLED
-        session_id = successor.session_id
+        conversation_id = successor.conversation_id
         first_binding = activate_runtime_session_binding(
-            session, session_id=session_id, adapter_name="builtin"
+            session, conversation_id=conversation_id, adapter_name="builtin"
         )
         second_binding = activate_runtime_session_binding(
-            session, session_id=session_id, adapter_name="builtin"
+            session, conversation_id=conversation_id, adapter_name="builtin"
         )
         assert first_binding.status is RuntimeBindingStatus.SUPERSEDED
         assert second_binding.status is RuntimeBindingStatus.ACTIVE
@@ -444,8 +444,8 @@ def test_cancel_resume_and_runtime_bindings_preserve_history(
             session_binding_id=second_binding.id,
             adapter_name="builtin",
         )
-        assert run_binding.session_id == session_id
-        with pytest.raises(SessionStateError):
+        assert run_binding.conversation_id == conversation_id
+        with pytest.raises(ConversationStateError):
             create_runtime_run_binding(
                 session,
                 run_id=successor.id,
@@ -542,7 +542,7 @@ def test_semantic_items_commit_with_events_and_do_not_become_model_inputs(
             final_message_md="Final answer",
         )
         store = SqlConversationStore(session)
-        items = store.items(claim.session_id)
+        items = store.items(claim.conversation_id)
         assert [item.type for item in items] == [
             "message",
             "tool_call",
@@ -555,7 +555,7 @@ def test_semantic_items_commit_with_events_and_do_not_become_model_inputs(
         assert items[3].author == AgentAuthor(claim.agent_version_id)
         assert all(item.execution_id == run_id for item in items)
         assert [item.sequence for item in items] == [1, 2, 3, 4]
-        assert store.items(claim.session_id, after=2, limit=1) == [items[2]]
+        assert store.items(claim.conversation_id, after=2, limit=1) == [items[2]]
         # Prompt construction remains limited to the run's originally selected message boundary.
         assert [item["content"] for item in model_messages(session, claim)][
             -1

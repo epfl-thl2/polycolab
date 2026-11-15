@@ -58,9 +58,9 @@ def test_openapi_has_versioned_operations_security_and_error_envelopes(
                 headers = operation["responses"]["200"]["headers"]
                 assert "X-Next-Cursor" in headers
                 if operation["operationId"] not in {
-                    "listSessions",
-                    "listSessionRuns",
-                    "listChildSessions",
+                    "listConversations",
+                    "listConversationRuns",
+                    "listChildConversations",
                 }:
                     assert "X-Total-Count" in headers
     assert len(operation_ids) == len(set(operation_ids))

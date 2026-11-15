@@ -20,9 +20,6 @@ from polycolab.db.models import (
     SqlPlatformAgentVersion,
     SqlProject,
     SqlProjectRepository,
-    SqlRepositoryRun,
-    SqlRepositorySession,
-    SqlRunToolCapability,
     SqlUser,
 )
 from polycolab.entities.time import utc_now
@@ -225,17 +222,19 @@ def populate(connection: Connection) -> dict[str, UUID]:
     )
     connection.execute(insert(SqlProjectRepository).values(project_id=ids["project"]))
     connection.execute(
-        insert(SqlRepositorySession).values(
-            session_id=ids["session"], project_id=ids["project"], base_commit="a" * 40
-        )
+        old("repository_sessions")
+        .insert()
+        .values(session_id=key("session"), project_id=key("project"), base_commit="a" * 40)
     )
     connection.execute(
-        insert(SqlRepositoryRun).values(
-            run_id=ids["run"],
-            session_id=ids["session"],
+        old("repository_runs")
+        .insert()
+        .values(
+            run_id=key("run"),
+            session_id=key("session"),
             input_commit="a" * 40,
             output_commit="b" * 40,
-            worktree_id=ids["task"],
+            worktree_id=key("task"),
         )
     )
 
@@ -252,16 +251,20 @@ def populate(connection: Connection) -> dict[str, UUID]:
     )
 
     connection.execute(
-        insert(SqlRunToolCapability).values(
-            id=ids["grant"],
+        old("run_tool_capabilities")
+        .insert()
+        .values(
+            id=key("grant"),
             token_digest="e" * 64,
-            run_id=ids["run"],
-            session_id=ids["session"],
-            project_id=ids["project"],
-            user_id=ids["user"],
-            agent_version_id=ids["agent"],
-            context_manifest_id=ids["manifest"],
+            run_id=key("run"),
+            session_id=key("session"),
+            project_id=key("project"),
+            user_id=key("user"),
+            agent_version_id=key("agent"),
+            context_manifest_id=key("manifest"),
             allowed_tools=["get_context"],
+            revoked=False,
+            created_at=now,
             lease_generation=1,
             expires_at=now + timedelta(hours=1),
         )
@@ -339,7 +342,7 @@ def verify(connection: Connection, ids: dict[str, UUID]) -> None:
     rows = list(
         connection.execute(select(table("conversation_items")).order_by("sequence")).mappings()
     )
-    rows = [row for row in rows if UUID(str(row["session_id"])) == ids["session"]]
+    rows = [row for row in rows if UUID(str(row["conversation_id"])) == ids["session"]]
     by_id = {UUID(str(row["id"])): row for row in rows}
     assert len(rows) == 6
     assert [row["sequence"] for row in rows] == list(range(1, 7))
@@ -383,12 +386,12 @@ def verify(connection: Connection, ids: dict[str, UUID]) -> None:
             for foreign_key in inspector.get_foreign_keys(name)
         )
     for name in (
-        "repository_sessions",
+        "repository_conversations",
         "repository_runs",
         "run_tool_capabilities",
     ):
         dependent = connection.execute(select(table(name))).mappings().one()
-        assert UUID(str(dependent["session_id"])) == ids["session"]
+        assert UUID(str(dependent["conversation_id"])) == ids["session"]
     manifest = connection.execute(select(table("context_manifests"))).mappings().one()
     assert manifest["artifact_ids"] == [str(ids["artifact"])]
     output = connection.execute(select(table("artifacts"))).mappings().one()
@@ -401,7 +404,7 @@ def verify(connection: Connection, ids: dict[str, UUID]) -> None:
     assert UUID(str(repository["worktree_id"])) == ids["task"]
     assert repository["input_commit"] == "a" * 40 and repository["output_commit"] == "b" * 40
     binding = connection.execute(select(table("runtime_session_bindings"))).mappings().one()
-    assert UUID(str(binding["session_id"])) == ids["session"]
+    assert UUID(str(binding["conversation_id"])) == ids["session"]
     assert binding["opaque_runtime_ref"] == "private-external-session"
     conversation = next(
         row
@@ -410,7 +413,7 @@ def verify(connection: Connection, ids: dict[str, UUID]) -> None:
     )
     assert UUID(str(conversation["root_id"])) == ids["session"]
     assert UUID(str(conversation["worktree_id"])) == ids["task"]
-    assert conversation["sharing"] == "project_readable"
+    assert conversation["sharing"] == "members_can_view"
     assert conversation["next_message_sequence"] == 6
     configuration = (
         connection.execute(select(table("conversation_configurations"))).mappings().one()

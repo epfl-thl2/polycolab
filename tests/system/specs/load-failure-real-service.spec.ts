@@ -61,13 +61,13 @@ test('concurrent SSE reconnects replay one ordered suffix without duplication', 
       },
     },
   );
-  const session = await call<{ id: string }>(request, 'post', '/api/v1/sessions', {
+  const session = await call<{ id: string }>(request, 'post', '/api/v1/conversations', {
     data: { project_id: project.body.id, agent_kind: 'RESEARCHER' },
   });
   const queued = await call<{ run: { id: string } }>(
     request,
     'post',
-    `/api/v1/sessions/${session.body.id}/events`,
+    `/api/v1/conversations/${session.body.id}/events`,
     {
       data: {
         type: 'message',
@@ -93,13 +93,16 @@ test('concurrent SSE reconnects replay one ordered suffix without duplication', 
     )
     .toBe('COMPLETED');
   // An archived session closes its stream after replaying all committed events.
-  const archived = await call(request, 'patch', `/api/v1/sessions/${session.body.id}`, {
+  const archived = await call(request, 'patch', `/api/v1/conversations/${session.body.id}`, {
     data: { archived: true },
   });
   expect(archived.status).toBe(200);
-  const initial = await request.get(`${apiBaseUrl}/api/v1/sessions/${session.body.id}/stream`, {
-    headers: headers(),
-  });
+  const initial = await request.get(
+    `${apiBaseUrl}/api/v1/conversations/${session.body.id}/stream`,
+    {
+      headers: headers(),
+    },
+  );
   expect(initial.status()).toBe(200);
   const initialIds = eventIds(await initial.text());
   expect(initialIds.length).toBeGreaterThanOrEqual(2);
@@ -108,7 +111,7 @@ test('concurrent SSE reconnects replay one ordered suffix without duplication', 
 
   const reconnects = await Promise.all(
     Array.from({ length: 8 }, () =>
-      request.get(`${apiBaseUrl}/api/v1/sessions/${session.body.id}/stream`, {
+      request.get(`${apiBaseUrl}/api/v1/conversations/${session.body.id}/stream`, {
         headers: { ...headers(), 'Last-Event-ID': String(cursor) },
       }),
     ),
@@ -212,13 +215,13 @@ test('PostgreSQL outage makes readiness fail and recovers durable writes and wor
       },
     },
   );
-  const session = await call<{ id: string }>(request, 'post', '/api/v1/sessions', {
+  const session = await call<{ id: string }>(request, 'post', '/api/v1/conversations', {
     data: { project_id: project.body.id, agent_kind: 'CRITIC' },
   });
   const queued = await call<{ run: { id: string } }>(
     request,
     'post',
-    `/api/v1/sessions/${session.body.id}/events`,
+    `/api/v1/conversations/${session.body.id}/events`,
     {
       data: {
         type: 'message',

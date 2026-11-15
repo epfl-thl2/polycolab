@@ -18,7 +18,7 @@ test('Default projects save current server files without version history', async
     dialog.getByRole('combobox').filter({ has: page.locator('option[value="default"]') }),
   ).toHaveValue('default');
   await dialog.getByRole('button', { name: 'Create project', exact: true }).click();
-  await expect(page).toHaveURL(/\/projects\/[^/]+\/sessions\/new/);
+  await expect(page).toHaveURL(/\/projects\/[^/]+\/conversations\/new/);
   const id = new URL(page.url()).pathname.split('/')[2];
   const tools = page.getByRole('complementary', { name: 'Project tools', exact: true });
   await expect(tools.getByRole('tab', { name: 'History', exact: true })).toHaveCount(0);
@@ -66,7 +66,7 @@ test('Default projects save current server files without version history', async
   await page.getByRole('button', { name: 'File actions', exact: true }).click();
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('menuitem', { name: 'Delete file', exact: true }).click();
-  await expect(page).toHaveURL(/\/sessions\/new/);
+  await expect(page).toHaveURL(/\/conversations\/new/);
   expect((await (await page.request.get(root)).json()).files).toEqual([]);
   const composer = page
     .getByRole('textbox', { name: 'Message the agent', exact: true })

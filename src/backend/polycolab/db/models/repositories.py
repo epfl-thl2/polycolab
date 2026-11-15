@@ -34,9 +34,9 @@ class SqlRepositoryMutation(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
-class SqlRepositorySession(Base):
-    __tablename__ = "repository_sessions"
-    session_id: Mapped[UUID] = mapped_column(ForeignKey("conversations.id"), primary_key=True)
+class SqlRepositoryConversation(Base):
+    __tablename__ = "repository_conversations"
+    conversation_id: Mapped[UUID] = mapped_column(ForeignKey("conversations.id"), primary_key=True)
     project_id: Mapped[UUID] = mapped_column(
         ForeignKey("project_repositories.project_id"), index=True
     )
@@ -46,7 +46,9 @@ class SqlRepositorySession(Base):
 class SqlRepositoryRun(Base):
     __tablename__ = "repository_runs"
     run_id: Mapped[UUID] = mapped_column(ForeignKey("agent_runs.id"), primary_key=True)
-    session_id: Mapped[UUID] = mapped_column(ForeignKey("repository_sessions.session_id"))
+    conversation_id: Mapped[UUID] = mapped_column(
+        ForeignKey("repository_conversations.conversation_id")
+    )
     branch: Mapped[str | None] = mapped_column(String(100), nullable=True)
     input_revision: Mapped[str | None] = mapped_column(String(40), nullable=True)
     worktree_id: Mapped[UUID | None] = mapped_column(ForeignKey("worktrees.id"), nullable=True)

@@ -1,6 +1,6 @@
-import type { AgentEvent, AgentRun } from '../lib/agent-sessions-api';
+import type { AgentEvent, AgentRun } from '../lib/conversations-api';
 
-/** Session SSE IDs are ordered (run queue sequence, event cursor) pairs. */
+/** Conversation SSE IDs are ordered (run queue sequence, event cursor) pairs. */
 export function advancesCursor(previous: string | undefined, incoming: string): boolean {
   if (!/^\d+:\d+$/.test(incoming)) return false;
   if (!previous) return true;

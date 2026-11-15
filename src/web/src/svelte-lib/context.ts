@@ -1,7 +1,7 @@
 import { getContext } from 'svelte';
 import type { QueryClient } from '@tanstack/svelte-query';
 import type { ProjectsApi } from '../lib/projects-api';
-import type { AgentSessionsApi } from '../lib/agent-sessions-api';
+import type { ConversationsApi } from '../lib/conversations-api';
 import type { Auth } from './auth.svelte';
 import type { createArtifactApi } from '../lib/artifact-api';
 import type { createExternalAgentApi } from '../lib/external-agent-api';
@@ -16,7 +16,7 @@ export type ProjectContext = {
   externalAgents: ReturnType<typeof createExternalAgentApi>;
   auth: Auth;
   api: ProjectsApi;
-  agents: AgentSessionsApi;
+  agents: ConversationsApi;
   query: QueryClient;
 };
 export const contextKey = Symbol('project');
@@ -50,8 +50,8 @@ export const explain = (error: unknown) => {
     return 'This task is unavailable or your project access changed.';
   if (code === 'repository_stale_save' || code === 'repository_stale_merge')
     return 'Someone saved newer changes. Compare the latest version before saving again.';
-  if (code === 'repository_session_active')
-    return 'This agent session has an active run. Wait for it to finish before editing or merging its branch.';
+  if (code === 'repository_conversation_active')
+    return 'This conversation has an active run. Wait for it to finish before editing or merging its branch.';
   if (code === 'repository_quota_exceeded' || code === 'repository_transfer_limit')
     return 'These files exceed the project storage or transfer limit. Store large outputs as artifacts.';
   if (code === 'repository_busy') return 'Another save is in progress. Please retry.';

@@ -1,7 +1,7 @@
 """Rename saved provider connections without rewriting encrypted credentials."""
 
 import sqlalchemy as sa
-from alembic import op
+from alembic import context, op
 
 revision = "20261115_provider_connections"
 down_revision = "20261115_key_names"
@@ -18,6 +18,9 @@ def renamed(name: str) -> str:
 
 
 def upgrade() -> None:
+    if context.is_offline_mode():
+        op.execute("-- Terminology cutover requires an online upgrade for schema reflection.")
+        return
     op.rename_table("provider_profiles", "provider_connections")
     for table, column in (
         ("agent_runs", "provider_profile_id"),

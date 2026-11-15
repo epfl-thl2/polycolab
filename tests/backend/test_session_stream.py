@@ -15,8 +15,8 @@ from test_sessions_api import (
     send,
 )
 
-from polycolab.agents.sessions import append_worker_event, finish_run
-from polycolab.conversations.routes.router import _session_event_stream
+from polycolab.agents.conversations import append_worker_event, finish_run
+from polycolab.conversations.routes.router import _conversation_event_stream
 from polycolab.entities.enums import AgentRunEventKind, AgentRunStatus
 
 
@@ -24,10 +24,10 @@ def test_later_cancellation_waits_for_preceding_output_before_advancing_cursor(
     client: TestClient,
 ) -> None:
     project_id = str(create_project(client)["id"])
-    session_id = str(create_session(client, project_id)["id"])
+    conversation_id = str(create_session(client, project_id)["id"])
     provider_connection_id = str(create_connection(client, "owner")["id"])
-    first = send(client, session_id, provider_connection_id).json()["run"]["id"]
-    second = send(client, session_id, provider_connection_id).json()["run"]["id"]
+    first = send(client, conversation_id, provider_connection_id).json()["run"]["id"]
+    second = send(client, conversation_id, provider_connection_id).json()["run"]["id"]
     claim = client.post(
         "/internal/v1/runtime/claims",
         headers={"Authorization": "Bearer polycolab-local-runtime-worker-token"},
@@ -35,7 +35,7 @@ def test_later_cancellation_waits_for_preceding_output_before_advancing_cursor(
     )
     assert claim.status_code == 200 and claim.json()["run_id"] == first
     generation = claim.json()["lease_generation"]
-    assert interrupt(client, session_id, second).status_code == 202
+    assert interrupt(client, conversation_id, second).status_code == 202
     user_id = UUID(client.get("/api/v1/account", headers=headers("owner")).json()["id"])
     app = cast(Any, client.app)
     app.state.settings.runtime_sse_poll_seconds = 0.01
@@ -58,9 +58,9 @@ def test_later_cancellation_waits_for_preceding_output_before_advancing_cursor(
             return False
 
     async def replay() -> None:
-        stream = _session_event_stream(
+        stream = _conversation_event_stream(
             cast(Any, Request()),
-            session_id=UUID(session_id),
+            conversation_id=UUID(conversation_id),
             user_id=user_id,
             cursor=(0, 0),
         )
@@ -98,15 +98,15 @@ def test_later_cancellation_waits_for_preceding_output_before_advancing_cursor(
                 pending.cancel()
             await cast(AsyncGenerator[bytes], stream).aclose()
         client.patch(
-            f"/api/v1/sessions/{session_id}",
+            f"/api/v1/conversations/{conversation_id}",
             headers=headers("owner"),
             json={"archived": True},
         )
         resumed = [
             frame
-            async for frame in _session_event_stream(
+            async for frame in _conversation_event_stream(
                 cast(Any, Request()),
-                session_id=UUID(session_id),
+                conversation_id=UUID(conversation_id),
                 user_id=user_id,
                 cursor=(1, 3),
             )
@@ -124,9 +124,9 @@ def test_diagnostic_failures_are_safe_in_metadata_transcript_and_replay(
     client: TestClient,
 ) -> None:
     project_id = str(create_project(client)["id"])
-    session_id = str(create_session(client, project_id)["id"])
+    conversation_id = str(create_session(client, project_id)["id"])
     provider_connection_id = str(create_connection(client, "owner")["id"])
-    run_id = send(client, session_id, provider_connection_id).json()["run"]["id"]
+    run_id = send(client, conversation_id, provider_connection_id).json()["run"]["id"]
     claim = client.post(
         "/internal/v1/runtime/claims",
         headers={"Authorization": "Bearer polycolab-local-runtime-worker-token"},
@@ -142,7 +142,7 @@ def test_diagnostic_failures_are_safe_in_metadata_transcript_and_replay(
             status=AgentRunStatus.FAILED,
             failure_code="private diagnostic /token",
         )
-    root = f"/api/v1/sessions/{session_id}"
+    root = f"/api/v1/conversations/{conversation_id}"
     assert client.patch(root, headers=headers("owner"), json={"archived": True}).status_code == 200
     for path in (
         root,

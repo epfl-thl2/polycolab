@@ -3,7 +3,7 @@ import { SvelteMap } from 'svelte/reactivity';
 
 export class ChatDraft {
   message = $state('');
-  startingSessionId = $state('');
+  startingConversationId = $state('');
   startRequest: { key: string; body: string } | undefined;
   request: { key: string; body: string } | undefined;
   get dirty() {
@@ -13,9 +13,9 @@ export class ChatDraft {
 
 export function chatDraftKey(projectId: string, href: string) {
   const url = new URL(href, 'http://project.local');
-  const sessionId = url.pathname.split('/')[4];
-  return sessionId && sessionId !== 'new'
-    ? `${projectId}:session:${sessionId}`
+  const conversationId = url.pathname.split('/')[4];
+  return conversationId && conversationId !== 'new'
+    ? `${projectId}:conversation:${conversationId}`
     : `${projectId}:new:${url.searchParams.get('draft') || 'default'}:${url.searchParams.get('worktree') || 'main'}`;
 }
 
@@ -36,7 +36,7 @@ export class ChatDrafts {
     const draft = this.entries.get(key);
     if (!draft) return;
     draft.message = '';
-    draft.startingSessionId = '';
+    draft.startingConversationId = '';
     draft.startRequest = undefined;
     draft.request = undefined;
   }

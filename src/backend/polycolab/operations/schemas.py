@@ -7,14 +7,14 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from polycolab.entities.enums import AgentRunStatus, AgentSessionStatus, PlatformAgentKind
+from polycolab.entities.enums import AgentRunStatus, PlatformAgentKind, StoredConversationStatus
 
 
 class OperatorRunDiagnostics(BaseModel):
     """Redacted, operator-only run state; never a transcript or provider view."""
 
     run_id: UUID
-    session_status: AgentSessionStatus
+    session_status: StoredConversationStatus
     status: AgentRunStatus
     created_at: datetime
     started_at: datetime | None

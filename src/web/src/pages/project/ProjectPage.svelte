@@ -35,13 +35,13 @@
     visibility={project.visibility}
     role={project.current_user_role}
   />
-{:else if section === 'sessions'}
-  {#if canWrite || (project.current_user_role && selectedId !== 'new')}{#await import('./sections/Sessions.svelte')}<LoadingState
+{:else if section === 'conversations'}
+  {#if canWrite || (project.current_user_role && selectedId !== 'new')}{#await import('./sections/Conversations.svelte')}<LoadingState
       >
-        Opening private sessions…
+        Opening private conversations…
       </LoadingState>{:then module}{#key selectedId}<module.default
           {projectId}
-          sessionId={selectedId === 'new' ? undefined : selectedId}
+          conversationId={selectedId === 'new' ? undefined : selectedId}
           worktreeId={selectedId === 'new'
             ? routeUrl.searchParams.get('worktree') || undefined
             : undefined}
@@ -49,8 +49,8 @@
           isVisible={active}
           draftKey={chatDraftKey(projectId, href)}
           {onCreated}
-        />{/key}{/await}{:else}<h1>Private sessions</h1>
-    <p>Agent sessions are available to active editors and owners.</p>{/if}
+        />{/key}{/await}{:else}<h1>Private conversations</h1>
+    <p>Agent conversations are available to active editors and owners.</p>{/if}
 {:else if section === 'agent-connect'}
   {#await import('./sections/ProjectAgentConnect.svelte')}<LoadingState
       >Loading connection guide…</LoadingState

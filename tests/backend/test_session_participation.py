@@ -29,15 +29,15 @@ def shared_session(client: TestClient) -> tuple[Any, UUID, UUID, UUID, dict[str,
     project_id = UUID(str(create_project(client)["id"]))
     add_member(client, str(project_id), "contributor", "EDITOR")
     add_member(client, str(project_id), "reader", "VIEWER")
-    session_id = UUID(str(create_session(client, str(project_id))["id"]))
+    conversation_id = UUID(str(create_session(client, str(project_id))["id"]))
     owner_id = UUID(client.get("/api/v1/account", headers=headers("owner")).json()["id"])
     sender_id = UUID(client.get("/api/v1/account", headers=headers("contributor")).json()["id"])
     with app.state.session_factory() as db:
         set_sharing(
             SqlAlchemyTransaction(db),
-            session_id,
+            conversation_id,
             owner_id,
-            ConversationSharing.PROJECT_CONTRIBUTABLE,
+            ConversationSharing.MEMBERS_CAN_PARTICIPATE,
         )
     profile = create_connection(client, "contributor")
     message = {
@@ -46,14 +46,14 @@ def shared_session(client: TestClient) -> tuple[Any, UUID, UUID, UUID, dict[str,
         "content_md": "Contribute with my own model profile.",
         "provider_connection_id": str(profile["id"]),
     }
-    return app, project_id, session_id, sender_id, message
+    return app, project_id, conversation_id, sender_id, message
 
 
 def test_shared_submission_profiles_retries_and_owner_interruption(
     client: TestClient,
 ) -> None:
-    app, _, session_id, sender_id, message = shared_session(client)
-    path = f"/api/v1/sessions/{session_id}/events"
+    app, _, conversation_id, sender_id, message = shared_session(client)
+    path = f"/api/v1/conversations/{conversation_id}/events"
     owner_profile = create_connection(client, "owner")
     stolen_profile = client.post(
         path,
@@ -87,7 +87,7 @@ def test_shared_submission_profiles_retries_and_owner_interruption(
         assert run.gateway_credential_version == profile.credential_version
     assert (
         client.patch(
-            f"/api/v1/sessions/{session_id}",
+            f"/api/v1/conversations/{conversation_id}",
             headers=headers("contributor"),
             json={"archived": True},
         ).status_code
@@ -95,14 +95,14 @@ def test_shared_submission_profiles_retries_and_owner_interruption(
     )
     assert (
         client.post(
-            f"/api/v1/sessions/{session_id}/events",
+            f"/api/v1/conversations/{conversation_id}/events",
             headers=headers("reader"),
             json={"type": "interrupt", "run_id": str(run_id)},
         ).status_code
         == 403
     )
     cancelled = client.post(
-        f"/api/v1/sessions/{session_id}/events",
+        f"/api/v1/conversations/{conversation_id}/events",
         headers=headers("owner"),
         json={"type": "interrupt", "run_id": str(run_id)},
     )
@@ -119,7 +119,7 @@ def test_shared_submission_profiles_retries_and_owner_interruption(
     assert resume.json()["parent_run_id"] == str(run_id)
     # Interrupting the old identity does not cancel its independently queued successor.
     client.post(
-        f"/api/v1/sessions/{session_id}/events",
+        f"/api/v1/conversations/{conversation_id}/events",
         headers=headers("owner"),
         json={"type": "interrupt", "run_id": str(run_id)},
     )
@@ -131,9 +131,9 @@ def test_shared_submission_profiles_retries_and_owner_interruption(
     )
     with app.state.session_factory() as db:
         store = SqlConversationStore(db)
-        history = store.executions(session_id)
-        successor_page = store.executions(session_id, after=history[0].sequence)
-        latest = store.latest_executions([session_id])[session_id]
+        history = store.executions(conversation_id)
+        successor_page = store.executions(conversation_id, after=history[0].sequence)
+        latest = store.latest_executions([conversation_id])[conversation_id]
         execution = store.execution(run_id)
     assert [value.sequence for value in history] == [1, 2]
     assert successor_page == history[1:]
@@ -148,9 +148,9 @@ def test_shared_submission_profiles_retries_and_owner_interruption(
 
 @pytest.mark.parametrize("revocation", ["private", "readable", "membership", "role"])
 def test_worker_rechecks_shared_sender_authority(client: TestClient, revocation: str) -> None:
-    app, project_id, session_id, sender_id, message = shared_session(client)
+    app, project_id, conversation_id, sender_id, message = shared_session(client)
     response = client.post(
-        f"/api/v1/sessions/{session_id}/events",
+        f"/api/v1/conversations/{conversation_id}/events",
         headers=headers("contributor"),
         json={"type": "message", **(message)},
     )
@@ -191,11 +191,11 @@ def test_worker_rechecks_shared_sender_authority(client: TestClient, revocation:
             owner_id = UUID(client.get("/api/v1/account", headers=headers("owner")).json()["id"])
             set_sharing(
                 SqlAlchemyTransaction(db),
-                session_id,
+                conversation_id,
                 owner_id,
                 ConversationSharing.PRIVATE
                 if revocation == "private"
-                else ConversationSharing.PROJECT_READABLE,
+                else ConversationSharing.MEMBERS_CAN_VIEW,
             )
         elif revocation == "membership":
             db.execute(

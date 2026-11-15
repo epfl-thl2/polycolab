@@ -24,23 +24,24 @@ export function projectRouteTab(projectId: string, href: string): ProjectTab | u
   }
   if (url.origin !== 'http://project.local') return;
   const segments = url.pathname.split('/');
-  if (!['workspaces', 'projects'].includes(segments[1]) || segments[2] !== projectId) return;
+  if (segments[1] !== 'projects' || segments[2] !== projectId) return;
   const section = segments[3] || 'overview';
   const entity = segments[4];
-  if (section === 'sessions' && !entity && url.searchParams.get('view') === 'empty') return;
+  if (section === 'conversations' && !entity && url.searchParams.get('view') === 'empty') return;
   if (segments.length > 5) return;
-  if (entity && section !== 'sessions') return;
+  if (entity && section !== 'conversations') return;
   const labels: Record<string, string> = {
     overview: 'Overview',
     files: 'Files',
-    sessions: 'All sessions',
+    conversations: 'All conversations',
     settings: 'Settings',
     'agent-connect': 'Agent connect',
   };
-  const kind = section === 'sessions' && entity ? 'chat' : 'page';
+  const kind = section === 'conversations' && entity ? 'chat' : 'page';
   const label = kind === 'chat' ? (entity === 'new' ? 'New chat' : 'Chat') : labels[section];
   if (!label) return;
-  const draft = section === 'sessions' && entity === 'new' ? url.searchParams.get('draft') : null;
+  const draft =
+    section === 'conversations' && entity === 'new' ? url.searchParams.get('draft') : null;
   return {
     id: `${section}:${entity || ''}${draft ? `:${draft}` : ''}`,
     kind,

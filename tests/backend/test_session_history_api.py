@@ -28,13 +28,13 @@ def test_legacy_history_is_accessible_without_enabling_execution(
 ) -> None:
     owner_id = UUID(client.get("/api/v1/account", headers=headers("owner")).json()["id"])
     provider_connection_id = UUID(str(create_connection(client, "owner")["id"]))
-    session_id, run_id = uuid4(), uuid4()
+    conversation_id, run_id = uuid4(), uuid4()
     app = cast(Any, client.app)
     with app.state.session_factory() as db:
         db.add(
             SqlConversation(
-                id=session_id,
-                root_id=session_id,
+                id=conversation_id,
+                root_id=conversation_id,
                 project_id=None,
                 created_by_user_id=owner_id,
                 title="Old investigation",
@@ -46,7 +46,7 @@ def test_legacy_history_is_accessible_without_enabling_execution(
         db.add(
             SqlLegacyConversationExecution(
                 id=run_id,
-                conversation_id=session_id,
+                conversation_id=conversation_id,
                 request_id=uuid4(),
                 sequence=1,
                 provider_connection_id=provider_connection_id,
@@ -62,7 +62,7 @@ def test_legacy_history_is_accessible_without_enabling_execution(
         )
         db.add(
             SqlConversationItem(
-                session_id=session_id,
+                conversation_id=conversation_id,
                 sequence=1,
                 role=AgentMessageRole.USER,
                 author_user_id=owner_id,
@@ -75,7 +75,7 @@ def test_legacy_history_is_accessible_without_enabling_execution(
         )
         db.add(
             SqlConversationItem(
-                session_id=session_id,
+                conversation_id=conversation_id,
                 sequence=2,
                 role=AgentMessageRole.SYSTEM,
                 content_md="",
@@ -87,7 +87,7 @@ def test_legacy_history_is_accessible_without_enabling_execution(
             )
         )
         db.commit()
-    root = f"/api/v1/sessions/{session_id}"
+    root = f"/api/v1/conversations/{conversation_id}"
     value = client.get(root, headers=headers("owner")).json()
     assert value["project_id"] is None and value["origin"] == "legacy_direct"
     assert value["configuration"] is None
@@ -105,9 +105,9 @@ def test_legacy_history_is_accessible_without_enabling_execution(
     )
     assert value["latest_execution"]["failure_code"] == expected_code
     listing = client.get(
-        "/api/v1/sessions", params={"origin": "legacy_direct"}, headers=headers("owner")
+        "/api/v1/conversations", params={"origin": "legacy_direct"}, headers=headers("owner")
     )
-    assert [entry["id"] for entry in listing.json()] == [str(session_id)]
+    assert [entry["id"] for entry in listing.json()] == [str(conversation_id)]
     items = client.get(root + "/items", headers=headers("owner")).json()["items"]
     assert items[0]["data"]["content_md"] == "Original private request"
     assert items[0]["status"] == "interrupted"
@@ -147,7 +147,7 @@ def test_legacy_history_is_accessible_without_enabling_execution(
         client.patch(
             root + "/sharing",
             headers=headers("owner"),
-            json={"mode": "project_readable"},
+            json={"mode": "members_can_view"},
         ).status_code
         == 409
     )
@@ -170,12 +170,12 @@ def test_children_are_independently_authorized_and_parentage_is_not_editable(
     project_id = str(create_project(client)["id"])
     add_member(client, project_id, "contributor", "EDITOR")
     root_id = UUID(str(create_session(client, project_id)["id"]))
-    root_path = f"/api/v1/sessions/{root_id}"
+    root_path = f"/api/v1/conversations/{root_id}"
     assert (
         client.patch(
             root_path + "/sharing",
             headers=headers("owner"),
-            json={"mode": "project_readable"},
+            json={"mode": "members_can_view"},
         ).status_code
         == 200
     )
@@ -187,7 +187,7 @@ def test_children_are_independently_authorized_and_parentage_is_not_editable(
         assert parent is not None
         for identity, sharing in (
             (hidden_id, ConversationSharing.PRIVATE),
-            (visible_id, ConversationSharing.PROJECT_READABLE),
+            (visible_id, ConversationSharing.MEMBERS_CAN_VIEW),
         ):
             transaction.conversations.create(
                 replace(
@@ -198,25 +198,27 @@ def test_children_are_independently_authorized_and_parentage_is_not_editable(
                 )
             )
         transaction.commit()
-    visible = client.get(root_path + "/child_sessions", headers=headers("contributor"))
+    visible = client.get(root_path + "/child_conversations", headers=headers("contributor"))
     assert visible.status_code == 200
     assert [value["id"] for value in visible.json()] == [str(visible_id)]
     assert "total" not in visible.headers and "count" not in visible.text
     assert (
-        client.get(f"/api/v1/sessions/{hidden_id}", headers=headers("contributor")).status_code
+        client.get(f"/api/v1/conversations/{hidden_id}", headers=headers("contributor")).status_code
         == 404
     )
-    owner = client.get(root_path + "/child_sessions", headers=headers("owner"))
+    owner = client.get(root_path + "/child_conversations", headers=headers("owner"))
     assert {value["id"] for value in owner.json()} == {str(hidden_id), str(visible_id)}
     assert (
         client.patch(
-            f"/api/v1/sessions/{hidden_id}",
+            f"/api/v1/conversations/{hidden_id}",
             headers=headers("owner"),
             json={"parent_id": str(visible_id)},
         ).status_code
         == 422
     )
     assert (
-        client.post(root_path + "/child_sessions", headers=headers("owner"), json={}).status_code
+        client.post(
+            root_path + "/child_conversations", headers=headers("owner"), json={}
+        ).status_code
         == 405
     )

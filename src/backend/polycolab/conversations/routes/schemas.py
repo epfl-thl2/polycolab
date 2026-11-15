@@ -1,4 +1,4 @@
-"""The unified session API: human inputs, saved items, and execution metadata."""
+"""The unified conversation API: human inputs, saved items, and execution metadata."""
 
 from datetime import datetime
 from typing import Annotated, Literal
@@ -17,7 +17,7 @@ from polycolab.entities.conversation import (
 from polycolab.entities.enums import AgentRunStatus, PlatformAgentKind, UsageSource
 
 
-class SessionCreate(RequestModel):
+class ConversationCreate(RequestModel):
     worktree_id: UUID | None = None
     project_id: UUID
     agent_kind: PlatformAgentKind
@@ -27,20 +27,20 @@ class SessionCreate(RequestModel):
     system_prompt: str | None = Field(default=None, min_length=1, max_length=10_000)
 
     @model_validator(mode="after")
-    def custom_configuration(self) -> SessionCreate:
+    def custom_configuration(self) -> ConversationCreate:
         if (self.harness is None) != (self.system_prompt is None):
-            raise ValueError("custom sessions require a harness and system prompt")
+            raise ValueError("custom conversations require a harness and system prompt")
         if self.system_prompt is not None and not self.system_prompt.strip():
             raise ValueError("system prompt must not be blank")
         return self
 
 
-class SessionPatch(RequestModel):
+class ConversationPatch(RequestModel):
     title: str | None = Field(default=None, max_length=300)
     archived: bool | None = None
 
     @model_validator(mode="after")
-    def has_changes(self) -> SessionPatch:
+    def has_changes(self) -> ConversationPatch:
         if not self.model_fields_set:
             raise ValueError("at least one metadata field is required")
         return self
@@ -55,7 +55,7 @@ class SharingPatch(RequestModel):
     mode: ConversationSharing
 
 
-class SessionMessage(RequestModel):
+class ConversationMessage(RequestModel):
     type: Literal["message"]
     client_request_id: UUID
     content_md: str = Field(min_length=1, max_length=200_000)
@@ -63,18 +63,20 @@ class SessionMessage(RequestModel):
     context_artifact_ids: list[UUID] = Field(default_factory=list, max_length=32)
 
     @model_validator(mode="after")
-    def distinct_context(self) -> SessionMessage:
+    def distinct_context(self) -> ConversationMessage:
         if len(set(self.context_artifact_ids)) != len(self.context_artifact_ids):
             raise ValueError("duplicate context artifacts")
         return self
 
 
-class SessionInterrupt(RequestModel):
+class ConversationInterrupt(RequestModel):
     type: Literal["interrupt"]
     run_id: UUID
 
 
-type SessionEvent = Annotated[SessionMessage | SessionInterrupt, Field(discriminator="type")]
+type ConversationEvent = Annotated[
+    ConversationMessage | ConversationInterrupt, Field(discriminator="type")
+]
 
 
 class RunResume(RequestModel):
@@ -139,14 +141,14 @@ class ExecutionSummaryRead(ApiModel):
     can_interrupt: bool
 
 
-class SessionCapabilities(ApiModel):
+class ConversationCapabilities(ApiModel):
     can_send: bool
     can_manage: bool
     can_share: bool
     can_stream: bool
 
 
-class SessionRead(ApiModel):
+class ConversationRead(ApiModel):
     id: UUID
     owner_id: UUID
     project_id: UUID | None
@@ -160,7 +162,7 @@ class SessionRead(ApiModel):
     created_at: datetime
     updated_at: datetime
     archived_at: datetime | None
-    capabilities: SessionCapabilities
+    capabilities: ConversationCapabilities
     latest_execution: ExecutionSummaryRead | None
     usage: UsageRead | None
 
@@ -216,7 +218,7 @@ class ErrorPayloadRead(ApiModel):
 
 class ItemRead(ApiModel):
     id: UUID
-    session_id: UUID
+    conversation_id: UUID
     sequence: int
     author: ItemAuthorRead
     execution_id: UUID | None
@@ -256,7 +258,7 @@ class ItemPage(ApiModel):
 
 
 class RunRead(ExecutionSummaryRead):
-    session_id: UUID
+    conversation_id: UUID
     project_id: UUID | None
     origin: ConversationOrigin
     client_request_id: UUID

@@ -203,7 +203,7 @@ async def run(config: ServiceConfig) -> None:
                         ),
                         "slot_states": runtime.states,
                         "incarnation": gateway.incarnation,
-                        "protocol_version": 6,
+                        "protocol_version": 7,
                         "sandbox_backend": runtime.backend,
                         "sandbox_version": runtime.version,
                     },

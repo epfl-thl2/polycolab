@@ -15,6 +15,7 @@ from starlette.concurrency import run_in_threadpool
 from polycolab.access.authorization import ProjectAction
 from polycolab.agents.access import _run_scope
 from polycolab.agents.context import manifest_artifacts, manifest_for_run
+from polycolab.agents.conversations import LeaseLost
 from polycolab.agents.exports import reserve_export, verify_export
 from polycolab.agents.routes.runtime import (
     LeaseRequest,
@@ -23,7 +24,6 @@ from polycolab.agents.routes.runtime import (
     _lease_or_conflict,
 )
 from polycolab.agents.runtime.artifacts import ExportDeclaration, UploadRequest
-from polycolab.agents.sessions import LeaseLost
 from polycolab.app.dependencies import CurrentUser, DbSession
 from polycolab.artifacts import service as artifacts
 from polycolab.artifacts.routes.private import artifact_storage, download

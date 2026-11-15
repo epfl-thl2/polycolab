@@ -94,7 +94,7 @@ test('linear coediting persists, reconnects, and restores across two real member
     );
 
     await page.goto(`/projects/${project.id}`);
-    await expect(page).toHaveURL(new RegExp(`/projects/${project.id}/sessions/new`));
+    await expect(page).toHaveURL(new RegExp(`/projects/${project.id}/conversations/new`));
     await expect(page.getByRole('tablist', { name: 'Project tabs' })).toHaveCount(0);
     const conversations = page.getByRole('complementary', { name: 'Conversations', exact: true });
     await expect(conversations.getByText('AI file results', { exact: false })).toHaveCount(0);

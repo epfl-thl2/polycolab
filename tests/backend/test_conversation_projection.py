@@ -7,8 +7,8 @@ from uuid import uuid4
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from polycolab.conversations.routes.presenters import item_read, session_read
-from polycolab.conversations.routes.schemas import SessionCapabilities, SessionEvent
+from polycolab.conversations.routes.presenters import conversation_read, item_read
+from polycolab.conversations.routes.schemas import ConversationCapabilities, ConversationEvent
 from polycolab.entities.conversation import (
     AgentAuthor,
     AgentConfiguration,
@@ -50,7 +50,7 @@ def test_public_transcript_retains_attribution_and_omits_sensitive_tool_content(
 
 
 def test_configuration_is_complete_and_private_prompt_only_reaches_owner() -> None:
-    session_id, owner_id, viewer_id = uuid4(), uuid4(), uuid4()
+    conversation_id, owner_id, viewer_id = uuid4(), uuid4(), uuid4()
     configuration = AgentConfiguration(
         agent_version_id=uuid4(),
         display_name="Pinned",
@@ -62,23 +62,23 @@ def test_configuration_is_complete_and_private_prompt_only_reaches_owner() -> No
         system_prompt_override="Private instructions",
     )
     value = Conversation(
-        id=session_id,
+        id=conversation_id,
         owner_id=owner_id,
         project_id=uuid4(),
         title=None,
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
-        hierarchy=ConversationHierarchy(root_id=session_id),
+        hierarchy=ConversationHierarchy(root_id=conversation_id),
         origin=ConversationOrigin.AGENT,
         configuration=configuration,
     )
-    capabilities = SessionCapabilities(
+    capabilities = ConversationCapabilities(
         can_send=False, can_manage=False, can_share=False, can_stream=True
     )
-    owner = session_read(
+    owner = conversation_read(
         value, viewer_id=owner_id, capabilities=capabilities, latest_execution=None
     )
-    reader = session_read(
+    reader = conversation_read(
         value, viewer_id=viewer_id, capabilities=capabilities, latest_execution=None
     )
     assert owner.configuration is not None and reader.configuration is not None
@@ -91,7 +91,7 @@ def test_configuration_is_complete_and_private_prompt_only_reaches_owner() -> No
 
 
 def test_human_event_schema_cannot_supply_runtime_outputs_or_authorship() -> None:
-    adapter: TypeAdapter[SessionEvent] = TypeAdapter(SessionEvent)
+    adapter: TypeAdapter[ConversationEvent] = TypeAdapter(ConversationEvent)
     message = {
         "type": "message",
         "client_request_id": str(uuid4()),

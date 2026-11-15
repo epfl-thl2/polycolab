@@ -52,14 +52,14 @@ test('revoked memberships block active-session SSE reconnect and cross-project s
       },
     },
   );
-  const session = await call<{ id: string }>(request, 'post', '/api/v1/sessions', {
+  const session = await call<{ id: string }>(request, 'post', '/api/v1/conversations', {
     token: 'contributor',
     data: { project_id: first.body.id, agent_kind: 'CRITIC' },
   });
   const queued = await call<{ run: { id: string } }>(
     request,
     'post',
-    `/api/v1/sessions/${session.body.id}/events`,
+    `/api/v1/conversations/${session.body.id}/events`,
     {
       token: 'contributor',
       data: {
@@ -77,17 +77,23 @@ test('revoked memberships block active-session SSE reconnect and cross-project s
     `/api/v1/projects/${first.body.id}/members/${contributor.body.id}`,
   );
   expect(removed.status).toBe(204);
-  const reconnect = await request.get(`${apiBaseUrl}/api/v1/sessions/${session.body.id}/stream`, {
-    headers: { ...headers('contributor'), 'Last-Event-ID': '1:1' },
-  });
+  const reconnect = await request.get(
+    `${apiBaseUrl}/api/v1/conversations/${session.body.id}/stream`,
+    {
+      headers: { ...headers('contributor'), 'Last-Event-ID': '1:1' },
+    },
+  );
   expect(reconnect.status()).toBe(404);
 
-  const ownerSession = await call<{ id: string }>(request, 'post', '/api/v1/sessions', {
+  const ownerSession = await call<{ id: string }>(request, 'post', '/api/v1/conversations', {
     data: { project_id: second.body.id, agent_kind: 'RESEARCHER' },
   });
-  const crossProject = await request.get(`${apiBaseUrl}/api/v1/sessions/${ownerSession.body.id}`, {
-    headers: headers('contributor'),
-  });
+  const crossProject = await request.get(
+    `${apiBaseUrl}/api/v1/conversations/${ownerSession.body.id}`,
+    {
+      headers: headers('contributor'),
+    },
+  );
   expect(crossProject.status()).toBe(404);
 });
 
@@ -110,13 +116,13 @@ test('provider faults finish as normalized failures without provider credential 
       },
     },
   );
-  const session = await call<{ id: string }>(request, 'post', '/api/v1/sessions', {
+  const session = await call<{ id: string }>(request, 'post', '/api/v1/conversations', {
     data: { project_id: project.body.id, agent_kind: 'CRITIC' },
   });
   const queued = await call<{ run: { id: string } }>(
     request,
     'post',
-    `/api/v1/sessions/${session.body.id}/events`,
+    `/api/v1/conversations/${session.body.id}/events`,
     {
       data: {
         type: 'message',

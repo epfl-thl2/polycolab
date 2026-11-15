@@ -1,1 +1,1 @@
-"""Persistent session application boundaries."""
+"""Persistent conversation application boundaries."""

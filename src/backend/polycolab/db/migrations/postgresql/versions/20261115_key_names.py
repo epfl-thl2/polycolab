@@ -1,7 +1,7 @@
 """Name key ownership and execution requesters without changing authority or bytes."""
 
 import sqlalchemy as sa
-from alembic import op
+from alembic import context, op
 
 revision = "20261115_key_names"
 down_revision = "20261104_provider_profiles"
@@ -25,6 +25,9 @@ def renamed(name: str) -> str:
 
 
 def upgrade() -> None:
+    if context.is_offline_mode():
+        op.execute("-- Terminology cutover requires an online upgrade for schema reflection.")
+        return
     op.rename_table("external_agent_credentials", "agent_api_keys")
     for old, new in (
         ("sponsor_user_id", "owner_user_id"),

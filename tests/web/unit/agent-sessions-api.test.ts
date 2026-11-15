@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createAgentSessionsApi } from '../../../src/web/src/lib/agent-sessions-api';
+import { createConversationsApi } from '../../../src/web/src/lib/conversations-api';
 
 const originalFetch = globalThis.fetch;
 afterEach(() => {
@@ -19,7 +19,7 @@ describe('agent sessions API adapter', () => {
       );
     });
     const token = 'new-token';
-    const api = createAgentSessionsApi({
+    const api = createConversationsApi({
       baseUrl: 'https://api.example.test',
       getAccessToken: () => token,
     });

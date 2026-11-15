@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete
 
 from polycolab.access.authorization import AuthorizationDenied, ProjectNotFound
-from polycolab.agents.sessions import create_agent_session
+from polycolab.agents.conversations import create_agent_conversation
 from polycolab.conversations.service import (
     ConversationStateError,
     children,
@@ -52,7 +52,7 @@ def setup(client: TestClient) -> tuple[Any, Any, Any, Any, Any]:
     ):
         db.add(SqlMembership(project_id=project.id, user_id=user.id, role=role))
     db.commit()
-    row = create_agent_session(
+    row = create_agent_conversation(
         db,
         project_id=project.id,
         created_by_user_id=owner.id,
@@ -70,11 +70,11 @@ def test_sharing_and_interrupt_authority_uses_sender_and_current_membership(
         for stranger in (contributor, reader, other_owner):
             with pytest.raises(ProjectNotFound):
                 require_read(transaction, row.id, stranger.id)
-        set_sharing(transaction, row.id, owner.id, ConversationSharing.PROJECT_READABLE)
+        set_sharing(transaction, row.id, owner.id, ConversationSharing.MEMBERS_CAN_VIEW)
         assert require_read(transaction, row.id, reader.id).owner_id == owner.id
         with pytest.raises(AuthorizationDenied):
             require_submit(transaction, row.id, contributor.id)
-        set_sharing(transaction, row.id, owner.id, ConversationSharing.PROJECT_CONTRIBUTABLE)
+        set_sharing(transaction, row.id, owner.id, ConversationSharing.MEMBERS_CAN_PARTICIPATE)
         assert require_submit(transaction, row.id, contributor.id).id == row.id
         with pytest.raises(AuthorizationDenied):
             require_submit(transaction, row.id, reader.id)
@@ -112,7 +112,7 @@ def test_child_relationships_and_transaction_materialization(
             SqlAlchemyTransaction(db),
             row.id,
             owner.id,
-            ConversationSharing.PROJECT_READABLE,
+            ConversationSharing.MEMBERS_CAN_VIEW,
         )
         child = replace(
             root,
@@ -170,7 +170,7 @@ def test_legacy_history_is_read_only_but_owner_can_change_metadata(
         with pytest.raises(ConversationStateError):
             require_submit(transaction, row.id, owner.id)
         with pytest.raises(ConversationStateError):
-            set_sharing(transaction, row.id, owner.id, ConversationSharing.PROJECT_READABLE)
+            set_sharing(transaction, row.id, owner.id, ConversationSharing.MEMBERS_CAN_VIEW)
         with pytest.raises(ValueError, match="only agent conversations"):
             transaction.conversations.append_item(
                 row.id,

@@ -22,6 +22,20 @@ existing memberships and invitations from `CONTRIBUTOR` and `READ_ONLY` while
 preserving their permissions. Clients must send the new values; the previous
 role names are rejected.
 
+Saved conversations now use `/api/v1/conversations`, `conversation_id`, and
+`child_conversations`. Repository bindings use `/repository/conversations`.
+Conversation sharing values are `private`, `members_can_view`, and
+`members_can_participate`. Database migrations preserve transcript/run IDs and
+runtime bindings while renaming their conversation references. Authentication
+sessions and harness runtime sessions remain separate concepts. Git branch names
+and immutable event payloads retain their original bytes.
+
+Deploy worker protocol 7 with this API. Drain work and stop writers before the
+cutover; older worker protocols cannot claim work. Browser locations use
+`/projects/{id}/conversations` and `/settings/conversation-history`. Superseded
+workspace, session, Connections, and provider-settings paths show not found;
+they do not redirect. Update bookmarks and API clients with the application.
+
 The account/worktree migrations retire external-agent identities, rename `project_tasks`
 to `worktrees`, and rename `gateway_profiles` to `provider_connections`. Existing key
 secrets and limits, provider credential envelopes, working-copy IDs, and Git branches

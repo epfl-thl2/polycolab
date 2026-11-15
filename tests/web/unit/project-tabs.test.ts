@@ -9,37 +9,44 @@ describe('project route tabs', () => {
       label: 'Overview',
       href: '/projects/project',
     });
-    expect(projectRouteTab('project', '/projects/project/sessions/saved')).toEqual({
-      id: 'sessions:saved',
+    expect(projectRouteTab('project', '/projects/project/conversations/saved')).toEqual({
+      id: 'conversations:saved',
       kind: 'chat',
       label: 'Chat',
-      href: '/projects/project/sessions/saved',
+      href: '/projects/project/conversations/saved',
     });
-    expect(projectRouteTab('project', '/projects/project/sessions/chat')).toEqual({
-      id: 'sessions:chat',
+    expect(projectRouteTab('project', '/projects/project/conversations/chat')).toEqual({
+      id: 'conversations:chat',
       kind: 'chat',
       label: 'Chat',
-      href: '/projects/project/sessions/chat',
+      href: '/projects/project/conversations/chat',
     });
-    expect(projectRouteTab('project', '/projects/project/sessions/new')?.label).toBe('New chat');
-    expect(projectRouteTab('project', '/projects/project/sessions')?.kind).toBe('page');
+    expect(projectRouteTab('project', '/projects/project/conversations/new')?.label).toBe(
+      'New chat',
+    );
+    expect(projectRouteTab('project', '/projects/project/conversations')?.kind).toBe('page');
   });
 
   it('preserves query parameters without changing identity', () => {
-    const first = projectRouteTab('project', '/projects/project/sessions?kind=THEOREM&q=a%20b');
-    const second = projectRouteTab('project', '/projects/project/sessions?kind=PROOF');
-    expect(first?.href).toBe('/projects/project/sessions?kind=THEOREM&q=a%20b');
+    const first = projectRouteTab(
+      'project',
+      '/projects/project/conversations?kind=THEOREM&q=a%20b',
+    );
+    const second = projectRouteTab('project', '/projects/project/conversations?kind=PROOF');
+    expect(first?.href).toBe('/projects/project/conversations?kind=THEOREM&q=a%20b');
     expect(first?.id).toBe(second?.id);
   });
 
   it('keeps new chat drafts distinct while existing sessions retain their identity', () => {
-    const first = projectRouteTab('project', '/projects/project/sessions/new?draft=first');
-    const second = projectRouteTab('project', '/projects/project/sessions/new?draft=second');
-    expect(first?.id).toBe('sessions:new:first');
-    expect(second?.id).toBe('sessions:new:second');
-    expect(projectRouteTab('project', '/projects/project/sessions/new')?.id).toBe('sessions:new');
-    expect(projectRouteTab('project', '/projects/project/sessions/chat?draft=first')?.id).toBe(
-      'sessions:chat',
+    const first = projectRouteTab('project', '/projects/project/conversations/new?draft=first');
+    const second = projectRouteTab('project', '/projects/project/conversations/new?draft=second');
+    expect(first?.id).toBe('conversations:new:first');
+    expect(second?.id).toBe('conversations:new:second');
+    expect(projectRouteTab('project', '/projects/project/conversations/new')?.id).toBe(
+      'conversations:new',
+    );
+    expect(projectRouteTab('project', '/projects/project/conversations/chat?draft=first')?.id).toBe(
+      'conversations:chat',
     );
     expect(restoreProjectTabs('project', JSON.stringify([first, second, first]))).toEqual([
       first,
@@ -49,15 +56,15 @@ describe('project route tabs', () => {
 
   it('rejects routes outside the current project and unknown sections', () => {
     for (const href of [
-      '/projects/other/sessions',
-      '/projects/other/sessions/chat',
-      '/sessions',
+      '/projects/other/conversations',
+      '/projects/other/conversations/chat',
+      '/conversations',
       '/projects/project/unknown',
       '/projects/project/chat',
-      'https://example.com/projects/project/sessions',
-      '//example.com/projects/project/sessions',
+      'https://example.com/projects/project/conversations',
+      '//example.com/projects/project/conversations',
       '/projects/project/overview/anything',
-      '/projects/project/sessions/chat/extra',
+      '/projects/project/conversations/chat/extra',
       '/projects/project/objects',
       'http://[',
     ])
@@ -77,15 +84,15 @@ describe('restored project tabs', () => {
           dirty: true,
         },
         { href: '/projects/project/overview?q=duplicate' },
-        { href: '/projects/other/sessions' },
-        { href: 'https://example.com/projects/project/sessions' },
+        { href: '/projects/other/conversations' },
+        { href: 'https://example.com/projects/project/conversations' },
         { href: '/projects/project/unknown' },
         { href: '/projects/project/chat' },
         { href: '/projects/project/overview/anything' },
-        { href: '/projects/project/sessions/chat/extra' },
+        { href: '/projects/project/conversations/chat/extra' },
         { href: 'http://[' },
         { href: '/projects/project/files' },
-        { href: '/projects/project/sessions/saved?revision=2' },
+        { href: '/projects/project/conversations/saved?revision=2' },
         null,
         {},
         { href: 1 },
@@ -93,10 +100,10 @@ describe('restored project tabs', () => {
     );
     expect(restored).toEqual([
       {
-        id: 'sessions:saved',
+        id: 'conversations:saved',
         kind: 'chat',
         label: 'Chat',
-        href: '/projects/project/sessions/saved?revision=2',
+        href: '/projects/project/conversations/saved?revision=2',
       },
     ]);
   });
@@ -109,25 +116,21 @@ describe('restored project tabs', () => {
   it('bounds restored entries to thirty', () => {
     const raw = JSON.stringify(
       Array.from({ length: 35 }, (_, index) => ({
-        href: `/projects/project/sessions/saved-${index}`,
+        href: `/projects/project/conversations/saved-${index}`,
       })),
     );
     expect(restoreProjectTabs('project', raw)).toHaveLength(30);
   });
 });
 
-it('restores old bookmarks as project tabs without changing identity or query and fragment', () => {
+it('does not restore tabs from retired workspace routes', () => {
   expect(
     restoreProjectTabs(
       'project',
-      JSON.stringify([{ href: '/workspaces/project/sessions/saved?revision=old#proof' }]),
+      JSON.stringify([
+        { href: '/workspaces/project/conversations/saved?revision=old#proof' },
+        { href: '/projects/project/sessions/saved' },
+      ]),
     ),
-  ).toEqual([
-    {
-      id: 'sessions:saved',
-      kind: 'chat',
-      label: 'Chat',
-      href: '/projects/project/sessions/saved?revision=old#proof',
-    },
-  ]);
+  ).toEqual([]);
 });

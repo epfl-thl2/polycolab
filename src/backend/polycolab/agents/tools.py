@@ -29,7 +29,7 @@ from polycolab.db.models import (
     SqlRunToolCapability,
 )
 from polycolab.db.transaction import SqlAlchemyTransaction
-from polycolab.entities.enums import AgentRunStatus, AgentSessionStatus
+from polycolab.entities.enums import AgentRunStatus, StoredConversationStatus
 from polycolab.entities.time import utc_now
 from polycolab.platform.config import Settings
 
@@ -107,11 +107,11 @@ def issue_tool_capability(
     lease_generation: int | None = None,
 ) -> str:
     lease_generation = run.lease_generation if lease_generation is None else lease_generation
-    parent = session.get(SqlConversation, run.session_id)
+    parent = session.get(SqlConversation, run.conversation_id)
     if ttl_seconds < 1 or ttl_seconds > 300:
         raise ToolCapabilityInvalid
     if (
-        run.session_id is None
+        run.conversation_id is None
         or parent is None
         or parent.project_id != run.project_id
         or parent.agent_version_id != run.agent_version_id
@@ -124,7 +124,9 @@ def issue_tool_capability(
         or run.lease_owner is None
         or run.lease_expires_at is None
         or _expired(run.lease_expires_at)
-        or not can_execute(SqlAlchemyTransaction(session), run.session_id, run.requested_by_user_id)
+        or not can_execute(
+            SqlAlchemyTransaction(session), run.conversation_id, run.requested_by_user_id
+        )
     ):
         raise ToolCapabilityInvalid
     for prior in session.scalars(
@@ -138,7 +140,7 @@ def issue_tool_capability(
         SqlRunToolCapability(
             token_digest=hashlib.sha256(token.encode()).hexdigest(),
             run_id=run.id,
-            session_id=run.session_id,
+            conversation_id=run.conversation_id,
             project_id=run.project_id,
             user_id=run.requested_by_user_id,
             agent_version_id=run.agent_version_id,
@@ -188,7 +190,7 @@ def authorize_tool(
     )
     parent = session.scalar(
         select(SqlConversation)
-        .where(SqlConversation.id == candidate.session_id)
+        .where(SqlConversation.id == candidate.conversation_id)
         .with_for_update()
         .execution_options(populate_existing=True)
     )
@@ -222,7 +224,7 @@ def authorize_tool(
         or parent is None
         or manifest is None
         or run.id != capability.run_id
-        or run.session_id != capability.session_id
+        or run.conversation_id != capability.conversation_id
         or run.project_id != capability.project_id
         or run.agent_version_id != capability.agent_version_id
         or run.requested_by_user_id != capability.user_id
@@ -233,7 +235,7 @@ def authorize_tool(
         or run.lease_owner is None
         or run.lease_expires_at is None
         or _expired(run.lease_expires_at)
-        or parent.status is not AgentSessionStatus.ACTIVE
+        or parent.status is not StoredConversationStatus.ACTIVE
         or manifest.run_id != run.id
         or manifest.project_id != run.project_id
         or manifest.requested_by_user_id != run.requested_by_user_id
@@ -244,7 +246,9 @@ def authorize_tool(
             user_id=run.requested_by_user_id,
             action=ProjectAction.RUN_AGENTS,
         )
-        or not can_execute(SqlAlchemyTransaction(session), run.session_id, run.requested_by_user_id)
+        or not can_execute(
+            SqlAlchemyTransaction(session), run.conversation_id, run.requested_by_user_id
+        )
     ):
         raise ToolCapabilityInvalid
     return capability, run, manifest

@@ -8,7 +8,10 @@
   import { goto } from '$app/navigation';
   import { projectContext, contextKey, explain } from '../../svelte-lib/context';
   import type { Project } from '../../lib/projects-api';
-  import { createProjectSessions, projectSessionItems } from '../../lib/session-queries';
+  import {
+    createProjectConversations,
+    projectConversationItems,
+  } from '../../lib/conversation-queries';
   import { createDefaultFilesApi, type DefaultFiles } from '../../lib/default-files-api';
   import { bytesToBase64 } from '../../lib/repository-api';
   import { projectRouteTab, type ProjectTab } from '../../lib/project-tabs';
@@ -30,8 +33,8 @@
   let workspace = $state<DefaultFiles>();
   let shell = $state<ChatWorkbenchShell>();
   let tabs = $state<ProjectTab[]>([]);
-  const chats = createProjectSessions(context.agents, () => project.id);
-  const sessions = $derived(projectSessionItems($chats.data));
+  const chats = createProjectConversations(context.agents, () => project.id);
+  const conversations = $derived(projectConversationItems($chats.data));
   const chatsLoaded = $derived(!$chats.isPending);
   const chatsError = $derived($chats.isError ? explain($chats.error) : '');
   const moreChats = $derived($chats.hasNextPage);
@@ -47,7 +50,7 @@
   const section = $derived(page.url.pathname.split('/')[3] || 'overview');
   const entity = $derived(page.url.pathname.split('/')[4]);
   $effect(() => {
-    if (['sessions', 'files', 'overview'].includes(section)) rightMode = 'file';
+    if (['conversations', 'files', 'overview'].includes(section)) rightMode = 'file';
   });
   let filePath = $state('');
   let fileEditor = $state<DefaultFileEditor>();
@@ -63,10 +66,14 @@
   );
   $effect(() => {
     const pathname = page.url.pathname;
-    if (pathname === `/projects/${project.id}` || pathname === `/projects/${project.id}/sessions`) {
+    if (
+      pathname === `/projects/${project.id}` ||
+      pathname === `/projects/${project.id}/conversations`
+    ) {
       void goto(
         untrack(
-          () => lastChatHref || `/projects/${project.id}/${canChat ? 'sessions/new' : 'overview'}`,
+          () =>
+            lastChatHref || `/projects/${project.id}/${canChat ? 'conversations/new' : 'overview'}`,
         ),
         { replaceState: true },
       );
@@ -77,7 +84,7 @@
       untrack(() => {
         if (name) openFile(name);
         void goto(
-          lastChatHref || `/projects/${project.id}/${canChat ? 'sessions/new' : 'overview'}`,
+          lastChatHref || `/projects/${project.id}/${canChat ? 'conversations/new' : 'overview'}`,
           { replaceState: true },
         );
       });
@@ -107,7 +114,7 @@
   }
 
   function newChat() {
-    navigate(`/projects/${project.id}/sessions/new?draft=${crypto.randomUUID()}`);
+    navigate(`/projects/${project.id}/conversations/new?draft=${crypto.randomUUID()}`);
   }
   function openFile(name: string) {
     rightMode = 'file';
@@ -149,7 +156,7 @@
   {activeId}
   {canChat}
   {draftChats}
-  {sessions}
+  {conversations}
   {chatsLoaded}
   {chatsError}
   {chatsLoading}
@@ -167,7 +174,7 @@
     bind:tabs
     {activeId}
     onCreated={(id) => {
-      navigate(`/projects/${project.id}/sessions/${id}`);
+      navigate(`/projects/${project.id}/conversations/${id}`);
     }}
   />
 

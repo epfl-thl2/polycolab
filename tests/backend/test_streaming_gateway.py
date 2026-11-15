@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from polycolab.agents.sessions import create_agent_session
+from polycolab.agents.conversations import create_agent_conversation
 from polycolab.db.models import (
     SqlAgentRun,
     SqlGatewayRunGrant,
@@ -85,7 +85,7 @@ def issue_grant(client: TestClient, provider_connection_id: UUID, run_id: UUID) 
                 SqlMembership(project_id=project.id, user_id=user_id, role=ProjectRole.OWNER)
             )
             session.commit()
-            conversation = create_agent_session(
+            conversation = create_agent_conversation(
                 session,
                 project_id=project.id,
                 created_by_user_id=user_id,
@@ -96,7 +96,7 @@ def issue_grant(client: TestClient, provider_connection_id: UUID, run_id: UUID) 
             session.add(
                 SqlAgentRun(
                     id=run_id,
-                    session_id=conversation.id,
+                    conversation_id=conversation.id,
                     project_id=project.id,
                     agent_version_id=conversation.agent_version_id,
                     requested_by_user_id=user_id,

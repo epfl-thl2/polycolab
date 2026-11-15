@@ -29,7 +29,7 @@ class Actor:
     agent_version_id: UUID | None = None
     run_id: UUID | None = None
     capability_id: UUID | None = None
-    session_id: UUID | None = None
+    conversation_id: UUID | None = None
     context_manifest_id: UUID | None = None
     project_id: UUID | None = None
     agent_api_key_id: UUID | None = None
@@ -44,7 +44,7 @@ class Actor:
                     self.agent_version_id,
                     self.run_id,
                     self.capability_id,
-                    self.session_id,
+                    self.conversation_id,
                     self.context_manifest_id,
                     self.project_id,
                     self.agent_api_key_id,
@@ -62,7 +62,7 @@ class Actor:
                 self.agent_version_id,
                 self.run_id,
                 self.capability_id,
-                self.session_id,
+                self.conversation_id,
                 self.context_manifest_id,
             )
         )

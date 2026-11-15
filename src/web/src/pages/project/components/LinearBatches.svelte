@@ -106,7 +106,9 @@
     if (!batch.run_id) return;
     const run = await agents.getRun(batch.run_id);
     // Opening a draft never queues or pays for a turn.
-    location.assign(`/projects/${projectId}/sessions/${run.session_id}?reconcile=${batch.id}`);
+    location.assign(
+      `/projects/${projectId}/conversations/${run.conversation_id}?reconcile=${batch.id}`,
+    );
   }
 </script>
 

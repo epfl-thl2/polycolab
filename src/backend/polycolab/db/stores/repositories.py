@@ -10,16 +10,16 @@ from polycolab.db.errors import persistence_boundary
 from polycolab.db.models import SqlAgentRun, SqlConversation
 from polycolab.db.models.repositories import (
     SqlProjectRepository,
+    SqlRepositoryConversation,
     SqlRepositoryMutation,
     SqlRepositoryRun,
-    SqlRepositorySession,
 )
 from polycolab.db.models.worktrees import SqlWorktree
 from polycolab.entities.repositories import (
+    RepositoryConversation,
     RepositoryError,
     RepositoryReceipt,
     RepositoryRun,
-    RepositorySession,
     Worktree,
 )
 from polycolab.entities.time import utc_now
@@ -158,15 +158,15 @@ class SqlRepositoryStore:
         )
 
     @persistence_boundary
-    def session_active(self, project_id: UUID, session_id: UUID) -> bool:
-        row = self.db.get(SqlConversation, session_id)
+    def conversation_active(self, project_id: UUID, conversation_id: UUID) -> bool:
+        row = self.db.get(SqlConversation, conversation_id)
         if row is None or row.project_id != project_id:
             raise RepositoryError("repository_branch_not_found", 404)
         return (
             self.db.scalar(
                 select(SqlAgentRun.id)
                 .where(
-                    SqlAgentRun.session_id == session_id,
+                    SqlAgentRun.conversation_id == conversation_id,
                     SqlAgentRun.status.in_(["QUEUED", "CLAIMED", "RUNNING", "CANCELLING"]),
                 )
                 .limit(1)
@@ -175,28 +175,28 @@ class SqlRepositoryStore:
         )
 
     @persistence_boundary
-    def session(self, project_id: UUID, session_id: UUID) -> RepositorySession:
-        row = self.db.get(SqlConversation, session_id)
+    def conversation(self, project_id: UUID, conversation_id: UUID) -> RepositoryConversation:
+        row = self.db.get(SqlConversation, conversation_id)
         if row is None or row.project_id != project_id:
-            raise RepositoryError("repository_session_not_found", 404)
-        return RepositorySession(
-            session_id,
+            raise RepositoryError("repository_conversation_not_found", 404)
+        return RepositoryConversation(
+            conversation_id,
             project_id,
             row.created_by_user_id,
             row.worktree_id is not None
-            or self.db.get(SqlRepositorySession, session_id) is not None,
-            self.session_active(project_id, session_id),
+            or self.db.get(SqlRepositoryConversation, conversation_id) is not None,
+            self.conversation_active(project_id, conversation_id),
             self.worktree(project_id, row.worktree_id).branch
             if row.worktree_id
-            else f"sessions/{session_id}",
+            else f"sessions/{conversation_id}",
         )
 
     @persistence_boundary
-    def enable_session(self, project_id: UUID, session_id: UUID, commit: str) -> None:
-        if self.db.get(SqlRepositorySession, session_id) is None:
+    def enable_conversation(self, project_id: UUID, conversation_id: UUID, commit: str) -> None:
+        if self.db.get(SqlRepositoryConversation, conversation_id) is None:
             self.db.add(
-                SqlRepositorySession(
-                    session_id=session_id, project_id=project_id, base_commit=commit
+                SqlRepositoryConversation(
+                    conversation_id=conversation_id, project_id=project_id, base_commit=commit
                 )
             )
             self.db.flush()
@@ -207,10 +207,10 @@ class SqlRepositoryStore:
         return (
             RepositoryRun(
                 row.run_id,
-                row.session_id,
+                row.conversation_id,
                 row.input_commit,
                 row.output_commit,
-                row.branch or f"sessions/{row.session_id}",
+                row.branch or f"sessions/{row.conversation_id}",
                 row.input_revision,
                 row.worktree_id,
             )
@@ -222,7 +222,7 @@ class SqlRepositoryStore:
     def pin_run(
         self,
         run_id: UUID,
-        session_id: UUID,
+        conversation_id: UUID,
         commit: str,
         branch: str,
         revision: str | None = None,
@@ -231,7 +231,7 @@ class SqlRepositoryStore:
         self.db.add(
             SqlRepositoryRun(
                 run_id=run_id,
-                session_id=session_id,
+                conversation_id=conversation_id,
                 input_commit=commit,
                 branch=branch,
                 input_revision=revision,
@@ -301,14 +301,14 @@ class SqlRepositoryStore:
         )
         if worktree is None:
             return (
-                self.session_active(project_id, UUID(branch[9:]))
+                self.conversation_active(project_id, UUID(branch[9:]))
                 if branch.startswith("sessions/")
                 else False
             )
         return (
             self.db.scalar(
                 select(SqlAgentRun.id)
-                .join(SqlConversation, SqlConversation.id == SqlAgentRun.session_id)
+                .join(SqlConversation, SqlConversation.id == SqlAgentRun.conversation_id)
                 .where(
                     SqlConversation.worktree_id == worktree.id,
                     SqlAgentRun.status.in_(["QUEUED", "CLAIMED", "RUNNING", "CANCELLING"]),

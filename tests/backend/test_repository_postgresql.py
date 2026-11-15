@@ -95,14 +95,14 @@ def test_worktrees_postgresql(
                 from threading import Barrier
                 from uuid import uuid4
 
-                from polycolab.agents.sessions import claim_next_run
+                from polycolab.agents.conversations import claim_next_run
 
                 task = tasks.create_task(pg_client, project_id)
                 profile = create_connection(pg_client, "owner")
                 for _ in range(2):
                     chat = tasks.task_chat(pg_client, project_id, task["id"])
                     response = pg_client.post(
-                        f"/api/v1/sessions/{chat['id']}/events",
+                        f"/api/v1/conversations/{chat['id']}/events",
                         headers=headers("owner"),
                         json={
                             "type": "message",

@@ -85,7 +85,7 @@ class RepositoryMergePreview(RepositoryModel):
     conflicts: list[RepositoryConflictFile]
 
 
-class RepositorySessionState(RepositoryModel):
+class RepositoryConversationState(RepositoryModel):
     enabled: bool
     branch: str | None = None
 

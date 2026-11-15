@@ -4,9 +4,9 @@ import ProjectTabStrip from '../../../src/web/src/pages/project/components/Proje
 import type { ProjectTab } from '../../../src/web/src/lib/project-tabs';
 afterEach(cleanup);
 const tabs: ProjectTab[] = [
-  { id: 'chat', kind: 'chat', label: 'New chat', href: '/sessions/new' },
+  { id: 'chat', kind: 'chat', label: 'New chat', href: '/conversations/new' },
   { id: 'file', kind: 'file', label: 'proof.lean', href: '/files', dirty: true },
-  { id: 'object', kind: 'page', label: 'Lemma', href: '/sessions/lemma' },
+  { id: 'object', kind: 'page', label: 'Lemma', href: '/conversations/lemma' },
 ];
 function setup() {
   const callbacks = { onselect: vi.fn(), onclose: vi.fn(), onreorder: vi.fn(), onnewchat: vi.fn() };

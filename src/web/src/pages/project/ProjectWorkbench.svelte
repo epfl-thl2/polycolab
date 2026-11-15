@@ -1,7 +1,7 @@
 <script lang="ts">
   import FeedbackToast from '../../ui/FeedbackToast.svelte';
   import { chatDrafts, ChatDrafts, chatDraftKey } from '../../lib/chat-drafts.svelte';
-  import { sessionTitles } from '../../lib/session-queries';
+  import { conversationTitles } from '../../lib/conversation-queries';
   import { canonicalUiLocation } from '../../lib/ui-location';
   import { SvelteMap } from 'svelte/reactivity';
   import { onMount, tick, untrack, type Snippet } from 'svelte';
@@ -31,16 +31,16 @@
   const { auth, capabilities, worktrees: worktreeApi, agents, query } = projectContext();
   const projectId = $derived(project.id);
   const chatDraftStore = chatDrafts() ?? new ChatDrafts();
-  const titles = sessionTitles(
+  const titles = conversationTitles(
     query,
     untrack(() => project.id),
   );
   function presentTab(tab: ProjectTab): ProjectTab {
     if (tab.kind !== 'chat') return tab;
-    const sessionId = new URL(tab.href, 'http://project.local').pathname.split('/')[4];
+    const conversationId = new URL(tab.href, 'http://project.local').pathname.split('/')[4];
     return {
       ...tab,
-      label: sessionId === 'new' ? 'New chat' : $titles[sessionId] || 'Chat',
+      label: conversationId === 'new' ? 'New chat' : $titles[conversationId] || 'Chat',
       dirty: chatDraftStore.isDirty(chatDraftKey(projectId, tab.href)),
     };
   }
@@ -93,7 +93,9 @@
   const entity = $derived(activeUrl.pathname.split('/')[4]);
   const showLayoutHeading = $derived(!['overview', 'agent-connect', 'settings'].includes(section));
   const projectLayout = $derived(['overview', 'settings', 'agent-connect'].includes(section));
-  const railSection = $derived(projectView ? 'sessions' : projectLayout ? 'overview' : section);
+  const railSection = $derived(
+    projectView ? 'conversations' : projectLayout ? 'overview' : section,
+  );
   const leftPanelTitle = $derived(projectView ? 'Worktrees' : layoutLabels[railSection]);
   const fileView = $derived(
     active?.kind === 'diff' ? (active.id === 'diff:merge' ? 'merge' : 'history') : 'file',
@@ -114,15 +116,15 @@
   }
   function navigateLayout(href: string) {
     agentsClosed = false;
-    if (href === `/projects/${projectId}/sessions`) href = active?.href || emptyProjectHref();
+    if (href === `/projects/${projectId}/conversations`) href = active?.href || emptyProjectHref();
     navigate(href);
   }
   function emptyProjectHref() {
-    return `/projects/${projectId}/sessions?view=empty&branch=${encodeURIComponent(workingBranch)}${selectedWorktree ? `&worktree=${encodeURIComponent(selectedWorktree.id)}` : ''}`;
+    return `/projects/${projectId}/conversations?view=empty&branch=${encodeURIComponent(workingBranch)}${selectedWorktree ? `&worktree=${encodeURIComponent(selectedWorktree.id)}` : ''}`;
   }
   function newChat(worktreeId: string | null = selectedWorktree?.id || null) {
     navigate(
-      `/projects/${projectId}/sessions/new?draft=${crypto.randomUUID()}${worktreeId ? `&worktree=${encodeURIComponent(worktreeId)}` : ''}`,
+      `/projects/${projectId}/conversations/new?draft=${crypto.randomUUID()}${worktreeId ? `&worktree=${encodeURIComponent(worktreeId)}` : ''}`,
     );
   }
   async function selectWorktree(worktree?: Worktree) {
@@ -201,8 +203,8 @@
       contextSwitching = false;
     }
   }
-  function openSession(id: string) {
-    const href = `/projects/${projectId}/sessions/${id}`;
+  function openConversation(id: string) {
+    const href = `/projects/${projectId}/conversations/${id}`;
     if (page.url.pathname + page.url.search === href) void applyRoute(href, filesEnabled);
     else navigate(href);
   }
@@ -247,7 +249,7 @@
       }
     ready = true;
     if (path === `/projects/${projectId}`) {
-      const href = `/projects/${projectId}/${canChat ? 'sessions/new' : 'overview'}`;
+      const href = `/projects/${projectId}/${canChat ? 'conversations/new' : 'overview'}`;
       addRoute(href);
       navigate(href, true);
     }
@@ -273,7 +275,7 @@
     try {
       if (url.pathname === `/projects/${projectId}`) return;
       const emptyView =
-        url.pathname === `/projects/${projectId}/sessions` &&
+        url.pathname === `/projects/${projectId}/conversations` &&
         url.searchParams.get('view') === 'empty';
       const routeTab = projectRouteTab(projectId, href);
       let targetBranch: string | undefined;
@@ -283,14 +285,14 @@
           ? (await readWorktree(worktreeId)).branch
           : url.searchParams.get('branch') || 'main';
       } else if (routeTab?.kind === 'chat') {
-        const sessionId = url.pathname.split('/')[4];
+        const conversationId = url.pathname.split('/')[4];
         const boundWorktreeId =
-          sessionId === 'new'
+          conversationId === 'new'
             ? url.searchParams.get('worktree')
             : (
                 await query.fetchQuery({
-                  queryKey: ['session', sessionId],
-                  queryFn: () => agents.getSession(sessionId),
+                  queryKey: ['conversation', conversationId],
+                  queryFn: () => agents.getConversation(conversationId),
                   staleTime: 5000,
                 })
               ).working_context.worktree_id;
@@ -357,7 +359,7 @@
       try {
         localStorage.setItem(storageKey, JSON.stringify(saved));
       } catch {
-        /* Keep the current session usable. */
+        /* Keep the current conversation usable. */
       }
   });
   function syncFiles(items: typeof fileItems, id: string) {
@@ -497,7 +499,7 @@
   }
   function created(oldId: string, id: string) {
     if (!tabs.some((tab) => tab.id === oldId)) {
-      const replacement = projectRouteTab(projectId, `/projects/${projectId}/sessions/${id}`);
+      const replacement = projectRouteTab(projectId, `/projects/${projectId}/conversations/${id}`);
       if (replacement)
         for (const [branch, saved] of branchTabs) {
           if (saved.tabs.some((tab) => tab.id === oldId))
@@ -509,7 +511,7 @@
       return;
     }
     tabs = tabs.filter((tab) => tab.id !== oldId);
-    navigate(`/projects/${projectId}/sessions/${id}`);
+    navigate(`/projects/${projectId}/conversations/${id}`);
   }
   function closeTab(id: string) {
     const tab = tabs.find((item) => item.id === id);
@@ -616,7 +618,7 @@
           <div class="conversation-panel" hidden={!projectView}>
             <ProjectWorktrees
               {projectId}
-              activeSessionId={section === 'sessions' ? entity : undefined}
+              activeConversationId={section === 'conversations' ? entity : undefined}
               canReadChats={Boolean(project.current_user_role)}
               {canChat}
               onNewChat={newWorktreeChat}
@@ -625,7 +627,7 @@
               canCreate={canWrite}
               onSelectWorktree={selectWorktree}
               onWorktreesChange={cacheWorktrees}
-              onOpenSession={openSession}
+              onOpenConversation={openConversation}
             />
           </div>
         {/if}
@@ -729,7 +731,7 @@
     {#if rightMode !== 'details'}{#if navigator}{@render navigator()}{:else}<p class="tool-empty">
           {filesEnabled ? 'Loading files…' : 'File storage is unavailable for this project.'}
         </p>{/if}
-    {:else if section === 'sessions'}<div data-chat-panel-host={placement}></div>
+    {:else if section === 'conversations'}<div data-chat-panel-host={placement}></div>
       {#if entity === 'new' || !entity}<p class="tool-empty">
           Start a conversation to see its agent run history.
         </p>{/if}

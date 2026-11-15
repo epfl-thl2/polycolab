@@ -16,12 +16,11 @@ from sqlalchemy.orm import Session
 
 from polycolab.accounts.authentication import AuthenticationRequired, bearer_token
 from polycolab.agents.context import ContextInvalid, manifest_for_run
-from polycolab.agents.runtime.errors import RuntimeApiConflict as RuntimeApiConflict
-from polycolab.agents.sessions import (
+from polycolab.agents.conversations import (
+    ConversationNotFound,
     ExecutionAuthorityLost,
     IdempotencyConflict,
     LeaseLost,
-    SessionNotFound,
     activate_runtime_session_binding,
     append_worker_event,
     claim_next_run,
@@ -32,6 +31,7 @@ from polycolab.agents.sessions import (
     requeue_expired_runs,
     start_claimed_run,
 )
+from polycolab.agents.runtime.errors import RuntimeApiConflict as RuntimeApiConflict
 from polycolab.agents.tools import ToolCapabilityInvalid, issue_tool_capability
 from polycolab.conversations.service import can_execute
 from polycolab.db.models import SqlAgentRun, SqlRuntimeSessionBinding
@@ -64,7 +64,7 @@ class RuntimeRequest(BaseModel):
     engine: Literal["builtin", "codex"] = "builtin"
     incarnation: str | None = Field(default=None, max_length=36)
     slot_id: int | None = Field(default=None, ge=0, le=63)
-    protocol_version: int = 6
+    protocol_version: int = 7
 
 
 class LeaseRequest(RuntimeRequest):
@@ -162,14 +162,14 @@ def _messages(session: Session, run: SqlAgentRun) -> list[dict[str, object]]:
 def _ensure_binding(session: Session, run: SqlAgentRun) -> None:
     binding = session.scalar(
         select(SqlRuntimeSessionBinding).where(
-            SqlRuntimeSessionBinding.session_id == run.session_id,
+            SqlRuntimeSessionBinding.conversation_id == run.conversation_id,
             SqlRuntimeSessionBinding.status == RuntimeBindingStatus.ACTIVE,
         )
     )
     if binding is None:
         binding = activate_runtime_session_binding(
             session,
-            session_id=run.session_id,
+            conversation_id=run.conversation_id,
             adapter_name="codex" if run.runtime_spec else "builtin",
         )
     from polycolab.db.models import SqlRuntimeRunBinding
@@ -203,7 +203,7 @@ def _finish_claim_failure(session: Session, run: SqlAgentRun, worker_id: str, co
 @router.post("/claims", response_model=None)
 def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str, object]:
     _authorize_worker(request)
-    if payload.engine == "codex" and payload.protocol_version != 6:
+    if payload.engine == "codex" and payload.protocol_version != 7:
         raise RuntimeApiConflict("executor_protocol_mismatch")
     settings = request.app.state.settings
     session = request.app.state.session_factory()
@@ -231,7 +231,7 @@ def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str
                 if (
                     executor is None
                     or payload.incarnation != executor.incarnation
-                    or payload.protocol_version != 6
+                    or payload.protocol_version != 7
                     or executor.sandbox_backend != settings.runtime_sandbox_backend
                     or executor.sandbox_version != settings.runtime_sandbox_version
                     or payload.slot_id is None
@@ -282,7 +282,7 @@ def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str
             )
             _ensure_binding(session, run)
             if not can_execute(
-                SqlAlchemyTransaction(session), run.session_id, run.requested_by_user_id
+                SqlAlchemyTransaction(session), run.conversation_id, run.requested_by_user_id
             ):
                 _finish_claim_failure(session, run, payload.worker_id, "authorization_revoked")
                 return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -294,7 +294,9 @@ def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str
             is_linear = project is not None and project.workspace_mode == "linear"
             repository_enabled = (
                 is_linear
-                or SqlRepositoryStore(session).session(run.project_id, run.session_id).enabled
+                or SqlRepositoryStore(session)
+                .conversation(run.project_id, run.conversation_id)
+                .enabled
             )
             if repository_enabled and (
                 settings.project_repository_directory is None or payload.engine != "codex"
@@ -341,7 +343,7 @@ def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str
                     else:
                         envelope["repository"] = repository_service(
                             request, session, run.project_id, run.requested_by_user_id
-                        ).pin_run(run.id, run.session_id)
+                        ).pin_run(run.id, run.conversation_id)
                 envelope["tools"] = definitions(session, run)
                 envelope["server_time"] = utc_now().isoformat()
                 from polycolab.agents.context import manifest_artifacts
@@ -359,7 +361,7 @@ def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str
                 return Response(status_code=status.HTTP_204_NO_CONTENT)
             metrics.increment("polycolab_runtime_claims_total", outcome="claimed")
             return response
-        except ContextInvalid, ToolCapabilityInvalid, SessionNotFound, RepositoryError:
+        except ContextInvalid, ToolCapabilityInvalid, ConversationNotFound, RepositoryError:
             session.rollback()
             _finish_claim_failure(session, run, payload.worker_id, "context_unavailable")
             metrics.increment("polycolab_runtime_claims_total", outcome="context_unavailable")
@@ -423,7 +425,7 @@ def heartbeat(run_id: UUID, payload: LeaseRequest, request: Request) -> dict[str
             session, run_id, payload, request.app.state.settings.runtime_lease_seconds
         )
         if not can_execute(
-            SqlAlchemyTransaction(session), run.session_id, run.requested_by_user_id
+            SqlAlchemyTransaction(session), run.conversation_id, run.requested_by_user_id
         ):
             raise RuntimeApiConflict("authorization_revoked")
         deadline = run.deadline_at
@@ -453,7 +455,7 @@ def issue_model_grant(run_id: UUID, payload: LeaseRequest, request: Request) -> 
     try:
         run = _lease_or_conflict(session, run_id, payload, settings.runtime_lease_seconds)
         if run.status is not AgentRunStatus.RUNNING or not can_execute(
-            SqlAlchemyTransaction(session), run.session_id, run.requested_by_user_id
+            SqlAlchemyTransaction(session), run.conversation_id, run.requested_by_user_id
         ):
             raise RuntimeApiConflict("authorization_revoked")
         try:
