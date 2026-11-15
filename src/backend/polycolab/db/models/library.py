@@ -20,11 +20,11 @@ from polycolab.db.base import Base
 from polycolab.entities.time import utc_now
 
 
-class SqlAgentLibraryEntry(Base):
-    __tablename__ = "agent_library_entries"
+class SqlLibraryItem(Base):
+    __tablename__ = "library_items"
     __table_args__ = (
-        CheckConstraint("kind IN ('PROMPT','SKILL','PLUGIN')", name="ck_agent_library_kind"),
-        CheckConstraint("revision > 0", name="ck_agent_library_revision"),
+        CheckConstraint("kind IN ('PROMPT','SKILL','PLUGIN')", name="ck_library_kind"),
+        CheckConstraint("revision > 0", name="ck_library_revision"),
     )
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
     owner_user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
@@ -32,19 +32,19 @@ class SqlAgentLibraryEntry(Base):
     revision: Mapped[int] = mapped_column(Integer, default=1)
     published_version_id: Mapped[UUID | None] = mapped_column(
         ForeignKey(
-            "agent_library_versions.id",
+            "library_versions.id",
             use_alter=True,
             ondelete="SET NULL",
-            name="fk_agent_library_published",
+            name="fk_library_published",
         ),
         nullable=True,
     )
     source_version_id: Mapped[UUID | None] = mapped_column(
         ForeignKey(
-            "agent_library_versions.id",
+            "library_versions.id",
             use_alter=True,
             ondelete="SET NULL",
-            name="fk_agent_library_source",
+            name="fk_library_source",
         ),
         nullable=True,
     )
@@ -53,17 +53,17 @@ class SqlAgentLibraryEntry(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
-class SqlAgentLibraryDraft(Base):
-    __tablename__ = "agent_library_drafts"
-    entry_id: Mapped[UUID] = mapped_column(ForeignKey("agent_library_entries.id"), primary_key=True)
+class SqlLibraryDraft(Base):
+    __tablename__ = "library_drafts"
+    item_id: Mapped[UUID] = mapped_column(ForeignKey("library_items.id"), primary_key=True)
     content: Mapped[dict[str, object]] = mapped_column(JSON)
 
 
-class SqlAgentLibraryVersion(Base):
-    __tablename__ = "agent_library_versions"
-    __table_args__ = (UniqueConstraint("entry_id", "number", name="uq_agent_library_version"),)
+class SqlLibraryVersion(Base):
+    __tablename__ = "library_versions"
+    __table_args__ = (UniqueConstraint("item_id", "number", name="uq_library_version"),)
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
-    entry_id: Mapped[UUID] = mapped_column(ForeignKey("agent_library_entries.id"), index=True)
+    item_id: Mapped[UUID] = mapped_column(ForeignKey("library_items.id"), index=True)
     number: Mapped[int] = mapped_column(Integer)
     content: Mapped[dict[str, object]] = mapped_column(JSON)
     author_user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
@@ -71,10 +71,10 @@ class SqlAgentLibraryVersion(Base):
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
-class SqlAgentLibraryModeration(Base):
-    __tablename__ = "agent_library_moderation"
+class SqlLibraryModeration(Base):
+    __tablename__ = "library_moderation"
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid7)
-    entry_id: Mapped[UUID] = mapped_column(ForeignKey("agent_library_entries.id"), index=True)
+    item_id: Mapped[UUID] = mapped_column(ForeignKey("library_items.id"), index=True)
     actor_user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
     hidden: Mapped[bool] = mapped_column(Boolean)
     reason: Mapped[str] = mapped_column(Text)

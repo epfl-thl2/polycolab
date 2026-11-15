@@ -87,7 +87,7 @@
             aria-hidden="true"
           />{:else if href === '/projects'}<FolderOpen
             aria-hidden="true"
-          />{:else if href === '/agents'}<Bot
+          />{:else if href === '/library'}<Bot
             aria-hidden="true"
           />{:else if href === '/settings/security'}<LockKeyhole
             aria-hidden="true"

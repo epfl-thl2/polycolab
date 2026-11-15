@@ -3,10 +3,10 @@
 from datetime import UTC, datetime
 from typing import cast
 
-from polycolab.db.models.agent_library import SqlAgentLibraryEntry, SqlAgentLibraryVersion
-from polycolab.entities.agent_library import (
+from polycolab.db.models.library import SqlLibraryItem, SqlLibraryVersion
+from polycolab.entities.library import (
     LibraryContent,
-    LibraryEntry,
+    LibraryItem,
     LibraryKind,
     LibraryVersion,
 )
@@ -30,8 +30,8 @@ def aware(value: datetime) -> datetime:
     return value if value.tzinfo else value.replace(tzinfo=UTC)
 
 
-def entry_entity(row: SqlAgentLibraryEntry) -> LibraryEntry:
-    return LibraryEntry(
+def item_entity(row: SqlLibraryItem) -> LibraryItem:
+    return LibraryItem(
         row.id,
         row.owner_user_id,
         cast(LibraryKind, row.kind),
@@ -44,10 +44,10 @@ def entry_entity(row: SqlAgentLibraryEntry) -> LibraryEntry:
     )
 
 
-def version_entity(row: SqlAgentLibraryVersion) -> LibraryVersion:
+def version_entity(row: SqlLibraryVersion) -> LibraryVersion:
     return LibraryVersion(
         row.id,
-        row.entry_id,
+        row.item_id,
         row.number,
         content_entity(row.content),
         row.author_user_id,

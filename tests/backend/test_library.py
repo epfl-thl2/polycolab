@@ -29,7 +29,7 @@ def create(
     client: TestClient, kind: str = "PROMPT", data: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     response = client.post(
-        "/api/v1/agent-library",
+        "/api/v1/library",
         json={"kind": kind, "content": data or content()},
         headers=headers(),
     )
@@ -39,10 +39,10 @@ def create(
 
 def test_private_public_versions_and_copy(client: TestClient) -> None:
     draft = create(client)
-    entry_id = draft["entry"]["id"]
-    base = f"/api/v1/agent-library/{entry_id}"
+    item_id = draft["item"]["id"]
+    base = f"/api/v1/library/{item_id}"
     assert client.get(base).status_code == 404
-    assert client.get("/api/v1/agent-library").json()["items"] == []
+    assert client.get("/api/v1/library").json()["items"] == []
     assert client.get(base + "/draft").status_code == 401
     assert client.get(base + "/draft", headers=headers("reader")).status_code == 404
     assert (
@@ -72,8 +72,8 @@ def test_private_public_versions_and_copy(client: TestClient) -> None:
     copied = client.post(
         base + "/copy", json={"version_id": version["id"]}, headers=headers("reader")
     ).json()
-    assert copied["entry"]["source_version_id"] == version["id"]
-    assert client.get(f"/api/v1/agent-library/{copied['entry']['id']}").status_code == 404
+    assert copied["item"]["source_version_id"] == version["id"]
+    assert client.get(f"/api/v1/library/{copied['item']['id']}").status_code == 404
     update = client.put(
         base + "/draft",
         json={"expected_revision": 2, "content": content("PRIVATE NEW DRAFT")},
@@ -81,22 +81,19 @@ def test_private_public_versions_and_copy(client: TestClient) -> None:
     )
     assert update.status_code == 200, update.text
     assert "PRIVATE NEW DRAFT" not in client.get(base).text
-    assert client.get("/api/v1/agent-library?q=PRIVATE").json()["items"] == []
+    assert client.get("/api/v1/library?q=PRIVATE").json()["items"] == []
     next_version = client.post(
         base + "/publish", json={"expected_revision": 3}, headers=headers()
     ).json()
     assert next_version["number"] == 2
     assert client.get(base + f"/versions/{version['id']}").json()["version"] == version
     assert client.get(base + "/versions").json()["items"][0]["number"] == 2
-    assert (
-        len(client.get("/api/v1/agent-library/yours", headers=headers("reader")).json()["items"])
-        == 1
-    )
+    assert len(client.get("/api/v1/library/mine", headers=headers("reader")).json()["items"]) == 1
 
 
 def test_archive_and_moderation_cover_every_public_path(client: TestClient) -> None:
     draft = create(client)
-    base = f"/api/v1/agent-library/{draft['entry']['id']}"
+    base = f"/api/v1/library/{draft['item']['id']}"
     version = client.post(
         base + "/publish", json={"expected_revision": 1}, headers=headers()
     ).json()
@@ -106,7 +103,7 @@ def test_archive_and_moderation_cover_every_public_path(client: TestClient) -> N
         headers=headers(),
     )
     assert archived.status_code == 200
-    assert client.get("/api/v1/agent-library").json()["items"] == []
+    assert client.get("/api/v1/library").json()["items"] == []
     assert client.get(base).status_code == 200
     assert (
         client.post(
@@ -116,7 +113,7 @@ def test_archive_and_moderation_cover_every_public_path(client: TestClient) -> N
         ).status_code
         == 409
     )
-    cast(FastAPI, client.app).state.settings.agent_library_moderator_subjects = ["contributor"]
+    cast(FastAPI, client.app).state.settings.library_moderator_subjects = ["contributor"]
     body = {"expected_revision": 3, "hidden": True, "reason": "Unsafe instructions"}
     assert client.post(base + "/moderation", json=body, headers=headers()).status_code == 403
     assert (
@@ -160,7 +157,7 @@ def test_archive_and_moderation_cover_every_public_path(client: TestClient) -> N
 def test_skill_plugin_validation_and_download(client: TestClient) -> None:
     skill = "---\nname: proof-review\ndescription: Inspect a proof\n---\n\nCheck assumptions.\n"
     draft = create(client, "SKILL", content(skill))
-    base = f"/api/v1/agent-library/{draft['entry']['id']}"
+    base = f"/api/v1/library/{draft['item']['id']}"
     version = client.post(
         base + "/publish", json={"expected_revision": 1}, headers=headers()
     ).json()
@@ -174,7 +171,7 @@ def test_skill_plugin_validation_and_download(client: TestClient) -> None:
     ):
         assert (
             client.post(
-                "/api/v1/agent-library",
+                "/api/v1/library",
                 json={"kind": "SKILL", "content": content(invalid)},
                 headers=headers(),
             ).status_code
@@ -188,7 +185,7 @@ def test_skill_plugin_validation_and_download(client: TestClient) -> None:
         "instructions": "Follow the upstream guide.",
         "source_reference": "v1",
     }
-    assert create(client, "PLUGIN", plugin)["entry"]["kind"] == "PLUGIN"
+    assert create(client, "PLUGIN", plugin)["item"]["kind"] == "PLUGIN"
     for url in (
         "javascript:alert(1)",
         "https://user:secret@example.com",
@@ -196,7 +193,7 @@ def test_skill_plugin_validation_and_download(client: TestClient) -> None:
     ):
         assert (
             client.post(
-                "/api/v1/agent-library",
+                "/api/v1/library",
                 json={"kind": "PLUGIN", "content": {**plugin, "source_url": url}},
                 headers=headers(),
             ).status_code
@@ -205,7 +202,7 @@ def test_skill_plugin_validation_and_download(client: TestClient) -> None:
     no_license = create(client, data={**content(), "license": ""})
     assert (
         client.post(
-            f"/api/v1/agent-library/{no_license['entry']['id']}/publish",
+            f"/api/v1/library/{no_license['item']['id']}/publish",
             json={"expected_revision": 1},
             headers=headers(),
         ).status_code
@@ -216,11 +213,11 @@ def test_skill_plugin_validation_and_download(client: TestClient) -> None:
 def test_filter_pagination_and_retry_conflicts(client: TestClient) -> None:
     key = headers()
     body = {"kind": "PROMPT", "content": content()}
-    first = client.post("/api/v1/agent-library", json=body, headers=key).json()
-    assert client.post("/api/v1/agent-library", json=body, headers=key).json() == first
+    first = client.post("/api/v1/library", json=body, headers=key).json()
+    assert client.post("/api/v1/library", json=body, headers=key).json() == first
     assert (
         client.post(
-            "/api/v1/agent-library",
+            "/api/v1/library",
             json={**body, "content": content("different")},
             headers=key,
         ).status_code
@@ -229,26 +226,26 @@ def test_filter_pagination_and_retry_conflicts(client: TestClient) -> None:
     second = create(client)
     for draft in (first, second):
         client.post(
-            f"/api/v1/agent-library/{draft['entry']['id']}/publish",
+            f"/api/v1/library/{draft['item']['id']}/publish",
             json={"expected_revision": 1},
             headers=headers(),
         )
-    page = client.get("/api/v1/agent-library?limit=1&tag=proof").json()
+    page = client.get("/api/v1/library?limit=1&tag=proof").json()
     assert len(page["items"]) == 1 and page["next_cursor"]
     next_page = client.get(
-        "/api/v1/agent-library",
+        "/api/v1/library",
         params={"limit": 1, "tag": "proof", "cursor": page["next_cursor"]},
     ).json()
     assert next_page["items"][0]["id"] != page["items"][0]["id"]
     assert (
         client.get(
-            "/api/v1/agent-library",
+            "/api/v1/library",
             params={"cursor": page["next_cursor"], "tag": "other"},
         ).status_code
         == 422
     )
-    assert client.get("/api/v1/agent-library?q=%25").json()["items"] == []
-    assert client.get("/api/v1/agent-library?kind=SKILL").json()["items"] == []
+    assert client.get("/api/v1/library?q=%25").json()["items"] == []
+    assert client.get("/api/v1/library?kind=SKILL").json()["items"] == []
 
 
 def test_agent_keys_cannot_contribute_and_cross_entry_versions_are_denied(
@@ -263,7 +260,7 @@ def test_agent_keys_cannot_contribute_and_cross_entry_versions_are_denied(
     secret = credential.json()["secret"]
     assert (
         client.post(
-            "/api/v1/agent-library",
+            "/api/v1/library",
             json={"kind": "PROMPT", "content": content()},
             headers={
                 "Authorization": f"Bearer {secret}",
@@ -274,25 +271,24 @@ def test_agent_keys_cannot_contribute_and_cross_entry_versions_are_denied(
     )
     first = create(client)
     second = create(client)
-    first_id = first["entry"]["id"]
-    second_id = second["entry"]["id"]
+    first_id = first["item"]["id"]
+    second_id = second["item"]["id"]
     first_version = client.post(
-        f"/api/v1/agent-library/{first_id}/publish",
+        f"/api/v1/library/{first_id}/publish",
         json={"expected_revision": 1},
         headers=headers(),
     ).json()
     client.post(
-        f"/api/v1/agent-library/{second_id}/publish",
+        f"/api/v1/library/{second_id}/publish",
         json={"expected_revision": 1},
         headers=headers(),
     )
     assert (
-        client.get(f"/api/v1/agent-library/{second_id}/versions/{first_version['id']}").status_code
-        == 404
+        client.get(f"/api/v1/library/{second_id}/versions/{first_version['id']}").status_code == 404
     )
     assert (
         client.post(
-            f"/api/v1/agent-library/{second_id}/copy",
+            f"/api/v1/library/{second_id}/copy",
             json={"version_id": first_version["id"]},
             headers=headers("reader"),
         ).status_code
@@ -302,21 +298,21 @@ def test_agent_keys_cannot_contribute_and_cross_entry_versions_are_denied(
 
 def test_unicode_and_quoted_tags_are_searchable(client: TestClient) -> None:
     draft = create(client, data={**content(), "tags": ["géométrie", 'quote"tag']})
-    base = f"/api/v1/agent-library/{draft['entry']['id']}"
+    base = f"/api/v1/library/{draft['item']['id']}"
     assert (
         client.post(base + "/publish", json={"expected_revision": 1}, headers=headers()).status_code
         == 200
     )
     for params in ({"q": "géométrie"}, {"tag": "géométrie"}, {"tag": 'quote"tag'}):
-        items = client.get("/api/v1/agent-library", params=params).json()["items"]
-        assert len(items) == 1 and items[0]["id"] == draft["entry"]["id"]
+        items = client.get("/api/v1/library", params=params).json()["items"]
+        assert len(items) == 1 and items[0]["id"] == draft["item"]["id"]
 
 
 def test_library_does_not_require_hosted_execution(client: TestClient) -> None:
     cast(FastAPI, client.app).state.settings.feature_agent_execution_enabled = False
     assert client.get("/api/v1/config").json()["agent_execution"] is False
     draft = create(client)
-    base = f"/api/v1/agent-library/{draft['entry']['id']}"
+    base = f"/api/v1/library/{draft['item']['id']}"
     assert (
         client.post(base + "/publish", json={"expected_revision": 1}, headers=headers()).status_code
         == 200
@@ -332,9 +328,9 @@ def test_migrated_sqlite_protects_public_history(
 
     from polycolab.app.application import create_app
     from polycolab.db.models import (
-        SqlAgentLibraryEntry,
-        SqlAgentLibraryModeration,
-        SqlAgentLibraryVersion,
+        SqlLibraryItem,
+        SqlLibraryModeration,
+        SqlLibraryVersion,
     )
     from polycolab.operations.local_development import upgrade_database
     from polycolab.platform.config import Settings
@@ -345,15 +341,15 @@ def test_migrated_sqlite_protects_public_history(
         Settings(
             database_url=f"sqlite:///{database}",
             web_dist_dir=str(tmp_path / "missing-web"),
-            agent_library_moderator_subjects=["owner"],
+            library_moderator_subjects=["owner"],
         ),
         identity_verifier,
     )
     try:
         with TestClient(app) as real_client:
             draft = create(real_client)
-            entry_id = UUID(draft["entry"]["id"])
-            base = f"/api/v1/agent-library/{entry_id}"
+            item_id = UUID(draft["item"]["id"])
+            base = f"/api/v1/library/{item_id}"
             version = real_client.post(
                 base + "/publish", json={"expected_revision": 1}, headers=headers()
             ).json()
@@ -370,14 +366,12 @@ def test_migrated_sqlite_protects_public_history(
                 == 200
             )
         statements = (
-            update(SqlAgentLibraryVersion)
-            .where(SqlAgentLibraryVersion.id == UUID(version["id"]))
-            .values(content=SqlAgentLibraryVersion.content),
-            update(SqlAgentLibraryEntry)
-            .where(SqlAgentLibraryEntry.id == entry_id)
-            .values(kind="PLUGIN"),
-            update(SqlAgentLibraryModeration)
-            .where(SqlAgentLibraryModeration.entry_id == entry_id)
+            update(SqlLibraryVersion)
+            .where(SqlLibraryVersion.id == UUID(version["id"]))
+            .values(content=SqlLibraryVersion.content),
+            update(SqlLibraryItem).where(SqlLibraryItem.id == item_id).values(kind="PLUGIN"),
+            update(SqlLibraryModeration)
+            .where(SqlLibraryModeration.item_id == item_id)
             .values(reason="Changed history"),
         )
         for statement in statements:
@@ -399,7 +393,7 @@ def test_kind_specific_fields_cannot_hide_content_from_publication_preview(
     }
     assert (
         client.post(
-            "/api/v1/agent-library",
+            "/api/v1/library",
             json={"kind": "PLUGIN", "content": plugin},
             headers=headers(),
         ).status_code
@@ -407,7 +401,7 @@ def test_kind_specific_fields_cannot_hide_content_from_publication_preview(
     )
     assert (
         client.post(
-            "/api/v1/agent-library",
+            "/api/v1/library",
             json={
                 "kind": "PROMPT",
                 "content": {**content(), "runtime": "Hidden runtime"},

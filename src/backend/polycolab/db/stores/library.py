@@ -7,17 +7,17 @@ from sqlalchemy import exists, func, select
 from sqlalchemy.orm import InstrumentedAttribute, Session
 from sqlalchemy.sql.elements import ColumnElement
 
-from polycolab.db.converters.agent_library import content_entity, entry_entity, version_entity
+from polycolab.db.converters.library import content_entity, item_entity, version_entity
 from polycolab.db.errors import persistence_boundary
-from polycolab.db.models.agent_library import (
-    SqlAgentLibraryDraft,
-    SqlAgentLibraryEntry,
-    SqlAgentLibraryModeration,
-    SqlAgentLibraryVersion,
+from polycolab.db.models.library import (
+    SqlLibraryDraft,
+    SqlLibraryItem,
+    SqlLibraryModeration,
+    SqlLibraryVersion,
 )
-from polycolab.entities.agent_library import (
+from polycolab.entities.library import (
     LibraryContent,
-    LibraryEntry,
+    LibraryItem,
     LibraryKind,
     LibraryOwned,
     LibraryVersion,
@@ -25,27 +25,27 @@ from polycolab.entities.agent_library import (
 from polycolab.platform import mutation_keys
 
 
-class SqlAgentLibraryStore:
+class SqlLibraryStore:
     def __init__(self, session: Session) -> None:
         self.session = session
 
     @persistence_boundary
-    def entry(self, entry_id: UUID, *, lock: bool = False) -> LibraryEntry | None:
-        query = select(SqlAgentLibraryEntry).where(SqlAgentLibraryEntry.id == entry_id)
+    def item(self, item_id: UUID, *, lock: bool = False) -> LibraryItem | None:
+        query = select(SqlLibraryItem).where(SqlLibraryItem.id == item_id)
         if lock:
             query = query.with_for_update().execution_options(populate_existing=True)
         row = self.session.scalar(query)
-        return entry_entity(row) if row else None
+        return item_entity(row) if row else None
 
     @persistence_boundary
-    def draft(self, entry_id: UUID) -> LibraryContent:
-        row = self.session.get(SqlAgentLibraryDraft, entry_id)
+    def draft(self, item_id: UUID) -> LibraryContent:
+        row = self.session.get(SqlLibraryDraft, item_id)
         assert row is not None
         return content_entity(row.content)
 
     @persistence_boundary
     def version(self, version_id: UUID) -> LibraryVersion | None:
-        row = self.session.get(SqlAgentLibraryVersion, version_id)
+        row = self.session.get(SqlLibraryVersion, version_id)
         return version_entity(row) if row else None
 
     def _filters(
@@ -58,7 +58,7 @@ class SqlAgentLibraryStore:
         # JSON content is searched without loading private drafts into public projections.
         conditions: list[ColumnElement[bool]] = []
         if kind:
-            conditions.append(SqlAgentLibraryEntry.kind == kind)
+            conditions.append(SqlLibraryItem.kind == kind)
         if self.session.get_bind().dialect.name == "postgresql":
             tags = (
                 func.json_array_elements_text(column["tags"]).table_valued("value").render_derived()
@@ -81,32 +81,30 @@ class SqlAgentLibraryStore:
         return conditions
 
     @persistence_boundary
-    def public_entries(
+    def public_items(
         self, *, kind: LibraryKind | None, q: str, tag: str, after: UUID | None, limit: int
-    ) -> list[LibraryEntry]:
+    ) -> list[LibraryItem]:
         query = (
-            select(SqlAgentLibraryEntry)
+            select(SqlLibraryItem)
             .join(
-                SqlAgentLibraryVersion,
-                SqlAgentLibraryEntry.published_version_id == SqlAgentLibraryVersion.id,
+                SqlLibraryVersion,
+                SqlLibraryItem.published_version_id == SqlLibraryVersion.id,
             )
             .where(
-                ~SqlAgentLibraryEntry.hidden,
-                ~SqlAgentLibraryEntry.archived,
-                *self._filters(kind, q, tag, SqlAgentLibraryVersion.content),
+                ~SqlLibraryItem.hidden,
+                ~SqlLibraryItem.archived,
+                *self._filters(kind, q, tag, SqlLibraryVersion.content),
             )
         )
         if after:
-            query = query.where(SqlAgentLibraryEntry.id < after)
+            query = query.where(SqlLibraryItem.id < after)
         return [
-            entry_entity(row)
-            for row in self.session.scalars(
-                query.order_by(SqlAgentLibraryEntry.id.desc()).limit(limit)
-            )
+            item_entity(row)
+            for row in self.session.scalars(query.order_by(SqlLibraryItem.id.desc()).limit(limit))
         ]
 
     @persistence_boundary
-    def owned_entries(
+    def owned_items(
         self,
         owner_id: UUID,
         *,
@@ -117,38 +115,38 @@ class SqlAgentLibraryStore:
         limit: int,
     ) -> list[LibraryOwned]:
         query = (
-            select(SqlAgentLibraryEntry, SqlAgentLibraryDraft)
-            .join(SqlAgentLibraryDraft, SqlAgentLibraryDraft.entry_id == SqlAgentLibraryEntry.id)
+            select(SqlLibraryItem, SqlLibraryDraft)
+            .join(SqlLibraryDraft, SqlLibraryDraft.item_id == SqlLibraryItem.id)
             .where(
-                SqlAgentLibraryEntry.owner_user_id == owner_id,
-                *self._filters(kind, q, tag, SqlAgentLibraryDraft.content),
+                SqlLibraryItem.owner_user_id == owner_id,
+                *self._filters(kind, q, tag, SqlLibraryDraft.content),
             )
         )
         if after:
-            query = query.where(SqlAgentLibraryEntry.id < after)
+            query = query.where(SqlLibraryItem.id < after)
         result = []
-        for entry, draft in self.session.execute(
-            query.order_by(SqlAgentLibraryEntry.id.desc()).limit(limit)
+        for item, draft in self.session.execute(
+            query.order_by(SqlLibraryItem.id.desc()).limit(limit)
         ):
-            source = self.version(entry.source_version_id) if entry.source_version_id else None
+            source = self.version(item.source_version_id) if item.source_version_id else None
             result.append(
                 LibraryOwned(
-                    entry_entity(entry),
+                    item_entity(item),
                     content_entity(draft.content),
-                    source.entry_id if source else None,
+                    source.item_id if source else None,
                 )
             )
         return result
 
     @persistence_boundary
-    def versions(self, entry_id: UUID, *, after: UUID | None, limit: int) -> list[LibraryVersion]:
-        query = select(SqlAgentLibraryVersion).where(SqlAgentLibraryVersion.entry_id == entry_id)
+    def versions(self, item_id: UUID, *, after: UUID | None, limit: int) -> list[LibraryVersion]:
+        query = select(SqlLibraryVersion).where(SqlLibraryVersion.item_id == item_id)
         if after:
-            query = query.where(SqlAgentLibraryVersion.id < after)
+            query = query.where(SqlLibraryVersion.id < after)
         return [
             version_entity(row)
             for row in self.session.scalars(
-                query.order_by(SqlAgentLibraryVersion.id.desc()).limit(limit)
+                query.order_by(SqlLibraryVersion.id.desc()).limit(limit)
             )
         ]
 
@@ -160,63 +158,61 @@ class SqlAgentLibraryStore:
         content: LibraryContent,
         source_version_id: UUID | None = None,
     ) -> UUID:
-        row = SqlAgentLibraryEntry(
-            owner_user_id=owner_id, kind=kind, source_version_id=source_version_id
-        )
+        row = SqlLibraryItem(owner_user_id=owner_id, kind=kind, source_version_id=source_version_id)
         self.session.add(row)
         self.session.flush()
-        self.session.add(SqlAgentLibraryDraft(entry_id=row.id, content=asdict(content)))
+        self.session.add(SqlLibraryDraft(item_id=row.id, content=asdict(content)))
         self.session.flush()
         return row.id
 
-    def _row(self, entry_id: UUID) -> SqlAgentLibraryEntry:
-        row = self.session.get(SqlAgentLibraryEntry, entry_id)
+    def _row(self, item_id: UUID) -> SqlLibraryItem:
+        row = self.session.get(SqlLibraryItem, item_id)
         assert row is not None
         row.revision += 1
         return row
 
     @persistence_boundary
-    def update_draft(self, entry_id: UUID, content: LibraryContent) -> None:
-        self._row(entry_id)
-        row = self.session.get(SqlAgentLibraryDraft, entry_id)
+    def update_draft(self, item_id: UUID, content: LibraryContent) -> None:
+        self._row(item_id)
+        row = self.session.get(SqlLibraryDraft, item_id)
         assert row is not None
         row.content = asdict(content)
         self.session.flush()
 
     @persistence_boundary
-    def publish(self, entry: LibraryEntry, content: LibraryContent, author_name: str) -> UUID:
+    def publish(self, item: LibraryItem, content: LibraryContent, author_name: str) -> UUID:
         number = (
             self.session.scalar(
-                select(func.max(SqlAgentLibraryVersion.number)).where(
-                    SqlAgentLibraryVersion.entry_id == entry.id
+                select(func.max(SqlLibraryVersion.number)).where(
+                    SqlLibraryVersion.item_id == item.id
                 )
             )
             or 0
         )
-        version = SqlAgentLibraryVersion(
-            entry_id=entry.id,
+        version = SqlLibraryVersion(
+            item_id=item.id,
             number=number + 1,
             content=asdict(content),
-            author_user_id=entry.owner_user_id,
+            author_user_id=item.owner_user_id,
             author_name=author_name,
         )
         self.session.add(version)
         self.session.flush()
-        self._row(entry.id).published_version_id = version.id
+        self._row(item.id).published_version_id = version.id
         self.session.flush()
         return version.id
 
     @persistence_boundary
-    def set_archived(self, entry_id: UUID, archived: bool) -> None:
-        self._row(entry_id).archived = archived
+    def set_archived(self, item_id: UUID, archived: bool) -> None:
+        self._row(item_id).archived = archived
         self.session.flush()
 
     @persistence_boundary
-    def moderate(self, entry_id: UUID, user_id: UUID, hidden: bool, reason: str) -> None:
-        self._row(entry_id).hidden = hidden
+    def moderate(self, item_id: UUID, user_id: UUID, hidden: bool, reason: str) -> None:
+        self._row(item_id).hidden = hidden
         self.session.add(
-            SqlAgentLibraryModeration(
-                entry_id=entry_id, actor_user_id=user_id, hidden=hidden, reason=reason
+            SqlLibraryModeration(
+                item_id=item_id, actor_user_id=user_id, hidden=hidden, reason=reason
             )
         )
         self.session.flush()

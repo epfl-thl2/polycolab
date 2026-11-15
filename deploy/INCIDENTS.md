@@ -113,7 +113,7 @@ Mocked gateway tests do not prove it.
    Fence/drain incompatible consumers before resuming them.
    Retain revisions, publication releases, job history and audits.
    Recursive cleanup and schema resets are not rollback steps.
-4. Verify readiness, selected authentication, cross-scope denials, file reads and agent-library moderation.
+4. Verify readiness, selected authentication, cross-scope denials, file reads and library moderation.
    Resume paused execution admission with approval.
    Computation also requires accepted isolation and an authorized execution environment.
 

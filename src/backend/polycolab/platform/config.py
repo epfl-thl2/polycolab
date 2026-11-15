@@ -229,7 +229,7 @@ class Settings(BaseSettings):
     artifact_request_timeout_seconds: float = Field(default=30, gt=0, le=300)
     artifact_staging_ttl_seconds: int = Field(default=3600, ge=60, le=86_400)
     artifact_gc_grace_seconds: int = Field(default=300, ge=0, le=86_400)
-    agent_library_moderator_subjects: list[str] = Field(default_factory=list)
+    library_moderator_subjects: list[str] = Field(default_factory=list)
 
     collaboration_url: str = "http://127.0.0.1:8002"
     collaboration_token: SecretStr = SecretStr(

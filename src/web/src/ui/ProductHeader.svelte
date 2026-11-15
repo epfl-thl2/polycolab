@@ -26,7 +26,7 @@
   import type { Auth } from '../svelte-lib/auth.svelte';
 
   type Destination =
-    | 'agents'
+    | 'library'
     | 'search'
     | 'activity'
     | 'explore'
@@ -108,7 +108,7 @@
             ? 'Library'
             : active === 'docs'
               ? 'Docs'
-              : active === 'agents'
+              : active === 'library'
                 ? 'Agents'
                 : active === 'settings'
                   ? 'Settings'
@@ -213,7 +213,7 @@
     {#if !projectMode}<nav class="product-navigation" aria-label="Main navigation">
         <a href={projectsHref} aria-current={active === 'projects' ? 'page' : undefined}>Projects</a
         >
-        <a href="/agents" aria-current={active === 'agents' ? 'page' : undefined}>Agents</a>
+        <a href="/library" aria-current={active === 'library' ? 'page' : undefined}>Library</a>
         <div
           class="product-docs-menu"
           role="group"
@@ -347,7 +347,7 @@
               >Navigate</DropdownMenu.GroupHeading
             >
             {@render menuLink(projectsHref, 'Projects', active === 'projects')}
-            {@render menuLink('/agents', 'Agents', active === 'agents')}
+            {@render menuLink('/library', 'Library', active === 'library')}
             <DropdownMenu.Separator />
             <DropdownMenu.GroupHeading>Docs</DropdownMenu.GroupHeading>
             {@render menuLink('/docs/', 'Docs', active === 'docs')}
@@ -394,7 +394,7 @@
             aria-hidden="true"
           />{:else if href === '/projects'}<FolderOpen
             aria-hidden="true"
-          />{:else if href === '/agents'}<Bot
+          />{:else if href === '/library'}<Bot
             aria-hidden="true"
           />{:else if href === '/settings/security'}<LockKeyhole
             aria-hidden="true"

@@ -14,7 +14,7 @@ The deployment administrator controls available registration and identity-provid
 Open [Profile](/profile) to inspect your public identity and contributions.
 After sign-in, this shortcut opens your canonical `/profiles/{username}` page, which you can share.
 Built-in accounts use their login username. With organizational OIDC sign-in, choose an available Polycolab username the first time you sign in.
-Your username identifies your account in project membership and attributed agent-library content. It currently cannot be renamed.
+Your username identifies your account in project membership and attributed library content. It currently cannot be renamed.
 
 ## Protect agent credentials
 

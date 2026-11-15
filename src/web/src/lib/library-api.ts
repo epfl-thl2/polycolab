@@ -22,7 +22,7 @@ async function unwrap<T>(
   );
 }
 
-export function createAgentLibraryApi(options: Parameters<typeof createExternalAgentApi>[0] = {}) {
+export function createLibraryApi(options: Parameters<typeof createExternalAgentApi>[0] = {}) {
   const client = createWebApiClient({
     baseUrl: options.baseUrl ?? import.meta.env.VITE_API_BASE_URL ?? '',
   });
@@ -36,104 +36,98 @@ export function createAgentLibraryApi(options: Parameters<typeof createExternalA
       if (response.status === 401) await options.onUnauthorized?.();
     },
   });
-  const path = (entryId: string) => ({ entry_id: entryId });
+  const path = (itemId: string) => ({ item_id: itemId });
   const headers = (key: string) => ({ 'Idempotency-Key': key });
   return {
     list: (filters: LibraryFilters = {}) =>
-      unwrap(client.GET('/api/v1/agent-library', { params: { query: { limit: 25, ...filters } } })),
-    yours: (filters: LibraryFilters = {}) =>
-      unwrap(
-        client.GET('/api/v1/agent-library/yours', { params: { query: { limit: 25, ...filters } } }),
-      ),
-    get: (entryId: string, versionId?: string) =>
+      unwrap(client.GET('/api/v1/library', { params: { query: { limit: 25, ...filters } } })),
+    mine: (filters: LibraryFilters = {}) =>
+      unwrap(client.GET('/api/v1/library/mine', { params: { query: { limit: 25, ...filters } } })),
+    get: (itemId: string, versionId?: string) =>
       versionId
         ? unwrap(
-            client.GET('/api/v1/agent-library/{entry_id}/versions/{version_id}', {
-              params: { path: { ...path(entryId), version_id: versionId } },
+            client.GET('/api/v1/library/{item_id}/versions/{version_id}', {
+              params: { path: { ...path(itemId), version_id: versionId } },
             }),
           )
-        : unwrap(
-            client.GET('/api/v1/agent-library/{entry_id}', { params: { path: path(entryId) } }),
-          ),
-    history: (entryId: string, cursor?: string) =>
+        : unwrap(client.GET('/api/v1/library/{item_id}', { params: { path: path(itemId) } })),
+    history: (itemId: string, cursor?: string) =>
       unwrap(
-        client.GET('/api/v1/agent-library/{entry_id}/versions', {
-          params: { path: path(entryId), query: { limit: 25, cursor } },
+        client.GET('/api/v1/library/{item_id}/versions', {
+          params: { path: path(itemId), query: { limit: 25, cursor } },
         }),
       ),
-    draft: (entryId: string) =>
-      unwrap(
-        client.GET('/api/v1/agent-library/{entry_id}/draft', { params: { path: path(entryId) } }),
-      ),
+    draft: (itemId: string) =>
+      unwrap(client.GET('/api/v1/library/{item_id}/draft', { params: { path: path(itemId) } })),
     create: (kind: LibraryKind, content: LibraryContent, key: string) =>
       unwrap(
-        client.POST('/api/v1/agent-library', {
+        client.POST('/api/v1/library', {
           body: { kind, content },
           params: { header: headers(key) },
         }),
       ),
-    update: (entryId: string, content: LibraryContent, revision: number, key: string) =>
+    update: (itemId: string, content: LibraryContent, revision: number, key: string) =>
       unwrap(
-        client.PUT('/api/v1/agent-library/{entry_id}/draft', {
-          params: { path: path(entryId), header: headers(key) },
+        client.PUT('/api/v1/library/{item_id}/draft', {
+          params: { path: path(itemId), header: headers(key) },
           body: { content, expected_revision: revision },
         }),
       ),
-    publish: (entryId: string, revision: number, key: string) =>
+    publish: (itemId: string, revision: number, key: string) =>
       unwrap(
-        client.POST('/api/v1/agent-library/{entry_id}/publish', {
-          params: { path: path(entryId), header: headers(key) },
+        client.POST('/api/v1/library/{item_id}/publish', {
+          params: { path: path(itemId), header: headers(key) },
           body: { expected_revision: revision },
         }),
       ),
-    copy: (entryId: string, versionId: string, key: string) =>
+    copy: (itemId: string, versionId: string, key: string) =>
       unwrap(
-        client.POST('/api/v1/agent-library/{entry_id}/copy', {
-          params: { path: path(entryId), header: headers(key) },
+        client.POST('/api/v1/library/{item_id}/copy', {
+          params: { path: path(itemId), header: headers(key) },
           body: { version_id: versionId },
         }),
       ),
-    archive: (entryId: string, revision: number, archived: boolean, key: string) =>
+    archive: (itemId: string, revision: number, archived: boolean, key: string) =>
       unwrap(
-        client.POST('/api/v1/agent-library/{entry_id}/archive', {
-          params: { path: path(entryId), header: headers(key) },
+        client.POST('/api/v1/library/{item_id}/archive', {
+          params: { path: path(itemId), header: headers(key) },
           body: { expected_revision: revision, archived },
         }),
       ),
-    moderationState: (entryId: string) =>
+    moderationState: (itemId: string) =>
       unwrap(
-        client.GET('/api/v1/agent-library/{entry_id}/moderation', {
-          params: { path: path(entryId) },
+        client.GET('/api/v1/library/{item_id}/moderation', {
+          params: { path: path(itemId) },
         }),
       ),
-    moderate: (entryId: string, revision: number, hidden: boolean, reason: string, key: string) =>
+    moderate: (itemId: string, revision: number, hidden: boolean, reason: string, key: string) =>
       unwrap(
-        client.POST('/api/v1/agent-library/{entry_id}/moderation', {
-          params: { path: path(entryId), header: headers(key) },
+        client.POST('/api/v1/library/{item_id}/moderation', {
+          params: { path: path(itemId), header: headers(key) },
           body: { expected_revision: revision, hidden, reason },
         }),
       ),
-    downloadHref: (entryId: string, versionId: string) =>
-      `${options.baseUrl ?? import.meta.env.VITE_API_BASE_URL ?? ''}/api/v1/agent-library/${encodeURIComponent(entryId)}/versions/${encodeURIComponent(versionId)}/SKILL.md`,
+    downloadHref: (itemId: string, versionId: string) =>
+      `${options.baseUrl ?? import.meta.env.VITE_API_BASE_URL ?? ''}/api/v1/library/${encodeURIComponent(itemId)}/versions/${encodeURIComponent(versionId)}/SKILL.md`,
   };
 }
-export type AgentLibraryApi = ReturnType<typeof createAgentLibraryApi>;
+export type LibraryApi = ReturnType<typeof createLibraryApi>;
 
 export function libraryError(error: unknown): string {
   const code = (error as { code?: string }).code;
-  if (code === 'agent_library_stale_revision' || code === 'agent_library_conflict')
-    return 'This entry changed or this retry conflicts with an earlier action. Your inputs are retained. Reload the saved draft before trying again.';
+  if (code === 'library_stale_revision' || code === 'library_conflict')
+    return 'This item changed or this retry conflicts with an earlier action. Your inputs are retained. Reload the saved draft before trying again.';
   if (code === 'skill_frontmatter_required' || code === 'skill_frontmatter_invalid')
     return 'SKILL.md needs valid YAML frontmatter with a lowercase, hyphenated name and a description. YAML aliases are not supported.';
   if (code === 'publication_license_required') return 'Choose a license before publishing.';
-  if (code === 'agent_library_archived')
-    return 'This entry is archived. Restore it before editing, publishing, or making a copy.';
-  if (code === 'agent_library_moderation_denied')
-    return 'Only configured library moderators can hide or restore entries.';
+  if (code === 'library_archived')
+    return 'This item is archived. Restore it before editing, publishing, or making a copy.';
+  if (code === 'library_moderation_denied')
+    return 'Only configured library moderators can hide or restore items.';
   if (code === 'plugin_source_runtime_instructions_required')
     return 'A plugin listing needs a source URL, target runtime, and setup instructions.';
   if ((error as { status?: number }).status === 404)
-    return 'This entry is unavailable or you do not have access.';
+    return 'This item is unavailable or you do not have access.';
   if ((error as { status?: number }).status === 422)
     return 'Check the required fields, field lengths, and source URL before retrying.';
   if ((error as { status?: number }).status === 401) return 'Sign in to continue.';

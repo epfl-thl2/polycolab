@@ -1,6 +1,6 @@
 # Agent library
 
-Open [Agents](/agents) to find reusable prompts, skills and plugins for your agents.
+Open [Library](/library) to find reusable prompts, skills and plugins for your agents.
 Public browsing does not require an account.
 
 ## Find and use an entry

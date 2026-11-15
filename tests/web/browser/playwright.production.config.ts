@@ -6,7 +6,7 @@ export default defineConfig({
   reporter: [['list'], ['json', { outputFile: '../../test-results/production-report.json' }]],
   testMatch: [
     'chat-navigation.spec.ts',
-    'agent-library.spec.ts',
+    'library.spec.ts',
     'application-configuration.spec.ts',
     'svelte-project.spec.ts',
     'agent-session-workflow.spec.ts',

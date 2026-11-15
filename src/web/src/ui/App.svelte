@@ -82,8 +82,8 @@
               ? 'connect'
               : path === '/guide'
                 ? 'guide'
-                : path === '/agents' || path.startsWith('/agents/')
-                  ? 'agent-library'
+                : path === '/library' || path.startsWith('/library/')
+                  ? 'library'
                   : [
                         '/account/password-reset',
                         '/account/reset-password',
@@ -131,8 +131,8 @@
   const headerActive = $derived(
     view === 'home'
       ? 'projects'
-      : view === 'agent-library'
-        ? 'agents'
+      : view === 'library'
+        ? 'library'
         : view === 'account-settings'
           ? 'settings'
           : undefined,
@@ -195,10 +195,10 @@
             data-sveltekit-reload>Open documentation</a
           >
         </main>
-      {:else if view === 'agent-library'}
+      {:else if view === 'library'}
         {#key path + ':' + accountEpoch}
-          {#await import('./Agents.svelte')}<main id="main" class="page" tabindex="-1">
-              <LoadingState>Opening Agents…</LoadingState>
+          {#await import('./Library.svelte')}<main id="main" class="page" tabindex="-1">
+              <LoadingState>Opening Library…</LoadingState>
             </main>{:then module}<module.default {path} {search} />{/await}
         {/key}
       {:else if view === 'recovery'}

@@ -83,10 +83,10 @@ from polycolab.entities.enums import StoredConversationStatus as StoredConversat
 from polycolab.entities.enums import UsageSource as UsageSource
 
 __all__ = [
-    "SqlAgentLibraryEntry",
-    "SqlAgentLibraryDraft",
-    "SqlAgentLibraryVersion",
-    "SqlAgentLibraryModeration",
+    "SqlLibraryItem",
+    "SqlLibraryDraft",
+    "SqlLibraryVersion",
+    "SqlLibraryModeration",
     "ProjectRole",
     "ProjectVisibility",
     "MutationReceiptStatus",
@@ -165,18 +165,6 @@ __all__ = [
     "SqlDocumentBuildQueue",
 ]
 
-from polycolab.db.models.agent_library import (
-    SqlAgentLibraryDraft as SqlAgentLibraryDraft,
-)
-from polycolab.db.models.agent_library import (
-    SqlAgentLibraryEntry as SqlAgentLibraryEntry,
-)
-from polycolab.db.models.agent_library import (
-    SqlAgentLibraryModeration as SqlAgentLibraryModeration,
-)
-from polycolab.db.models.agent_library import (
-    SqlAgentLibraryVersion as SqlAgentLibraryVersion,
-)
 from polycolab.db.models.collaborative import (
     SqlChangeSet as SqlChangeSet,
 )
@@ -203,6 +191,18 @@ from polycolab.db.models.conversations import (
 )
 from polycolab.db.models.document_builds import SqlDocumentBuild as SqlDocumentBuild
 from polycolab.db.models.document_builds import SqlDocumentBuildQueue as SqlDocumentBuildQueue
+from polycolab.db.models.library import (
+    SqlLibraryDraft as SqlLibraryDraft,
+)
+from polycolab.db.models.library import (
+    SqlLibraryItem as SqlLibraryItem,
+)
+from polycolab.db.models.library import (
+    SqlLibraryModeration as SqlLibraryModeration,
+)
+from polycolab.db.models.library import (
+    SqlLibraryVersion as SqlLibraryVersion,
+)
 from polycolab.db.models.repositories import (
     SqlProjectRepository as SqlProjectRepository,
 )

@@ -8,17 +8,13 @@
   import { accountHref } from '../lib/account-navigation';
   import {
     libraryError,
-    type AgentLibraryApi,
+    type LibraryApi,
     type LibraryKind,
     type LibraryOwned,
     type LibraryPublic,
-  } from '../lib/agent-library-api';
+  } from '../lib/library-api';
   import LoadingState from './LoadingState.svelte';
-  let {
-    api,
-    search,
-    yours = false,
-  }: { api: AgentLibraryApi; search: string; yours?: boolean } = $props();
+  let { api, search, mine = false }: { api: LibraryApi; search: string; mine?: boolean } = $props();
   const { auth } = projectContext();
   let items = $state<(LibraryPublic | LibraryOwned)[]>([]);
   let cursor = $state<string | null>();
@@ -28,7 +24,7 @@
   let error = $state('');
   let busy = $state(false);
   let generation = 0;
-  const base = $derived(yours ? '/agents/yours' : '/agents');
+  const base = $derived(mine ? '/library/mine' : '/library');
   const labels = { PROMPT: 'Prompt', SKILL: 'Skill', PLUGIN: 'Plugin' };
   async function load(more = false) {
     const current = ++generation;
@@ -41,7 +37,7 @@
         tag,
         cursor: more ? (cursor ?? undefined) : undefined,
       };
-      const page = yours ? await api.yours(filters) : await api.list(filters);
+      const page = mine ? await api.mine(filters) : await api.list(filters);
       if (current !== generation) return;
       items = more ? [...items, ...page.items] : page.items;
       cursor = page.next_cursor;
@@ -73,12 +69,12 @@
 <main id="main" class="page" tabindex="-1">
   <div class="library-heading">
     <div>
-      <h1>{yours ? 'Your library' : 'Agent library'}</h1>
+      <h1>{mine ? 'Your library' : 'Agent library'}</h1>
       <p>Discover, use, and share prompts, skills, and plugins for your agents.</p>
     </div>
     <a
       class={buttonVariants()}
-      href={auth.signedIn ? '/agents/new' : accountHref('signin', '/agents/new')}>Contribute</a
+      href={auth.signedIn ? '/library/new' : accountHref('signin', '/library/new')}>Contribute</a
     >
   </div>
   <form
@@ -107,25 +103,25 @@
   </form>
   {#if error}<p role="alert">{error}</p>
     <Button onclick={() => load(Boolean(items.length))}>Retry</Button>{/if}
-  {#if busy}<LoadingState>Loading entries…</LoadingState>{/if}
+  {#if busy}<LoadingState>Loading items…</LoadingState>{/if}
   <div class="library-grid">
-    {#each items as item ('entry' in item ? item.entry.id : item.id)}
-      {@const own = 'entry' in item ? item : undefined}
-      {@const entry = own?.entry}
+    {#each items as item ('item' in item ? item.item.id : item.id)}
+      {@const own = 'item' in item ? item : undefined}
+      {@const metadata = own?.item}
       {@const publicItem = 'version' in item ? item : undefined}
       {@const data = own?.draft ?? publicItem!.version.content}
       <article class="panel">
-        <p class="entry-type">{labels[entry?.kind ?? publicItem!.kind]}</p>
+        <p class="item-type">{labels[metadata?.kind ?? publicItem!.kind]}</p>
         <h2>
-          <a href={own ? `/agents/yours/${own.entry.id}/edit` : `/agents/library/${publicItem!.id}`}
+          <a href={own ? `/library/mine/${own.item.id}/edit` : `/library/items/${publicItem!.id}`}
             >{data.title}</a
           >
         </h2>
         <p>{data.description}</p>
         {#if own}<p>
-            {own.entry.published_version_id
+            {own.item.published_version_id
               ? 'Published · Private draft available'
-              : 'Private draft'}{own.entry.archived ? ' · Archived' : ''}{own.entry.hidden
+              : 'Private draft'}{own.item.archived ? ' · Archived' : ''}{own.item.hidden
               ? ' · Hidden by moderator'
               : ''}
           </p>{:else if publicItem}<p>
@@ -139,19 +135,19 @@
   {#if !busy && !error && !items.length}<div class="panel">
       <h2>
         {q || kind || tag
-          ? 'No matching entries'
-          : yours
-            ? 'No entries yet'
+          ? 'No matching items'
+          : mine
+            ? 'No items yet'
             : 'The library is ready for contributions'}
       </h2>
       <p>
-        {yours
-          ? 'Create a private draft or make a copy of a published entry.'
+        {mine
+          ? 'Create a private draft or make a copy of a published item.'
           : 'Contribute a reusable prompt, a SKILL.md file, or an existing plugin with setup instructions.'}
       </p>
       <a href="/docs/agents/" data-sveltekit-reload>How to contribute</a>
     </div>{/if}
-  {#if cursor}<Button disabled={busy} onclick={() => load(true)}>Load more entries</Button>{/if}
+  {#if cursor}<Button disabled={busy} onclick={() => load(true)}>Load more items</Button>{/if}
 </main>
 
 <style>
@@ -184,7 +180,7 @@
   .library-grid h2 {
     font-size: 1.1rem;
   }
-  .entry-type,
+  .item-type,
   .tags {
     font-size: 0.85rem;
   }

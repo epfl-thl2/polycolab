@@ -1,4 +1,4 @@
-"""Materialized agent-library values without transport or database dependencies."""
+"""Materialized library values without transport or database dependencies."""
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -22,7 +22,7 @@ class LibraryContent:
 
 
 @dataclass(frozen=True, slots=True)
-class LibraryEntry:
+class LibraryItem:
     id: UUID
     owner_user_id: UUID
     kind: LibraryKind
@@ -37,7 +37,7 @@ class LibraryEntry:
 @dataclass(frozen=True, slots=True)
 class LibraryVersion:
     id: UUID
-    entry_id: UUID
+    item_id: UUID
     number: int
     content: LibraryContent
     author_user_id: UUID
@@ -47,9 +47,9 @@ class LibraryVersion:
 
 @dataclass(frozen=True, slots=True)
 class LibraryOwned:
-    entry: LibraryEntry
+    item: LibraryItem
     draft: LibraryContent
-    source_entry_id: UUID | None = None
+    source_item_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,4 +59,4 @@ class LibraryPublic:
     source_version_id: UUID | None
     archived: bool
     version: LibraryVersion
-    source_entry_id: UUID | None = None
+    source_item_id: UUID | None = None

@@ -7,7 +7,7 @@ from typing import Any
 
 REFERENCE_GROUPS = [
     {"name": "Access", "tags": ["identity", "agent-keys"]},
-    {"name": "Projects", "tags": ["projects", "agent-library"]},
+    {"name": "Projects", "tags": ["projects", "library"]},
     {"name": "Artifacts", "tags": ["artifacts"]},
     {
         "name": "Human administration",
@@ -20,8 +20,8 @@ REFERENCE_GROUPS = [
 ]
 
 REFERENCE_TAGS = {
-    "agent-library": {
-        "name": "agent-library",
+    "library": {
+        "name": "library",
         "x-displayName": "Agent library",
         "description": "Public prompts, skills and plugin listings with human-owned drafts.",
     },
@@ -96,20 +96,20 @@ REFERENCE_TAGS = {
 }
 
 OPERATION_SECTIONS = {
-    "listAgentLibrary": "agent-library",
-    "listOwnedAgentLibrary": "agent-library",
-    "createAgentLibraryEntry": "agent-library",
-    "getAgentLibraryDraft": "agent-library",
-    "updateAgentLibraryDraft": "agent-library",
-    "publishAgentLibraryEntry": "agent-library",
-    "copyAgentLibraryEntry": "agent-library",
-    "archiveAgentLibraryEntry": "agent-library",
-    "getAgentLibraryModerationState": "agent-library",
-    "moderateAgentLibraryEntry": "agent-library",
-    "getAgentLibraryEntry": "agent-library",
-    "listAgentLibraryVersions": "agent-library",
-    "getAgentLibraryVersion": "agent-library",
-    "downloadAgentLibrarySkill": "agent-library",
+    "listLibrary": "library",
+    "listOwnedLibrary": "library",
+    "createLibraryItem": "library",
+    "getLibraryDraft": "library",
+    "updateLibraryDraft": "library",
+    "publishLibraryItem": "library",
+    "copyLibraryItem": "library",
+    "archiveLibraryItem": "library",
+    "getLibraryModerationState": "library",
+    "moderateLibraryItem": "library",
+    "getLibraryItem": "library",
+    "listLibraryVersions": "library",
+    "getLibraryVersion": "library",
+    "downloadLibrarySkill": "library",
     "previewCollaborativeConversion": "projects",
     "convertProjectToCollaborative": "projects",
     "setConversationSharing": "conversations",

@@ -14,24 +14,24 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import DBAPIError
-from test_agent_library import (
+from test_library import (
     content,
     create,
     headers,
 )
-from test_agent_library import (
+from test_library import (
     test_archive_and_moderation_cover_every_public_path as moderation_journey,
 )
-from test_agent_library import (
+from test_library import (
     test_filter_pagination_and_retry_conflicts as listing_journey,
 )
-from test_agent_library import (
+from test_library import (
     test_private_public_versions_and_copy as publication_journey,
 )
-from test_agent_library import (
+from test_library import (
     test_skill_plugin_validation_and_download as skill_journey,
 )
-from test_agent_library import (
+from test_library import (
     test_unicode_and_quoted_tags_are_searchable as tags_journey,
 )
 
@@ -102,9 +102,9 @@ def test_upgrade_parity_and_history(
     try:
         with TestClient(app) as client:
             draft = create(client)
-            entry_id = draft["entry"]["id"]
+            item_id = draft["item"]["id"]
             response = client.post(
-                f"/api/v1/agent-library/{entry_id}/publish",
+                f"/api/v1/library/{item_id}/publish",
                 json={"expected_revision": 1},
                 headers=headers(),
             )
@@ -112,16 +112,16 @@ def test_upgrade_parity_and_history(
             version_id = response.json()["id"]
         for statement, params in (
             (
-                "UPDATE agent_library_versions SET content = content WHERE id = :id",
+                "UPDATE library_versions SET content = content WHERE id = :id",
                 {"id": UUID(version_id)},
             ),
             (
-                "DELETE FROM agent_library_versions WHERE id = :id",
+                "DELETE FROM library_versions WHERE id = :id",
                 {"id": UUID(version_id)},
             ),
             (
-                "UPDATE agent_library_entries SET kind = 'PLUGIN' WHERE id = :id",
-                {"id": UUID(entry_id)},
+                "UPDATE library_items SET kind = 'PLUGIN' WHERE id = :id",
+                {"id": UUID(item_id)},
             ),
         ):
             with pytest.raises(DBAPIError):
@@ -133,8 +133,8 @@ def test_upgrade_parity_and_history(
 
 def test_concurrent_publication_and_retries(library_pg: TestClient) -> None:
     draft = create(library_pg)
-    entry_id = draft["entry"]["id"]
-    endpoint = f"/api/v1/agent-library/{entry_id}/publish"
+    item_id = draft["item"]["id"]
+    endpoint = f"/api/v1/library/{item_id}/publish"
 
     def publish(_: int) -> int:
         return int(
@@ -145,7 +145,7 @@ def test_concurrent_publication_and_retries(library_pg: TestClient) -> None:
         statuses = list(executor.map(publish, range(4)))
     assert statuses.count(200) == 1 and statuses.count(409) == 3
     draft = create(library_pg, data=content("Retry concurrently"))
-    endpoint = f"/api/v1/agent-library/{draft['entry']['id']}/publish"
+    endpoint = f"/api/v1/library/{draft['item']['id']}/publish"
     same_key = headers()
 
     def retry(_: int) -> dict[str, Any]:

@@ -6,13 +6,13 @@
   import { accountHref } from '../lib/account-navigation';
   import {
     libraryError,
-    type AgentLibraryApi,
+    type LibraryApi,
     type LibraryPublic,
     type LibraryVersion,
-  } from '../lib/agent-library-api';
+  } from '../lib/library-api';
   import LoadingState from './LoadingState.svelte';
   import Markdown from './Markdown.svelte';
-  let { api, entryId, versionId }: { api: AgentLibraryApi; entryId: string; versionId?: string } =
+  let { api, itemId, versionId }: { api: LibraryApi; itemId: string; versionId?: string } =
     $props();
   const { auth } = projectContext();
   let item = $state<LibraryPublic>();
@@ -23,17 +23,15 @@
   let message = $state('');
   let copyKey: string | undefined;
   const data = $derived(item?.version.content);
-  const versionHref = $derived(
-    item ? `/agents/library/${entryId}/versions/${item.version.id}` : '',
-  );
+  const versionHref = $derived(item ? `/library/items/${itemId}/versions/${item.version.id}` : '');
   async function load() {
     busy = true;
     error = '';
     item = undefined;
     versions = [];
     try {
-      item = await api.get(entryId, versionId);
-      const history = await api.history(entryId);
+      item = await api.get(itemId, versionId);
+      const history = await api.history(itemId);
       versions = history.items;
       cursor = history.next_cursor;
     } catch (cause) {
@@ -46,7 +44,7 @@
     busy = true;
     error = '';
     try {
-      const history = await api.history(entryId, cursor ?? undefined);
+      const history = await api.history(itemId, cursor ?? undefined);
       versions = [...versions, ...history.items];
       cursor = history.next_cursor;
     } catch (cause) {
@@ -69,8 +67,8 @@
     error = '';
     copyKey ??= crypto.randomUUID();
     try {
-      const owned = await api.copy(entryId, item.version.id, copyKey);
-      await goto(`/agents/yours/${owned.entry.id}/edit`);
+      const owned = await api.copy(itemId, item.version.id, copyKey);
+      await goto(`/library/mine/${owned.item.id}/edit`);
     } catch (cause) {
       error = libraryError(cause);
     } finally {
@@ -82,10 +80,10 @@
 
 <svelte:head><title>{data?.title ?? 'Agent library'} · Polycolab</title></svelte:head>
 <main id="main" class="page narrow" tabindex="-1">
-  <a href="/agents">Back to library</a>
-  {#if busy}<LoadingState>Loading entry…</LoadingState>{/if}
+  <a href="/library">Back to library</a>
+  {#if busy}<LoadingState>Loading item…</LoadingState>{/if}
   {#if error}<p role="alert">{error}</p>
-    <Button onclick={load}>Reload entry</Button>{/if}
+    <Button onclick={load}>Reload item</Button>{/if}
   {#if item && data}
     <p>{item.kind === 'PROMPT' ? 'Prompt' : item.kind === 'SKILL' ? 'Skill' : 'Plugin'}</p>
     <h1>{data.title}</h1>
@@ -97,12 +95,12 @@
     <p>License: {data.license}</p>
     {#if item.source_version_id}<p>
         Copied from exact source version: <a
-          href={`/agents/library/${item.source_entry_id}/versions/${item.source_version_id}`}
+          href={`/library/items/${item.source_item_id}/versions/${item.source_version_id}`}
           >View original version</a
         >
       </p>{/if}
     {#if item.archived}<p role="status">
-        This entry is archived. Existing published versions remain readable.
+        This item is archived. Existing published versions remain readable.
       </p>{/if}
     <div class="actions">
       {#if item.kind !== 'PLUGIN'}<Button onclick={() => copyText(data.content)}
@@ -110,7 +108,7 @@
         >{/if}
       {#if item.kind === 'SKILL'}<a
           class={buttonVariants({ variant: 'outline' })}
-          href={api.downloadHref(entryId, item.version.id)}
+          href={api.downloadHref(itemId, item.version.id)}
           data-sveltekit-reload>Download SKILL.md</a
         >{/if}
       {#if data.source_url}<a
@@ -146,7 +144,7 @@
     <ul>
       {#each versions as version (version.id)}<li>
           <a
-            href={`/agents/library/${entryId}/versions/${version.id}`}
+            href={`/library/items/${itemId}/versions/${version.id}`}
             aria-current={version.id === item.version.id ? 'page' : undefined}
             >Version {version.number} — {version.content.title}</a
           >

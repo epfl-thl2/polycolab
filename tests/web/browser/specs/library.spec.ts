@@ -4,11 +4,11 @@ import type {
   LibraryOwned,
   LibraryPublic,
   LibraryVersion,
-} from '../../../../src/web/src/lib/agent-library-api';
+} from '../../../../src/web/src/lib/library-api';
 
 test.describe.configure({ timeout: 60_000 });
 
-const entryId = '11111111-1111-4111-8111-111111111111';
+const itemId = '11111111-1111-4111-8111-111111111111';
 const versionId = '22222222-2222-4222-8222-222222222222';
 const authorId = '33333333-3333-4333-8333-333333333333';
 const data: LibraryContent = {
@@ -24,18 +24,18 @@ const data: LibraryContent = {
 };
 const version: LibraryVersion = {
   id: versionId,
-  entry_id: entryId,
+  item_id: itemId,
   number: 1,
   content: data,
   author_user_id: authorId,
   author_name: 'Ada',
   published_at: '2026-10-13T10:00:00Z',
 };
-const entry: LibraryPublic = {
-  id: entryId,
+const item: LibraryPublic = {
+  id: itemId,
   kind: 'PROMPT',
   source_version_id: null,
-  source_entry_id: null,
+  source_item_id: null,
   archived: false,
   version,
 };
@@ -62,32 +62,34 @@ async function auth(page: Page, signedIn = false) {
 test('anonymous library discovery, filters, exact version and copy fallback', async ({ page }) => {
   await auth(page);
   let fail = true;
-  await page.route('**/api/v1/agent-library**', (route) => {
+  await page.route('**/api/v1/library**', (route) => {
     const url = new URL(route.request().url());
-    if (url.pathname === '/api/v1/agent-library') {
+    if (url.pathname === '/api/v1/library') {
       if (fail) {
         fail = false;
         return route.fulfill({ status: 503, json: { detail: 'unavailable' } });
       }
       return route.fulfill({
         json: {
-          items: url.searchParams.get('kind') === 'PLUGIN' ? [] : [entry],
+          items: url.searchParams.get('kind') === 'PLUGIN' ? [] : [item],
           next_cursor: null,
         },
       });
     }
     if (url.pathname.endsWith('/versions'))
       return route.fulfill({ json: { items: [version], next_cursor: null } });
-    if (url.pathname === `/api/v1/agent-library/${entryId}` || url.pathname.endsWith(versionId))
-      return route.fulfill({ json: entry });
+    if (url.pathname === `/api/v1/library/${itemId}` || url.pathname.endsWith(versionId))
+      return route.fulfill({ json: item });
     return route.fulfill({ status: 404, json: { detail: 'not_found' } });
   });
-  await page.goto('/agents');
+  await page.goto('/library');
   await expect(page.getByRole('heading', { name: 'Agent library', exact: true })).toBeVisible({
     timeout: 20000,
   });
   await expect(
-    page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Agents' }),
+    page
+      .getByRole('navigation', { name: 'Main navigation' })
+      .getByRole('link', { name: 'Library' }),
   ).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('alert')).toContainText('Could not complete');
   await page.getByRole('button', { name: 'Retry', exact: true }).click();
@@ -112,7 +114,7 @@ test('anonymous library discovery, filters, exact version and copy fallback', as
     /returnTo=/,
   );
   await page.screenshot({
-    path: '/tmp/polycolab-agent-library-desktop.png',
+    path: '/tmp/polycolab-library-desktop.png',
     fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -120,7 +122,7 @@ test('anonymous library discovery, filters, exact version and copy fallback', as
     page.getByRole('heading', { name: 'Inspect proof gaps', exact: true }),
   ).toBeVisible();
   await page.screenshot({
-    path: '/tmp/polycolab-agent-library-mobile.png',
+    path: '/tmp/polycolab-library-mobile.png',
     fullPage: true,
   });
   await page.getByRole('link', { name: /^Version 1/ }).click();
@@ -131,15 +133,15 @@ test('private editor saves, previews, publishes and retains stale inputs', async
   await auth(page, true);
   let owned: LibraryOwned | undefined;
   let publishCount = 0;
-  await page.route('**/api/v1/agent-library**', async (route) => {
+  await page.route('**/api/v1/library**', async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
-    if (path === '/api/v1/agent-library' && request.method() === 'POST') {
+    if (path === '/api/v1/library' && request.method() === 'POST') {
       expect(request.headers()['idempotency-key']).toBeTruthy();
       const body = request.postDataJSON();
       owned = {
-        entry: {
-          id: entryId,
+        item: {
+          id: itemId,
           owner_user_id: authorId,
           kind: body.kind,
           revision: 1,
@@ -150,7 +152,7 @@ test('private editor saves, previews, publishes and retains stale inputs', async
           created_at: version.published_at,
         },
         draft: body.content,
-        source_entry_id: null,
+        source_item_id: null,
       };
       return route.fulfill({ status: 201, json: owned });
     }
@@ -159,22 +161,22 @@ test('private editor saves, previews, publishes and retains stale inputs', async
     if (path.endsWith('/publish')) {
       publishCount += 1;
       expect(request.postDataJSON().expected_revision).toBe(1);
-      owned!.entry.revision = 2;
-      owned!.entry.published_version_id = versionId;
+      owned!.item.revision = 2;
+      owned!.item.published_version_id = versionId;
       return route.fulfill({ json: { ...version, content: owned!.draft } });
     }
     if (path.endsWith('/draft') && request.method() === 'PUT')
-      return route.fulfill({ status: 409, json: { detail: 'agent_library_stale_revision' } });
+      return route.fulfill({ status: 409, json: { detail: 'library_stale_revision' } });
     return route.fulfill({ status: 404, json: { detail: 'not_found' } });
   });
-  await page.goto('/agents/new');
+  await page.goto('/library/new');
   await page.getByLabel('Title', { exact: true }).fill(data.title);
   await page.getByLabel('Description', { exact: true }).fill(data.description);
   await page.getByLabel('Prompt text', { exact: true }).fill(data.content);
   await page.getByLabel('License', { exact: true }).fill(data.license);
   await expect(page.getByRole('button', { name: 'Publish', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Save draft', exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/agents/yours/${entryId}/edit$`));
+  await expect(page).toHaveURL(new RegExp(`/library/mine/${itemId}/edit$`));
   await page.reload();
   await expect(page.getByLabel('Prompt text', { exact: true })).toHaveValue(data.content);
   await page.getByRole('button', { name: 'Preview publication', exact: true }).click();
@@ -190,19 +192,21 @@ test('private editor saves, previews, publishes and retains stale inputs', async
     'Retain this unsaved edit',
   );
   const dialog = page.waitForEvent('dialog');
-  await page.getByRole('link', { name: 'Back to Yours', exact: true }).click({ noWaitAfter: true });
+  await page
+    .getByRole('link', { name: 'Back to My library', exact: true })
+    .click({ noWaitAfter: true });
   await (await dialog).dismiss();
-  await expect(page).toHaveURL(new RegExp(`/agents/yours/${entryId}/edit$`));
+  await expect(page).toHaveURL(new RegExp(`/library/mine/${itemId}/edit$`));
 });
 
 test('skill download and plugin source are explicit external-use actions', async ({ page }) => {
   await auth(page);
   let kind: 'SKILL' | 'PLUGIN' = 'SKILL';
   const skill = '---\nname: proof-review\ndescription: Inspect a proof\n---\nCheck assumptions.';
-  await page.route('**/api/v1/agent-library**', (route) => {
+  await page.route('**/api/v1/library**', (route) => {
     const path = new URL(route.request().url()).pathname;
     const current = {
-      ...entry,
+      ...item,
       kind,
       version: {
         ...version,
@@ -224,7 +228,7 @@ test('skill download and plugin source are explicit external-use actions', async
       return route.fulfill({ json: { items: [current.version], next_cursor: null } });
     return route.fulfill({ json: current });
   });
-  await page.goto(`/agents/library/${entryId}`);
+  await page.goto(`/library/items/${itemId}`);
   const downloaded = page.waitForEvent('download');
   await page.getByRole('link', { name: 'Download SKILL.md', exact: true }).click();
   expect((await downloaded).suggestedFilename()).toBe('SKILL.md');
@@ -241,25 +245,25 @@ test('skill download and plugin source are explicit external-use actions', async
   await expect(page.getByRole('button', { name: /Install/ })).toHaveCount(0);
 });
 
-test('long entry metadata fits a mobile screen and sets the resource title', async ({ page }) => {
+test('long item metadata fits a mobile screen and sets the resource title', async ({ page }) => {
   await auth(page);
   const title = 'x'.repeat(300);
-  const longEntry = {
-    ...entry,
+  const longItem = {
+    ...item,
     version: {
       ...version,
       content: { ...data, title, description: 'y'.repeat(2000), license: 'z'.repeat(300) },
     },
   };
-  await page.route('**/api/v1/agent-library**', (route) =>
+  await page.route('**/api/v1/library**', (route) =>
     route.fulfill({
       json: new URL(route.request().url()).pathname.endsWith('/versions')
-        ? { items: [longEntry.version], next_cursor: null }
-        : longEntry,
+        ? { items: [longItem.version], next_cursor: null }
+        : longItem,
     }),
   );
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`/agents/library/${entryId}`);
+  await page.goto(`/library/items/${itemId}`);
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
   await expect(page).toHaveTitle(`${title} · Polycolab`);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
@@ -272,8 +276,8 @@ test('a changed draft returned by a save retry cannot publish unreviewed content
 }) => {
   await auth(page, true);
   const original: LibraryOwned = {
-    entry: {
-      id: entryId,
+    item: {
+      id: itemId,
       owner_user_id: authorId,
       kind: 'PROMPT',
       revision: 1,
@@ -284,15 +288,15 @@ test('a changed draft returned by a save retry cannot publish unreviewed content
       created_at: version.published_at,
     },
     draft: data,
-    source_entry_id: null,
+    source_item_id: null,
   };
   let publications = 0;
-  await page.route('**/api/v1/agent-library**', (route) => {
+  await page.route('**/api/v1/library**', (route) => {
     if (route.request().method() === 'PUT')
       return route.fulfill({
         json: {
           ...original,
-          entry: { ...original.entry, revision: 3 },
+          item: { ...original.item, revision: 3 },
           draft: { ...data, content: 'Unreviewed private instructions from another edit.' },
         },
       });
@@ -302,7 +306,7 @@ test('a changed draft returned by a save retry cannot publish unreviewed content
     }
     return route.fulfill({ json: original });
   });
-  await page.goto(`/agents/yours/${entryId}/edit`);
+  await page.goto(`/library/mine/${itemId}/edit`);
   await page
     .getByLabel('Prompt text', { exact: true })
     .fill('The instructions I actually reviewed.');

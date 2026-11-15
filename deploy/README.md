@@ -47,7 +47,7 @@ are preserved. Deploy the matching API, browser, and workers together: the old
 `agent_id`. Apply both database and application updates before reopening traffic;
 rollback requires the matching pre-upgrade backup and application version.
 
-The `20261029_workspace_only` PostgreSQL revision and matching SQLite revision permanently remove research objects, revisions, relationships, catalogue/commons/publication data, proposals, verification jobs, research history, and notifications. Development research data is intentionally discarded. Accounts, projects, memberships, credentials and usage counts, conversations, workspace files, agent-library content, and project artifacts are retained. Commons-only artifact bytes are queued for ordinary garbage collection.
+The `20261029_workspace_only` PostgreSQL revision and matching SQLite revision permanently remove research objects, revisions, relationships, catalogue/commons/publication data, proposals, verification jobs, research history, and notifications. Development research data is intentionally discarded. Accounts, projects, memberships, credentials and usage counts, conversations, workspace files, library content, and project artifacts are retained. Commons-only artifact bytes are queued for ordinary garbage collection.
 
 Stop old API/worker processes before migration and start the new binaries afterward. Existing tool capabilities are revoked. Nonterminal agent runs with retired research grants are cancelled before those grants are removed, with a recorded cancellation reason and invalidated worker leases. They must not be resumed automatically using private conversation context. Take the normal database/files/artifacts backup first; downgrade requires restoring it. Do not stamp an old database or reset the migration chain. SQLite's upgrade runner creates its normal pre-upgrade backup.
 
@@ -330,9 +330,9 @@ do not automatically downgrade the database.
 
 ## Agent library moderation
 
-Agents library access does not depend on hosted execution.
-Apply the PostgreSQL `20261013_agent_library` migration (or local SQLite `local_20261013_agent_library`) before running the matching application.
-Set `AGENT_LIBRARY_MODERATOR_SUBJECTS` to an explicit JSON list of verified human subjects allowed to hide and restore library entries.
+Library access does not depend on hosted execution.
+Apply the PostgreSQL `20261013_library` migration (or local SQLite `local_20261013_library`) before running the matching application.
+Set `LIBRARY_MODERATOR_SUBJECTS` to an explicit JSON list of verified human subjects allowed to hide and restore library entries.
 It defaults to an empty list.
 On the Moderation page, choose Agent library entry, enter its ID, load the current revision, and record a reason for hiding or restoring.
 Published versions remain immutable; restore a verified backup instead of downgrading away library history.
@@ -346,3 +346,5 @@ Optional project/worktree compilation uses a separate Docker controller. See the
 local startup and hosted acceptance.
 
 The same cutover renames `projects.workspace_mode` to `file_mode`, mapping `default` to `basic` and `linear` to `collaborative`. File APIs use `/collaborative`, and grouped agent edits use `/collaborative/change-sets`. Existing `.linear` directories, checkpoint Git refs, operation payloads, digests, and `batch:` retry keys retain their storage identities.
+
+Library routes move to `/library` in the browser and `/api/v1/library` in the API. The private view is My library (`/mine`); library resources use `item` and `item_id`. Rename `AGENT_LIBRARY_MODERATOR_SUBJECTS` to `LIBRARY_MODERATOR_SUBJECTS` in deployment settings. Published content and existing retry digests are preserved.

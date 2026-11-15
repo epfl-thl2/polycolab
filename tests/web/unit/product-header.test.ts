@@ -51,7 +51,7 @@ it('uses clear global destinations and exposes account destinations from the ava
     within(navigation)
       .getAllByRole('link')
       .map((link) => link.textContent?.trim()),
-  ).toEqual(['Projects', 'Agents', 'Docs']);
+  ).toEqual(['Projects', 'Library', 'Docs']);
   expect(within(navigation).queryByRole('link', { name: 'People' })).toBeNull();
   expect(
     within(navigation).getByRole('link', { name: 'Projects' }).getAttribute('aria-current'),

@@ -7,15 +7,15 @@
   import { NativeSelect } from '../lib/components/ui/native-select';
   import {
     libraryError,
-    type AgentLibraryApi,
+    type LibraryApi,
     type LibraryContent,
     type LibraryKind,
     type LibraryOwned,
-  } from '../lib/agent-library-api';
+  } from '../lib/library-api';
   import { ApiError } from '../lib/projects-api';
   import LoadingState from './LoadingState.svelte';
   import Markdown from './Markdown.svelte';
-  let { api, entryId }: { api: AgentLibraryApi; entryId?: string } = $props();
+  let { api, itemId }: { api: LibraryApi; itemId?: string } = $props();
   let owned = $state<LibraryOwned>();
   let kind = $state<LibraryKind>('PROMPT');
   let title = $state('');
@@ -55,7 +55,7 @@
   });
   const body = $derived(JSON.stringify({ kind, draft }));
   const dirty = $derived(loaded && body !== savedBody);
-  const blocked = $derived(busy || !loaded || Boolean(owned?.entry.archived));
+  const blocked = $derived(busy || !loaded || Boolean(owned?.item.archived));
   function retryKey(operation: string, value: unknown) {
     const next = JSON.stringify(value);
     if (receipt?.operation !== operation || receipt.body !== next)
@@ -64,7 +64,7 @@
   }
   function populate(value: LibraryOwned) {
     owned = value;
-    kind = value.entry.kind;
+    kind = value.item.kind;
     const d = value.draft;
     title = d.title;
     description = d.description;
@@ -79,7 +79,7 @@
     loaded = true;
   }
   async function load() {
-    const id = entryId ?? owned?.entry.id;
+    const id = itemId ?? owned?.item.id;
     if (!id) {
       savedBody = body;
       loaded = true;
@@ -114,16 +114,16 @@
     const reviewed = contentKey(draft);
     const result = owned
       ? await api.update(
-          owned.entry.id,
+          owned.item.id,
           draft,
-          owned.entry.revision,
-          retryKey('update', { id: owned.entry.id, revision: owned.entry.revision, draft }),
+          owned.item.revision,
+          retryKey('update', { id: owned.item.id, revision: owned.item.revision, draft }),
         )
       : await api.create(kind, draft, retryKey('create', { kind, draft }));
     owned = result;
     if (contentKey(result.draft) !== reviewed) {
       preview = false;
-      throw new ApiError(409, 'agent_library_stale_revision');
+      throw new ApiError(409, 'library_stale_revision');
     }
     savedBody = sent;
     return result;
@@ -136,15 +136,15 @@
       const value = !owned || dirty ? await saveDraft() : owned;
       if (publish) {
         const release = await api.publish(
-          value.entry.id,
-          value.entry.revision,
-          retryKey('publish', { id: value.entry.id, revision: value.entry.revision }),
+          value.item.id,
+          value.item.revision,
+          retryKey('publish', { id: value.item.id, revision: value.item.revision }),
         );
-        releaseHref = `/agents/library/${value.entry.id}/versions/${release.id}`;
-        populate(await api.draft(value.entry.id));
+        releaseHref = `/library/items/${value.item.id}/versions/${release.id}`;
+        populate(await api.draft(value.item.id));
         message = `Published version ${release.number}.`;
       } else message = 'Private draft saved.';
-      if (!entryId) await goto(`/agents/yours/${value.entry.id}/edit`);
+      if (!itemId) await goto(`/library/mine/${value.item.id}/edit`);
     } catch (cause) {
       error = libraryError(cause);
     } finally {
@@ -157,18 +157,18 @@
     error = '';
     try {
       const result = await api.archive(
-        owned.entry.id,
-        owned.entry.revision,
-        !owned.entry.archived,
+        owned.item.id,
+        owned.item.revision,
+        !owned.item.archived,
         retryKey('archive', {
-          id: owned.entry.id,
-          revision: owned.entry.revision,
-          archived: !owned.entry.archived,
+          id: owned.item.id,
+          revision: owned.item.revision,
+          archived: !owned.item.archived,
         }),
       );
       populate(result);
       preview = false;
-      message = result.entry.archived ? 'Entry archived.' : 'Entry restored.';
+      message = result.item.archived ? 'Item archived.' : 'Item restored.';
     } catch (cause) {
       error = libraryError(cause);
     } finally {
@@ -207,12 +207,12 @@
 </script>
 
 <main id="main" class="page narrow" tabindex="-1">
-  <a href="/agents/yours">Back to Yours</a>
-  <h1>{entryId ? 'Edit library entry' : 'Contribute to the agent library'}</h1>
+  <a href="/library/mine">Back to My library</a>
+  <h1>{itemId ? 'Edit library item' : 'Contribute to the agent library'}</h1>
   <p>Drafts are private. Publishing makes the previewed content available to everyone.</p>
-  {#if busy}<LoadingState>Saving or loading entry…</LoadingState>{/if}
+  {#if busy}<LoadingState>Saving or loading item…</LoadingState>{/if}
   {#if error}<p role="alert">{error}</p>
-    {#if entryId || owned}<Button
+    {#if itemId || owned}<Button
         variant="outline"
         disabled={busy}
         onclick={() => {
@@ -224,16 +224,16 @@
       {message}
       {#if releaseHref}<a href={releaseHref}>View published version</a>{/if}
     </p>{/if}
-  {#if owned?.entry.hidden}<p role="status">
-      A moderator has hidden this entry. New publications remain hidden until a moderator restores
+  {#if owned?.item.hidden}<p role="status">
+      A moderator has hidden this item. New publications remain hidden until a moderator restores
       it.
     </p>{/if}
-  {#if owned?.entry.archived}<p role="status">
-      This entry is archived. Restore it to continue editing.
+  {#if owned?.item.archived}<p role="status">
+      This item is archived. Restore it to continue editing.
     </p>{/if}
-  {#if owned?.entry.source_version_id}<p>
+  {#if owned?.item.source_version_id}<p>
       Copied from exact source version: <a
-        href={`/agents/library/${owned.source_entry_id}/versions/${owned.entry.source_version_id}`}
+        href={`/library/items/${owned.source_item_id}/versions/${owned.item.source_version_id}`}
         >View original version</a
       >. Preserve its attribution and license.
     </p>{/if}
@@ -335,9 +335,9 @@
     </form>
     {#if owned}<div class="actions">
         <Button variant="outline" disabled={busy || dirty} onclick={archive}
-          >{owned.entry.archived ? 'Restore entry' : 'Archive entry'}</Button
-        >{#if owned.entry.published_version_id}<a
-            href={`/agents/library/${owned.entry.id}/versions/${owned.entry.published_version_id}`}
+          >{owned.item.archived ? 'Restore item' : 'Archive item'}</Button
+        >{#if owned.item.published_version_id}<a
+            href={`/library/items/${owned.item.id}/versions/${owned.item.published_version_id}`}
             >View published version</a
           >{/if}
       </div>{/if}

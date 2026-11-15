@@ -5,7 +5,7 @@ from types import TracebackType
 from typing import Protocol, Self
 
 from polycolab.accounts.store import AccountStore
-from polycolab.agents.library.store import AgentLibraryStore
+from polycolab.agents.library.store import LibraryStore
 from polycolab.artifacts.store import ArtifactStore
 from polycolab.conversations.store import ConversationStore
 from polycolab.projects.collaborative_store import CollaborativeStore
@@ -25,7 +25,7 @@ class Transaction(Protocol):
     def conversations(self) -> ConversationStore: ...
 
     @property
-    def agent_library(self) -> AgentLibraryStore: ...
+    def library(self) -> LibraryStore: ...
 
     @property
     def collaborative(self) -> CollaborativeStore: ...
