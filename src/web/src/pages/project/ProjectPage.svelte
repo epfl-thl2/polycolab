@@ -50,7 +50,7 @@
           draftKey={chatDraftKey(projectId, href)}
           {onCreated}
         />{/key}{/await}{:else}<h1>Private sessions</h1>
-    <p>Agent sessions are available to active contributors and owners.</p>{/if}
+    <p>Agent sessions are available to active editors and owners.</p>{/if}
 {:else if section === 'agent-connect'}
   {#await import('./sections/ProjectAgentConnect.svelte')}<LoadingState
       >Loading connection guide…</LoadingState

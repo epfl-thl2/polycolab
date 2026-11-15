@@ -168,7 +168,7 @@ def test_children_are_independently_authorized_and_parentage_is_not_editable(
     client: TestClient,
 ) -> None:
     project_id = str(create_project(client)["id"])
-    add_member(client, project_id, "contributor", "CONTRIBUTOR")
+    add_member(client, project_id, "contributor", "EDITOR")
     root_id = UUID(str(create_session(client, project_id)["id"]))
     root_path = f"/api/v1/sessions/{root_id}"
     assert (

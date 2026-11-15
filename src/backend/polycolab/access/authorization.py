@@ -44,14 +44,14 @@ class ProjectNotFound(Exception):
 
 ROLE_ACTIONS: dict[ProjectRole, frozenset[ProjectAction]] = {
     ProjectRole.OWNER: frozenset(ProjectAction),
-    ProjectRole.CONTRIBUTOR: frozenset(
+    ProjectRole.EDITOR: frozenset(
         {
             ProjectAction.VIEW,
             ProjectAction.WRITE_FILES,
             ProjectAction.RUN_AGENTS,
         }
     ),
-    ProjectRole.READ_ONLY: frozenset({ProjectAction.VIEW}),
+    ProjectRole.VIEWER: frozenset({ProjectAction.VIEW}),
 }
 
 # All mutations that recheck project authority acquire these rows in this order.

@@ -1687,7 +1687,7 @@ test('project owners add registered collaborators by exact username', async ({ p
     user_id: '22222222-2222-4222-8222-222222222222',
     username: 'grace.hopper',
     display_name: 'Grace Hopper',
-    role: 'CONTRIBUTOR',
+    role: 'EDITOR',
     created_at: createdAt,
   };
   let listed = [ada];
@@ -1732,15 +1732,15 @@ test('project owners add registered collaborators by exact username', async ({ p
   await expect(page.getByLabel('Email')).toHaveCount(0);
 
   await page.getByLabel('Exact username').fill('Grace.Hopper');
-  await expect(page.getByLabel('Member role').locator('option[value="READ_ONLY"]')).toHaveCount(0);
-  await page.getByLabel('Member role').selectOption('CONTRIBUTOR');
+  await expect(page.getByLabel('Member role').locator('option[value="VIEWER"]')).toHaveCount(0);
+  await page.getByLabel('Member role').selectOption('EDITOR');
   await page.getByRole('button', { name: 'Add member' }).click();
   await expect(page.getByRole('status')).toHaveText('Member added.');
   await expect(page.getByText('Grace Hopper', { exact: true })).toBeVisible();
-  expect(additions[0]).toEqual({ username: 'grace.hopper', role: 'CONTRIBUTOR' });
+  expect(additions[0]).toEqual({ username: 'grace.hopper', role: 'EDITOR' });
 
   const owner = page.getByRole('listitem').filter({ hasText: 'Ada Lovelace' });
-  await owner.getByLabel('Role').selectOption('CONTRIBUTOR');
+  await owner.getByLabel('Role').selectOption('EDITOR');
   await expect(page.getByRole('alert')).toContainText('retain at least one owner');
 
   const collaborator = page.getByRole('listitem').filter({ hasText: 'Grace Hopper' });

@@ -5,8 +5,8 @@ from enum import StrEnum
 
 class ProjectRole(StrEnum):
     OWNER = "OWNER"
-    CONTRIBUTOR = "CONTRIBUTOR"
-    READ_ONLY = "READ_ONLY"
+    EDITOR = "EDITOR"
+    VIEWER = "VIEWER"
 
 
 class ProjectVisibility(StrEnum):

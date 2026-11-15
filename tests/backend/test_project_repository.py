@@ -96,7 +96,7 @@ def test_public_project_files_remain_member_only(
     added = client.post(
         url.removesuffix("/repository") + "/members",
         headers=OWNER,
-        json={"user_id": user["user_id"], "role": "READ_ONLY"},
+        json={"user_id": user["user_id"], "role": "VIEWER"},
     )
     assert added.status_code == 201, added.text
     assert client.get(url, headers={"Authorization": "Bearer reader"}).json()["writable"] is False

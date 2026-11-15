@@ -189,7 +189,7 @@ def test_last_owner_policy_uses_application_state_without_database() -> None:
             cast(Transaction, transaction),
             project_id=project_id,
             user_id=user_id,
-            role=ProjectRole.READ_ONLY,
+            role=ProjectRole.VIEWER,
         )
     transaction.projects.project.assert_called_once_with(project_id, lock=True)
     transaction.projects.membership.assert_called_once_with(project_id, user_id, lock=True)
@@ -216,7 +216,7 @@ def test_no_implicit_store_commit_and_invitation_projection() -> None:
             invitation = transaction.projects.create_invitation(
                 project_id=project.id,
                 email="reader@example.test",
-                role=ProjectRole.READ_ONLY,
+                role=ProjectRole.VIEWER,
                 token_digest="a" * 64,
                 invited_by=owner.id,
                 expires_at=utc_now(),

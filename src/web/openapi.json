@@ -3070,8 +3070,8 @@
       "ProjectRole": {
         "enum": [
           "OWNER",
-          "CONTRIBUTOR",
-          "READ_ONLY"
+          "EDITOR",
+          "VIEWER"
         ],
         "title": "ProjectRole",
         "type": "string"

@@ -72,7 +72,7 @@ def test_files_crud_conflicts_and_no_history(
 def test_permissions_and_mode_isolation(files: tuple[TestClient, str, Path]) -> None:
     client, root, directory = files
     project_id = directory.name.removesuffix(".files")
-    add_member(client, project_id, "reader", "READ_ONLY")
+    add_member(client, project_id, "reader", "VIEWER")
     assert client.get(root, headers=headers("reader")).json()["writable"] is False
     assert (
         client.post(

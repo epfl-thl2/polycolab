@@ -33,7 +33,7 @@ test('linear coediting persists, reconnects, and restores across two real member
       (
         await page.request.post(`/api/v1/projects/${project.id}/members`, {
           headers,
-          data: { user_id: member.id, role: 'CONTRIBUTOR' },
+          data: { user_id: member.id, role: 'EDITOR' },
         })
       ).status(),
     ).toBe(201);

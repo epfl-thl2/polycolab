@@ -23,12 +23,12 @@
   let name = $state(untrack(() => project.name));
   let description = $state(untrack(() => project.description ?? ''));
   let username = $state('');
-  let role = $state<Role>('CONTRIBUTOR');
+  let role = $state<Role>('EDITOR');
   let error = $state('');
   let notice = $state('');
   let busy = $state(false);
   const owner = $derived(project.current_user_role === 'OWNER');
-  const roles: Role[] = ['OWNER', 'CONTRIBUTOR', 'READ_ONLY'];
+  const roles: Role[] = ['OWNER', 'EDITOR', 'VIEWER'];
   const members = createInfiniteQuery(
     toStore(() => ({
       queryKey: ['members', project.id],

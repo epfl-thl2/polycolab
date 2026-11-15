@@ -114,7 +114,7 @@ def test_external_member_authority(files: tuple[TestClient, str, Path]) -> None:
     project = root.split("/")[-2]
     outsider = key_for(client, "outsider")
     assert client.get(root, headers=headers(outsider["secret"])).status_code == 404
-    add_member(client, project, "reader", "READ_ONLY")
+    add_member(client, project, "reader", "VIEWER")
     reader = key_for(client, "reader")
     assert client.get(root, headers=headers(reader["secret"])).status_code == 200
     assert (

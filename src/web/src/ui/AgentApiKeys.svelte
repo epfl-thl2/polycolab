@@ -489,7 +489,7 @@
         <div class="key-access-summary">
           <p>
             Each key can access Default project files using your current membership. Owners and
-            contributors can write; read-only members can read.
+            editors can write; viewers can read.
           </p>
           <details>
             <summary>Access and limits</summary>

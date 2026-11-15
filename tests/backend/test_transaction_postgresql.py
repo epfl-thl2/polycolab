@@ -57,7 +57,7 @@ def test_owner_set_mutations_are_serialized_by_shared_transaction(
                     transaction,
                     project_id=project.id,
                     user_id=user.id,
-                    role=ProjectRole.CONTRIBUTOR,
+                    role=ProjectRole.EDITOR,
                 )
             except DomainConflict:
                 return False

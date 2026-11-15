@@ -39,7 +39,7 @@ describe('project API adapter', () => {
           user_id: '11111111-1111-4111-8111-111111111111',
           username: 'grace.hopper',
           display_name: 'Grace Hopper',
-          role: 'CONTRIBUTOR',
+          role: 'EDITOR',
           created_at: '2026-09-09T10:00:00Z',
         }),
         { status: 201, headers: { 'content-type': 'application/json' } },
@@ -47,19 +47,19 @@ describe('project API adapter', () => {
     });
     const api = createProjectsApi({ baseUrl: 'https://api.example.test' });
 
-    await api.addMember('project-a', { username: 'grace.hopper', role: 'CONTRIBUTOR' });
+    await api.addMember('project-a', { username: 'grace.hopper', role: 'EDITOR' });
     await api.addMember('project-a', {
       user_id: '11111111-1111-4111-8111-111111111111',
-      role: 'READ_ONLY',
+      role: 'VIEWER',
     });
 
     expect(await requests[0]!.json()).toEqual({
       username: 'grace.hopper',
-      role: 'CONTRIBUTOR',
+      role: 'EDITOR',
     });
     expect(await requests[1]!.json()).toEqual({
       user_id: '11111111-1111-4111-8111-111111111111',
-      role: 'READ_ONLY',
+      role: 'VIEWER',
     });
   });
 

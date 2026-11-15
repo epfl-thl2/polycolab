@@ -141,7 +141,7 @@ def test_save_commit_discard_and_remove(
     assert not WorktreeStorage(git).path(UUID(worktree["id"])).exists()
     assert client.post(url + "/restore", headers=auth).json()["lifecycle"] == "active"
     assert (WorktreeStorage(git).path(UUID(worktree["id"])) / "notes.txt").read_text() == "hello"
-    add_member(client, project, "reader", "READ_ONLY")
+    add_member(client, project, "reader", "VIEWER")
     assert client.get(url, headers=headers("reader")).json()["writable"] is False
     assert (
         client.post(
@@ -201,7 +201,7 @@ def test_main_protection_missing_checkout_and_conflicting_alias(
     client, project, git = native
     root = f"/api/v1/projects/{project}/worktrees"
     auth = headers("owner")
-    add_member(client, project, "reader", "READ_ONLY")
+    add_member(client, project, "reader", "VIEWER")
     main = client.get(root, headers=headers("reader")).json()[0]
     url = root + "/" + main["id"]
     save = client.post(
@@ -394,7 +394,7 @@ def test_title_patch_does_not_change_worktree_lifecycle(
     assert renamed["removed_at"] == removed["removed_at"]
     assert renamed["lifecycle"] == "removed"
     assert not WorktreeStorage(git).path(UUID(tree["id"])).exists()
-    add_member(client, project, "reader", "READ_ONLY")
+    add_member(client, project, "reader", "VIEWER")
     assert client.patch(url, headers=headers("reader"), json={"title": "No"}).status_code == 403
     assert client.patch(url, headers=headers("outsider"), json={"title": "No"}).status_code == 404
 

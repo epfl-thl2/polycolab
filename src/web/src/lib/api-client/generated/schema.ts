@@ -3090,7 +3090,7 @@ export interface components {
          * ProjectRole
          * @enum {string}
          */
-        ProjectRole: "OWNER" | "CONTRIBUTOR" | "READ_ONLY";
+        ProjectRole: "OWNER" | "EDITOR" | "VIEWER";
         /** ProjectUpdate */
         ProjectUpdate: {
             /** Archived */

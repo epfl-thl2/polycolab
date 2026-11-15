@@ -14,10 +14,10 @@
   const access = $derived(
     role === 'OWNER'
       ? 'Owner'
-      : role === 'CONTRIBUTOR'
-        ? 'Contributor'
-        : role === 'READ_ONLY'
-          ? 'Read only'
+      : role === 'EDITOR'
+        ? 'Editor'
+        : role === 'VIEWER'
+          ? 'Viewer'
           : 'Visitor',
   );
 </script>

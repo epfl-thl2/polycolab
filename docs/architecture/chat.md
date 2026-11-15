@@ -57,7 +57,7 @@ resumption, sharing expansion, or conversion into an agent conversation.
 ## Session API and participation
 
 `/api/v1/sessions` is the single human session API. Creating a session requires a
-project and current contributor or owner membership. Agent version, harness and
+project and current editor or owner membership. Agent version, harness and
 prompt configuration are fixed at creation. The server admits supported execution
 capabilities; storing an arbitrary harness identifier does not enable it.
 
@@ -82,7 +82,7 @@ their separate delegated project-file APIs.
 
 Private sessions remain owner-only even when another user owns the project.
 Project-readable sharing permits current members to read. Project-contributable
-sharing additionally permits contributors and owners to submit messages. Child
+sharing additionally permits editors and owners to submit messages. Child
 sharing is independent; neither hierarchy links nor child listings reveal
 inaccessible descendants.
 

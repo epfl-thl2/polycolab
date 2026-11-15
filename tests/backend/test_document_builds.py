@@ -130,7 +130,7 @@ def test_compile_snapshot_results_and_scope(
     assert result.content == pdf
     assert result.headers["cache-control"] == "private, no-store"
     project = root.split("/")[4]
-    add_member(client, project, "reader", "READ_ONLY")
+    add_member(client, project, "reader", "VIEWER")
     assert client.get(path + "/outputs/pdf", headers=headers("reader")).content == pdf
     assert (
         client.post(
@@ -276,7 +276,7 @@ def test_revocation_and_output_limits(
         session.execute(
             update(SqlMembership)
             .where(SqlMembership.project_id == UUID(root.split("/")[4]))
-            .values(role=ProjectRole.READ_ONLY)
+            .values(role=ProjectRole.VIEWER)
         )
         session.commit()
     assert client.post(route + "/heartbeat", headers=WORKER, json=generation).status_code == 409

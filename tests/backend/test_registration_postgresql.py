@@ -180,14 +180,14 @@ def test_postgresql_exact_username_membership_materializes_registered_user_atomi
 
             member = client.post(
                 f"/api/v1/projects/{project.json()['id']}/members",
-                json={"username": " RESEARCH-MEMBER ", "role": "CONTRIBUTOR"},
+                json={"username": " RESEARCH-MEMBER ", "role": "EDITOR"},
             )
             assert member.status_code == 201, member.text
             assert member.json()["username"] == "research-member"
             assert member.json()["display_name"] == "Research Member"
             duplicate = client.post(
                 f"/api/v1/projects/{project.json()['id']}/members",
-                json={"username": "research-member", "role": "READ_ONLY"},
+                json={"username": "research-member", "role": "VIEWER"},
             )
             assert duplicate.status_code == 409
 

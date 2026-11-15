@@ -30,7 +30,7 @@ test('read-only member has no browser agent controls', async ({ page }) => {
           description: null,
           visibility: 'PRIVATE',
           archived_at: null,
-          current_user_role: 'READ_ONLY',
+          current_user_role: 'VIEWER',
         }
       : [];
     await route.fulfill({
@@ -148,7 +148,7 @@ test('contributor can create a session and queue a chat turn', async ({ page }) 
           description: null,
           visibility: 'PUBLIC',
           archived_at: null,
-          current_user_role: 'CONTRIBUTOR',
+          current_user_role: 'EDITOR',
         }
       : [];
     await route.fulfill({

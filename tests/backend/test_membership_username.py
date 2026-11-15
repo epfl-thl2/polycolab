@@ -81,14 +81,14 @@ def test_owner_adds_exact_builtin_username_and_receives_readable_identity(
 
     added = local_client.post(
         f"/api/v1/projects/{project_id}/members",
-        json={"username": "  BOB.EXAMPLE  ", "role": "CONTRIBUTOR"},
+        json={"username": "  BOB.EXAMPLE  ", "role": "EDITOR"},
     )
     assert added.status_code == 201, added.text
     assert added.json() == {
         "user_id": added.json()["user_id"],
         "username": "bob.example",
         "display_name": "Bob Builder",
-        "role": "CONTRIBUTOR",
+        "role": "EDITOR",
         "created_at": added.json()["created_at"],
     }
 
@@ -102,7 +102,7 @@ def test_owner_adds_exact_builtin_username_and_receives_readable_identity(
 
     duplicate = local_client.post(
         f"/api/v1/projects/{project_id}/members",
-        json={"username": "bob.example", "role": "READ_ONLY"},
+        json={"username": "bob.example", "role": "VIEWER"},
     )
     assert duplicate.status_code == 409
 
@@ -110,11 +110,11 @@ def test_owner_adds_exact_builtin_username_and_receives_readable_identity(
 @pytest.mark.parametrize(
     "payload",
     [
-        {"role": "CONTRIBUTOR"},
+        {"role": "EDITOR"},
         {
             "user_id": "00000000-0000-0000-0000-000000000001",
             "username": "member.name",
-            "role": "CONTRIBUTOR",
+            "role": "EDITOR",
         },
     ],
 )
@@ -142,7 +142,7 @@ def test_username_membership_is_exact_and_does_not_offer_directory_discovery(
 
     response = local_client.post(
         f"/api/v1/projects/{project_id}/members",
-        json={"username": username, "role": "CONTRIBUTOR"},
+        json={"username": username, "role": "EDITOR"},
     )
 
     assert response.status_code == 400

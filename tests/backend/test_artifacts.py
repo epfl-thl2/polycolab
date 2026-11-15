@@ -58,7 +58,7 @@ def test_project_membership_gates_artifacts_and_archived_writes(
 ) -> None:
     client = artifact_client
     project = create_project(client)
-    add_member(client, project, "reader", "READ_ONLY")
+    add_member(client, project, "reader", "VIEWER")
     artifact = upload(client, project).json()["id"]
     url = f"/api/v1/projects/{project}/artifacts/{artifact}/content"
     assert client.get(url, headers=headers("reader")).status_code == 200
@@ -97,7 +97,7 @@ def test_revocation_during_download_prevents_returning_bytes(
 ) -> None:
     client = artifact_client
     project = create_project(client)
-    add_member(client, project, "reader", "READ_ONLY")
+    add_member(client, project, "reader", "VIEWER")
     artifact = upload(client, project).json()["id"]
     reader = client.get("/api/v1/account", headers=headers("reader")).json()["id"]
     store = cast(Any, client.app).state.artifact_storage

@@ -85,7 +85,7 @@
       Keys follow your current and future project memberships; they are not limited to this project.
     </p>
     {#if !canWrite}<p class="access-note">
-        Contributing here requires an active project and an owner or contributor role.
+        Contributing here requires an active project and an owner or editor role.
       </p>{/if}
   </li>
   <li>

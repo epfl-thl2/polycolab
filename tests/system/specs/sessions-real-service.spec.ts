@@ -41,8 +41,8 @@ test('unified sessions persist shared browser participation and fence concurrent
       visibility: 'PRIVATE',
     });
     for (const [user, role] of [
-      ['contributor', 'CONTRIBUTOR'],
-      ['reader', 'READ_ONLY'],
+      ['contributor', 'EDITOR'],
+      ['reader', 'VIEWER'],
     ]) {
       const account = await call(request, 'get', '/account', user);
       await call(request, 'post', `/projects/${project.id}/members`, 'owner', {

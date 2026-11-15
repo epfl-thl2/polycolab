@@ -17,6 +17,11 @@ Clients must use `/api/v1/account/provider-connections` and
 `provider_connection_id`; the old provider-profile routes are removed. Provider
 credential ciphertext and authenticated encryption contexts remain unchanged.
 
+Project roles now use `OWNER`, `EDITOR`, and `VIEWER`. The role migration converts
+existing memberships and invitations from `CONTRIBUTOR` and `READ_ONLY` while
+preserving their permissions. Clients must send the new values; the previous
+role names are rejected.
+
 The account/worktree migrations retire external-agent identities, rename `project_tasks`
 to `worktrees`, and rename `gateway_profiles` to `provider_connections`. Existing key
 secrets and limits, provider credential envelopes, working-copy IDs, and Git branches

@@ -146,7 +146,7 @@ def test_saved_history_retry_and_authority(linear: tuple[TestClient, str, str]) 
     assert base64.b64decode(document["content_base64"]).decode() == "theorem example := trivial"
     assert write(client, root, [create_file("other.lean")]).status_code == 409
     assert write(client, root, [create_file("../escape")], sequence=1).status_code == 422
-    add_member(client, project, "reader", "READ_ONLY")
+    add_member(client, project, "reader", "VIEWER")
     assert client.get(root, headers=headers("reader")).json()["writable"] is False
     assert write(client, root, [create_file()], sequence=1, user="reader").status_code == 403
     assert client.get(root, headers=headers("outsider")).status_code == 404
@@ -173,7 +173,7 @@ def test_restore_is_owner_only_and_fences_old_documents(
         ).status_code
         == 200
     )
-    add_member(client, project, "contributor", "CONTRIBUTOR")
+    add_member(client, project, "contributor", "EDITOR")
     body = {"epoch": 1, "sequence": 2, "checkpoint_id": checkpoint["id"]}
     assert (
         client.post(
@@ -229,8 +229,8 @@ def test_shared_chat_read_access_and_unshare(
     from test_sessions_api import create_session
 
     client, project, root = linear
-    add_member(client, project, "reader", "READ_ONLY")
-    add_member(client, project, "contributor", "CONTRIBUTOR")
+    add_member(client, project, "reader", "VIEWER")
+    add_member(client, project, "contributor", "EDITOR")
     chat = create_session(client, project)
     url = f"/api/v1/sessions/{chat['id']}"
     listing = f"/api/v1/sessions?project_id={project}"
@@ -319,7 +319,7 @@ def test_websocket_ack_replay_and_revoked_write(
     client, project, root = linear
     command = create_file(text="first\nsecond\n")
     assert write(client, root, [command]).status_code == 200
-    add_member(client, project, "contributor", "CONTRIBUTOR")
+    add_member(client, project, "contributor", "EDITOR")
     app = cast(FastAPI, client.app)
     origin = str(app.state.settings.allowed_origins[0]).rstrip("/")
     doc = client.get(root + "/files/" + command["file_id"], headers=headers("owner")).json()

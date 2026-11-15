@@ -194,8 +194,8 @@ def test_session_turn_authorization_idempotency_and_no_private_binding_leakage(
     client: TestClient,
 ) -> None:
     project_id = str(create_project(client)["id"])
-    add_member(client, project_id, "contributor", "CONTRIBUTOR")
-    add_member(client, project_id, "reader", "READ_ONLY")
+    add_member(client, project_id, "contributor", "EDITOR")
+    add_member(client, project_id, "reader", "VIEWER")
     assert (
         client.post(
             "/api/v1/sessions",
@@ -246,8 +246,8 @@ def test_session_and_run_history_are_private_to_the_current_requester(
     client: TestClient,
 ) -> None:
     project_id = str(create_project(client)["id"])
-    add_member(client, project_id, "contributor", "CONTRIBUTOR")
-    add_member(client, project_id, "reader", "READ_ONLY")
+    add_member(client, project_id, "contributor", "EDITOR")
+    add_member(client, project_id, "reader", "VIEWER")
     add_member(client, project_id, "same-email", "OWNER")
     session_id = str(create_session(client, project_id, "contributor")["id"])
     provider_connection_id = str(create_connection(client, "contributor")["id"])
@@ -366,7 +366,7 @@ def test_cancel_resume_and_committed_cursor_sse_reconnect(client: TestClient) ->
 
 def test_only_creator_archives_private_session(client: TestClient) -> None:
     project_id = str(create_project(client)["id"])
-    add_member(client, project_id, "contributor", "CONTRIBUTOR")
+    add_member(client, project_id, "contributor", "EDITOR")
     session_id = str(create_session(client, project_id)["id"])
     assert (
         client.patch(

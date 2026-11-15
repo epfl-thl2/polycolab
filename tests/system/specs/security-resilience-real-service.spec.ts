@@ -35,7 +35,7 @@ test('revoked memberships block active-session SSE reconnect and cross-project s
     token: 'contributor',
   });
   const membership = await call(request, 'post', `/api/v1/projects/${first.body.id}/members`, {
-    data: { user_id: contributor.body.id, role: 'CONTRIBUTOR' },
+    data: { user_id: contributor.body.id, role: 'EDITOR' },
   });
   expect(membership.status).toBe(201);
   const profile = await call<{ id: string }>(

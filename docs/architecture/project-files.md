@@ -11,7 +11,7 @@ and operation receipts. Repository content is member-only even for public projec
 ## Worktrees and collaboration
 
 The browser presents Project → Worktrees → Conversations. Main and named worktrees
-are shared by project members; owners and contributors can edit, and readers can
+are shared by project members; owners and editors can edit, and readers can
 inspect. Conversations remain creator-private. Worktrees have no ownership groups.
 Creating a worktree asks for a name, a unique branch name, and a starting branch
 (default Main). One managed linked checkout is allowed per branch. The service
@@ -177,7 +177,7 @@ choices stay in the project session. Compilation does not block subsequent saves
 
 `/api/v1/projects/{project_id}/worktrees/{worktree_id}/latex-builds` supports
 submission, recent history, status, cancellation and private output downloads.
-Both enclosing IDs must match the build. Owners/contributors may submit and cancel;
+Both enclosing IDs must match the build. Owners/editors may submit and cancel;
 current members may view results. External agent credentials are not accepted.
 Project visibility never makes source snapshots, build logs or PDFs public.
 

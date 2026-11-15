@@ -801,11 +801,11 @@
             >Project access<NativeSelect bind:value={sharingMode}>
               <option value="private">Private · only me</option>
               <option value="project_readable">Project members can read</option>
-              <option value="project_contributable">Project contributors can participate</option>
+              <option value="project_contributable">Project editors can participate</option>
             </NativeSelect></Field.Label
           >
           <p>
-            Project sharing includes this full transcript and future messages. Contributors use
+            Project sharing includes this full transcript and future messages. Editors use
             their own provider connections when participation is enabled. Private prompts, tool
             inputs, and artifacts keep their existing permissions.
           </p>

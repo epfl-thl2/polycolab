@@ -31,8 +31,8 @@ test('shared contributors use their profile and read-only members receive the sa
   let submitted: Record<string, unknown> | undefined;
   try {
     for (const [context, name, role] of [
-      [contributor, 'contributor', 'CONTRIBUTOR'],
-      [reader, 'reader', 'READ_ONLY'],
+      [contributor, 'contributor', 'EDITOR'],
+      [reader, 'reader', 'VIEWER'],
     ] as const) {
       await auth(context, name);
       await context.route('**/api/v1/**', async (route) => {
@@ -41,7 +41,7 @@ test('shared contributors use their profile and read-only members receive the sa
         const view: Session = {
           ...session,
           capabilities: {
-            can_send: role === 'CONTRIBUTOR',
+            can_send: role === 'EDITOR',
             can_manage: false,
             can_share: false,
             can_stream: true,
@@ -81,7 +81,7 @@ test('shared contributors use their profile and read-only members receive the sa
         if (path.endsWith('/runs'))
           return route.fulfill({
             json: run
-              ? [{ ...run, can_interrupt: role === 'CONTRIBUTOR' && run.status === 'QUEUED' }]
+              ? [{ ...run, can_interrupt: role === 'EDITOR' && run.status === 'QUEUED' }]
               : [],
           });
         if (path.endsWith('/stream'))
@@ -95,7 +95,7 @@ test('shared contributors use their profile and read-only members receive the sa
         if (path.endsWith('/platform-agents')) return route.fulfill({ json: [] });
         if (path.endsWith('/project-references') || path.endsWith('/objects'))
           return route.fulfill({ json: { items: [], next_cursor: null } });
-        if (path.endsWith('/events') && request.method() === 'POST' && role === 'CONTRIBUTOR') {
+        if (path.endsWith('/events') && request.method() === 'POST' && role === 'EDITOR') {
           const event = request.postDataJSON();
           if (event.type === 'interrupt') {
             expect(event.run_id).toBe(run?.id);

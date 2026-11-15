@@ -46,8 +46,8 @@ def setup(client: TestClient) -> tuple[Any, Any, Any, Any, Any]:
     db.flush()
     for user, role in (
         (owner, ProjectRole.OWNER),
-        (contributor, ProjectRole.CONTRIBUTOR),
-        (reader, ProjectRole.READ_ONLY),
+        (contributor, ProjectRole.EDITOR),
+        (reader, ProjectRole.VIEWER),
         (other_owner, ProjectRole.OWNER),
     ):
         db.add(SqlMembership(project_id=project.id, user_id=user.id, role=role))

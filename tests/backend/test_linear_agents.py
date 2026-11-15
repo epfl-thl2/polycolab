@@ -135,7 +135,7 @@ def test_conflict_is_private_and_new_file_is_not_partially_applied(
     assert result.json()["application_status"] == "pending"
     assert len(client.get(root, headers=OWNER).json()["files"]) == 1
     project_id = root.split("/")[4]
-    add_member(client, project_id, "contributor", "CONTRIBUTOR")
+    add_member(client, project_id, "contributor", "EDITOR")
     assert client.get(root + "/batches", headers=headers("contributor")).json() == []
     assert (
         client.post(

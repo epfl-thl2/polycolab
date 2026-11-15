@@ -66,12 +66,12 @@ def add_member(client: TestClient, project_id: str, token: str, role: str) -> No
 
 def test_exact_role_action_matrix() -> None:
     assert ROLE_ACTIONS[ProjectRole.OWNER] == frozenset(ProjectAction)
-    assert ROLE_ACTIONS[ProjectRole.CONTRIBUTOR] == {
+    assert ROLE_ACTIONS[ProjectRole.EDITOR] == {
         ProjectAction.VIEW,
         ProjectAction.WRITE_FILES,
         ProjectAction.RUN_AGENTS,
     }
-    assert ROLE_ACTIONS[ProjectRole.READ_ONLY] == {ProjectAction.VIEW}
+    assert ROLE_ACTIONS[ProjectRole.VIEWER] == {ProjectAction.VIEW}
 
 
 def test_project_roles_and_current_membership_are_checked_per_request(
@@ -81,8 +81,8 @@ def test_project_roles_and_current_membership_are_checked_per_request(
     assert unauthenticated.status_code == 401
     assert unauthenticated.headers["WWW-Authenticate"] == "Bearer"
     project_id = create_project(client)
-    add_member(client, project_id, "contributor", "CONTRIBUTOR")
-    add_member(client, project_id, "reader", "READ_ONLY")
+    add_member(client, project_id, "contributor", "EDITOR")
+    add_member(client, project_id, "reader", "VIEWER")
 
     assert (
         client.get(f"/api/v1/projects/{project_id}", headers=headers("reader")).status_code == 200
@@ -127,7 +127,7 @@ def test_member_project_shape_exposes_only_the_requesters_current_role(
     client: TestClient,
 ) -> None:
     project_id = create_project(client, token="owner")
-    add_member(client, project_id, "reader", "READ_ONLY")
+    add_member(client, project_id, "reader", "VIEWER")
 
     owner = client.get(f"/api/v1/projects/{project_id}", headers=headers("owner"))
     reader = client.get(f"/api/v1/projects/{project_id}", headers=headers("reader"))
@@ -139,8 +139,8 @@ def test_member_project_shape_exposes_only_the_requesters_current_role(
     assert listed.json()["items"][0]["member_count"] == 2
     assert "member_count" not in public.json()
     assert owner.json()["current_user_role"] == "OWNER"
-    assert reader.json()["current_user_role"] == "READ_ONLY"
-    assert listed.json()["items"][0]["current_user_role"] == "READ_ONLY"
+    assert reader.json()["current_user_role"] == "VIEWER"
+    assert listed.json()["items"][0]["current_user_role"] == "VIEWER"
     assert "current_user_role" not in public.json()
 
 
@@ -177,7 +177,7 @@ def test_cross_project_membership_and_last_owner_protection(client: TestClient) 
     first = create_project(client)
     second = create_project(client)
     contributor_id = current_user_id(client, "contributor")
-    add_member(client, first, "contributor", "CONTRIBUTOR")
+    add_member(client, first, "contributor", "EDITOR")
 
     # A membership in one project has no authority in another, even when public.
     assert (
@@ -187,7 +187,7 @@ def test_cross_project_membership_and_last_owner_protection(client: TestClient) 
         client.post(
             f"/api/v1/projects/{second}/members",
             headers=headers("contributor"),
-            json={"user_id": contributor_id, "role": "READ_ONLY"},
+            json={"user_id": contributor_id, "role": "VIEWER"},
         ).status_code
         == 404
     )
@@ -197,7 +197,7 @@ def test_cross_project_membership_and_last_owner_protection(client: TestClient) 
         client.patch(
             f"/api/v1/projects/{first}/members/{owner_id}",
             headers=headers("owner"),
-            json={"role": "READ_ONLY"},
+            json={"role": "VIEWER"},
         ).status_code
         == 409
     )
@@ -226,7 +226,7 @@ def test_archived_project_is_read_only_until_owner_unarchives(
         client.post(
             f"/api/v1/projects/{project_id}/members",
             headers=headers("owner"),
-            json={"user_id": contributor_id, "role": "CONTRIBUTOR"},
+            json={"user_id": contributor_id, "role": "EDITOR"},
         ).status_code
         == 403
     )
@@ -246,7 +246,7 @@ def test_invitation_is_account_bound_single_use_expirable_and_revocable(
             SqlAlchemyTransaction(session),
             project_id=UUID(project_id),
             email="reader@example.test",
-            role=ProjectRole.READ_ONLY,
+            role=ProjectRole.VIEWER,
             invited_by=UUID(owner_id),
             delivery=app_for(client).state.invitation_delivery,
         )
@@ -268,7 +268,7 @@ def test_invitation_is_account_bound_single_use_expirable_and_revocable(
         "/api/v1/invitations/accept", headers=headers("reader"), json={"token": token}
     )
     assert accepted.status_code == 200
-    assert accepted.json()["role"] == "READ_ONLY"
+    assert accepted.json()["role"] == "VIEWER"
     assert (
         client.post(
             "/api/v1/invitations/accept",
@@ -286,7 +286,7 @@ def test_invitation_is_account_bound_single_use_expirable_and_revocable(
             SqlAlchemyTransaction(session),
             project_id=UUID(project_id),
             email="reader@example.test",
-            role=ProjectRole.READ_ONLY,
+            role=ProjectRole.VIEWER,
             invited_by=UUID(owner_id),
             delivery=app_for(client).state.invitation_delivery,
         )
@@ -326,7 +326,7 @@ def test_local_delivery_outbox_is_not_serialized_by_create_invitation(
     response = client.post(
         f"/api/v1/projects/{project_id}/invitations",
         headers=headers("owner"),
-        json={"email": "reader@example.test", "role": "READ_ONLY"},
+        json={"email": "reader@example.test", "role": "VIEWER"},
     )
     assert response.status_code == 201
     assert "token" not in response.json()
@@ -357,7 +357,7 @@ def test_missing_delivery_retracts_pending_invitation(client: TestClient) -> Non
     response = client.post(
         f"/api/v1/projects/{project_id}/invitations",
         headers=headers("owner"),
-        json={"email": "reader@example.test", "role": "READ_ONLY"},
+        json={"email": "reader@example.test", "role": "VIEWER"},
     )
     assert response.status_code == 503
     assert (
@@ -387,7 +387,7 @@ def test_delivery_cleanup_failure_preserves_original_error_and_rolls_back(
                 SqlAlchemyTransaction(session),
                 project_id=UUID(project_id),
                 email="reader@example.test",
-                role=ProjectRole.READ_ONLY,
+                role=ProjectRole.VIEWER,
                 invited_by=UUID(owner_id),
                 delivery=DeliveryWithFailingRetract(),
             )
@@ -427,7 +427,7 @@ def test_project_directory_filters_before_pagination(client: TestClient) -> None
         client.post(
             f"/api/v1/projects/{shared}/members",
             headers=headers("contributor"),
-            json={"user_id": owner_id, "role": "READ_ONLY"},
+            json={"user_id": owner_id, "role": "VIEWER"},
         ).status_code
         == 201
     )

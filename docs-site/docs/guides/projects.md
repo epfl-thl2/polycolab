@@ -1,6 +1,6 @@
 # Projects and access
 
-A project groups shared files, members, and conversations. Owners manage settings and membership. Contributors can edit files; read-only members can inspect them. Archiving stops writes until an owner restores the project.
+A project groups shared files, members, and conversations. Owners manage settings and membership. Editors can edit files; viewers can inspect them. Archiving stops writes until an owner restores the project.
 
 ## File modes
 

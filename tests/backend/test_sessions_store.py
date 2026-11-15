@@ -267,7 +267,7 @@ def test_private_session_is_concealed_from_other_run_requesters(
             SqlMembership(
                 project_id=project.id,
                 user_id=contributor.id,
-                role=ProjectRole.CONTRIBUTOR,
+                role=ProjectRole.EDITOR,
             )
         )
         profile = SqlProviderConnection(

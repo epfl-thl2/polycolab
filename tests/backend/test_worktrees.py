@@ -96,7 +96,7 @@ def test_task_working_copy_retry_archive_and_member_privacy(
     app.state.settings.feature_agent_execution_enabled = True
     chat = task_chat(client, project_id, task["id"])
     assert chat["working_context"]["worktree_id"] == task["id"]
-    add_member(client, project_id, "reader", "READ_ONLY")
+    add_member(client, project_id, "reader", "VIEWER")
     assert task["id"] in [row["id"] for row in client.get(url, headers=headers("reader")).json()]
     assert (
         client.get(f"/api/v1/sessions/{chat['id']}", headers=headers("reader")).status_code == 404

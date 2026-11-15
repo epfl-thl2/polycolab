@@ -27,8 +27,8 @@ WORKER = {"Authorization": "Bearer polycolab-local-runtime-worker-token"}
 def shared_session(client: TestClient) -> tuple[Any, UUID, UUID, UUID, dict[str, str]]:
     app = cast(Any, client.app)
     project_id = UUID(str(create_project(client)["id"]))
-    add_member(client, str(project_id), "contributor", "CONTRIBUTOR")
-    add_member(client, str(project_id), "reader", "READ_ONLY")
+    add_member(client, str(project_id), "contributor", "EDITOR")
+    add_member(client, str(project_id), "reader", "VIEWER")
     session_id = UUID(str(create_session(client, str(project_id))["id"]))
     owner_id = UUID(client.get("/api/v1/account", headers=headers("owner")).json()["id"])
     sender_id = UUID(client.get("/api/v1/account", headers=headers("contributor")).json()["id"])
@@ -213,7 +213,7 @@ def test_worker_rechecks_shared_sender_authority(client: TestClient, revocation:
                 )
             )
             assert membership is not None
-            membership.role = ProjectRole.READ_ONLY
+            membership.role = ProjectRole.VIEWER
             db.commit()
     assert (
         client.post(

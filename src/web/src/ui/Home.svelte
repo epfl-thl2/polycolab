@@ -353,9 +353,9 @@
                 {#if auth.signedIn && project.current_user_role}<span class="project-role"
                     >{project.current_user_role === 'OWNER'
                       ? 'Owner'
-                      : project.current_user_role === 'CONTRIBUTOR'
-                        ? 'Contributor'
-                        : 'Read only'}</span
+                      : project.current_user_role === 'EDITOR'
+                        ? 'Editor'
+                        : 'Viewer'}</span
                   >{/if}
 
                 <div class="visibility-bottom">{@render visibilityLabel(project.visibility)}</div>

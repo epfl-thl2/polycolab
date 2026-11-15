@@ -22,7 +22,7 @@ providers** first. Follow-up messages use the provider selected in **Agent histo
 The conversation retains its agent configuration and exact execution references.
 
 Conversations start private. Their owner can open **Sharing**, preview the visible
-transcript and choose whether project members may read or contributors may also
+transcript and choose whether project members may read or editors may also
 participate. Each participant uses their own provider connection and execution budget.
 Sharing the transcript does not share private prompts, tool inputs or private output
 artifacts. Membership and sharing changes apply to subsequent reads and worker actions.

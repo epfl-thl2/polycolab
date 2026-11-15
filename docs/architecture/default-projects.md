@@ -22,7 +22,7 @@ caller's last read; it does not retain an earlier version. Stale saves return a
 conflict. Creating a file requires an unused path; rename never replaces another
 file. Files are limited to 700 KB, 2,000 files, and the configured project byte quota.
 
-Owners and contributors can edit; read-only members can inspect. Outsiders cannot
+Owners and editors can edit; viewers can inspect. Outsiders cannot
 read project files, including files in public projects. Archived projects reject
 writes. Backup the current project volume alongside the database.
 
