@@ -5,24 +5,24 @@ from datetime import timedelta
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
-from test_sessions_store import _new_run
+from test_conversation_lifecycle import _new_run
 
 from polycolab.agents.conversations import claim_next_run_in_transaction
 from polycolab.db.models import (
     SqlAgentRun,
     SqlExecutionClassState,
     SqlExecutionFairnessState,
+    SqlExecutionJob,
     SqlExecutionSlotLease,
-    SqlExecutionWorkItem,
 )
 from polycolab.entities.enums import (
-    ExecutionTenantKind,
     ExecutionWorkloadClass,
+    SchedulingScopeKind,
 )
 from polycolab.entities.time import utc_now
 
 
-def test_agent_work_item_and_slot_keep_physical_release_separate(
+def test_agent_job_and_slot_keep_physical_release_separate(
     client: TestClient,
 ) -> None:
     session, user, _, run_id = _new_run(client)
@@ -31,7 +31,7 @@ def test_agent_work_item_and_slot_keep_physical_release_separate(
         assert run is not None
         run.deadline_at = utc_now() + timedelta(minutes=5)
         session.commit()
-        item = SqlExecutionWorkItem(
+        item = SqlExecutionJob(
             agent_run_id=run.id,
             requested_by_user_id=user.id,
             project_id=run.project_id,
@@ -55,15 +55,15 @@ def test_agent_work_item_and_slot_keep_physical_release_separate(
             [
                 SqlExecutionFairnessState(
                     workload_class=ExecutionWorkloadClass.AGENT,
-                    tenant_kind=ExecutionTenantKind.USER,
-                    tenant_id=user.id,
+                    scope_kind=SchedulingScopeKind.USER,
+                    scope_id=user.id,
                     policy_version=1,
                     virtual_runtime=0,
                 ),
                 SqlExecutionFairnessState(
                     workload_class=ExecutionWorkloadClass.AGENT,
-                    tenant_kind=ExecutionTenantKind.PROJECT,
-                    tenant_id=run.project_id,
+                    scope_kind=SchedulingScopeKind.PROJECT,
+                    scope_id=run.project_id,
                     policy_version=1,
                     virtual_runtime=0,
                 ),
@@ -78,7 +78,7 @@ def test_agent_work_item_and_slot_keep_physical_release_separate(
         assert claimed.lease_acquired_at is not None
         assert claimed.deadline_at is not None
         slot = SqlExecutionSlotLease(
-            work_item_id=item.id,
+            job_id=item.id,
             workload_class=ExecutionWorkloadClass.AGENT,
             agent_run_id=claimed.id,
             generation=claimed.lease_generation,
@@ -109,7 +109,7 @@ def test_agent_work_item_and_slot_keep_physical_release_separate(
         session.commit()
 
         impossible = SqlExecutionSlotLease(
-            work_item_id=item.id,
+            job_id=item.id,
             workload_class=ExecutionWorkloadClass.AGENT,
             agent_run_id=claimed.id,
             generation=claimed.lease_generation + 1,

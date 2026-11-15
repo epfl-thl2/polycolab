@@ -22,7 +22,7 @@ from polycolab.db.converters.conversation import (
 from polycolab.db.errors import persistence_boundary
 from polycolab.db.models import (
     SqlAgentRunUsage,
-    SqlExecutionWorkItem,
+    SqlExecutionJob,
     SqlMembership,
     SqlProject,
     SqlWorktree,
@@ -367,7 +367,7 @@ class SqlConversationStore:
             )
         )
         reservation = self._session.scalar(
-            select(SqlExecutionWorkItem).where(SqlExecutionWorkItem.agent_run_id == run_id)
+            select(SqlExecutionJob).where(SqlExecutionJob.agent_run_id == run_id)
         )
         return UsageSummary(
             observations=observations,

@@ -22,7 +22,7 @@ from polycolab.entities.library import (
     LibraryOwned,
     LibraryVersion,
 )
-from polycolab.platform import mutation_keys
+from polycolab.platform import idempotency
 
 
 class SqlLibraryStore:
@@ -220,13 +220,13 @@ class SqlLibraryStore:
     @persistence_boundary
     def retry(self, user_id: UUID, operation: str, key: str, payload: object) -> list[UUID] | None:
         actor = f"human:{user_id}"
-        mutation_keys.lock_key(self.session, actor, operation, key)
-        row = mutation_keys.receipt(self.session, actor, operation, key, payload)
+        idempotency.lock_key(self.session, actor, operation, key)
+        row = idempotency.record(self.session, actor, operation, key, payload)
         return [UUID(value) for value in row.resource_ids] if row else None
 
     @persistence_boundary
     def remember(
         self, user_id: UUID, operation: str, key: str, payload: object, ids: list[UUID]
     ) -> None:
-        mutation_keys.save(self.session, f"human:{user_id}", operation, key, payload, ids)
+        idempotency.save(self.session, f"human:{user_id}", operation, key, payload, ids)
         self.session.flush()

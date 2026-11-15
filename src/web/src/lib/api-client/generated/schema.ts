@@ -13,7 +13,7 @@ export interface paths {
         };
         /**
          * Get account
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["getAccount"];
         put?: never;
@@ -32,18 +32,18 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List your agent keys
+         * List your agent API keys
          * @description Human-only, owner-only paginated key metadata and usage. Never returns secrets.
          *
-         *     **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         *     **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["listAgentApiKeys"];
         put?: never;
         /**
-         * Create an account-wide agent key
+         * Create an account-wide agent API key
          * @description Human-only. Creates a named key following current and future project memberships, including private projects. Returns the secret, with encrypted storage for later owner-only reveal. Expiry and limits are set by the server.
          *
-         *     **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         *     **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["createAgentApiKey"];
         delete?: never;
@@ -63,10 +63,10 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Revoke your agent key
+         * Revoke your agent API key
          * @description Human-only and owner-only. Revokes file access for this key.
          *
-         *     **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         *     **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         delete: operations["revokeAgentApiKey"];
         options?: never;
@@ -84,10 +84,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Reveal your agent key
+         * Reveal your agent API key
          * @description Human-only and owner-only. Reveals a recoverable, non-revoked key. Legacy hash-only keys cannot be revealed.
          *
-         *     **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         *     **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["revealAgentApiKey"];
         delete?: never;
@@ -177,7 +177,7 @@ export interface paths {
         };
         /**
          * List provider connections
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -185,7 +185,7 @@ export interface paths {
         put?: never;
         /**
          * Create provider connection
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -208,7 +208,7 @@ export interface paths {
         post?: never;
         /**
          * Delete provider connection
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -229,7 +229,7 @@ export interface paths {
         put?: never;
         /**
          * Rotate provider connection
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -251,7 +251,7 @@ export interface paths {
         put?: never;
         /**
          * Validate provider connection
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -272,7 +272,7 @@ export interface paths {
         get?: never;
         /**
          * Choose username
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         put: operations["chooseUsername"];
         post?: never;
@@ -291,7 +291,7 @@ export interface paths {
         };
         /**
          * Get agent capabilities
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -377,7 +377,7 @@ export interface paths {
         };
         /**
          * List conversations
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -385,7 +385,7 @@ export interface paths {
         put?: never;
         /**
          * Create conversation
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -405,7 +405,7 @@ export interface paths {
         };
         /**
          * Get conversation
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -417,7 +417,7 @@ export interface paths {
         head?: never;
         /**
          * Update conversation
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -433,7 +433,7 @@ export interface paths {
         };
         /**
          * List child conversations
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -457,7 +457,7 @@ export interface paths {
         put?: never;
         /**
          * Submit conversation event
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -477,7 +477,7 @@ export interface paths {
         };
         /**
          * List conversation items
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -499,7 +499,7 @@ export interface paths {
         };
         /**
          * List conversation runs
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -521,7 +521,7 @@ export interface paths {
         };
         /**
          * Get conversation sharing
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -533,7 +533,7 @@ export interface paths {
         head?: never;
         /**
          * Set conversation sharing
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -549,7 +549,7 @@ export interface paths {
         };
         /**
          * Stream conversation
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -573,7 +573,7 @@ export interface paths {
         put?: never;
         /**
          * Accept invitation
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["acceptInvitation"];
         delete?: never;
@@ -597,7 +597,7 @@ export interface paths {
         put?: never;
         /**
          * Create library item
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["createLibraryItem"];
         delete?: never;
@@ -615,7 +615,7 @@ export interface paths {
         };
         /**
          * List owned library
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["listOwnedLibrary"];
         put?: never;
@@ -657,7 +657,7 @@ export interface paths {
         put?: never;
         /**
          * Archive library item
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["archiveLibraryItem"];
         delete?: never;
@@ -677,7 +677,7 @@ export interface paths {
         put?: never;
         /**
          * Copy library item
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["copyLibraryItem"];
         delete?: never;
@@ -695,12 +695,12 @@ export interface paths {
         };
         /**
          * Get library draft
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["getLibraryDraft"];
         /**
          * Update library draft
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         put: operations["updateLibraryDraft"];
         post?: never;
@@ -719,13 +719,13 @@ export interface paths {
         };
         /**
          * Get library moderation state
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["getLibraryModerationState"];
         put?: never;
         /**
          * Moderate library item
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["moderateLibraryItem"];
         delete?: never;
@@ -745,7 +745,7 @@ export interface paths {
         put?: never;
         /**
          * Publish library item
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["publishLibraryItem"];
         delete?: never;
@@ -823,9 +823,9 @@ export interface paths {
         };
         /**
          * Inspect identity and agent limits
-         * @description Returns human key-issuance policy or agent rights, expiry and remaining limits. Does not consume the agent request budget; rate protection still applies.
+         * @description Returns human key-issuance policy or agent rights, expiry and remaining limits. Does not consume the agent request limit; rate protection still applies.
          *
-         *     **Access:** Human session/OIDC token or agent key accepted. Current membership and operation-specific rights apply.
+         *     **Access:** Human session/OIDC token or agent API key accepted. Current membership and operation-specific rights apply.
          */
         get: operations["getCurrentIdentity"];
         put?: never;
@@ -845,7 +845,7 @@ export interface paths {
         };
         /**
          * List platform agents
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -873,7 +873,7 @@ export interface paths {
         put?: never;
         /**
          * Create project
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["createProject"];
         delete?: never;
@@ -898,14 +898,14 @@ export interface paths {
         post?: never;
         /**
          * Delete project
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         delete: operations["deleteProject"];
         options?: never;
         head?: never;
         /**
          * Update project
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         patch: operations["updateProject"];
         trace?: never;
@@ -921,7 +921,7 @@ export interface paths {
         put?: never;
         /**
          * Upload artifact
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["uploadArtifact"];
         delete?: never;
@@ -939,7 +939,7 @@ export interface paths {
         };
         /**
          * Read artifact
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["readArtifact"];
         put?: never;
@@ -959,7 +959,7 @@ export interface paths {
         };
         /**
          * Download artifact
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["downloadArtifact"];
         put?: never;
@@ -979,7 +979,7 @@ export interface paths {
         };
         /**
          * Get collaborative project
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["getCollaborativeProject"];
         put?: never;
@@ -999,7 +999,7 @@ export interface paths {
         };
         /**
          * List agent changes
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["listAgentChanges"];
         put?: never;
@@ -1021,7 +1021,7 @@ export interface paths {
         put?: never;
         /**
          * Resolve change set
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["resolveChangeSet"];
         delete?: never;
@@ -1041,7 +1041,7 @@ export interface paths {
         put?: never;
         /**
          * Retry change set
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["retryChangeSet"];
         delete?: never;
@@ -1061,7 +1061,7 @@ export interface paths {
         put?: never;
         /**
          * Revert change set
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["revertChangeSet"];
         delete?: never;
@@ -1081,7 +1081,7 @@ export interface paths {
         put?: never;
         /**
          * Change collaborative files
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["changeCollaborativeFiles"];
         delete?: never;
@@ -1099,13 +1099,13 @@ export interface paths {
         };
         /**
          * List collaborative checkpoints
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["listCollaborativeCheckpoints"];
         put?: never;
         /**
          * Create collaborative checkpoint
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["createCollaborativeCheckpoint"];
         delete?: never;
@@ -1123,7 +1123,7 @@ export interface paths {
         };
         /**
          * Diff collaborative checkpoint
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["diffCollaborativeCheckpoint"];
         put?: never;
@@ -1143,7 +1143,7 @@ export interface paths {
         };
         /**
          * Get collaborative checkpoint files
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["getCollaborativeCheckpointFiles"];
         put?: never;
@@ -1163,7 +1163,7 @@ export interface paths {
         };
         /**
          * Preview collaborative conversion
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["previewCollaborativeConversion"];
         put?: never;
@@ -1185,7 +1185,7 @@ export interface paths {
         put?: never;
         /**
          * Convert project to collaborative
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["convertProjectToCollaborative"];
         delete?: never;
@@ -1203,7 +1203,7 @@ export interface paths {
         };
         /**
          * Get collaborative file
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["getCollaborativeFile"];
         put?: never;
@@ -1223,7 +1223,7 @@ export interface paths {
         };
         /**
          * Get collaborative history
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["getCollaborativeHistory"];
         put?: never;
@@ -1245,7 +1245,7 @@ export interface paths {
         put?: never;
         /**
          * Restore collaborative checkpoint
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["restoreCollaborativeCheckpoint"];
         delete?: never;
@@ -1263,13 +1263,13 @@ export interface paths {
         };
         /**
          * Get basic files
-         * @description **Access:** Human session/OIDC token or agent key accepted. Current membership and operation-specific rights apply.
+         * @description **Access:** Human session/OIDC token or agent API key accepted. Current membership and operation-specific rights apply.
          */
         get: operations["getBasicFiles"];
         put?: never;
         /**
          * Change basic files
-         * @description **Access:** Human session/OIDC token or agent key accepted. Current membership and operation-specific rights apply.
+         * @description **Access:** Human session/OIDC token or agent API key accepted. Current membership and operation-specific rights apply.
          */
         post: operations["changeBasicFiles"];
         delete?: never;
@@ -1287,13 +1287,13 @@ export interface paths {
         };
         /**
          * List project invitations
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["listProjectInvitations"];
         put?: never;
         /**
          * Create project invitation
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["createProjectInvitation"];
         delete?: never;
@@ -1314,7 +1314,7 @@ export interface paths {
         post?: never;
         /**
          * Revoke project invitation
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         delete: operations["revokeProjectInvitation"];
         options?: never;
@@ -1331,13 +1331,13 @@ export interface paths {
         };
         /**
          * List project members
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["listProjectMembers"];
         put?: never;
         /**
          * Add project member
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["addProjectMember"];
         delete?: never;
@@ -1358,14 +1358,14 @@ export interface paths {
         post?: never;
         /**
          * Remove project member
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         delete: operations["removeProjectMember"];
         options?: never;
         head?: never;
         /**
          * Update project member
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         patch: operations["updateProjectMember"];
         trace?: never;
@@ -1379,7 +1379,7 @@ export interface paths {
         };
         /**
          * Get project repository
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["getProjectRepository"];
         put?: never;
@@ -1401,7 +1401,7 @@ export interface paths {
         put?: never;
         /**
          * Save project files
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["saveProjectFiles"];
         delete?: never;
@@ -1419,12 +1419,12 @@ export interface paths {
         };
         /**
          * Get conversation repository
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["getConversationRepository"];
         /**
          * Enable conversation repository
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         put: operations["enableConversationRepository"];
         post?: never;
@@ -1443,7 +1443,7 @@ export interface paths {
         };
         /**
          * Diff project files
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["diffProjectFiles"];
         put?: never;
@@ -1463,7 +1463,7 @@ export interface paths {
         };
         /**
          * Get project file
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["getProjectFile"];
         put?: never;
@@ -1483,7 +1483,7 @@ export interface paths {
         };
         /**
          * List project file history
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["listProjectFileHistory"];
         put?: never;
@@ -1503,13 +1503,13 @@ export interface paths {
         };
         /**
          * Preview project merge
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["previewProjectMerge"];
         put?: never;
         /**
          * Merge project files
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["mergeProjectFiles"];
         delete?: never;
@@ -1527,7 +1527,7 @@ export interface paths {
         };
         /**
          * Get run repository
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["getRunRepository"];
         put?: never;
@@ -1547,13 +1547,13 @@ export interface paths {
         };
         /**
          * List worktrees
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["listWorktrees"];
         put?: never;
         /**
          * Create worktree
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["createWorktree"];
         delete?: never;
@@ -1571,7 +1571,7 @@ export interface paths {
         };
         /**
          * Get worktree
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["getWorktree"];
         put?: never;
@@ -1581,7 +1581,7 @@ export interface paths {
         head?: never;
         /**
          * Update worktree
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         patch: operations["updateWorktree"];
         trace?: never;
@@ -1597,7 +1597,7 @@ export interface paths {
         put?: never;
         /**
          * Commit worktree
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["commitWorktree"];
         delete?: never;
@@ -1615,7 +1615,7 @@ export interface paths {
         };
         /**
          * Diff worktree
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["diffWorktree"];
         put?: never;
@@ -1637,7 +1637,7 @@ export interface paths {
         put?: never;
         /**
          * Discard worktree
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["discardWorktree"];
         delete?: never;
@@ -1655,7 +1655,7 @@ export interface paths {
         };
         /**
          * Get worktree file
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["getWorktreeFile"];
         put?: never;
@@ -1675,13 +1675,13 @@ export interface paths {
         };
         /**
          * List latex builds
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["listLatexBuilds"];
         put?: never;
         /**
          * Create latex build
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["createLatexBuild"];
         delete?: never;
@@ -1699,7 +1699,7 @@ export interface paths {
         };
         /**
          * Get latex build
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["getLatexBuild"];
         put?: never;
@@ -1721,7 +1721,7 @@ export interface paths {
         put?: never;
         /**
          * Cancel latex build
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["cancelLatexBuild"];
         delete?: never;
@@ -1739,7 +1739,7 @@ export interface paths {
         };
         /**
          * Download latex output
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         get: operations["downloadLatexOutput"];
         put?: never;
@@ -1761,7 +1761,7 @@ export interface paths {
         put?: never;
         /**
          * Remove worktree
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["removeWorktree"];
         delete?: never;
@@ -1781,7 +1781,7 @@ export interface paths {
         put?: never;
         /**
          * Restore worktree
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["restoreWorktree"];
         delete?: never;
@@ -1801,7 +1801,7 @@ export interface paths {
         put?: never;
         /**
          * Save worktree
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          */
         post: operations["saveWorktree"];
         delete?: never;
@@ -1819,7 +1819,7 @@ export interface paths {
         };
         /**
          * Get run
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -1841,7 +1841,7 @@ export interface paths {
         };
         /**
          * List hosted run artifacts
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -1863,7 +1863,7 @@ export interface paths {
         };
         /**
          * Download hosted run artifact
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -1887,7 +1887,7 @@ export interface paths {
         put?: never;
         /**
          * Resume run
-         * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
@@ -3927,7 +3927,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -4022,7 +4022,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -4118,7 +4118,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -4210,7 +4210,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -4304,7 +4304,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -4396,7 +4396,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -4492,7 +4492,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -4584,7 +4584,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -4680,7 +4680,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -4779,7 +4779,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -4875,7 +4875,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -4976,7 +4976,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -5074,7 +5074,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -5177,7 +5177,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -5282,7 +5282,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -5374,7 +5374,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -5470,7 +5470,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -5566,7 +5566,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -5658,7 +5658,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -5758,7 +5758,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -5854,7 +5854,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -5948,7 +5948,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -6046,7 +6046,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -6145,7 +6145,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -6243,7 +6243,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -6340,7 +6340,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -6439,7 +6439,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -6533,7 +6533,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -6631,7 +6631,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -6727,7 +6727,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -6832,7 +6832,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -6930,7 +6930,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -7028,7 +7028,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -7126,7 +7126,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -7220,7 +7220,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -7320,7 +7320,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -7420,7 +7420,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -7514,7 +7514,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -7614,7 +7614,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -7708,7 +7708,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -7808,7 +7808,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -7908,7 +7908,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -8005,7 +8005,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -8100,7 +8100,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -8195,7 +8195,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -8287,7 +8287,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -8386,7 +8386,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -8485,7 +8485,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -8581,7 +8581,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -8675,7 +8675,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -8767,7 +8767,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -8865,7 +8865,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -8967,7 +8967,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -9062,7 +9062,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -9157,7 +9157,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -9251,7 +9251,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -9349,7 +9349,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -9450,7 +9450,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -9545,7 +9545,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -9640,7 +9640,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -9740,7 +9740,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -9838,7 +9838,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -9936,7 +9936,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -10031,7 +10031,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -10126,7 +10126,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -10224,7 +10224,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -10324,7 +10324,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -10419,7 +10419,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -10515,7 +10515,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -10615,7 +10615,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -10709,7 +10709,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -10807,7 +10807,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -10908,7 +10908,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -11006,7 +11006,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -11108,7 +11108,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -11209,7 +11209,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -11307,7 +11307,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -11400,7 +11400,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -11499,7 +11499,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -11595,7 +11595,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -11695,7 +11695,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -11790,7 +11790,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -11885,7 +11885,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -11982,7 +11982,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -12079,7 +12079,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -12180,7 +12180,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -12277,7 +12277,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -12377,7 +12377,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -12472,7 +12472,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -12572,7 +12572,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -12670,7 +12670,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -12765,7 +12765,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -12864,7 +12864,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -12965,7 +12965,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -13062,7 +13062,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -13163,7 +13163,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -13261,7 +13261,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -13356,7 +13356,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -13457,7 +13457,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -13553,7 +13553,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -13649,7 +13649,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -13747,7 +13747,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -13848,7 +13848,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -13943,7 +13943,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -14044,7 +14044,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -14138,7 +14138,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -14236,7 +14236,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -14329,7 +14329,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -14427,7 +14427,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
-            /** @description Request or mutation budget exhausted */
+            /** @description Request or write limit exhausted */
             429: {
                 headers: {
                     [name: string]: unknown;

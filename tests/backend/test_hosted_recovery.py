@@ -102,7 +102,7 @@ def test_recovery_requires_resume_after_possible_effects(
                     input_tokens=10,
                     output_tokens=10,
                     cost_microusd=1,
-                    settle_by=utc_now() + timedelta(seconds=60),
+                    reconcile_by=utc_now() + timedelta(seconds=60),
                 )
             )
         session.commit()

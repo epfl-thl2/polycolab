@@ -527,7 +527,7 @@ def resolve_change_set(
     change_set = private_change_set(instance, db, change_set_id)
     if (
         change_set.status != "pending"
-        and instance.tx.collaborative.receipt(project_id, user.id, key) is None
+        and instance.tx.collaborative.record(project_id, user.id, key) is None
     ):
         raise RepositoryError("change_set_already_resolved")
     if body.expected_sequence is None:

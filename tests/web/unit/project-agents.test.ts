@@ -1,4 +1,4 @@
-import { runFixture, sessionFixture } from './session-fixtures';
+import { runFixture, conversationFixture } from './conversation-fixtures';
 import { QueryClient } from '@tanstack/svelte-query';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
@@ -12,7 +12,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 const session = (id: string, status: ReturnType<typeof runFixture>['status'] = 'RUNNING') =>
-  sessionFixture({
+  conversationFixture({
     id,
     title: `Chat ${id}`,
     updated_at: id === 'older' ? '2026-01-01' : '2026-02-01',

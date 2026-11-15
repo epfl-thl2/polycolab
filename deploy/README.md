@@ -36,6 +36,14 @@ cutover; older worker protocols cannot claim work. Browser locations use
 workspace, session, Connections, and provider-settings paths show not found;
 they do not redirect. Update bookmarks and API clients with the application.
 
+Run these terminology migrations online against the stopped application’s database. They inspect and preserve existing constraints and trigger definitions; offline `alembic upgrade --sql` is rejected rather than emitting an incomplete upgrade.
+
+The same cutover renames `projects.workspace_mode` to `file_mode`, mapping `default` to `basic` and `linear` to `collaborative`. File APIs use `/collaborative`, and grouped agent edits use `/collaborative/change-sets`. Existing `.linear` directories, checkpoint Git refs, operation payloads, digests, and `batch:` retry keys retain their storage identities.
+
+Library routes move to `/library` in the browser and `/api/v1/library` in the API. The private view is My library (`/mine`); library resources use `item` and `item_id`. Rename `AGENT_LIBRARY_MODERATOR_SUBJECTS` to `LIBRARY_MODERATOR_SUBJECTS` in deployment settings. Published content and existing retry digests are preserved.
+
+Internal tables now use `execution_jobs`, `idempotency_records`, and `repository_idempotency_records`. Scheduling records use `scope_kind` and `scope_id`. Hosted model requests use `reconcile_by` and `reconciled_at`; update monitoring queries to `polycolab_hosted_reconciliation_total`. The upgrade retains existing aggregate counts, retry digests, and scheduling history.
+
 The account/worktree migrations retire external-agent identities, rename `project_tasks`
 to `worktrees`, and rename `gateway_profiles` to `provider_connections`. Existing key
 secrets and limits, provider credential envelopes, working-copy IDs, and Git branches
@@ -43,7 +51,7 @@ are preserved. Deploy the matching API, browser, and workers together: the old
 `/api/v1/account/agents`, project `/tasks`, `/api/v1/gateway/profiles`, and
 `/api/v1/users/me` endpoints are removed. Clients must use the worktree endpoints,
 `/api/v1/account/provider-connections`, and `/api/v1/account`, with `worktree_id` and
-`provider_connection_id` in session requests. Key creation accepts a name without an
+`provider_connection_id` in conversation requests. Key creation accepts a name without an
 `agent_id`. Apply both database and application updates before reopening traffic;
 rollback requires the matching pre-upgrade backup and application version.
 
@@ -66,7 +74,7 @@ Use the [protected telemetry guide](OBSERVABILITY.md) for API pool metrics.
 The deployment launcher runs migrations in a temporary core container before starting core.
 Use `--profile execution` for the private built-in worker.
 FastAPI is the production web service and serves the compiled Svelte bundle and JSON API.
-Projects, files, agent keys, and artifacts are standard features with no enable/disable flags.
+Projects, files, agent API keys, and artifacts are standard features with no enable/disable flags.
 Local browser development runs Vite separately with `pnpm run web:dev`.
 The Compose file deliberately uses local-only credentials and loopback ports.
 
@@ -271,7 +279,7 @@ Keep it with your deployment secrets and backups.
 Without this setting, the local wrapper is ephemeral and secrets cannot be revealed after an API restart.
 Production uses the configured KMS provider.
 Retain access to historical wrapping keys.
-Existing hash-only agent keys still work but cannot be revealed.
+Existing hash-only agent API keys still work but cannot be revealed.
 
 ## Persistent project files
 
@@ -328,23 +336,19 @@ migrations before recreating core. The `pnpm run dev:docker` and
 For an upgrade failure, keep writers stopped and follow the recovery contract;
 do not automatically downgrade the database.
 
-## Agent library moderation
+## Library moderation
 
 Library access does not depend on hosted execution.
-Apply the PostgreSQL `20261013_library` migration (or local SQLite `local_20261013_library`) before running the matching application.
-Set `LIBRARY_MODERATOR_SUBJECTS` to an explicit JSON list of verified human subjects allowed to hide and restore library entries.
+Apply the complete Alembic chain through `head` before running the matching application.
+Set `LIBRARY_MODERATOR_SUBJECTS` to an explicit JSON list of verified human subjects allowed to hide and restore library items.
 It defaults to an empty list.
-On the Moderation page, choose Agent library entry, enter its ID, load the current revision, and record a reason for hiding or restoring.
+Use `GET /api/v1/library/{item_id}/moderation` to load the current revision, then POST to that endpoint with the expected revision, hidden state, a reason, and an Idempotency-Key.
 Published versions remain immutable; restore a verified backup instead of downgrading away library history.
 
-Projects choose Default files, Collaborative history, or Git mode. See [Collaborative project operations](../docs/architecture/collaborative-projects.md#operation-and-verification) for the collaboration service, configuration, and coordinated backups.
+Projects choose Basic files, Collaborative history, or Git mode. See [Collaborative project operations](../docs/architecture/collaborative-projects.md#operation-and-verification) for the collaboration service, configuration, and coordinated backups.
 
 ## LaTeX compiler
 
 Optional project/worktree compilation uses a separate Docker controller. See the
 [LaTeX deployment guide](latex/README.md) for image setup, private credentials,
 local startup and hosted acceptance.
-
-The same cutover renames `projects.workspace_mode` to `file_mode`, mapping `default` to `basic` and `linear` to `collaborative`. File APIs use `/collaborative`, and grouped agent edits use `/collaborative/change-sets`. Existing `.linear` directories, checkpoint Git refs, operation payloads, digests, and `batch:` retry keys retain their storage identities.
-
-Library routes move to `/library` in the browser and `/api/v1/library` in the API. The private view is My library (`/mine`); library resources use `item` and `item_id`. Rename `AGENT_LIBRARY_MODERATOR_SUBJECTS` to `LIBRARY_MODERATOR_SUBJECTS` in deployment settings. Published content and existing retry digests are preserved.

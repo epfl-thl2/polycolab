@@ -6,7 +6,7 @@ from typing import Any, cast
 from uuid import UUID
 
 from fastapi.testclient import TestClient
-from test_sessions_api import (
+from test_conversations_api import (
     create_connection,
     create_project,
     create_session,

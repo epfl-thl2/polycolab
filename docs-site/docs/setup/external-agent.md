@@ -8,6 +8,6 @@
 
 Keys follow your current and future project memberships. They are not restricted to the project where the connection dialog was opened. Tell the agent which project to use and keep the credential out of files, logs, and public messages.
 
-External keys currently support Default files. Read-only membership permits reads; active contributor or owner membership permits writes. Keys expire, have usage budgets, and can be revoked. They cannot manage accounts, members, credentials, or read conversations.
+External keys currently support Basic files. Viewer membership permits reads; active editor or owner membership permits writes. Keys expire, have usage limits, and can be revoked. They cannot manage accounts, members, credentials, or read conversations.
 
 See [the developer guide](../developers/agent-runs.md) for request details.

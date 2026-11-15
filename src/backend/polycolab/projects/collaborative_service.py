@@ -177,7 +177,7 @@ class CollaborativeService:
             self.tx.collaborative.begin_write(self.project_id)
             self.authorize(True, owner, converting=converting)
             self.tx.collaborative.initialize(self.project_id)
-            prior = self.tx.collaborative.receipt(self.project_id, self.user_id, key)
+            prior = self.tx.collaborative.record(self.project_id, self.user_id, key)
             if prior:
                 if prior.digest != digest:
                     raise RepositoryError("collaborative_retry_mismatch")
@@ -423,7 +423,7 @@ class CollaborativeService:
         if target is None:
             raise RepositoryError("collaborative_checkpoint_not_found", 404)
         state = self.state()
-        prior = self.tx.collaborative.receipt(self.project_id, self.user_id, key)
+        prior = self.tx.collaborative.record(self.project_id, self.user_id, key)
         if prior:
             if prior.kind != "restore" or prior.payload.get("restored_checkpoint") != str(
                 checkpoint_id

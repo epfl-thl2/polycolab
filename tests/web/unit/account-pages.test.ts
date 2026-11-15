@@ -81,7 +81,7 @@ it('links password reset to the implemented recovery flow when enabled', () => {
   );
 });
 
-it('groups API keys and model providers under Access', () => {
+it('groups API keys and provider connections under Access', () => {
   const auth = new Auth(() => {});
   render(AccountSettings, {
     props: { path: '/settings' },
@@ -145,7 +145,7 @@ it('creates an account-wide key without a project and forgets its secret on navi
   expect(screen.queryByLabelText('API key')).toBeNull();
 });
 
-it('keeps model providers accessible when agent execution is unavailable', () => {
+it('keeps provider connections accessible when agent execution is unavailable', () => {
   render(AccountSettings, {
     props: { path: '/settings/provider-connections' },
     context: context(),
@@ -153,7 +153,7 @@ it('keeps model providers accessible when agent execution is unavailable', () =>
   expect(screen.getByRole('heading', { name: 'Provider connections' })).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'Built-in agents are unavailable' })).toBeTruthy();
   expect(
-    (screen.getByRole('button', { name: 'Add model provider' }) as HTMLButtonElement).disabled,
+    (screen.getByRole('button', { name: 'Add provider connection' }) as HTMLButtonElement).disabled,
   ).toBe(true);
   expect(
     screen.getByRole('link', { name: 'Provider connections' }).getAttribute('aria-current'),

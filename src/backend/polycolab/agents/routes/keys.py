@@ -59,7 +59,7 @@ class IdentityRead(BaseModel):
     summary="Inspect identity and agent limits",
     description=(
         "Returns human key-issuance policy or agent rights, expiry and "
-        "remaining limits. Does not consume the agent request budget; rate "
+        "remaining limits. Does not consume the agent request limit; rate "
         "protection still applies."
     ),
 )
@@ -92,7 +92,7 @@ def identity(request: Request, access: Access) -> IdentityRead:
     response_model=AgentApiKeyIssued,
     status_code=201,
     operation_id="createAgentApiKey",
-    summary="Create an account-wide agent key",
+    summary="Create an account-wide agent API key",
     description=(
         "Human-only. Creates a named key following current and future "
         "project memberships, including private projects. Returns the "
@@ -123,7 +123,7 @@ def issue(
     "/account/agent-keys",
     response_model=Collection[AgentApiKeyRead],
     operation_id="listAgentApiKeys",
-    summary="List your agent keys",
+    summary="List your agent API keys",
     description="Human-only, owner-only paginated key metadata and usage. Never returns secrets.",
     dependencies=[Depends(private_no_store)],
 )
@@ -145,7 +145,7 @@ class AgentApiKeySecret(BaseModel):
     "/account/agent-keys/{credential_id}/reveal",
     response_model=AgentApiKeySecret,
     operation_id="revealAgentApiKey",
-    summary="Reveal your agent key",
+    summary="Reveal your agent API key",
     description=(
         "Human-only and owner-only. Reveals a recoverable, non-revoked key. "
         "Legacy hash-only keys cannot be revealed."
@@ -171,7 +171,7 @@ def reveal(
     "/account/agent-keys/{credential_id}",
     status_code=204,
     operation_id="revokeAgentApiKey",
-    summary="Revoke your agent key",
+    summary="Revoke your agent API key",
     description=("Human-only and owner-only. Revokes file access for this key."),
     dependencies=[Depends(private_no_store)],
 )

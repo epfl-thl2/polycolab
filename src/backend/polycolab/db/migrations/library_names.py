@@ -21,8 +21,7 @@ def renamed(name: str) -> str:
 
 def upgrade() -> None:
     if context.is_offline_mode():
-        op.execute("-- Terminology cutover requires an online upgrade for schema reflection.")
-        return
+        raise RuntimeError("Terminology cutover requires an online upgrade for schema reflection.")
     bind = op.get_bind()
     postgres = bind.dialect.name == "postgresql"
     quote = bind.dialect.identifier_preparer.quote

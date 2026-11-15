@@ -210,7 +210,7 @@ def remove(
     instance = service(request, db, project_id, user.id).native_service()
     if instance.store.worktree(project_id, worktree_id).branch == "main":
         raise RepositoryError("worktree_main_cannot_remove")
-    # Discard has its own receipt; repeated removes are safe and preserve metadata.
+    # Discard has its own record; repeated removes are safe and preserve metadata.
     if body.discard_changes:
         instance.change(
             worktree_id, body.expected_revision, key, "discard", {"remove": body.model_dump()}

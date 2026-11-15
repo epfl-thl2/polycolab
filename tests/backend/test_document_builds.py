@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from sqlalchemy import update
-from test_sessions_api import add_member, create_project, headers
+from test_conversations_api import add_member, create_project, headers
 
 from polycolab.artifacts.storage import FilesystemStorage
 from polycolab.db.models.document_builds import SqlDocumentBuild

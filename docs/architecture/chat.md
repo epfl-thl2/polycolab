@@ -77,7 +77,7 @@ Conversation listings filter by project, archive state and origin. Transcript pa
 an opaque sequence cursor in `next_cursor`; conversation, child and run listings return
 `X-Next-Cursor` when another page exists. Metadata does not embed transcript pages.
 The former agent-conversation and agent-run APIs have no compatibility routes.
-Run inspection and resumption use human authentication. External agent keys retain
+Run inspection and resumption use human authentication. External agent API keys retain
 their separate delegated project-file APIs.
 
 Private conversations remain owner-only even when another user owns the project.
@@ -97,7 +97,7 @@ The sender can interrupt their own runs; the conversation owner can interrupt an
 Interrupting a terminal run does not affect its successor. Resuming private context
 and authority is restricted to the original sender. Claims, model dispatch, tools,
 workspace operations, transcript output and completion recheck current membership
-and sharing. Revoked workers may settle observed usage and report termination.
+and sharing. Revoked workers may reconcile observed usage and report termination.
 Context manifests are worker-only; private output artifacts remain restricted to the run sender;
 transcript access does not grant those inputs and outputs.
 
@@ -121,7 +121,7 @@ Stop new admissions, drain or explicitly terminate active work, then stop all
 writers. Back up the database and its matching artifacts. Apply the online migration,
 deploy matching backend/browser/workers, smoke-test history and execution, then reopen
 admissions. Rollback restores the matching backup and application version; there is
-no mixed-version compatibility window. See the [rollout gates](../roadmap.md#unified-sessions).
+no mixed-version compatibility window. See the [rollout gates](../roadmap.md#unified-conversations).
 
 ## Verification
 

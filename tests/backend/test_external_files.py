@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from test_basic_files import files as files
-from test_sessions_api import add_member, headers
+from test_conversations_api import add_member, headers
 
 from polycolab.db.models import SqlAgentApiKey
 from polycolab.entities.time import utc_now

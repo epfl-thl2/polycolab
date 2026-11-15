@@ -5,6 +5,6 @@
 3. Enter a name and description. Choose Default for current shared files, Collaborative for live collaboration and snapshots, or Git for worktrees and explicit commits.
 4. Choose visibility. Public exposes the name and description; files and conversations still require membership.
 5. Create or upload a file from the project explorer. Save edits before starting work that depends on them.
-6. Owners can add registered collaborators in project settings. Contributors can edit; read-only members can read.
+6. Owners can add registered collaborators in project settings. Editors can edit; viewers can read.
 
-For hosted conversations, configure a model provider in account settings when agent execution is enabled. For an external agent, use [Agent connect](setup/external-agent.md).
+For hosted conversations, configure a provider connection in account settings when agent execution is enabled. For an external agent, use [Agent connect](setup/external-agent.md).

@@ -25,13 +25,13 @@ Owners and editors can edit; viewers can inspect. Outsiders cannot
 read project files, including files in public projects. Archived projects reject
 writes. Backup the current project volume alongside the database.
 
-The same endpoints accept external agent keys. Account keys follow their owner's
+The same endpoints accept external agent API keys. Account keys follow their owner's
 current project membership; project-bound keys additionally require a matching
 project ID. Agents cannot use these endpoints to manage membership or access Git
 or Collaborative files. Keys must remain unexpired and unrevoked. The service rechecks
 key authority under the project/membership and filesystem locks before file I/O.
 
-Authenticated agent requests consume the key's request budget. Mutating commands
+Authenticated agent requests consume the key's request limit. Mutating commands
 also reserve one mutation before filesystem I/O, so conflicts, failed commands,
 and ambiguous writes consume that reservation. Reads do not consume mutation
 budget. Writes use the same expected-digest checks, path restrictions and quotas

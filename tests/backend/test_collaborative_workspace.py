@@ -14,10 +14,10 @@ import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from test_conversations_api import add_member, headers
 from test_hosted_scheduler import (
     hosted_client as hosted_client,
 )
-from test_sessions_api import add_member, headers
 
 from polycolab.accounts.authentication import MappingIdentityVerifier
 from polycolab.app.application import create_app
@@ -226,7 +226,7 @@ def test_structural_change_set_is_atomic(collaborative: tuple[TestClient, str, s
 def test_shared_chat_read_access_and_unshare(
     collaborative: tuple[TestClient, str, str],
 ) -> None:
-    from test_sessions_api import create_session
+    from test_conversations_api import create_session
 
     client, project, root = collaborative
     add_member(client, project, "reader", "VIEWER")
@@ -266,7 +266,7 @@ def test_shared_chat_read_access_and_unshare(
 def test_conversion_preserves_saved_overlay_and_freezes_git(
     client: TestClient, tmp_path: Path, collaboration_url: str
 ) -> None:
-    from test_sessions_api import create_project
+    from test_conversations_api import create_project
 
     app = cast(FastAPI, client.app)
     app.state.settings.project_repository_directory = tmp_path / "repos"
@@ -351,8 +351,8 @@ def test_websocket_ack_replay_and_revoked_write(
             raise AssertionError("Missing " + kind)
 
         socket.send_json({"kind": "update", "request_id": "socket-save", "body": body})
-        receipt = receive("ack")
-        assert receipt["sequence"] == 2
+        record = receive("ack")
+        assert record["sequence"] == 2
         socket.send_json({"kind": "update", "request_id": "socket-save", "body": body})
         assert receive("ack")["sequence"] == 2
         contributor = client.get("/api/v1/account", headers=headers("contributor")).json()
@@ -439,8 +439,8 @@ def test_transient_collaboration_failure_allows_same_update_to_retry(
         socket.send_json({"version": 1, "after": 0, "authorization": "Bearer owner"})
         socket.send_json(message)
         while True:
-            receipt = socket.receive_json()
-            if receipt["kind"] == "ack":
-                assert receipt["sequence"] == 1
+            record = socket.receive_json()
+            if record["kind"] == "ack":
+                assert record["sequence"] == 1
                 break
     assert len(client.get(root + "/history", headers=headers("owner")).json()) == 1

@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from polycolab.projects.worktree_service import WorktreeService
 
 from polycolab.access.authorization import ProjectAction, project_policy
-from polycolab.entities.repositories import RepositoryError, RepositoryReceipt
+from polycolab.entities.repositories import RepositoryError, RepositoryIdempotencyRecord
 from polycolab.entities.time import utc_now
 from polycolab.projects.git_storage import GitRepository
 from polycolab.projects.repository_store import RepositoryStore
@@ -76,17 +76,17 @@ class RepositoryService:
                 worktree.branch: worktree
                 for worktree in self.store.worktrees(self.project_id, True)
             }
-            for receipt in self.store.pending(self.project_id):
-                worktree = worktrees.get(receipt.branch)
+            for record in self.store.pending(self.project_id):
+                worktree = worktrees.get(record.branch)
                 if (
                     worktree
                     and files.exists(worktree.id)
-                    and files.contains(worktree.id, receipt.new_commit)
+                    and files.contains(worktree.id, record.new_commit)
                 ):
-                    self.store.complete(receipt.id)
+                    self.store.complete(record.id)
                     continue
-                if self.git.contains(receipt.branch, receipt.new_commit):
-                    self.store.complete(receipt.id)
+                if self.git.contains(record.branch, record.new_commit):
+                    self.store.complete(record.id)
             self.transaction.commit()
             yield self.git
 
@@ -100,7 +100,7 @@ class RepositoryService:
         prepare: Callable[[], str],
         authority: Callable[[], None] | None = None,
     ) -> str:
-        """Caller holds repository lock. SQL receipt precedes the ref update.
+        """Caller holds repository lock. SQL record precedes the ref update.
 
         Final authority locks fence membership/archive changes during the short
         ref update. Recovery only acknowledges an already-applied operation;
@@ -111,20 +111,20 @@ class RepositoryService:
         digest = hashlib.sha256(
             json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
-        receipt = self.store.receipt(self.project_id, self.user_id, key)
+        record = self.store.record(self.project_id, self.user_id, key)
         self.transaction.commit()
-        if receipt is not None:
-            if receipt.digest != digest or receipt.branch != branch:
+        if record is not None:
+            if record.digest != digest or record.branch != branch:
                 raise RepositoryError("repository_retry_mismatch")
-            if receipt.completed:
-                return receipt.new_commit
+            if record.completed:
+                return record.new_commit
         else:
             if self.git.head(branch) != expected:
                 raise RepositoryError("repository_stale_save")
             new_commit = prepare()
             if self.git.size() > self.git.quota:
                 raise RepositoryError("repository_quota_exceeded", 413)
-            receipt = RepositoryReceipt(
+            record = RepositoryIdempotencyRecord(
                 uuid4(),
                 self.project_id,
                 self.user_id,
@@ -136,16 +136,16 @@ class RepositoryService:
                 False,
                 utc_now(),
             )
-            self.store.prepare(receipt)
+            self.store.prepare(record)
             self.transaction.commit()
         (authority or (lambda: self.authorize(True, branch)))()
-        if not self.git.contains(branch, receipt.new_commit):
-            if self.git.head(branch) != receipt.old_commit:
+        if not self.git.contains(branch, record.new_commit):
+            if self.git.head(branch) != record.old_commit:
                 raise RepositoryError("repository_stale_save")
-            self.git.advance(branch, receipt.old_commit, receipt.new_commit)
-        self.store.complete(receipt.id)
+            self.git.advance(branch, record.old_commit, record.new_commit)
+        self.store.complete(record.id)
         self.transaction.commit()
-        return receipt.new_commit
+        return record.new_commit
 
     def save(
         self,

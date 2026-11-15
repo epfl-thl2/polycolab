@@ -541,7 +541,7 @@ def _accepted_message(
 ) -> MessageAccepted:
     item = item_read(conversation_item(message))
     assert isinstance(item, MessageItemRead)
-    # This is the immutable admission receipt. GET /runs/{id} supplies live state.
+    # This is the immutable admission record. GET /runs/{id} supplies live state.
     current = _read_run(db, run.id, user_id)
     accepted = current.model_copy(
         update={

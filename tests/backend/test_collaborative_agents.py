@@ -18,6 +18,7 @@ from test_collaborative_workspace import (
     create_file,
     write,
 )
+from test_conversations_api import add_member, headers
 from test_hosted_artifacts import OWNER, WORKER
 from test_hosted_scheduler import (
     hosted_client as hosted_client,
@@ -25,7 +26,6 @@ from test_hosted_scheduler import (
 from test_hosted_scheduler import (
     new_hosted,
 )
-from test_sessions_api import add_member, headers
 
 from polycolab.db.models import SqlAgentRun, SqlProject, SqlUser
 from polycolab.execution import guest_repository

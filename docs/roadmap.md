@@ -4,13 +4,13 @@ The current product is a shared filesystem project workspace for humans and agen
 
 Release gates still require target-deployment verification of native hosted execution, provider integration, collaboration recovery, storage backups, and restoration. Local tests and deterministic providers do not establish those deployment properties.
 
-External keys currently access Default files. Equivalent agent-key support for Git and Collaborative is not implemented. Direct provider chat has an API but no dedicated browser page.
+External keys currently access Basic files. Equivalent agent-key support for Git and Collaborative is not implemented. Direct provider chat has an API but no dedicated browser page.
 
 The removed research-object database, commons, catalogue, publication, proposal reviews, and verification execution are outside the current scope. Reintroducing them would require a separate product decision.
 
-## Unified sessions
+## Unified conversations
 
-The single session API, canonical conversation entities and typed transcripts,
+The single conversation API, canonical conversation entities and typed transcripts,
 paired historical migrations, shared contribution policy and browser history view
 are implemented. Release acceptance must preserve IDs, causal transcript ordering,
 run/event cursors, reservations, artifact references, runtime capabilities and
@@ -25,5 +25,5 @@ smoke-test, and reopen admissions. Rollback restores the matching backup and
 application version.
 
 ACP adapters, additional harnesses, autonomous subagent execution, forks, and
-session deletion remain later work. Stored hierarchy and extensible identifiers
+conversation deletion remain later work. Stored hierarchy and extensible identifiers
 do not enable those operations.

@@ -1,4 +1,4 @@
-"""API-owned hosted dispatch reservations and settlement, including lost leases."""
+"""API-owned hosted dispatch reservations and reconciliation, including lost leases."""
 
 from __future__ import annotations
 
@@ -46,7 +46,7 @@ from polycolab.model_gateway.transport import ProviderTransportError
 from polycolab.platform.observability import increment_durable
 
 
-def settle(session: Session, request_id: UUID, usage: dict[str, int] | None) -> None:
+def reconcile(session: Session, request_id: UUID, usage: dict[str, int] | None) -> None:
     """Provider observations use API dispatch authority, never a worker's stale fence."""
     entry = session.get(SqlHostedModelRequest, request_id)
     if entry is None:
@@ -80,7 +80,7 @@ def settle(session: Session, request_id: UUID, usage: dict[str, int] | None) -> 
             + 999_999
         ) // 1_000_000
     entry.state = "COMPLETED" if usage is not None else "UNCERTAIN"
-    entry.settled_at = utc_now()
+    entry.reconciled_at = utc_now()
     event = _append_event_locked(
         session,
         run=run,
@@ -92,7 +92,7 @@ def settle(session: Session, request_id: UUID, usage: dict[str, int] | None) -> 
             "output_tokens": entry.output_tokens,
             "total_tokens": entry.input_tokens + entry.output_tokens,
         },
-        occurred_at=entry.settled_at,
+        occurred_at=entry.reconciled_at,
     )
     session.add(
         SqlAgentRunUsage(
@@ -102,10 +102,10 @@ def settle(session: Session, request_id: UUID, usage: dict[str, int] | None) -> 
             input_tokens=entry.input_tokens,
             output_tokens=entry.output_tokens,
             total_tokens=entry.input_tokens + entry.output_tokens,
-            observed_at=entry.settled_at,
+            observed_at=entry.reconciled_at,
         )
     )
-    increment_durable(session, "polycolab_hosted_settlement_total", outcome=entry.state)
+    increment_durable(session, "polycolab_hosted_reconciliation_total", outcome=entry.state)
     session.commit()
 
 
@@ -115,14 +115,14 @@ def recover_pending(session: Session) -> int:
             select(SqlHostedModelRequest.id)
             .where(
                 SqlHostedModelRequest.state == "PENDING",
-                SqlHostedModelRequest.settle_by <= utc_now(),
+                SqlHostedModelRequest.reconcile_by <= utc_now(),
             )
             .limit(100)
         )
     )
     session.rollback()
     for request_id in ids:
-        settle(session, request_id, None)
+        reconcile(session, request_id, None)
     return len(ids)
 
 
@@ -221,7 +221,7 @@ def prepare(
             input_tokens=spec.max_input_tokens,
             output_tokens=spec.max_output_tokens,
             cost_microusd=spec.round_cost_microusd,
-            settle_by=utc_now() + timedelta(seconds=remaining + 5),
+            reconcile_by=utc_now() + timedelta(seconds=remaining + 5),
         )
         encrypted = EncryptedCredential(
             connection.encrypted_credential,
@@ -257,9 +257,9 @@ def authorize_delivery(request: Request, run_id: UUID, worker_id: str, generatio
             raise ProviderFailure("authorization_revoked")
 
 
-def settle_dispatch(request: Request, request_id: UUID, usage: dict[str, int] | None) -> None:
+def reconcile_dispatch(request: Request, request_id: UUID, usage: dict[str, int] | None) -> None:
     with request.app.state.session_factory() as session:
-        settle(session, request_id, usage)
+        reconcile(session, request_id, usage)
 
 
 async def respond(
@@ -319,11 +319,11 @@ async def respond(
     except TimeoutError:
         raise ProviderFailure("provider_request_uncertain") from None
     except CredentialError:
-        # No dispatch was possible; settle a zero-cost observation.
+        # No dispatch was possible; reconcile a zero-cost observation.
         usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
         raise ProviderFailure("credential_decryption_failed") from None
     finally:
         secret = ""
-        await run_in_threadpool(settle_dispatch, request, request_id, usage)
+        await run_in_threadpool(reconcile_dispatch, request, request_id, usage)
     await run_in_threadpool(authorize_delivery, request, run_id, worker_id, generation)
     return {"body": base64.b64encode(data).decode("ascii")}

@@ -74,7 +74,7 @@
                 configure AI providers.
               </p>
             </div>
-            <Button disabled variant="outline">Add model provider</Button>
+            <Button disabled variant="outline">Add provider connection</Button>
           </div>
         </section>
       {/if}

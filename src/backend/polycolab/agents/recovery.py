@@ -152,9 +152,9 @@ def complete(
         ).encode()
     ).hexdigest()
     run = lock_run(session, run_id)
-    receipt = session.get(SqlHostedCompletion, (run_id, generation))
-    if receipt is not None:
-        if receipt.worker_id != worker_id or receipt.payload_digest != digest:
+    record = session.get(SqlHostedCompletion, (run_id, generation))
+    if record is not None:
+        if record.worker_id != worker_id or record.payload_digest != digest:
             raise IdempotencyConflict
         session.rollback()
         return

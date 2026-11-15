@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
-from test_sessions_api import (
+from test_conversations_api import (
     add_member,
     create_connection,
     create_project,
@@ -243,14 +243,14 @@ def test_worker_rechecks_shared_sender_authority(client: TestClient, revocation:
         )
         assert result.status_code == 409, result.text
         assert result.json()["error"]["code"] == "authorization_revoked"
-    # Revocation stops new work; the worker can still settle observed usage and terminate.
+    # Revocation stops new work; the worker can still reconcile observed usage and terminate.
     assert (
         client.post(
             f"/internal/v1/runtime/runs/{run_id}/usage",
             headers=WORKER,
             json={
                 **lease,
-                "idempotency_key": "settle",
+                "idempotency_key": "reconcile",
                 "input_tokens": 2,
                 "output_tokens": 1,
             },

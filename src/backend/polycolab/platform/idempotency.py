@@ -8,9 +8,9 @@ from uuid import UUID
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from polycolab.db.models import SqlMutationReceipt
-from polycolab.entities.enums import MutationReceiptStatus
-from polycolab.platform.project_history import receipt_operation, receipt_payload
+from polycolab.db.models import SqlIdempotencyRecord
+from polycolab.entities.enums import IdempotencyRecordStatus
+from polycolab.platform.project_history import idempotency_operation, idempotency_payload
 from polycolab.projects.service import DomainConflict
 
 
@@ -22,7 +22,7 @@ def canonical_digest(value: object) -> str:
 
 
 def lock_key(session: Session, actor_key: str, operation: str, key: str) -> None:
-    operation = receipt_operation(operation)
+    operation = idempotency_operation(operation)
     if not key.strip() or len(key) > 200:
         raise DomainConflict("invalid retry key")
     if session.get_bind().dialect.name == "postgresql":
@@ -32,22 +32,22 @@ def lock_key(session: Session, actor_key: str, operation: str, key: str) -> None
         session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": number})
 
 
-def receipt(
+def record(
     session: Session,
     actor_key: str,
     operation: str,
     key: str,
     payload: object,
     *,
-    authorize: Callable[[SqlMutationReceipt], None] | None = None,
-) -> SqlMutationReceipt | None:
-    payload = receipt_payload(operation, payload)
-    operation = receipt_operation(operation)
+    authorize: Callable[[SqlIdempotencyRecord], None] | None = None,
+) -> SqlIdempotencyRecord | None:
+    payload = idempotency_payload(operation, payload)
+    operation = idempotency_operation(operation)
     value = session.scalar(
-        select(SqlMutationReceipt).where(
-            SqlMutationReceipt.actor_key == actor_key,
-            SqlMutationReceipt.operation == operation,
-            SqlMutationReceipt.idempotency_key_digest == canonical_digest(key),
+        select(SqlIdempotencyRecord).where(
+            SqlIdempotencyRecord.actor_key == actor_key,
+            SqlIdempotencyRecord.operation == operation,
+            SqlIdempotencyRecord.idempotency_key_digest == canonical_digest(key),
         )
     )
     if value is not None and authorize is not None:
@@ -62,15 +62,15 @@ def receipt(
 def save(
     session: Session, actor_key: str, operation: str, key: str, payload: object, ids: list[UUID]
 ) -> None:
-    payload = receipt_payload(operation, payload)
-    operation = receipt_operation(operation)
+    payload = idempotency_payload(operation, payload)
+    operation = idempotency_operation(operation)
     session.add(
-        SqlMutationReceipt(
+        SqlIdempotencyRecord(
             actor_key=actor_key,
             operation=operation,
             idempotency_key_digest=canonical_digest(key),
             request_digest=canonical_digest({"version": 1, "payload": payload}),
-            status=MutationReceiptStatus.COMMITTED,
+            status=IdempotencyRecordStatus.COMMITTED,
             resource_ids=[str(value) for value in ids],
         )
     )

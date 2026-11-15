@@ -1,4 +1,4 @@
-"""Transactional canonical session/run state for the WP-09 built-in worker.
+"""Transactional canonical conversation/run state for the WP-09 built-in worker.
 
 Owns ordered conversation history and lease-safe execution state.
 """
@@ -68,7 +68,7 @@ class IdempotencyConflict(ConversationStateError):
 
 
 class ExecutionAuthorityLost(ConversationStateError):
-    """The sender can no longer execute in the session."""
+    """The sender can no longer execute in the conversation."""
 
 
 RESEARCHER_VERSION_ID = UUID("a0000000-0000-4000-8000-000000000001")
@@ -162,7 +162,7 @@ def _commit(session: Session) -> None:
 
 
 def ensure_platform_agent_versions(session: Session) -> None:
-    """Seed immutable agent specifications, preserving existing session bindings."""
+    """Seed immutable agent specifications, preserving existing conversation bindings."""
 
     changed = False
     for version, entries in enumerate((_PLATFORM_V1, _PLATFORM_V2, _PLATFORM_V3), start=1):
@@ -213,7 +213,7 @@ def create_agent_conversation(
     system_prompt: str | None = None,
     worktree_id: UUID | None = None,
 ) -> SqlConversation:
-    """Create a private project session pinned to an eligible agent definition."""
+    """Create a private project conversation pinned to an eligible agent definition."""
 
     agent_version = platform_agent_version(session, agent_kind=agent_kind, version=version)
     project_policy.require_scope(

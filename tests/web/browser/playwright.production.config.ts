@@ -9,7 +9,7 @@ export default defineConfig({
     'library.spec.ts',
     'application-configuration.spec.ts',
     'svelte-project.spec.ts',
-    'agent-session-workflow.spec.ts',
+    'conversation-workflow.spec.ts',
     'conversation-history-participation.spec.ts',
     'discovery-states.spec.ts',
   ],

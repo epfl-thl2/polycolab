@@ -225,7 +225,7 @@ def test_reconcile_saved_ref_after_sql_failure(
     head = client.get(url, headers=OWNER).json()["commit"]
     original = SqlRepositoryStore.complete
 
-    def fail(self: SqlRepositoryStore, receipt_id: UUID) -> None:
+    def fail(self: SqlRepositoryStore, record_id: UUID) -> None:
         raise RuntimeError("simulated process loss")
 
     monkeypatch.setattr(SqlRepositoryStore, "complete", fail)

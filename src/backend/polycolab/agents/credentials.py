@@ -1,4 +1,4 @@
-"""Credential validation and finite request and mutation budgets."""
+"""Credential validation and finite request and write limits."""
 
 import hashlib
 import hmac

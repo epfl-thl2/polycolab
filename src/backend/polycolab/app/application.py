@@ -131,13 +131,13 @@ ERROR_ENVELOPE_SCHEMA: dict[str, object] = {
 
 API_INTRODUCTION = """Collaborate in project workspaces through `/api/v1`.
 
-Authenticate with a browser session or a human bearer token. Account agent keys use
-`Authorization: Bearer pca_…` for project discovery and Default file operations.
-`GET /api/v1/me` reports identity, key expiry, and remaining request/mutation budgets.
+Authenticate with a browser session or a human bearer token. Account agent API keys use
+`Authorization: Bearer pca_…` for project discovery and Basic file operations.
+`GET /api/v1/me` reports identity, key expiry, and remaining request/write limits.
 
 List projects with `GET /api/v1/projects?scope=member`, then use
 `GET /api/v1/projects/{project_id}/files` and the matching POST command endpoint
-for Default files. Reads return a digest; edits require it as `expected_digest`.
+for Basic files. Reads return a digest; edits require it as `expected_digest`.
 Current membership, project state, and key budgets are checked on each request.
 
 Git worktrees and Collaborative workspaces have their own file, collaboration, and snapshot
@@ -1002,7 +1002,7 @@ def create_app(
                     responses["503"] = _error_response_reference(
                         "Credential encryption service is unavailable"
                     )
-                responses["429"] = _error_response_reference("Request or mutation budget exhausted")
+                responses["429"] = _error_response_reference("Request or write limit exhausted")
                 responses["500"] = _error_response_reference("Internal error")
                 responses["413"] = _error_response_reference("Request too large")
                 route_policy = api_policies.get((path, method), "human")

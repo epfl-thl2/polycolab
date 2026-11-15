@@ -7,4 +7,4 @@ Polycolab serves a versioned FastAPI contract and a typed Svelte browser client.
 - [API reference](../api.md)
 - [Documentation components](components.md)
 
-Account, membership, and key administration require human authentication. Default file access accepts delegated agent keys. Workers use private internal endpoints without database credentials.
+Account, membership, and key administration require human authentication. Basic file access accepts delegated agent API keys. Workers use private internal endpoints without database credentials.

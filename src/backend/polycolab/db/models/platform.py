@@ -17,23 +17,23 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from polycolab.db.base import Base
 from polycolab.entities.enums import (
-    MutationReceiptStatus,
+    IdempotencyRecordStatus,
 )
 from polycolab.entities.time import utc_now
 
 
-class SqlMutationReceipt(Base):
+class SqlIdempotencyRecord(Base):
     """Durable idempotency result for top-level canonical mutations."""
 
-    __tablename__ = "mutation_receipts"
+    __tablename__ = "idempotency_records"
     __table_args__ = (
         UniqueConstraint(
-            "actor_key", "operation", "idempotency_key_digest", name="uq_mutation_receipts_key"
+            "actor_key", "operation", "idempotency_key_digest", name="uq_idempotency_records_key"
         ),
-        CheckConstraint("status IN ('COMMITTED', 'FAILED')", name="ck_mutation_receipts_status"),
+        CheckConstraint("status IN ('COMMITTED', 'FAILED')", name="ck_idempotency_records_status"),
         CheckConstraint(
             "length(idempotency_key_digest) = 64 AND length(request_digest) = 64",
-            name="ck_mutation_receipts_digest_length",
+            name="ck_idempotency_records_digest_length",
         ),
     )
 
@@ -42,13 +42,13 @@ class SqlMutationReceipt(Base):
     operation: Mapped[str] = mapped_column(String(64))
     idempotency_key_digest: Mapped[str] = mapped_column(String(64))
     request_digest: Mapped[str] = mapped_column(String(64))
-    status: Mapped[MutationReceiptStatus] = mapped_column(
-        Enum(MutationReceiptStatus, native_enum=False, length=16)
+    status: Mapped[IdempotencyRecordStatus] = mapped_column(
+        Enum(IdempotencyRecordStatus, native_enum=False, length=16)
     )
     resource_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
 __all__ = [
-    "SqlMutationReceipt",
+    "SqlIdempotencyRecord",
 ]

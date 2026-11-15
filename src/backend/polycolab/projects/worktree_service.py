@@ -10,7 +10,7 @@ from uuid import UUID, uuid4, uuid5
 import structlog
 
 from polycolab.access.authorization import ProjectAction, project_policy
-from polycolab.entities.repositories import RepositoryError, RepositoryReceipt, Worktree
+from polycolab.entities.repositories import RepositoryError, RepositoryIdempotencyRecord, Worktree
 from polycolab.entities.time import utc_now
 from polycolab.projects.git_storage import ZERO, branch_name
 from polycolab.projects.repository_service import RepositoryService
@@ -159,23 +159,23 @@ class WorktreeService(RepositoryService):
                 separators=(",", ":"),
             ).encode()
         ).hexdigest()
-        receipt = self.store.receipt(self.project_id, self.user_id, key)
+        record = self.store.record(self.project_id, self.user_id, key)
         # Git preparation may take time. Do not retain a SQLite read snapshot
         # across it and then attempt to promote that stale snapshot to a writer.
         self.transaction.commit()
-        if receipt:
-            if receipt.digest != digest or receipt.branch != worktree.branch:
+        if record:
+            if record.digest != digest or record.branch != worktree.branch:
                 raise RepositoryError("repository_retry_mismatch")
-            if receipt.completed or self.files.contains(worktree.id, receipt.new_commit):
-                self.store.complete(receipt.id)
+            if record.completed or self.files.contains(worktree.id, record.new_commit):
+                self.store.complete(record.id)
                 self.transaction.commit()
-                return receipt.new_commit
+                return record.new_commit
         else:
             if self.require_available(worktree) != expected:
                 raise RepositoryError("worktree_stale_revision")
             tree, head = prepare()
             revision = self.files.snapshot(worktree.id, tree, head, expected)
-            receipt = RepositoryReceipt(
+            record = RepositoryIdempotencyRecord(
                 uuid4(),
                 self.project_id,
                 self.user_id,
@@ -187,21 +187,21 @@ class WorktreeService(RepositoryService):
                 False,
                 utc_now(),
             )
-            self.store.prepare(receipt)
+            self.store.prepare(record)
             self.transaction.commit()
         authorize()
-        if self.require_available(worktree) != receipt.old_commit:
+        if self.require_available(worktree) != record.old_commit:
             raise RepositoryError("worktree_stale_revision")
-        self.files.apply(worktree.id, worktree.branch, receipt.new_commit)
-        self.store.complete(receipt.id)
+        self.files.apply(worktree.id, worktree.branch, record.new_commit)
+        self.store.complete(record.id)
         self.transaction.commit()
         structlog.get_logger().info(
             "worktree_operation_applied",
-            operation_id=str(receipt.id),
+            operation_id=str(record.id),
             project_id=str(self.project_id),
             worktree_id=str(worktree.id),
         )
-        return receipt.new_commit
+        return record.new_commit
 
     def change(
         self,
@@ -239,8 +239,8 @@ class WorktreeService(RepositoryService):
             branch_name(branch)
             digest = hashlib.sha256(json.dumps([title, branch, start]).encode()).hexdigest()
             key = f"create-worktree-{identifier}"
-            receipt = self.store.receipt(self.project_id, self.user_id, key)
-            if receipt and receipt.digest != digest:
+            record = self.store.record(self.project_id, self.user_id, key)
+            if record and record.digest != digest:
                 raise RepositoryError("worktree_retry_mismatch")
             existing = None
             for worktree in self.store.worktrees(self.project_id, True):
@@ -264,7 +264,7 @@ class WorktreeService(RepositoryService):
                 existing = Worktree(
                     identifier, self.project_id, title, branch, self.user_id, now, now, None
                 )
-                receipt = RepositoryReceipt(
+                record = RepositoryIdempotencyRecord(
                     uuid4(),
                     self.project_id,
                     self.user_id,
@@ -276,19 +276,19 @@ class WorktreeService(RepositoryService):
                     False,
                     now,
                 )
-                self.store.prepare(receipt)
+                self.store.prepare(record)
                 self.store.create_worktree(existing)
                 self.transaction.commit()
             if existing.removed_at:
                 return existing
             self.authorize(True, branch)
             if not self.git.head(branch, missing=True):
-                if receipt is None:
+                if record is None:
                     raise RepositoryError("worktree_unavailable", 503)
-                self.git.advance(branch, ZERO, receipt.new_commit)
+                self.git.advance(branch, ZERO, record.new_commit)
             self.files.initialize(identifier, branch)
-            if receipt:
-                self.store.complete(receipt.id)
+            if record:
+                self.store.complete(record.id)
             self.transaction.commit()
             return existing
 

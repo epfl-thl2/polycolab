@@ -18,7 +18,6 @@ from polycolab.db.models import (
     SqlContextManifest,
     SqlContextManifestArtifact,
     SqlPlatformAgentVersion,
-    SqlProject,
     SqlProjectRepository,
     SqlUser,
 )
@@ -57,12 +56,18 @@ def populate(connection: Connection) -> dict[str, UUID]:
     }
     now = utc_now()
     connection.execute(insert(SqlUser).values(id=ids["user"], issuer="migration", subject="owner"))
+    projects = Table("projects", MetaData(), autoload_with=connection)
     connection.execute(
-        insert(SqlProject).values(
-            id=ids["project"],
+        projects.insert().values(
+            id=ids["project"].hex if connection.dialect.name == "sqlite" else ids["project"],
             name="History",
-            created_by_user_id=ids["user"],
             visibility="PRIVATE",
+            workspace_mode="git",
+            created_by_user_id=ids["user"].hex
+            if connection.dialect.name == "sqlite"
+            else ids["user"],
+            created_at=now,
+            updated_at=now,
         )
     )
     connection.execute(
@@ -332,12 +337,82 @@ def populate(connection: Connection) -> dict[str, UUID]:
                 created_at=now,
             )
         )
+    connection.execute(
+        old("execution_class_states")
+        .insert()
+        .values(
+            workload_class="AGENT",
+            active_policy_version=1,
+            virtual_runtime_floor=3,
+            scheduling_sequence=5,
+            updated_at=now,
+        )
+    )
+    connection.execute(
+        old("execution_fairness_states")
+        .insert()
+        .values(
+            workload_class="AGENT",
+            tenant_kind="USER",
+            tenant_id=key("user"),
+            policy_version=1,
+            virtual_runtime=7,
+            last_served_at=now,
+            updated_at=now,
+        )
+    )
+    connection.execute(
+        old("hosted_model_requests")
+        .insert()
+        .values(
+            id=key("proposal"),
+            run_id=key("run"),
+            generation=1,
+            request_key="old-dispatch",
+            request_digest="c" * 64,
+            state="COMPLETED",
+            input_tokens=20,
+            output_tokens=30,
+            cost_microusd=100,
+            dispatched_at=now,
+            settle_by=now + timedelta(seconds=60),
+            settled_at=now,
+        )
+    )
+    connection.execute(
+        old("operational_metric_aggregates")
+        .insert()
+        .values(
+            id=key("contribution"),
+            metric_name="polycolab_hosted_settlement_total",
+            labels_key='{"outcome":"COMPLETED"}',
+            labels={"outcome": "COMPLETED"},
+            counter_value=9,
+            observation_count=0,
+            observation_sum=0,
+            observation_max=0,
+            updated_at=now,
+        )
+    )
     return ids
 
 
 def verify(connection: Connection, ids: dict[str, UUID]) -> None:
     def table(name: str) -> Table:
         return Table(name, MetaData(), autoload_with=connection)
+
+    scope = connection.execute(select(table("execution_fairness_states"))).mappings().one()
+    assert scope["scope_kind"] == "USER"
+    assert UUID(str(scope["scope_id"])) == ids["user"]
+    assert scope["virtual_runtime"] == 7
+    usage = connection.execute(select(table("hosted_model_requests"))).mappings().one()
+    assert usage["request_digest"] == "c" * 64
+    assert (usage["input_tokens"], usage["output_tokens"], usage["cost_microusd"]) == (20, 30, 100)
+    assert usage["reconciled_at"] == usage["dispatched_at"]
+    assert usage["reconcile_by"] - usage["dispatched_at"] == timedelta(seconds=60)
+    metric = connection.execute(select(table("operational_metric_aggregates"))).mappings().one()
+    assert metric["metric_name"] == "polycolab_hosted_reconciliation_total"
+    assert metric["counter_value"] == 9
 
     rows = list(
         connection.execute(select(table("conversation_items")).order_by("sequence")).mappings()

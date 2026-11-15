@@ -127,5 +127,5 @@ class SqlHostedModelRequest(Base):
     output_tokens: Mapped[int] = mapped_column(Integer)
     cost_microusd: Mapped[int] = mapped_column(Integer)
     dispatched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
-    settle_by: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reconcile_by: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    reconciled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

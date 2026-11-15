@@ -17,8 +17,8 @@ class SqlProjectRepository(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
-class SqlRepositoryMutation(Base):
-    __tablename__ = "repository_mutations"
+class SqlRepositoryIdempotencyRecord(Base):
+    __tablename__ = "repository_idempotency_records"
     __table_args__ = (UniqueConstraint("project_id", "user_id", "key", name="uq_repository_retry"),)
     id: Mapped[UUID] = mapped_column(primary_key=True)
     project_id: Mapped[UUID] = mapped_column(

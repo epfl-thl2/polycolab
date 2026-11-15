@@ -15,7 +15,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
-from test_sessions_api import create_project, headers
+from test_conversations_api import create_project, headers
 
 from polycolab.artifacts.storage import FilesystemStorage
 from polycolab.document_builds.worker import execute, preflight, reconcile

@@ -1,5 +1,9 @@
 import { test, expect, type BrowserContext } from '../fixtures';
-import { messageItemFixture, runFixture, sessionFixture } from '../../unit/session-fixtures';
+import {
+  messageItemFixture,
+  runFixture,
+  conversationFixture,
+} from '../../unit/conversation-fixtures';
 import type { components } from '../../../../src/web/src/lib/api-client';
 
 type Session = components['schemas']['ConversationRead'];
@@ -18,7 +22,7 @@ test('shared contributors use their profile and read-only members receive the sa
 }) => {
   const contributor = await browser.newContext();
   const reader = await browser.newContext();
-  const session = sessionFixture({
+  const session = conversationFixture({
     sharing: 'members_can_participate',
     title: 'Shared investigation',
   });
@@ -162,7 +166,7 @@ test('retired direct history preserves unknown usage and supports rename and arc
   page,
 }) => {
   await auth(page.context(), 'owner');
-  const session = sessionFixture({
+  const session = conversationFixture({
     project_id: null,
     origin: 'legacy_direct',
     title: 'Old investigation',

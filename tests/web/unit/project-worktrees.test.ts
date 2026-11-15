@@ -1,4 +1,4 @@
-import { sessionFixture } from './session-fixtures';
+import { conversationFixture } from './conversation-fixtures';
 import { QueryClient } from '@tanstack/svelte-query';
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
@@ -7,7 +7,7 @@ import { contextKey } from '../../../src/web/src/svelte-lib/context';
 
 const tree = { id: 'proof', title: 'Proof', branch: 'worktrees/proof', removed_at: null };
 const chat = (id: string, worktree_id: string | null) =>
-  sessionFixture({
+  conversationFixture({
     id,
     title: id,
     working_context: { worktree_id },

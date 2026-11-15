@@ -112,7 +112,7 @@ _DURABLE_SERIES: dict[str, dict[str, frozenset[str]]] = {
     "polycolab_hosted_recovery_total": {
         "outcome": frozenset({"QUEUED", "CANCELLED", "FAILED", "TIMED_OUT"}),
     },
-    "polycolab_hosted_settlement_total": {
+    "polycolab_hosted_reconciliation_total": {
         "outcome": frozenset({"COMPLETED", "UNCERTAIN"}),
     },
     "polycolab_run_started_total": {

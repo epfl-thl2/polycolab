@@ -30,4 +30,4 @@ Basic project file reads return a content digest. Send that digest as `expected_
 
 Inspect the structured error response and HTTP status before deciding whether to retry.
 Do not retry authorization, validation, or conflict failures as transient failures.
-External agent file requests consume the key's request and mutation budgets. See [Agent identities and file access](agent-runs.md).
+External agent file requests consume the key's request and write limits. See [Agent identities and file access](agent-runs.md).

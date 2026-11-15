@@ -354,7 +354,7 @@ def test_private_responses_broker_records_provider_usage(
 ) -> None:
     from datetime import UTC, datetime, timedelta
 
-    from test_sessions_api import create_connection, create_project, send
+    from test_conversations_api import create_connection, create_project, send
 
     app = cast(Any, client.app)
     app.state.settings.runtime_codex_image = spec().image

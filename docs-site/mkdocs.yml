@@ -85,7 +85,7 @@ nav:
   - Getting started: getting-started.md
   - Guides:
       - guides/index.md
-      - Agent library: agents.md
+      - Library: agents.md
       - Projects and access: guides/projects.md
       - Working with agents: guides/agents.md
   - User Setup:

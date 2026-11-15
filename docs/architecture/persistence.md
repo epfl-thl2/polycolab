@@ -110,7 +110,7 @@ Conversation metadata and transcript pages use immutable typed snapshots and a
 `ConversationStore`. Its explicit converters perform no queries, and its append
 operations allocate sequences while holding the conversation lock. Execution services
 still compose SQL-backed run, grant, lease and accounting operations with the same
-transaction. See [saved conversations](chat.md) for the session resource and cutover.
+transaction. See [saved conversations](chat.md) for the conversation resource and cutover.
 
 Artifact cleanup is a complete converted workflow.
 `artifacts/cleanup.py` owns expiry policy, lifecycle transitions, and transaction completion through `Transaction.artifacts`.

@@ -92,7 +92,7 @@ class SqlCollaborativeStore:
             self.db.add(SqlCollaborativeWorkspace(project_id=project_id))
             self.db.flush()
 
-    def receipt(self, project_id: UUID, user_id: UUID, key: str) -> CollaborativeOperation | None:
+    def record(self, project_id: UUID, user_id: UUID, key: str) -> CollaborativeOperation | None:
         row = self.db.scalar(
             select(SqlCollaborativeOperation).where(
                 SqlCollaborativeOperation.project_id == project_id,

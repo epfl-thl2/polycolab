@@ -8,7 +8,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import update
-from test_sessions_api import add_member, create_project, headers
+from test_conversations_api import add_member, create_project, headers
 
 from polycolab.db.models import SqlUser
 from polycolab.projects.git_storage import GitRepository

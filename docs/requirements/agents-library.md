@@ -1,4 +1,4 @@
-# Agent library
+# Library
 
 Library is the destination for reusable agent instructions and external plugin listings.
 It includes public discovery and My library. External keys belong directly to their owner and are managed in Settings.

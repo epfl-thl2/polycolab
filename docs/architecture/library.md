@@ -1,4 +1,4 @@
-# Agent library
+# Library
 
 The `agents.library` service implements a library of prompts, single-file skills, and external plugin listings.
 FastAPI owns authorization and persistence.
@@ -14,7 +14,7 @@ Source-item links are derived from the stored exact source version.
 All public projections exclude draft content and owner-only revision/state fields.
 
 Application entities and the capability-local store interface are independent of HTTP and SQL.
-The SQL adapter participates in the shared transaction boundary and owns row locks and mutation receipts.
+The SQL adapter participates in the shared transaction boundary and owns row locks and idempotency records.
 Publication locks the item, checks the expected revision, and atomically creates a version and advances the item.
 Identical mutation retries reuse receipts; changed payloads conflict.
 PostgreSQL and SQLite migrations protect published snapshots, moderation audits and item identity with database triggers.

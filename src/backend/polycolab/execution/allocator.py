@@ -1,7 +1,7 @@
 """Durable hosted-agent fairness and physical capacity, owned by the API.
 
 No provider or runtime operations take place in these transactions. Verification
-pools remain disabled. All allocation writers serialize after tenant scope locks.
+pools remain disabled. All allocation writers serialize after scheduling scope locks.
 """
 
 from __future__ import annotations
@@ -19,16 +19,16 @@ from polycolab.db.models import (
     SqlConversation,
     SqlExecutionClassState,
     SqlExecutionFairnessState,
+    SqlExecutionJob,
     SqlExecutionSlotLease,
-    SqlExecutionWorkItem,
     SqlHostedExecutor,
     SqlHostedSlot,
 )
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.enums import (
     AgentRunStatus,
-    ExecutionTenantKind,
     ExecutionWorkloadClass,
+    SchedulingScopeKind,
     StoredConversationStatus,
 )
 from polycolab.entities.time import utc_now
@@ -50,7 +50,7 @@ def utc(value: datetime) -> datetime:
 
 
 def admit(session: Session, run: SqlAgentRun) -> None:
-    """Attach the exact finite work item before the admission transaction commits."""
+    """Attach the exact finite execution job before the admission transaction commits."""
     if run.runtime_spec is None:
         return
     spec = RuntimeSpec.model_validate(run.runtime_spec)
@@ -60,7 +60,7 @@ def admit(session: Session, run: SqlAgentRun) -> None:
     tokens = spec.max_model_requests * (spec.max_input_tokens + spec.max_output_tokens)
     cost = max(1, spec.max_model_requests * spec.round_cost_microusd)
     session.add(
-        SqlExecutionWorkItem(
+        SqlExecutionJob(
             agent_run_id=run.id,
             requested_by_user_id=run.requested_by_user_id,
             project_id=run.project_id,
@@ -108,7 +108,7 @@ def _serialize(session: Session) -> SqlExecutionClassState:
 def _candidate(
     session: Session,
     now: datetime,
-    tenant_capacity: int,
+    scope_capacity: int,
     project_capacity: int,
     sandbox_backend: str = "microsandbox",
     sandbox_version: str = "0.6.18",
@@ -138,11 +138,11 @@ def _candidate(
     )
 
     def count_scope(user_scope: bool):  # type: ignore[no-untyped-def]
-        item = aliased(SqlExecutionWorkItem)
+        item = aliased(SqlExecutionJob)
         return (
             select(func.count())
             .select_from(SqlExecutionSlotLease)
-            .join(item, item.id == SqlExecutionSlotLease.work_item_id)
+            .join(item, item.id == SqlExecutionSlotLease.job_id)
             .where(
                 SqlExecutionSlotLease.workload_class == AGENT,
                 SqlExecutionSlotLease.released_at.is_(None),
@@ -179,19 +179,19 @@ def _candidate(
     )
     return session.scalar(
         select(SqlAgentRun)
-        .join(SqlExecutionWorkItem, SqlExecutionWorkItem.agent_run_id == SqlAgentRun.id)
+        .join(SqlExecutionJob, SqlExecutionJob.agent_run_id == SqlAgentRun.id)
         .join(SqlConversation, SqlConversation.id == SqlAgentRun.conversation_id)
         .outerjoin(
             user,
             (user.workload_class == AGENT)
-            & (user.tenant_kind == ExecutionTenantKind.USER)
-            & (user.tenant_id == SqlAgentRun.requested_by_user_id),
+            & (user.scope_kind == SchedulingScopeKind.USER)
+            & (user.scope_id == SqlAgentRun.requested_by_user_id),
         )
         .outerjoin(
             project,
             (project.workload_class == AGENT)
-            & (project.tenant_kind == ExecutionTenantKind.PROJECT)
-            & (project.tenant_id == SqlAgentRun.project_id),
+            & (project.scope_kind == SchedulingScopeKind.PROJECT)
+            & (project.scope_id == SqlAgentRun.project_id),
         )
         .where(
             func.coalesce(SqlAgentRun.runtime_spec["sandbox_backend"].as_string(), "microsandbox")
@@ -205,9 +205,9 @@ def _candidate(
             ),
             SqlAgentRun.status == AgentRunStatus.QUEUED,
             SqlConversation.status == StoredConversationStatus.ACTIVE,
-            SqlExecutionWorkItem.policy_version == POLICY.version,
+            SqlExecutionJob.policy_version == POLICY.version,
             ~occupied,
-            count_scope(True) < tenant_capacity,
+            count_scope(True) < scope_capacity,
             count_scope(False) < project_capacity,
             ~exists(
                 select(previous.id).where(
@@ -342,24 +342,24 @@ def claim(
                 session.commit()
                 continue
             states = []
-            for kind, tenant in (
-                (ExecutionTenantKind.USER, user_id),
-                (ExecutionTenantKind.PROJECT, project_id),
+            for kind, scope in (
+                (SchedulingScopeKind.USER, user_id),
+                (SchedulingScopeKind.PROJECT, project_id),
             ):
                 row = session.scalar(
                     select(SqlExecutionFairnessState)
                     .where(
                         SqlExecutionFairnessState.workload_class == AGENT,
-                        SqlExecutionFairnessState.tenant_kind == kind,
-                        SqlExecutionFairnessState.tenant_id == tenant,
+                        SqlExecutionFairnessState.scope_kind == kind,
+                        SqlExecutionFairnessState.scope_id == scope,
                     )
                     .with_for_update()
                 )
                 if row is None:
                     row = SqlExecutionFairnessState(
                         workload_class=AGENT,
-                        tenant_kind=kind,
-                        tenant_id=tenant,
+                        scope_kind=kind,
+                        scope_id=scope,
                         policy_version=POLICY.version,
                         virtual_runtime=state.virtual_runtime_floor,
                     )
@@ -377,7 +377,7 @@ def claim(
                 session.commit()
                 continue
             item = session.scalar(
-                select(SqlExecutionWorkItem).where(SqlExecutionWorkItem.agent_run_id == run_id)
+                select(SqlExecutionJob).where(SqlExecutionJob.agent_run_id == run_id)
             )
             assert item is not None and run.deadline_at is not None
             floor = max(row.virtual_runtime for row in states)
@@ -391,7 +391,7 @@ def claim(
             session.flush()
             session.add(
                 SqlExecutionSlotLease(
-                    work_item_id=item.id,
+                    job_id=item.id,
                     workload_class=AGENT,
                     agent_run_id=run.id,
                     generation=run.lease_generation,

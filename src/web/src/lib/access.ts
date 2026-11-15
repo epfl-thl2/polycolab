@@ -7,7 +7,6 @@ export function canWriteProject(role: Role, archived: boolean): boolean {
 export function restrictionMessage(role: Role, archived: boolean): string | undefined {
   if (archived)
     return 'This project is archived. Project files are available to read, but cannot be changed.';
-  if (role === 'VIEWER')
-    return 'Your project role permits reading but not changing project files.';
+  if (role === 'VIEWER') return 'Your project role permits reading but not changing project files.';
   return undefined;
 }

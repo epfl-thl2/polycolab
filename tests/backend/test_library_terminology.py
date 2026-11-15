@@ -112,7 +112,9 @@ def test_populated_library_upgrade(
             value = connection.execute(sa.select(current.tables[name])).mappings().one()
             assert value["item_id"] == item_id
             assert value["content"] == content
-        retry = connection.execute(sa.select(current.tables["mutation_receipts"])).mappings().one()
+        retry = (
+            connection.execute(sa.select(current.tables["idempotency_records"])).mappings().one()
+        )
         assert retry["operation"] == "agent_library.publish"
         assert retry["request_digest"] == "b" * 64
         assert retry["resource_ids"] == [str(version_id)]

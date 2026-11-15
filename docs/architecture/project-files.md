@@ -79,10 +79,10 @@ and restore. State includes `head_commit`, independent saved `revision`, lifecyc
 files, changed files, and current writability. File mutations require the expected
 saved revision and an idempotency key. Stale writes fail without overwriting files.
 
-Session requests accept only `worktree_id`; obsolete `task_id` fields are rejected.
+Conversation requests accept only `worktree_id`; obsolete `task_id` fields are rejected.
 The physical table is `worktrees`, with `removed_at` recording removal. The retired
 `/projects/{id}/tasks` routes return 404. Existing working-copy IDs, saved revisions,
-checkout locations, and session branches are preserved. New conversations without an explicit binding use Main
+checkout locations, and conversation branches are preserved. New conversations without an explicit binding use Main
 once the project has been materialized. Legacy history reads remain available;
 the auto-commit `/repository/changes` endpoint rejects migrated repositories with
 `repository_upgrade_required_use_worktrees`.

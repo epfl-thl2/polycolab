@@ -465,7 +465,9 @@ def test_postgresql_migration_compiles_runtime_integrity_and_immutable_history()
         str(api_directory / "polycolab" / "db" / "migrations" / "postgresql"),
     )
     config.set_main_option("sqlalchemy.url", "postgresql+psycopg://unused/unused")
-    command.upgrade(config, "head", sql=True)
+    command.upgrade(config, "20261104_provider_profiles", sql=True)
+    with pytest.raises(RuntimeError, match="requires an online upgrade"):
+        command.upgrade(config, "head", sql=True)
     compiled = " ".join(sql.getvalue().split())
     assert "fk_agent_runs_session_project" in compiled
     assert "fk_agent_runs_request_message_session" in compiled

@@ -1,4 +1,8 @@
-import { messageItemFixture, runFixture, sessionFixture } from '../../unit/session-fixtures';
+import {
+  messageItemFixture,
+  runFixture,
+  conversationFixture,
+} from '../../unit/conversation-fixtures';
 import { plainFileEditor } from '../helpers/project-editor';
 import { test, expect, type Page } from '../fixtures';
 const projectId = '11111111-1111-4111-8111-111111111111';
@@ -24,7 +28,7 @@ function unsignedJwt(payload: Record<string, unknown>) {
   return `${encode({ alg: 'none', typ: 'JWT' })}.${encode(payload)}.`;
 }
 
-const session = sessionFixture({
+const session = conversationFixture({
   id: conversationId,
   project_id: projectId,
   owner_id: 'author-1',
@@ -1832,7 +1836,7 @@ test('provider keys remain write-only across create, validation, rotation, failu
   await expect(page.getByRole('heading', { name: 'Provider connections' })).toBeVisible();
   await expect(page.getByText('Preview unavailable', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Display name')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Add model provider' }).click();
+  await page.getByRole('button', { name: 'Add provider connection' }).click();
   await expect(page.getByLabel('Display name')).toBeFocused();
   await page.getByLabel('Display name').fill('Second model');
   await page.getByLabel('API endpoint').fill('https://second.example/v1');
@@ -1844,21 +1848,23 @@ test('provider keys remain write-only across create, validation, rotation, failu
   await expect(page.getByRole('dialog')).toHaveCount(0);
 
   const second = page.getByRole('row').filter({ hasText: 'Second model' });
-  await expect(page.getByRole('table', { name: 'Your model providers' })).toBeVisible();
-  await page.getByLabel('Search loaded model providers').fill('second-model');
+  await expect(page.getByRole('table', { name: 'Your provider connections' })).toBeVisible();
+  await page.getByLabel('Search loaded provider connections').fill('second-model');
   await expect(second).toBeVisible();
   await expect(page.getByText('Research model', { exact: true })).toHaveCount(0);
-  await page.getByLabel('Search loaded model providers').fill('no-match');
+  await page.getByLabel('Search loaded provider connections').fill('no-match');
   await expect(page.getByText('No matching providers in the loaded results.')).toBeVisible();
-  await page.getByLabel('Search loaded model providers').clear();
+  await page.getByLabel('Search loaded provider connections').clear();
   await expect(second.getByText('cre••••cret', { exact: true })).toBeVisible();
   await expect(page.locator('body')).not.toContainText('create-secret');
   await expect(second.getByText('Not tested')).toBeVisible();
-  const tableBounds = await page.getByRole('table', { name: 'Your model providers' }).boundingBox();
+  const tableBounds = await page
+    .getByRole('table', { name: 'Your provider connections' })
+    .boundingBox();
   await page.getByRole('button', { name: 'Dismiss notification' }).click();
-  expect(await page.getByRole('table', { name: 'Your model providers' }).boundingBox()).toEqual(
-    tableBounds,
-  );
+  expect(
+    await page.getByRole('table', { name: 'Your provider connections' }).boundingBox(),
+  ).toEqual(tableBounds);
   await second.getByRole('button', { name: 'Actions for Second model' }).click();
   await page.getByRole('menuitem', { name: 'Test connection' }).click();
   await expect(page.getByRole('status')).toHaveText('Connection to Second model verified.');
@@ -1882,7 +1888,7 @@ test('provider keys remain write-only across create, validation, rotation, failu
 
   await expect(second.getByText('Not tested')).toBeVisible();
   failCreate = true;
-  await page.getByRole('button', { name: 'Add model provider' }).click();
+  await page.getByRole('button', { name: 'Add provider connection' }).click();
   await expect(page.getByLabel('Display name')).toBeFocused();
   await page.getByLabel('Display name').fill('Unavailable key service');
   await page.getByLabel('API endpoint').fill('https://failure.example/v1');
@@ -1897,7 +1903,7 @@ test('provider keys remain write-only across create, validation, rotation, failu
   expect(await page.locator('body').textContent()).not.toContain('retained-secret');
 
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await page.getByRole('button', { name: 'Add model provider' }).click();
+  await page.getByRole('button', { name: 'Add provider connection' }).click();
   await expect(page.getByLabel('API key')).toHaveValue('');
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await second.getByRole('button', { name: 'Actions for Second model' }).click();
@@ -3777,18 +3783,17 @@ test('recovery settings actions use dismissible toasts without moving the form',
   expect(await page.getByLabel('Recovery email').boundingBox()).toEqual(before);
 });
 
-test('old project bookmarks retain their query and fragment after navigation', async ({ page }) => {
+test('retired workspace bookmarks keep their URL and show not found', async ({ page }) => {
   await mock(page);
   await page.goto(`/workspaces/${projectId}/overview?from=bookmark#notes`);
   await expect(page).toHaveURL(
-    new RegExp(`/projects/${projectId}/overview\\?from=bookmark#notes$`),
+    new RegExp(`/workspaces/${projectId}/overview\\?from=bookmark#notes$`),
   );
-  await expect(
-    page.getByRole('complementary', { name: 'Project navigation' }).first(),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: 'Project navigation' })).toHaveCount(0);
 });
 
-test('retired project Chat bookmarks open existing project conversations', async ({ page }) => {
+test('retired project Chat bookmarks show not found without a redirect', async ({ page }) => {
   await mock(page);
   const chatRequests: string[] = [];
   page.on('request', (request) => {
@@ -3796,9 +3801,8 @@ test('retired project Chat bookmarks open existing project conversations', async
       chatRequests.push(request.url());
   });
   await page.goto(`/projects/${projectId}/chat`);
-  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/conversations$`));
-  await expect(page.getByRole('heading', { name: 'All conversations', exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Chat', exact: true })).toHaveCount(0);
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/chat$`));
+  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
   expect(chatRequests).toEqual([]);
 });
 

@@ -2,20 +2,20 @@
 
 Never recursively rename values: user-authored content, names, grants, event bytes
 and stored hashes are immutable. Only known protocol fields are projected here.
-Receipt operation names and v1 serialization remain stable across the cutover.
+Idempotency operation names and v1 serialization remain stable across the cutover.
 """
 
 from typing import Any
 
 
-def receipt_operation(operation: str) -> str:
+def idempotency_operation(operation: str) -> str:
     return {
         "project.copy": "workspace.copy",
         "project_record.moderate": "workspace_record.moderate",
     }.get(operation, operation)
 
 
-def receipt_payload(operation: str, payload: Any) -> Any:
+def idempotency_payload(operation: str, payload: Any) -> Any:
     if not isinstance(payload, dict):
         return payload
     body = dict(payload)
@@ -29,7 +29,7 @@ def receipt_payload(operation: str, payload: Any) -> Any:
                 body[historical] = body.pop(current)
     if operation.startswith("direct."):
         if "destination_scope_id" in body and "payload" in body:
-            body["payload"] = receipt_payload(operation, body["payload"])
+            body["payload"] = idempotency_payload(operation, body["payload"])
         destination = body.get("destination")
         if isinstance(destination, dict) and destination.get("kind") == "project":
             body["destination"] = {

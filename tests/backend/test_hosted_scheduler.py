@@ -77,7 +77,7 @@ def new_hosted(
         return run.id
 
 
-def claim(client: TestClient, worker: str, capacity: int = 4, tenant: int = 2) -> UUID | None:
+def claim(client: TestClient, worker: str, capacity: int = 4, scope: int = 2) -> UUID | None:
     app = cast(Any, client.app)
     with app.state.session_factory() as db:
         result = allocator.claim(
@@ -85,13 +85,13 @@ def claim(client: TestClient, worker: str, capacity: int = 4, tenant: int = 2) -
             worker_id=worker,
             lease_seconds=30,
             capacity=capacity,
-            user_capacity=tenant,
-            project_capacity=tenant,
+            user_capacity=scope,
+            project_capacity=scope,
         )
         return result.id if result else None
 
 
-def test_hosted_capacity_tenant_limits_and_positive_termination(
+def test_hosted_capacity_scope_limits_and_positive_termination(
     hosted_client: TestClient,
 ) -> None:
     first = new_hosted(hosted_client)
@@ -251,7 +251,7 @@ def test_merge_upgrade_preserves_existing_branch_data(
         assert retained is not None and retained.subject == "retained-account"
     from alembic.script import ScriptDirectory
 
-    assert ScriptDirectory.from_config(config).get_heads() == ["20261115_conversation_names"]
+    assert ScriptDirectory.from_config(config).get_heads() == ["20261115_internal_names"]
 
 
 def test_claim_requires_frozen_backend_version_and_image(

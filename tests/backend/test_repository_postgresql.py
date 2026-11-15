@@ -9,7 +9,7 @@ from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy.engine import Engine
-from test_sessions_api import create_connection, create_project, headers
+from test_conversations_api import create_connection, create_project, headers
 
 from polycolab.accounts.authentication import MappingIdentityVerifier
 from polycolab.app.application import create_app

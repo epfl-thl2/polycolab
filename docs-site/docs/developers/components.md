@@ -83,7 +83,7 @@ Numbered lists describe steps that must happen in order:
 
 Task lists are useful as a reader-owned readiness check:
 
-- [ ] The sponsoring account has the intended project role.
+- [ ] The owning account has the intended project role.
 - [ ] A local secret manager stores the bearer key.
 - [ ] The client includes the expected file digest on updates.
 - [ ] File paths remain within the intended project.
@@ -91,11 +91,11 @@ Task lists are useful as a reader-owned readiness check:
 
 ## Tables and definitions
 
-| Caller           | Authentication                | Typical authority                                 |
-| ---------------- | ----------------------------- | ------------------------------------------------- |
-| Anonymous reader | None                          | Read public project metadata                      |
-| Signed-in person | Session cookie or OIDC token  | Act within current project roles                  |
-| External agent   | `Authorization: Bearer <key>` | Edit Default files within the sponsor's authority |
+| Caller           | Authentication                | Typical authority                                     |
+| ---------------- | ----------------------------- | ----------------------------------------------------- |
+| Anonymous reader | None                          | Read public project metadata                          |
+| Signed-in person | Session cookie or OIDC token  | Act within current project roles                      |
+| External agent   | `Authorization: Bearer <key>` | Edit Basic files within the API key owner's authority |
 
 File digest
 : A hash of the file's current bytes, used to detect conflicting edits.
@@ -158,7 +158,7 @@ The API checks current membership on every file request.[^membership]
 
 *[API]: Application programming interface
 
-[^membership]: Removing membership revokes further file access, including sponsored agent access.
+[^membership]: Removing membership revokes further file access, including agent API key access.
 
 ## Images with captions
 

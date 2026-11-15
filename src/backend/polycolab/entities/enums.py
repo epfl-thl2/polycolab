@@ -14,7 +14,7 @@ class ProjectVisibility(StrEnum):
     PUBLIC = "PUBLIC"
 
 
-class MutationReceiptStatus(StrEnum):
+class IdempotencyRecordStatus(StrEnum):
     COMMITTED = "COMMITTED"
     FAILED = "FAILED"
 
@@ -72,7 +72,7 @@ class ExecutionWorkloadClass(StrEnum):
     AGENT = "AGENT"
 
 
-class ExecutionTenantKind(StrEnum):
+class SchedulingScopeKind(StrEnum):
     USER = "USER"
     PROJECT = "PROJECT"
 
@@ -152,12 +152,12 @@ __all__ = [
     "StoredConversationStatus",
     "ArtifactState",
     "ExecutionProfile",
-    "ExecutionTenantKind",
+    "SchedulingScopeKind",
     "ExecutionWorkloadClass",
     "InvitationStatus",
     "MailOutboxStatus",
     "MailPurpose",
-    "MutationReceiptStatus",
+    "IdempotencyRecordStatus",
     "PlatformAgentKind",
     "ProjectRole",
     "ProjectVisibility",

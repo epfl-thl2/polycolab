@@ -1,4 +1,4 @@
-"""Agent key secrets are encrypted and only revealable by their human owner."""
+"""Agent API key secrets are encrypted and only revealable by their human owner."""
 
 from typing import Any, cast
 from uuid import UUID

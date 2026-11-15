@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from test_sessions_api import add_member, create_connection, create_project, headers
+from test_conversations_api import add_member, create_connection, create_project, headers
 
 from polycolab.agents.conversations import (
     append_user_message_and_queue_run,

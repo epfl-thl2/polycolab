@@ -34,7 +34,7 @@ create and Escape to cancel.
 
 FastAPI remains the authority for membership, roles, project state, quotas, and
 accepted changes. PostgreSQL stores stable file identities, Yjs documents, current
-bytes, ordered operations, checkpoints, private AI change_sets, and run snapshot
+bytes, ordered operations, checkpoints, private AI change sets, and run snapshot
 bindings. SQLite uses the same contracts in local mode. An internal Node service
 validates and prepares Yjs updates against supplied committed state. It has neither
 database credentials nor access to the project volume. Its ephemeral presence
@@ -74,7 +74,7 @@ on edits at most once per minute; users can name checkpoints. Checkpoints also
 capture agent input, refresh input, and the state before applying AI changes or
 restoring. Checkpoint failure does not retract an accepted edit. A later edit or
 explicit checkpoint retries materialization. Current documents, checkpoint JSON,
-operation payloads, retained AI change_sets, Git data, and materialized directories
+operation payloads, retained AI change sets, Git data, and materialized directories
 consume the project quota. History is retained; storage limits stop further writes.
 
 Only owners restore the entire project. Restore appends a new operation, starts a
@@ -120,7 +120,7 @@ Chats are private initially. The creator can preview the complete user-visible
 transcript and share it, including future messages, with project members. Shared
 viewers can read messages and live responses; only the creator sends messages,
 changes visibility, or controls runs. System prompts, raw tool events, private AI
-change_sets, and session artifact downloads are excluded from the shared view.
+change sets, and conversation artifact downloads are excluded from the shared view.
 Unsharing revokes further access but cannot recall content already viewed.
 
 Owners can preview and convert a selected Git worktree's saved revision, including

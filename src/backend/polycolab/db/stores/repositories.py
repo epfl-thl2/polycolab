@@ -11,14 +11,14 @@ from polycolab.db.models import SqlAgentRun, SqlConversation
 from polycolab.db.models.repositories import (
     SqlProjectRepository,
     SqlRepositoryConversation,
-    SqlRepositoryMutation,
+    SqlRepositoryIdempotencyRecord,
     SqlRepositoryRun,
 )
 from polycolab.db.models.worktrees import SqlWorktree
 from polycolab.entities.repositories import (
     RepositoryConversation,
     RepositoryError,
-    RepositoryReceipt,
+    RepositoryIdempotencyRecord,
     RepositoryRun,
     Worktree,
 )
@@ -40,8 +40,8 @@ def worktree_snapshot(row: SqlWorktree) -> Worktree:
     )
 
 
-def snapshot(row: SqlRepositoryMutation) -> RepositoryReceipt:
-    return RepositoryReceipt(
+def snapshot(row: SqlRepositoryIdempotencyRecord) -> RepositoryIdempotencyRecord:
+    return RepositoryIdempotencyRecord(
         row.id,
         row.project_id,
         row.user_id,
@@ -117,41 +117,43 @@ class SqlRepositoryStore:
             self.db.flush()
 
     @persistence_boundary
-    def receipt(self, project_id: UUID, user_id: UUID, key: str) -> RepositoryReceipt | None:
+    def record(
+        self, project_id: UUID, user_id: UUID, key: str
+    ) -> RepositoryIdempotencyRecord | None:
         row = self.db.scalar(
-            select(SqlRepositoryMutation).where(
-                SqlRepositoryMutation.project_id == project_id,
-                SqlRepositoryMutation.user_id == user_id,
-                SqlRepositoryMutation.key == key,
+            select(SqlRepositoryIdempotencyRecord).where(
+                SqlRepositoryIdempotencyRecord.project_id == project_id,
+                SqlRepositoryIdempotencyRecord.user_id == user_id,
+                SqlRepositoryIdempotencyRecord.key == key,
             )
         )
         return snapshot(row) if row else None
 
     @persistence_boundary
-    def prepare(self, receipt: RepositoryReceipt) -> None:
+    def prepare(self, record: RepositoryIdempotencyRecord) -> None:
         self.db.add(
-            SqlRepositoryMutation(
-                **{name: getattr(receipt, name) for name in receipt.__dataclass_fields__}
+            SqlRepositoryIdempotencyRecord(
+                **{name: getattr(record, name) for name in record.__dataclass_fields__}
             )
         )
         self.db.flush()
 
     @persistence_boundary
-    def complete(self, receipt_id: UUID) -> None:
-        row = self.db.get(SqlRepositoryMutation, receipt_id)
+    def complete(self, record_id: UUID) -> None:
+        row = self.db.get(SqlRepositoryIdempotencyRecord, record_id)
         assert row is not None
         row.completed = True
         self.db.flush()
 
     @persistence_boundary
-    def pending(self, project_id: UUID) -> tuple[RepositoryReceipt, ...]:
+    def pending(self, project_id: UUID) -> tuple[RepositoryIdempotencyRecord, ...]:
         return tuple(
             snapshot(row)
             for row in self.db.scalars(
-                select(SqlRepositoryMutation)
+                select(SqlRepositoryIdempotencyRecord)
                 .where(
-                    SqlRepositoryMutation.project_id == project_id,
-                    SqlRepositoryMutation.completed.is_(False),
+                    SqlRepositoryIdempotencyRecord.project_id == project_id,
+                    SqlRepositoryIdempotencyRecord.completed.is_(False),
                 )
                 .limit(100)
             )

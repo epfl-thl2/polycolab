@@ -101,7 +101,7 @@ class WorktreeStorage:
         self.sync_directory(path.parent)
 
     def apply(self, identifier: UUID, branch: str, revision: str, *, create: bool = False) -> None:
-        """Call only after final authorization and a committed SQL receipt."""
+        """Call only after final authorization and a committed SQL record."""
         if self.root.is_symlink() or self.path(identifier).is_symlink():
             raise RepositoryError("worktree_unavailable", 503)
         head = self.snapshot_head(revision)

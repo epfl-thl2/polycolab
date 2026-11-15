@@ -1,5 +1,9 @@
 import { expect, test, type Page } from '../fixtures';
-import { messageItemFixture, runFixture, sessionFixture } from '../../unit/session-fixtures';
+import {
+  messageItemFixture,
+  runFixture,
+  conversationFixture,
+} from '../../unit/conversation-fixtures';
 
 const projectId = '11111111-1111-1111-1111-111111111111';
 
@@ -56,7 +60,7 @@ test('contributor can create a session and queue a chat turn', async ({ page }) 
   let run: ReturnType<typeof runFixture> | undefined;
   let submittedType = '';
   let sharedMode = '';
-  const session = sessionFixture({ project_id: projectId });
+  const session = conversationFixture({ project_id: projectId });
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;

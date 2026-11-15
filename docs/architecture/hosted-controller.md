@@ -45,7 +45,7 @@ Readiness cannot replace an unexpired controller incarnation.
 `execution/allocator.py` connects the existing scheduling tables to hosted admission and claims.
 Frozen runtime specifications produce immutable work costs.
 User/project virtual runtimes order eligible work.
-Claims serialize capacity allocation and enforce global, per-user and per-project limits, while preserving earlier-turn ordering within a session.
+Claims serialize capacity allocation and enforce global, per-user and per-project limits, while preserving earlier-turn ordering within a conversation.
 Real PostgreSQL contention tests cover concurrent claims and physical slot retention.
 
 `agents/runtime/controller.py` supervises the bounded Codex app-server protocol.
@@ -56,12 +56,12 @@ Research tools retain current API authorization and generation fencing.
 
 `model_gateway/hosted.py` reserves each provider dispatch durably before outbound I/O.
 A request key cannot dispatch twice.
-Completion settles observed usage.
+Completion reconciles observed usage.
 An ambiguous or interrupted dispatch retains its conservative reservation.
 Claim processing and the independent application reconciler both recover expired pending dispatches.
-Valid terminal incomplete responses settle observed usage without delivering an incomplete answer.
+Valid terminal incomplete responses reconcile observed usage without delivering an incomplete answer.
 
-Settlement survives lease loss and uses frozen limits/rates.
+Reconciliation survives lease loss and uses frozen limits/rates.
 Database and credential operations run off the async request loop, with bounded PostgreSQL lock/statement waits.
 The async IP-pinned transport has bounded I/O and no redirects or automatic retries.
 The gateway buffers responses until it validates terminal usage.
@@ -70,11 +70,11 @@ This is not live provider-token streaming.
 The guest can register an `export_artifact` declaration for a file in `/outputs`.
 After stopping the sandbox, the controller reads only those paths with descriptor-based link/path/type/count/byte checks, then uploads verified bytes through the API.
 Downloads require a completed run and its owner, including the shared artifact endpoint.
-These artifacts remain subject to hosted-session access controls.
-Session output is not publication, proof certification or a retained whole project.
+These artifacts remain subject to conversation access controls.
+Conversation output is not publication, proof certification or a retained whole project.
 Commands, raw stdout and reasoning notifications are not copied into chat history.
 
-The API advertises session/hosted availability and the browser displays Sessions and explicit file downloads.
+The API advertises conversation/hosted availability and the browser displays Conversations and explicit file downloads.
 Compatible executors renew readiness every ten seconds.
 Advertisements expire after 45 seconds.
 New hosted admissions require a live matching executor.
@@ -86,7 +86,7 @@ Expired hosted runs with any possible provider/tool/contribution effect fail wit
 Only attempts known to precede external effects can requeue, within their original deadline and attempt budget.
 Deadline and cancellation transitions revoke capabilities.
 Completion receipts make identical finalization retries safe and reject changed payloads.
-Durable aggregate recovery/settlement counters contain no run, user or provider identifiers.
+Durable aggregate recovery/reconciliation counters contain no run, user or provider identifiers.
 
 Per-attempt provider failures do not cancel the pool.
 Heartbeats use a monotonic lease budget.
@@ -95,11 +95,11 @@ Attempt journals are atomically replaced and fsynced.
 Cleanup deletes work directories, including undeclared files, before returning a slot.
 A failed journal write during failed cleanup cannot acknowledge successful termination.
 
-Sessions polls canonical run history, offers explicit resume for failed/timed-out runs, and lets users select files from older completed runs.
+Conversations polls canonical run history, offers explicit resume for failed/timed-out runs, and lets users select files from older completed runs.
 Readiness disables new execution without hiding history.
 The generated client includes the bounded `GET /api/v1/conversations/{conversation_id}/runs` listing and `execution_available`.
-Customized Hosted Codex sessions persist a selected harness and additional system prompt on the session.
-Every run in that session includes the prompt after the pinned platform agent instructions.
+Customized Hosted Codex conversations persist a selected harness and additional system prompt on the conversation.
+Every run in that conversation includes the prompt after the pinned platform agent instructions.
 The selected provider connection still supplies the model endpoint and remains a per-turn credential boundary.
 
 New provider connections default to Responses.

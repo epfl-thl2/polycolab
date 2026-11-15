@@ -43,8 +43,8 @@ from polycolab.db.models.agents import SqlRunToolCapability as SqlRunToolCapabil
 from polycolab.db.models.artifacts import SqlArtifact as SqlArtifact
 from polycolab.db.models.execution import SqlExecutionClassState as SqlExecutionClassState
 from polycolab.db.models.execution import SqlExecutionFairnessState as SqlExecutionFairnessState
+from polycolab.db.models.execution import SqlExecutionJob as SqlExecutionJob
 from polycolab.db.models.execution import SqlExecutionSlotLease as SqlExecutionSlotLease
-from polycolab.db.models.execution import SqlExecutionWorkItem as SqlExecutionWorkItem
 from polycolab.db.models.model_gateway import (
     SqlGatewayCredentialRewrapAudit as SqlGatewayCredentialRewrapAudit,
 )
@@ -55,7 +55,7 @@ from polycolab.db.models.operations import SqlOperatorAccountRecovery as SqlOper
 from polycolab.db.models.operations import (
     SqlOperatorRestoreInvalidation as SqlOperatorRestoreInvalidation,
 )
-from polycolab.db.models.platform import SqlMutationReceipt as SqlMutationReceipt
+from polycolab.db.models.platform import SqlIdempotencyRecord as SqlIdempotencyRecord
 from polycolab.db.models.projects import SqlInvitation as SqlInvitation
 from polycolab.db.models.projects import SqlMembership as SqlMembership
 from polycolab.db.models.projects import SqlProject as SqlProject
@@ -65,17 +65,17 @@ from polycolab.entities.enums import AgentRunEventKind as AgentRunEventKind
 from polycolab.entities.enums import AgentRunStatus as AgentRunStatus
 from polycolab.entities.enums import ArtifactState as ArtifactState
 from polycolab.entities.enums import ExecutionProfile as ExecutionProfile
-from polycolab.entities.enums import ExecutionTenantKind as ExecutionTenantKind
 from polycolab.entities.enums import ExecutionWorkloadClass as ExecutionWorkloadClass
+from polycolab.entities.enums import IdempotencyRecordStatus as IdempotencyRecordStatus
 from polycolab.entities.enums import InvitationStatus as InvitationStatus
 from polycolab.entities.enums import MailOutboxStatus as MailOutboxStatus
 from polycolab.entities.enums import MailPurpose as MailPurpose
-from polycolab.entities.enums import MutationReceiptStatus as MutationReceiptStatus
 from polycolab.entities.enums import PlatformAgentKind as PlatformAgentKind
 from polycolab.entities.enums import ProjectRole as ProjectRole
 from polycolab.entities.enums import ProjectVisibility as ProjectVisibility
 from polycolab.entities.enums import RuntimeBindingStatus as RuntimeBindingStatus
 from polycolab.entities.enums import RuntimeRunBindingStatus as RuntimeRunBindingStatus
+from polycolab.entities.enums import SchedulingScopeKind as SchedulingScopeKind
 from polycolab.entities.enums import SocialAuthPurpose as SocialAuthPurpose
 from polycolab.entities.enums import SocialIdentityAuditAction as SocialIdentityAuditAction
 from polycolab.entities.enums import SocialProviderKind as SocialProviderKind
@@ -89,7 +89,7 @@ __all__ = [
     "SqlLibraryModeration",
     "ProjectRole",
     "ProjectVisibility",
-    "MutationReceiptStatus",
+    "IdempotencyRecordStatus",
     "SocialProviderKind",
     "SocialAuthPurpose",
     "SocialIdentityAuditAction",
@@ -99,7 +99,7 @@ __all__ = [
     "MailOutboxStatus",
     "ArtifactState",
     "ExecutionWorkloadClass",
-    "ExecutionTenantKind",
+    "SchedulingScopeKind",
     "PlatformAgentKind",
     "ExecutionProfile",
     "StoredConversationStatus",
@@ -142,19 +142,19 @@ __all__ = [
     "SqlRunToolCapability",
     "SqlAgentApiKey",
     "SqlArtifact",
-    "SqlExecutionWorkItem",
+    "SqlExecutionJob",
     "SqlExecutionClassState",
     "SqlExecutionFairnessState",
     "SqlExecutionSlotLease",
     "SqlOperatorAccountRecovery",
     "SqlOperatorRestoreInvalidation",
-    "SqlMutationReceipt",
+    "SqlIdempotencyRecord",
     "SqlHostedModelRequest",
     "SqlHostedRunArtifact",
     "SqlHostedExecutor",
     "SqlHostedCompletion",
     "SqlHostedSlot",
-    "SqlRepositoryMutation",
+    "SqlRepositoryIdempotencyRecord",
     "SqlRepositoryRun",
     "SqlRepositoryConversation",
     "SqlProjectRepository",
@@ -210,7 +210,7 @@ from polycolab.db.models.repositories import (
     SqlRepositoryConversation as SqlRepositoryConversation,
 )
 from polycolab.db.models.repositories import (
-    SqlRepositoryMutation as SqlRepositoryMutation,
+    SqlRepositoryIdempotencyRecord as SqlRepositoryIdempotencyRecord,
 )
 from polycolab.db.models.repositories import (
     SqlRepositoryRun as SqlRepositoryRun,

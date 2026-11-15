@@ -123,7 +123,7 @@ def convert(
     with instance.git.locked():
         instance.authorize(True, True, converting=True)
         project = db.get(SqlProject, project_id)
-        receipt = db.get(SqlCollaborativeConversion, project_id)
-        assert project is not None and receipt is not None
-        project.file_mode, receipt.completed = "collaborative", True
+        record = db.get(SqlCollaborativeConversion, project_id)
+        assert project is not None and record is not None
+        project.file_mode, record.completed = "collaborative", True
         db.commit()

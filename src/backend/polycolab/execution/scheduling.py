@@ -42,7 +42,7 @@ def reserved_agent_cost(
     Provider currency is integer micro-USD, never a floating-point dollar amount.
     Historical runs lacking these exact limits must not call this with guessed
     defaults. Admission persists the result and policy version atomically with
-    the work item; each subsequent attempt receives a separate charge.
+    the execution job; each subsequent attempt receives a separate charge.
     """
     values = (
         (model_tokens, policy.model_tokens_per_unit),

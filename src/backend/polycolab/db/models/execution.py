@@ -20,33 +20,33 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from polycolab.db.base import Base
 from polycolab.entities.enums import (
-    ExecutionTenantKind,
     ExecutionWorkloadClass,
+    SchedulingScopeKind,
 )
 from polycolab.entities.time import utc_now
 
 
-class SqlExecutionWorkItem(Base):
+class SqlExecutionJob(Base):
     """Immutable scheduler input derived only from canonical admitted work."""
 
-    __tablename__ = "execution_work_items"
+    __tablename__ = "execution_jobs"
     __table_args__ = (
         CheckConstraint(
             "workload_class = 'AGENT'",
-            name="ck_execution_work_item_class",
+            name="ck_execution_job_class",
         ),
-        CheckConstraint("policy_version >= 1", name="ck_execution_work_item_policy"),
-        CheckConstraint("reserved_cost >= 1", name="ck_execution_work_item_cost"),
-        CheckConstraint("wall_seconds >= 1", name="ck_execution_work_item_wall"),
+        CheckConstraint("policy_version >= 1", name="ck_execution_job_policy"),
+        CheckConstraint("reserved_cost >= 1", name="ck_execution_job_cost"),
+        CheckConstraint("wall_seconds >= 1", name="ck_execution_job_wall"),
         CheckConstraint(
             "agent_model_tokens IS NULL OR agent_model_tokens >= 1",
-            name="ck_execution_work_item_agent_tokens",
+            name="ck_execution_job_agent_tokens",
         ),
         CheckConstraint(
             "agent_provider_cost_microusd IS NULL OR agent_provider_cost_microusd >= 1",
-            name="ck_execution_work_item_agent_cost",
+            name="ck_execution_job_agent_cost",
         ),
-        Index("ix_execution_work_items_queue", "workload_class", "queued_at", "id"),
+        Index("ix_execution_jobs_queue", "workload_class", "queued_at", "id"),
     )
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     agent_run_id: Mapped[UUID | None] = mapped_column(
@@ -91,21 +91,21 @@ class SqlExecutionClassState(Base):
 
 
 class SqlExecutionFairnessState(Base):
-    """Private equal-weight hierarchical virtual runtime for one tenant."""
+    """Private equal-weight hierarchical virtual runtime for one scope."""
 
     __tablename__ = "execution_fairness_states"
     __table_args__ = (
-        CheckConstraint("tenant_kind IN ('USER','PROJECT')", name="ck_execution_tenant_kind"),
+        CheckConstraint("scope_kind IN ('USER','PROJECT')", name="ck_execution_scope_kind"),
         CheckConstraint("policy_version >= 1", name="ck_execution_fairness_policy"),
         CheckConstraint("virtual_runtime >= 0", name="ck_execution_fairness_runtime"),
     )
     workload_class: Mapped[ExecutionWorkloadClass] = mapped_column(
         ForeignKey("execution_class_states.workload_class"), primary_key=True
     )
-    tenant_kind: Mapped[ExecutionTenantKind] = mapped_column(
-        Enum(ExecutionTenantKind, native_enum=False, length=16), primary_key=True
+    scope_kind: Mapped[SchedulingScopeKind] = mapped_column(
+        Enum(SchedulingScopeKind, native_enum=False, length=16), primary_key=True
     )
-    tenant_id: Mapped[UUID] = mapped_column(primary_key=True)
+    scope_id: Mapped[UUID] = mapped_column(primary_key=True)
     policy_version: Mapped[int] = mapped_column(Integer)
     virtual_runtime: Mapped[int] = mapped_column(BigInteger)
     last_served_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -153,7 +153,7 @@ class SqlExecutionSlotLease(Base):
         ),
     )
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    work_item_id: Mapped[UUID] = mapped_column(ForeignKey("execution_work_items.id"), index=True)
+    job_id: Mapped[UUID] = mapped_column(ForeignKey("execution_jobs.id"), index=True)
     workload_class: Mapped[ExecutionWorkloadClass] = mapped_column(
         Enum(ExecutionWorkloadClass, native_enum=False, length=24)
     )

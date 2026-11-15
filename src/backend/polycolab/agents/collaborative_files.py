@@ -158,10 +158,10 @@ def apply_change_set(
 ) -> int | None:
     # The batch: prefix is an immutable idempotency identity used by existing operations.
     if change_set.status == "applied":
-        receipt = instance.tx.collaborative.receipt(
+        record = instance.tx.collaborative.record(
             instance.project_id, instance.user_id, f"batch:{change_set.id}"
         )
-        return receipt.sequence if receipt else None
+        return record.sequence if record else None
     instance.authorize(True)
     db.commit()
     current = instance.state()

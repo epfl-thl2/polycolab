@@ -12,7 +12,7 @@ class RepositoryError(Exception):
 
 
 @dataclass(frozen=True)
-class RepositoryReceipt:
+class RepositoryIdempotencyRecord:
     id: UUID
     project_id: UUID
     user_id: UUID

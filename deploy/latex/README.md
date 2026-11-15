@@ -6,7 +6,7 @@ have a compilation interface.
 The API owns permissions, worktree snapshots, the durable queue, and build metadata.
 A separate host process claims builds through authenticated private HTTP endpoints.
 Each build runs TeX Live and latexmk in a fresh Docker container. This feature does
-not require an agent session, model provider, or the hosted-agent VM controller.
+not require an conversation, model provider, or the hosted-agent VM controller.
 
 ## Local setup
 
@@ -50,7 +50,7 @@ In Project → Worktree → Files, open or create a `.tex` file and select
 **Compile** or **Save all & compile**. The latter saves all drafts in the current
 worktree, including included files, without committing. A stale save preserves
 drafts and prevents submission. Members can download results; only owners and
-contributors can submit and cancel builds. PDFs and logs remain private even in
+editors can submit and cancel builds. PDFs and logs remain private even in
 public projects. A failed build leaves the last successful PDF visible.
 
 ## Hosted deployment

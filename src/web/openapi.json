@@ -5277,7 +5277,7 @@
     }
   },
   "info": {
-    "description": "Collaborate in project workspaces through `/api/v1`.\n\nAuthenticate with a browser session or a human bearer token. Account agent keys use\n`Authorization: Bearer pca_\u2026` for project discovery and Default file operations.\n`GET /api/v1/me` reports identity, key expiry, and remaining request/mutation budgets.\n\nList projects with `GET /api/v1/projects?scope=member`, then use\n`GET /api/v1/projects/{project_id}/files` and the matching POST command endpoint\nfor Default files. Reads return a digest; edits require it as `expected_digest`.\nCurrent membership, project state, and key budgets are checked on each request.\n\nGit worktrees and Collaborative workspaces have their own file, collaboration, and snapshot\nresources. Agent sessions run within a project and can receive project artifacts as\ncontext. Conversations and hosted outputs retain their session access controls.\n\nCreate project artifacts under `/api/v1/projects/{project_id}/artifacts`. Verified\nuploads commit immediately. Artifact bytes require current project membership and\nare returned as downloads with private, no-store headers.\n\nThe separate agent library provides reusable prompts, skills, and plugin listings.\n",
+    "description": "Collaborate in project workspaces through `/api/v1`.\n\nAuthenticate with a browser session or a human bearer token. Account agent API keys use\n`Authorization: Bearer pca_\u2026` for project discovery and Basic file operations.\n`GET /api/v1/me` reports identity, key expiry, and remaining request/write limits.\n\nList projects with `GET /api/v1/projects?scope=member`, then use\n`GET /api/v1/projects/{project_id}/files` and the matching POST command endpoint\nfor Basic files. Reads return a digest; edits require it as `expected_digest`.\nCurrent membership, project state, and key budgets are checked on each request.\n\nGit worktrees and Collaborative workspaces have their own file, collaboration, and snapshot\nresources. Agent sessions run within a project and can receive project artifacts as\ncontext. Conversations and hosted outputs retain their session access controls.\n\nCreate project artifacts under `/api/v1/projects/{project_id}/artifacts`. Verified\nuploads commit immediately. Artifact bytes require current project membership and\nare returned as downloads with private, no-store headers.\n\nThe separate agent library provides reusable prompts, skills, and plugin listings.\n",
     "title": "Polycolab application service",
     "version": "0.0.0"
   },
@@ -5285,7 +5285,7 @@
   "paths": {
     "/api/v1/account": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "getAccount",
         "responses": {
           "200": {
@@ -5366,7 +5366,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -5395,7 +5395,7 @@
     },
     "/api/v1/account/agent-keys": {
       "get": {
-        "description": "Human-only, owner-only paginated key metadata and usage. Never returns secrets.\n\n**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "Human-only, owner-only paginated key metadata and usage. Never returns secrets.\n\n**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "listAgentApiKeys",
         "parameters": [
           {
@@ -5508,7 +5508,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -5529,13 +5529,13 @@
             "SessionCookie": []
           }
         ],
-        "summary": "List your agent keys",
+        "summary": "List your agent API keys",
         "tags": [
           "agent-keys"
         ]
       },
       "post": {
-        "description": "Human-only. Creates a named key following current and future project memberships, including private projects. Returns the secret, with encrypted storage for later owner-only reveal. Expiry and limits are set by the server.\n\n**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "Human-only. Creates a named key following current and future project memberships, including private projects. Returns the secret, with encrypted storage for later owner-only reveal. Expiry and limits are set by the server.\n\n**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "createAgentApiKey",
         "requestBody": {
           "content": {
@@ -5626,7 +5626,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -5647,7 +5647,7 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Create an account-wide agent key",
+        "summary": "Create an account-wide agent API key",
         "tags": [
           "agent-keys"
         ]
@@ -5655,7 +5655,7 @@
     },
     "/api/v1/account/agent-keys/{credential_id}": {
       "delete": {
-        "description": "Human-only and owner-only. Revokes file access for this key.\n\n**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "Human-only and owner-only. Revokes file access for this key.\n\n**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "revokeAgentApiKey",
         "parameters": [
           {
@@ -5741,7 +5741,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -5762,7 +5762,7 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Revoke your agent key",
+        "summary": "Revoke your agent API key",
         "tags": [
           "agent-keys"
         ]
@@ -5770,7 +5770,7 @@
     },
     "/api/v1/account/agent-keys/{credential_id}/reveal": {
       "post": {
-        "description": "Human-only and owner-only. Reveals a recoverable, non-revoked key. Legacy hash-only keys cannot be revealed.\n\n**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "Human-only and owner-only. Reveals a recoverable, non-revoked key. Legacy hash-only keys cannot be revealed.\n\n**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "revealAgentApiKey",
         "parameters": [
           {
@@ -5863,7 +5863,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -5884,7 +5884,7 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Reveal your agent key",
+        "summary": "Reveal your agent API key",
         "tags": [
           "agent-keys"
         ]
@@ -5973,7 +5973,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -6086,7 +6086,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -6191,7 +6191,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -6306,7 +6306,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -6330,7 +6330,7 @@
     },
     "/api/v1/account/provider-connections": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "listProviderConnections",
         "parameters": [
           {
@@ -6461,7 +6461,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -6488,7 +6488,7 @@
         ]
       },
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "createProviderConnection",
         "requestBody": {
           "content": {
@@ -6579,7 +6579,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -6618,7 +6618,7 @@
     },
     "/api/v1/account/provider-connections/{provider_connection_id}": {
       "delete": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "deleteProviderConnection",
         "parameters": [
           {
@@ -6704,7 +6704,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -6733,7 +6733,7 @@
     },
     "/api/v1/account/provider-connections/{provider_connection_id}/rotate": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "rotateProviderConnection",
         "parameters": [
           {
@@ -6836,7 +6836,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -6875,7 +6875,7 @@
     },
     "/api/v1/account/provider-connections/{provider_connection_id}/validate": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "validateProviderConnection",
         "parameters": [
           {
@@ -6968,7 +6968,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -7007,7 +7007,7 @@
     },
     "/api/v1/account/username": {
       "put": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "chooseUsername",
         "requestBody": {
           "content": {
@@ -7098,7 +7098,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -7127,7 +7127,7 @@
     },
     "/api/v1/agent-capabilities": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "getAgentCapabilities",
         "responses": {
           "200": {
@@ -7208,7 +7208,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -7328,7 +7328,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -7443,7 +7443,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -7548,7 +7548,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -7572,7 +7572,7 @@
     },
     "/api/v1/conversations": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "listConversations",
         "parameters": [
           {
@@ -7745,7 +7745,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -7772,7 +7772,7 @@
         ]
       },
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "createConversation",
         "requestBody": {
           "content": {
@@ -7863,7 +7863,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -7892,7 +7892,7 @@
     },
     "/api/v1/conversations/{conversation_id}": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "getConversation",
         "parameters": [
           {
@@ -7985,7 +7985,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -8012,7 +8012,7 @@
         ]
       },
       "patch": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "updateConversation",
         "parameters": [
           {
@@ -8115,7 +8115,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -8144,7 +8144,7 @@
     },
     "/api/v1/conversations/{conversation_id}/child_conversations": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "listChildConversations",
         "parameters": [
           {
@@ -8278,7 +8278,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -8307,7 +8307,7 @@
     },
     "/api/v1/conversations/{conversation_id}/events": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "submitConversationEvent",
         "parameters": [
           {
@@ -8425,7 +8425,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -8454,7 +8454,7 @@
     },
     "/api/v1/conversations/{conversation_id}/items": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "listConversationItems",
         "parameters": [
           {
@@ -8576,7 +8576,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -8605,7 +8605,7 @@
     },
     "/api/v1/conversations/{conversation_id}/runs": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "listConversationRuns",
         "parameters": [
           {
@@ -8739,7 +8739,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -8768,7 +8768,7 @@
     },
     "/api/v1/conversations/{conversation_id}/sharing": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "getConversationSharing",
         "parameters": [
           {
@@ -8861,7 +8861,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -8888,7 +8888,7 @@
         ]
       },
       "patch": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "setConversationSharing",
         "parameters": [
           {
@@ -8991,7 +8991,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -9020,7 +9020,7 @@
     },
     "/api/v1/conversations/{conversation_id}/stream": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "streamConversation",
         "parameters": [
           {
@@ -9125,7 +9125,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -9154,7 +9154,7 @@
     },
     "/api/v1/invitations/accept": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "acceptInvitation",
         "requestBody": {
           "content": {
@@ -9255,7 +9255,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -9440,7 +9440,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -9462,7 +9462,7 @@
         ]
       },
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "createLibraryItem",
         "parameters": [
           {
@@ -9566,7 +9566,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -9595,7 +9595,7 @@
     },
     "/api/v1/library/mine": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "listOwnedLibrary",
         "parameters": [
           {
@@ -9751,7 +9751,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -9873,7 +9873,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -9897,7 +9897,7 @@
     },
     "/api/v1/library/{item_id}/archive": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "archiveLibraryItem",
         "parameters": [
           {
@@ -10011,7 +10011,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -10040,7 +10040,7 @@
     },
     "/api/v1/library/{item_id}/copy": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "copyLibraryItem",
         "parameters": [
           {
@@ -10154,7 +10154,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -10183,7 +10183,7 @@
     },
     "/api/v1/library/{item_id}/draft": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "getLibraryDraft",
         "parameters": [
           {
@@ -10276,7 +10276,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -10303,7 +10303,7 @@
         ]
       },
       "put": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "updateLibraryDraft",
         "parameters": [
           {
@@ -10417,7 +10417,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -10446,7 +10446,7 @@
     },
     "/api/v1/library/{item_id}/moderation": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "getLibraryModerationState",
         "parameters": [
           {
@@ -10539,7 +10539,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -10566,7 +10566,7 @@
         ]
       },
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "moderateLibraryItem",
         "parameters": [
           {
@@ -10680,7 +10680,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -10709,7 +10709,7 @@
     },
     "/api/v1/library/{item_id}/publish": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "publishLibraryItem",
         "parameters": [
           {
@@ -10823,7 +10823,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -10975,7 +10975,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -11102,7 +11102,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -11229,7 +11229,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -11253,7 +11253,7 @@
     },
     "/api/v1/me": {
       "get": {
-        "description": "Returns human key-issuance policy or agent rights, expiry and remaining limits. Does not consume the agent request budget; rate protection still applies.\n\n**Access:** Human session/OIDC token or agent key accepted. Current membership and operation-specific rights apply.",
+        "description": "Returns human key-issuance policy or agent rights, expiry and remaining limits. Does not consume the agent request limit; rate protection still applies.\n\n**Access:** Human session/OIDC token or agent API key accepted. Current membership and operation-specific rights apply.",
         "operationId": "getCurrentIdentity",
         "responses": {
           "200": {
@@ -11334,7 +11334,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -11366,7 +11366,7 @@
     },
     "/api/v1/platform-agents": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "listPlatformAgents",
         "parameters": [
           {
@@ -11497,7 +11497,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -11708,7 +11708,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -11739,7 +11739,7 @@
         ]
       },
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "createProject",
         "requestBody": {
           "content": {
@@ -11830,7 +11830,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -11859,7 +11859,7 @@
     },
     "/api/v1/projects/{project_id}": {
       "delete": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "deleteProject",
         "parameters": [
           {
@@ -11945,7 +11945,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -12073,7 +12073,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -12104,7 +12104,7 @@
         ]
       },
       "patch": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "updateProject",
         "parameters": [
           {
@@ -12207,7 +12207,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -12236,7 +12236,7 @@
     },
     "/api/v1/projects/{project_id}/artifacts": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "uploadArtifact",
         "parameters": [
           {
@@ -12374,7 +12374,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -12403,7 +12403,7 @@
     },
     "/api/v1/projects/{project_id}/artifacts/{artifact_id}": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "readArtifact",
         "parameters": [
           {
@@ -12506,7 +12506,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -12535,7 +12535,7 @@
     },
     "/api/v1/projects/{project_id}/artifacts/{artifact_id}/content": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "downloadArtifact",
         "parameters": [
           {
@@ -12639,7 +12639,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -12668,7 +12668,7 @@
     },
     "/api/v1/projects/{project_id}/collaborative": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "getCollaborativeProject",
         "parameters": [
           {
@@ -12761,7 +12761,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -12790,7 +12790,7 @@
     },
     "/api/v1/projects/{project_id}/collaborative/change-sets": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "listAgentChanges",
         "parameters": [
           {
@@ -12902,7 +12902,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -12931,7 +12931,7 @@
     },
     "/api/v1/projects/{project_id}/collaborative/change-sets/{change_set_id}/resolve": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "resolveChangeSet",
         "parameters": [
           {
@@ -13055,7 +13055,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -13084,7 +13084,7 @@
     },
     "/api/v1/projects/{project_id}/collaborative/change-sets/{change_set_id}/retry": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "retryChangeSet",
         "parameters": [
           {
@@ -13187,7 +13187,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -13216,7 +13216,7 @@
     },
     "/api/v1/projects/{project_id}/collaborative/change-sets/{change_set_id}/revert": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "revertChangeSet",
         "parameters": [
           {
@@ -13319,7 +13319,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -13348,7 +13348,7 @@
     },
     "/api/v1/projects/{project_id}/collaborative/changes": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "changeCollaborativeFiles",
         "parameters": [
           {
@@ -13462,7 +13462,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -13491,7 +13491,7 @@
     },
     "/api/v1/projects/{project_id}/collaborative/checkpoints": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "listCollaborativeCheckpoints",
         "parameters": [
           {
@@ -13603,7 +13603,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -13630,7 +13630,7 @@
         ]
       },
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "createCollaborativeCheckpoint",
         "parameters": [
           {
@@ -13733,7 +13733,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -13762,7 +13762,7 @@
     },
     "/api/v1/projects/{project_id}/collaborative/checkpoints/{checkpoint_id}/diff": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "diffCollaborativeCheckpoint",
         "parameters": [
           {
@@ -13866,7 +13866,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -13895,7 +13895,7 @@
     },
     "/api/v1/projects/{project_id}/collaborative/checkpoints/{checkpoint_id}/files": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "getCollaborativeCheckpointFiles",
         "parameters": [
           {
@@ -14002,7 +14002,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -14031,7 +14031,7 @@
     },
     "/api/v1/projects/{project_id}/collaborative/conversion-preview": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "previewCollaborativeConversion",
         "parameters": [
           {
@@ -14136,7 +14136,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -14165,7 +14165,7 @@
     },
     "/api/v1/projects/{project_id}/collaborative/convert": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "convertProjectToCollaborative",
         "parameters": [
           {
@@ -14279,7 +14279,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -14308,7 +14308,7 @@
     },
     "/api/v1/projects/{project_id}/collaborative/files/{file_id}": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "getCollaborativeFile",
         "parameters": [
           {
@@ -14411,7 +14411,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -14440,7 +14440,7 @@
     },
     "/api/v1/projects/{project_id}/collaborative/history": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "getCollaborativeHistory",
         "parameters": [
           {
@@ -14547,7 +14547,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -14576,7 +14576,7 @@
     },
     "/api/v1/projects/{project_id}/collaborative/restore": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "restoreCollaborativeCheckpoint",
         "parameters": [
           {
@@ -14690,7 +14690,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -14719,7 +14719,7 @@
     },
     "/api/v1/projects/{project_id}/files": {
       "get": {
-        "description": "**Access:** Human session/OIDC token or agent key accepted. Current membership and operation-specific rights apply.",
+        "description": "**Access:** Human session/OIDC token or agent API key accepted. Current membership and operation-specific rights apply.",
         "operationId": "getBasicFiles",
         "parameters": [
           {
@@ -14812,7 +14812,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -14842,7 +14842,7 @@
         ]
       },
       "post": {
-        "description": "**Access:** Human session/OIDC token or agent key accepted. Current membership and operation-specific rights apply.",
+        "description": "**Access:** Human session/OIDC token or agent API key accepted. Current membership and operation-specific rights apply.",
         "operationId": "changeBasicFiles",
         "parameters": [
           {
@@ -14953,7 +14953,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -14985,7 +14985,7 @@
     },
     "/api/v1/projects/{project_id}/invitations": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "listProjectInvitations",
         "parameters": [
           {
@@ -15126,7 +15126,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -15153,7 +15153,7 @@
         ]
       },
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "createProjectInvitation",
         "parameters": [
           {
@@ -15256,7 +15256,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -15295,7 +15295,7 @@
     },
     "/api/v1/projects/{project_id}/invitations/{invitation_id}": {
       "delete": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "revokeProjectInvitation",
         "parameters": [
           {
@@ -15391,7 +15391,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -15420,7 +15420,7 @@
     },
     "/api/v1/projects/{project_id}/members": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "listProjectMembers",
         "parameters": [
           {
@@ -15561,7 +15561,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -15588,7 +15588,7 @@
         ]
       },
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "addProjectMember",
         "parameters": [
           {
@@ -15691,7 +15691,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -15720,7 +15720,7 @@
     },
     "/api/v1/projects/{project_id}/members/{member_user_id}": {
       "delete": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "removeProjectMember",
         "parameters": [
           {
@@ -15816,7 +15816,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -15843,7 +15843,7 @@
         ]
       },
       "patch": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "updateProjectMember",
         "parameters": [
           {
@@ -15956,7 +15956,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -15985,7 +15985,7 @@
     },
     "/api/v1/projects/{project_id}/repository": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "getProjectRepository",
         "parameters": [
           {
@@ -16088,7 +16088,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -16117,7 +16117,7 @@
     },
     "/api/v1/projects/{project_id}/repository/changes": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "saveProjectFiles",
         "parameters": [
           {
@@ -16231,7 +16231,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -16260,7 +16260,7 @@
     },
     "/api/v1/projects/{project_id}/repository/conversations/{conversation_id}": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "getConversationRepository",
         "parameters": [
           {
@@ -16363,7 +16363,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -16390,7 +16390,7 @@
         ]
       },
       "put": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "enableConversationRepository",
         "parameters": [
           {
@@ -16493,7 +16493,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -16522,7 +16522,7 @@
     },
     "/api/v1/projects/{project_id}/repository/diff": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "diffProjectFiles",
         "parameters": [
           {
@@ -16634,7 +16634,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -16663,7 +16663,7 @@
     },
     "/api/v1/projects/{project_id}/repository/file": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "getProjectFile",
         "parameters": [
           {
@@ -16774,7 +16774,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -16803,7 +16803,7 @@
     },
     "/api/v1/projects/{project_id}/repository/history": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "listProjectFileHistory",
         "parameters": [
           {
@@ -16937,7 +16937,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -16966,7 +16966,7 @@
     },
     "/api/v1/projects/{project_id}/repository/merge": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "previewProjectMerge",
         "parameters": [
           {
@@ -17078,7 +17078,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -17105,7 +17105,7 @@
         ]
       },
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "mergeProjectFiles",
         "parameters": [
           {
@@ -17219,7 +17219,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -17248,7 +17248,7 @@
     },
     "/api/v1/projects/{project_id}/repository/runs/{run_id}": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "getRunRepository",
         "parameters": [
           {
@@ -17351,7 +17351,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -17380,7 +17380,7 @@
     },
     "/api/v1/projects/{project_id}/worktrees": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "listWorktrees",
         "parameters": [
           {
@@ -17502,7 +17502,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -17529,7 +17529,7 @@
         ]
       },
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "createWorktree",
         "parameters": [
           {
@@ -17632,7 +17632,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -17661,7 +17661,7 @@
     },
     "/api/v1/projects/{project_id}/worktrees/{worktree_id}": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "getWorktree",
         "parameters": [
           {
@@ -17764,7 +17764,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -17791,7 +17791,7 @@
         ]
       },
       "patch": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "updateWorktree",
         "parameters": [
           {
@@ -17904,7 +17904,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -17933,7 +17933,7 @@
     },
     "/api/v1/projects/{project_id}/worktrees/{worktree_id}/commit": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "commitWorktree",
         "parameters": [
           {
@@ -18057,7 +18057,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -18086,7 +18086,7 @@
     },
     "/api/v1/projects/{project_id}/worktrees/{worktree_id}/diff": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "diffWorktree",
         "parameters": [
           {
@@ -18206,7 +18206,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -18235,7 +18235,7 @@
     },
     "/api/v1/projects/{project_id}/worktrees/{worktree_id}/discard": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "discardWorktree",
         "parameters": [
           {
@@ -18359,7 +18359,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -18388,7 +18388,7 @@
     },
     "/api/v1/projects/{project_id}/worktrees/{worktree_id}/file": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "getWorktreeFile",
         "parameters": [
           {
@@ -18509,7 +18509,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -18538,7 +18538,7 @@
     },
     "/api/v1/projects/{project_id}/worktrees/{worktree_id}/latex-builds": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "listLatexBuilds",
         "parameters": [
           {
@@ -18641,7 +18641,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -18668,7 +18668,7 @@
         ]
       },
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "createLatexBuild",
         "parameters": [
           {
@@ -18792,7 +18792,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -18821,7 +18821,7 @@
     },
     "/api/v1/projects/{project_id}/worktrees/{worktree_id}/latex-builds/{build_id}": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "getLatexBuild",
         "parameters": [
           {
@@ -18934,7 +18934,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -18963,7 +18963,7 @@
     },
     "/api/v1/projects/{project_id}/worktrees/{worktree_id}/latex-builds/{build_id}/cancel": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "cancelLatexBuild",
         "parameters": [
           {
@@ -19076,7 +19076,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -19105,7 +19105,7 @@
     },
     "/api/v1/projects/{project_id}/worktrees/{worktree_id}/latex-builds/{build_id}/outputs/{kind}": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "downloadLatexOutput",
         "parameters": [
           {
@@ -19228,7 +19228,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -19257,7 +19257,7 @@
     },
     "/api/v1/projects/{project_id}/worktrees/{worktree_id}/remove": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "removeWorktree",
         "parameters": [
           {
@@ -19381,7 +19381,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -19410,7 +19410,7 @@
     },
     "/api/v1/projects/{project_id}/worktrees/{worktree_id}/restore": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "restoreWorktree",
         "parameters": [
           {
@@ -19513,7 +19513,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -19542,7 +19542,7 @@
     },
     "/api/v1/projects/{project_id}/worktrees/{worktree_id}/save": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
         "operationId": "saveWorktree",
         "parameters": [
           {
@@ -19666,7 +19666,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -19695,7 +19695,7 @@
     },
     "/api/v1/runs/{run_id}": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "getRun",
         "parameters": [
           {
@@ -19788,7 +19788,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -19817,7 +19817,7 @@
     },
     "/api/v1/runs/{run_id}/artifacts": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "listHostedRunArtifacts",
         "parameters": [
           {
@@ -19929,7 +19929,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -19958,7 +19958,7 @@
     },
     "/api/v1/runs/{run_id}/artifacts/{artifact_id}/content": {
       "get": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "downloadHostedRunArtifact",
         "parameters": [
           {
@@ -20054,7 +20054,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -20083,7 +20083,7 @@
     },
     "/api/v1/runs/{run_id}/resume": {
       "post": {
-        "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
         "operationId": "resumeRun",
         "parameters": [
           {
@@ -20186,7 +20186,7 @@
                 }
               }
             },
-            "description": "Request or mutation budget exhausted"
+            "description": "Request or write limit exhausted"
           },
           "500": {
             "content": {
@@ -20278,7 +20278,7 @@
     {
       "description": "Optional human-owned provider configuration and secret lifecycle.",
       "name": "provider-connections",
-      "x-displayName": "Model provider connections"
+      "x-displayName": "Provider connections"
     }
   ],
   "x-tagGroups": [

@@ -5,7 +5,7 @@ from typing import Any, cast
 
 import pytest
 from fastapi.testclient import TestClient
-from test_sessions_api import add_member, headers
+from test_conversations_api import add_member, headers
 
 
 @pytest.fixture

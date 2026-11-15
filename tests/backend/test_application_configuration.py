@@ -3,7 +3,7 @@ from typing import Any, cast
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import AnyUrl
-from test_sessions_api import create_project
+from test_conversations_api import create_project
 from workspace_support import headers
 
 from polycolab.app.configuration import application_configuration

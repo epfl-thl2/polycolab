@@ -75,7 +75,7 @@ Record SDK 0.6.18 and Codex 0.154.0 versions and image identity alongside result
 - Cancellation, controller SIGKILL/restart, ambiguous creation and stop, and orphan reconciliation.
   Confirm no process remains before physical slot reuse.
 - Real app-server startup, Responses forwarding with a user-owned profile, workspace tools, completed chat, follow-up turns and reconnect from a browser.
-- Four simultaneous attempts across users/projects, queue fairness, stale lease rejection and conservative provider settlement after lease loss.
+- Four simultaneous attempts across users/projects, queue fairness, stale lease rejection and conservative provider reconciliation after lease loss.
 - Explicit artifact downloads and cross-user denial.
   No retained raw commands, reasoning, undeclared project files or automatic publication.
 

@@ -92,7 +92,7 @@
         dialogOpen = true;
       }}
     >
-      Add model provider
+      Add provider connection
     </Button>
   </div>
   {#if !dialogOpen}<FeedbackToast
@@ -114,13 +114,13 @@
         <div class="providers-search">
           <Search aria-hidden="true" />
           <Input
-            aria-label="Search loaded model providers"
+            aria-label="Search loaded provider connections"
             placeholder="Search loaded providers"
             bind:value={search}
           />
         </div>
       </div>
-      <Table.Root aria-label="Your model providers">
+      <Table.Root aria-label="Your provider connections">
         <Table.Header
           ><Table.Row>
             <Table.Head>Name</Table.Head><Table.Head>Model</Table.Head><Table.Head
@@ -200,12 +200,12 @@
                   <p>
                     {loadedConnections.length
                       ? 'No matching providers in the loaded results.'
-                      : 'No model providers yet.'}
+                      : 'No provider connections yet.'}
                   </p>
                   <span class="muted"
                     >{loadedConnections.length
                       ? 'Try another name, model, or endpoint, or load more providers.'
-                      : 'Add a model provider to send your first agent message.'}</span
+                      : 'Add a provider connection to send your first agent message.'}</span
                   >
                 </div>
               </Table.Cell></Table.Row
@@ -249,7 +249,7 @@
     }}
   >
     <Dialog.Header>
-      <Dialog.Title>{editing ? 'Replace API key' : 'Add model provider'}</Dialog.Title>
+      <Dialog.Title>{editing ? 'Replace API key' : 'Add provider connection'}</Dialog.Title>
       <Dialog.Description
         >{editing
           ? `Update the key for ${editing.display_name}.`

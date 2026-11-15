@@ -6,7 +6,7 @@ type Message = components['schemas']['MessageItemRead'];
 export const sessionTime = '2026-01-01T00:00:00Z';
 export const sessionOwner = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
-export function sessionFixture(overrides: Partial<Session> = {}): Session {
+export function conversationFixture(overrides: Partial<Session> = {}): Session {
   const id = overrides.id ?? '44444444-4444-4444-8444-444444444444';
   return {
     id,

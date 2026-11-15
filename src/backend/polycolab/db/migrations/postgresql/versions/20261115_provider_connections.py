@@ -19,8 +19,7 @@ def renamed(name: str) -> str:
 
 def upgrade() -> None:
     if context.is_offline_mode():
-        op.execute("-- Terminology cutover requires an online upgrade for schema reflection.")
-        return
+        raise RuntimeError("Terminology cutover requires an online upgrade for schema reflection.")
     op.rename_table("provider_profiles", "provider_connections")
     for table, column in (
         ("agent_runs", "provider_profile_id"),

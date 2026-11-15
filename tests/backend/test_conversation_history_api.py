@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from test_sessions_api import (
+from test_conversations_api import (
     add_member,
     create_connection,
     create_project,

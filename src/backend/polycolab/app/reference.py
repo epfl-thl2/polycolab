@@ -90,7 +90,7 @@ REFERENCE_TAGS = {
     },
     "provider-connections": {
         "name": "provider-connections",
-        "x-displayName": "Model provider connections",
+        "x-displayName": "Provider connections",
         "description": "Optional human-owned provider configuration and secret lifecycle.",
     },
 }
@@ -232,16 +232,17 @@ def arrange_reference(schema: dict[str, Any]) -> None:
                 )
             elif security == [{"ExternalAgentBearer": []}]:
                 access = (
-                    "Agent key required. The owning key and current project authority are checked."
+                    "Agent API key required. The owning key and current project "
+                    "authority are checked."
                 )
             elif any("ExternalAgentBearer" in option for option in security):
                 access = (
-                    "Human session/OIDC token or agent key accepted. Current membership "
+                    "Human session/OIDC token or agent API key accepted. Current membership "
                     "and operation-specific rights apply."
                 )
             else:
                 access = (
-                    "Human authentication required. Agent keys are not accepted. "
+                    "Human authentication required. Agent API keys are not accepted. "
                     "Current role and operation-specific authority apply."
                 )
             if section == "moderation":
