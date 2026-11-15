@@ -40,7 +40,7 @@ from polycolab.db.models import (
     SqlConversationItem,
     SqlMembership,
     SqlProject,
-    SqlProviderProfile,
+    SqlProviderConnection,
     SqlRunToolCapability,
     SqlUser,
 )
@@ -101,7 +101,7 @@ class FakeToolGateway:
         return {"ok": True}
 
 
-def _queue_run(client: TestClient) -> tuple[Any, UUID, UUID, SqlProviderProfile]:
+def _queue_run(client: TestClient) -> tuple[Any, UUID, UUID, SqlProviderConnection]:
     app = cast(Any, client.app)
     session = app.state.session_factory()
     user = SqlUser(issuer="https://issuer.example", subject="runtime-owner", email="runtime@test")
@@ -112,7 +112,7 @@ def _queue_run(client: TestClient) -> tuple[Any, UUID, UUID, SqlProviderProfile]
         visibility=ProjectVisibility.PRIVATE,
         created_by_user_id=user.id,
     )
-    profile = SqlProviderProfile(
+    profile = SqlProviderConnection(
         user_id=user.id,
         display_name="runtime profile",
         base_url="https://models.example/v1",
@@ -136,7 +136,7 @@ def _queue_run(client: TestClient) -> tuple[Any, UUID, UUID, SqlProviderProfile]
         session,
         session_id=agent_session.id,
         requested_by_user_id=user.id,
-        provider_profile_id=profile.id,
+        provider_connection_id=profile.id,
         content_md="Investigate the induction step.",
     )
     session.close()
@@ -336,7 +336,7 @@ def test_builtin_worker_fails_on_profile_rotation_before_private_gateway_call(
     app, _, run_id, profile = _queue_run(client)
     session = app.state.session_factory()
     try:
-        stored = session.get(SqlProviderProfile, profile.id)
+        stored = session.get(SqlProviderConnection, profile.id)
         assert stored is not None
         stored.credential_version += 1
         session.commit()
@@ -351,7 +351,7 @@ def test_builtin_worker_fails_on_profile_rotation_before_private_gateway_call(
         assert run is not None
         assert (run.status, run.failure_code) == (
             AgentRunStatus.FAILED,
-            "provider_profile_changed",
+            "provider_connection_changed",
         )
         assert not gateway.turns
     finally:

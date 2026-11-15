@@ -9,11 +9,11 @@ from sqlalchemy import event, select
 from sqlalchemy.engine import Connection
 from test_artifacts import artifact_client as artifact_client
 from test_artifacts import upload
-from test_gateway import app_for, create_provider_profile
+from test_gateway import app_for, create_provider_connection
 from workspace_support import create_project
 
 from polycolab.db.models import (
-    SqlProviderProfile,
+    SqlProviderConnection,
 )
 from polycolab.entities.time import utc_now
 from polycolab.model_gateway.credentials import (
@@ -64,11 +64,11 @@ def test_restored_committed_artifacts_are_verified_outside_transaction(
 def test_credentials_include_retained_deleted_profiles_and_fail_on_wrong_key(
     client: TestClient,
 ) -> None:
-    create_provider_profile(client)
-    create_provider_profile(client, "contributor")
+    create_provider_connection(client)
+    create_provider_connection(client, "contributor")
     app = app_for(client)
     with app.state.session_factory() as session:
-        profile = session.scalar(select(SqlProviderProfile))
+        profile = session.scalar(select(SqlProviderConnection))
         assert profile is not None
         profile.deleted_at = utc_now()
         session.commit()
@@ -83,7 +83,7 @@ def test_credentials_include_retained_deleted_profiles_and_fail_on_wrong_key(
 
 
 def test_key_io_occurs_after_transaction_close(client: TestClient) -> None:
-    create_provider_profile(client)
+    create_provider_connection(client)
     app = app_for(client)
     active: set[int] = set()
     event.listen(app.state.engine, "begin", lambda connection: active.add(id(connection)))
@@ -108,21 +108,23 @@ def test_key_io_occurs_after_transaction_close(client: TestClient) -> None:
 
 
 def test_credential_scan_crosses_page_boundary(client: TestClient) -> None:
-    create_provider_profile(client)
+    create_provider_connection(client)
     app = app_for(client)
     with app.state.session_factory() as session:
-        source = session.scalar(select(SqlProviderProfile))
+        source = session.scalar(select(SqlProviderConnection))
         assert source is not None
         for _ in range(100):
-            profile_id = uuid4()
+            provider_connection_id = uuid4()
             encrypted = encrypt_credential(
                 app.state.credential_wrapper,
-                context=credential_context(user_id=source.user_id, profile_id=profile_id),
+                context=credential_context(
+                    user_id=source.user_id, provider_connection_id=provider_connection_id
+                ),
                 secret="synthetic-recovery-key",
             )
             session.add(
-                SqlProviderProfile(
-                    id=profile_id,
+                SqlProviderConnection(
+                    id=provider_connection_id,
                     user_id=source.user_id,
                     display_name="test",
                     base_url=source.base_url,

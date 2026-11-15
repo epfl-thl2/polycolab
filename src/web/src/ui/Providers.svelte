@@ -15,20 +15,20 @@
   import { toStore } from 'svelte/store';
   import { createInfiniteQuery } from '@tanstack/svelte-query';
   import { projectContext, explain } from '../svelte-lib/context';
-  import type { ProviderProfile } from '../lib/projects-api';
+  import type { ProviderConnection } from '../lib/projects-api';
   const confirmation = new Confirmation();
   const { api, query } = projectContext();
-  const profiles = createInfiniteQuery(
+  const connections = createInfiniteQuery(
     toStore(() => ({
-      queryKey: ['profiles'],
+      queryKey: ['connections'],
       initialPageParam: undefined as string | undefined,
       queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
-        api.listProviderProfiles(pageParam),
+        api.listProviderConnections(pageParam),
       getNextPageParam: (p: { nextCursor?: string }) => p.nextCursor,
     })),
   );
   let draft = $state({ display_name: '', base_url: '', model_id: '', api_key: '' });
-  let editing = $state<ProviderProfile>();
+  let editing = $state<ProviderConnection>();
   let replacement = $state('');
   let dialogOpen = $state(false);
   let busy = $state(false);
@@ -36,10 +36,10 @@
   let notice = $state('');
   let checks = $state<Record<string, string>>({});
   let search = $state('');
-  const loadedProfiles = $derived($profiles.data?.pages.flatMap((page) => page.items) ?? []);
-  const visibleProfiles = $derived(
-    loadedProfiles.filter((profile) =>
-      [profile.display_name, profile.model_id, profile.base_url].some((value) =>
+  const loadedConnections = $derived($connections.data?.pages.flatMap((page) => page.items) ?? []);
+  const visibleConnections = $derived(
+    loadedConnections.filter((connection) =>
+      [connection.display_name, connection.model_id, connection.base_url].some((value) =>
         value.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()),
       ),
     ),
@@ -57,7 +57,7 @@
     notice = '';
     try {
       await task();
-      await query.invalidateQueries({ queryKey: ['profiles'] });
+      await query.invalidateQueries({ queryKey: ['connections'] });
       notice = success;
     } catch (reason) {
       error = explain(reason);
@@ -65,24 +65,24 @@
       busy = false;
     }
   }
-  async function testConnection(profile: ProviderProfile) {
-    checks[profile.id] = 'Testing…';
+  async function testConnection(connection: ProviderConnection) {
+    checks[connection.id] = 'Testing…';
     await perform(async () => {
       try {
-        await api.validateProviderProfile(profile.id);
-        checks[profile.id] = 'Connection verified';
+        await api.validateProviderConnection(connection.id);
+        checks[connection.id] = 'Connection verified';
       } catch (reason) {
-        checks[profile.id] = 'Test failed';
+        checks[connection.id] = 'Test failed';
         throw reason;
       }
-    }, `Connection to ${profile.display_name} verified.`);
+    }, `Connection to ${connection.display_name} verified.`);
   }
 </script>
 
 <section class="settings-content" aria-labelledby="ai-providers-title">
   <div class="providers-heading settings-section-heading">
     <div>
-      <h2 id="ai-providers-title">Model providers</h2>
+      <h2 id="ai-providers-title">Provider connections</h2>
     </div>
     <Button
       disabled={busy}
@@ -103,11 +103,11 @@
         notice = '';
       }}
     />{/if}
-  {#if $profiles.isPending}
+  {#if $connections.isPending}
     <LoadingState>Loading providers…</LoadingState>
-  {:else if $profiles.isError}
-    <Alert.Root variant="destructive" role="alert">{explain($profiles.error)}</Alert.Root>
-    <Button variant="outline" onclick={() => $profiles.refetch()}>Retry</Button>
+  {:else if $connections.isError}
+    <Alert.Root variant="destructive" role="alert">{explain($connections.error)}</Alert.Root>
+    <Button variant="outline" onclick={() => $connections.refetch()}>Retry</Button>
   {:else}
     <div class="providers-table-frame">
       <div class="providers-toolbar">
@@ -131,22 +131,22 @@
           </Table.Row></Table.Header
         >
         <Table.Body>
-          {#each visibleProfiles as profile (profile.id)}
+          {#each visibleConnections as connection (connection.id)}
             <Table.Row>
               <Table.Cell
-                ><span class="provider-name">{profile.display_name}</span><span
-                  class="provider-endpoint">{profile.base_url}</span
+                ><span class="provider-name">{connection.display_name}</span><span
+                  class="provider-endpoint">{connection.base_url}</span
                 ></Table.Cell
               >
-              <Table.Cell><span class="provider-model">{profile.model_id}</span></Table.Cell>
+              <Table.Cell><span class="provider-model">{connection.model_id}</span></Table.Cell>
               <Table.Cell
-                >{#if profile.api_key_preview}<code class="provider-preview"
-                    >{profile.api_key_preview}</code
+                >{#if connection.api_key_preview}<code class="provider-preview"
+                    >{connection.api_key_preview}</code
                   >{:else}<span class="muted">Preview unavailable</span>{/if}</Table.Cell
               >
               <Table.Cell
                 ><Badge variant="outline" title="Connection test result from this page visit"
-                  >{checks[profile.id] ?? 'Not tested'}</Badge
+                  >{checks[connection.id] ?? 'Not tested'}</Badge
                 ></Table.Cell
               >
               <Table.Cell>
@@ -158,7 +158,7 @@
                         variant="ghost"
                         size="icon"
                         disabled={busy}
-                        aria-label={`Actions for ${profile.display_name}`}
+                        aria-label={`Actions for ${connection.display_name}`}
                         ><Ellipsis aria-hidden="true" /></Button
                       >
                     {/snippet}
@@ -166,14 +166,14 @@
                   <DropdownMenu.Content align="end">
                     <DropdownMenu.Item
                       onSelect={() => {
-                        void testConnection(profile);
+                        void testConnection(connection);
                       }}>Test connection</DropdownMenu.Item
                     >
                     <DropdownMenu.Item
                       onSelect={() => {
                         closeDialog();
                         notice = '';
-                        editing = profile;
+                        editing = connection;
                         dialogOpen = true;
                       }}>Replace API key</DropdownMenu.Item
                     >
@@ -181,9 +181,9 @@
                     <DropdownMenu.Item
                       variant="destructive"
                       onSelect={async () => {
-                        if (await confirmation.ask(`Delete ${profile.display_name}?`))
+                        if (await confirmation.ask(`Delete ${connection.display_name}?`))
                           void perform(
-                            () => api.deleteProviderProfile(profile.id),
+                            () => api.deleteProviderConnection(connection.id),
                             'AI provider deleted.',
                           );
                       }}>Delete provider</DropdownMenu.Item
@@ -198,12 +198,12 @@
                 <div class="providers-empty">
                   <Bot aria-hidden="true" />
                   <p>
-                    {loadedProfiles.length
+                    {loadedConnections.length
                       ? 'No matching providers in the loaded results.'
                       : 'No model providers yet.'}
                   </p>
                   <span class="muted"
-                    >{loadedProfiles.length
+                    >{loadedConnections.length
                       ? 'Try another name, model, or endpoint, or load more providers.'
                       : 'Add a model provider to send your first agent message.'}</span
                   >
@@ -214,11 +214,13 @@
         </Table.Body>
       </Table.Root>
       <div class="providers-footer">
-        <span class="muted">Showing {visibleProfiles.length} out of {loadedProfiles.length}</span>
-        {#if $profiles.hasNextPage}<Button
+        <span class="muted"
+          >Showing {visibleConnections.length} out of {loadedConnections.length}</span
+        >
+        {#if $connections.hasNextPage}<Button
             variant="outline"
-            disabled={$profiles.isFetchingNextPage}
-            onclick={() => $profiles.fetchNextPage()}>Load more providers</Button
+            disabled={$connections.isFetchingNextPage}
+            onclick={() => $connections.fetchNextPage()}>Load more providers</Button
           >{/if}
       </div>
     </div>
@@ -267,16 +269,16 @@
     <form
       onsubmit={(event) => {
         event.preventDefault();
-        const profile = editing;
+        const connection = editing;
         void perform(
           async () => {
-            if (profile) {
-              await api.rotateProviderProfile(profile.id, replacement);
-              delete checks[profile.id];
-            } else await api.createProviderProfile({ ...draft });
+            if (connection) {
+              await api.rotateProviderConnection(connection.id, replacement);
+              delete checks[connection.id];
+            } else await api.createProviderConnection({ ...draft });
             closeDialog();
           },
-          profile ? 'API key replaced.' : 'AI provider added.',
+          connection ? 'API key replaced.' : 'AI provider added.',
         );
       }}
     >

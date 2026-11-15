@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from test_sessions_api import (
     add_member,
-    create_profile,
+    create_connection,
     create_project,
     create_session,
     headers,
@@ -27,7 +27,7 @@ def test_legacy_history_is_accessible_without_enabling_execution(
     client: TestClient, failure_code: str
 ) -> None:
     owner_id = UUID(client.get("/api/v1/account", headers=headers("owner")).json()["id"])
-    profile_id = UUID(str(create_profile(client, "owner")["id"]))
+    provider_connection_id = UUID(str(create_connection(client, "owner")["id"]))
     session_id, run_id = uuid4(), uuid4()
     app = cast(Any, client.app)
     with app.state.session_factory() as db:
@@ -49,7 +49,7 @@ def test_legacy_history_is_accessible_without_enabling_execution(
                 conversation_id=session_id,
                 request_id=uuid4(),
                 sequence=1,
-                profile_id=profile_id,
+                provider_connection_id=provider_connection_id,
                 model_id="historical-model",
                 status="interrupted",
                 failure_code=failure_code,
@@ -125,7 +125,7 @@ def test_legacy_history_is_accessible_without_enabling_execution(
             "type": "message",
             "client_request_id": str(uuid4()),
             "content_md": "Continue",
-            "provider_profile_id": str(profile_id),
+            "provider_connection_id": str(provider_connection_id),
         },
         {"type": "interrupt", "run_id": str(run_id)},
     ):
@@ -138,7 +138,7 @@ def test_legacy_history_is_accessible_without_enabling_execution(
             headers=headers("owner"),
             json={
                 "client_request_id": str(uuid4()),
-                "provider_profile_id": str(profile_id),
+                "provider_connection_id": str(provider_connection_id),
             },
         ).status_code
         == 409

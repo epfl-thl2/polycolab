@@ -21,7 +21,7 @@ test('native gVisor chat completes and survives reload', async ({ page }) => {
   expect((await worktrees.json()).some((tree: { branch: string }) => tree.branch === 'main')).toBe(
     true,
   );
-  const profile = await page.request.post('/api/v1/account/provider-profiles', {
+  const profile = await page.request.post('/api/v1/account/provider-connections', {
     data: {
       display_name: 'Deterministic Responses',
       base_url: 'https://8.8.8.8/v1',
@@ -30,9 +30,9 @@ test('native gVisor chat completes and survives reload', async ({ page }) => {
     },
   });
   expect(profile.status()).toBe(201);
-  const profileId = (await profile.json()).id;
+  const providerConnectionId = (await profile.json()).id;
   const validation = await page.request.post(
-    `/api/v1/account/provider-profiles/${profileId}/validate`,
+    `/api/v1/account/provider-connections/${providerConnectionId}/validate`,
   );
   expect(validation.ok()).toBeTruthy();
   await expect
@@ -76,7 +76,7 @@ test('native gVisor chat completes and survives reload', async ({ page }) => {
   const download = await downloadEvent;
   expect(await readFile((await download.path())!, 'utf8')).toBe('native result\n');
   // A follow-up must use a fresh sandbox while retaining canonical chat history.
-  await page.getByLabel('AI provider').selectOption(profileId);
+  await page.getByLabel('AI provider').selectOption(providerConnectionId);
   await page.getByLabel('Private message', { exact: true }).fill(`Follow up ${randomUUID()}`);
   await page.getByRole('button', { name: 'Send message', exact: true }).click();
   await expect(page.getByText('Native gVisor research completed.', { exact: true })).toHaveCount(

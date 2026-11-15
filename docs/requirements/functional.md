@@ -22,7 +22,7 @@ Research records, immutable research revisions, relationship graphs, commons, st
 - Session owners choose private, project-readable, or project-contributable sharing.
   Private sessions remain owner-only, including against other project owners.
   Readable sessions admit current members; contributable sessions additionally allow
-  current contributors and owners to submit messages using their own provider profiles,
+  current contributors and owners to submit messages using their own provider connections,
   credentials, quotas, and attributable execution authority.
 - The session owner controls title, archival, and sharing and may interrupt any run.
   A contributor may interrupt their own run. Interruptions identify an exact run;

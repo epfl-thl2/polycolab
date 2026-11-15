@@ -50,7 +50,7 @@ from polycolab.db.models.model_gateway import (
 )
 from polycolab.db.models.model_gateway import SqlGatewayRunGrant as SqlGatewayRunGrant
 from polycolab.db.models.model_gateway import SqlHostedModelRequest as SqlHostedModelRequest
-from polycolab.db.models.model_gateway import SqlProviderProfile as SqlProviderProfile
+from polycolab.db.models.model_gateway import SqlProviderConnection as SqlProviderConnection
 from polycolab.db.models.operations import SqlOperatorAccountRecovery as SqlOperatorAccountRecovery
 from polycolab.db.models.operations import (
     SqlOperatorRestoreInvalidation as SqlOperatorRestoreInvalidation,
@@ -120,7 +120,7 @@ __all__ = [
     "SqlSocialAccountIdentity",
     "SqlSocialAuthTransaction",
     "SqlSocialIdentityAudit",
-    "SqlProviderProfile",
+    "SqlProviderConnection",
     "SqlGatewayCredentialRewrapAudit",
     "SqlGatewayRunGrant",
     "SqlProject",

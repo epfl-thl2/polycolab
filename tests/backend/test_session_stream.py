@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi.testclient import TestClient
 from test_sessions_api import (
-    create_profile,
+    create_connection,
     create_project,
     create_session,
     headers,
@@ -25,9 +25,9 @@ def test_later_cancellation_waits_for_preceding_output_before_advancing_cursor(
 ) -> None:
     project_id = str(create_project(client)["id"])
     session_id = str(create_session(client, project_id)["id"])
-    profile_id = str(create_profile(client, "owner")["id"])
-    first = send(client, session_id, profile_id).json()["run"]["id"]
-    second = send(client, session_id, profile_id).json()["run"]["id"]
+    provider_connection_id = str(create_connection(client, "owner")["id"])
+    first = send(client, session_id, provider_connection_id).json()["run"]["id"]
+    second = send(client, session_id, provider_connection_id).json()["run"]["id"]
     claim = client.post(
         "/internal/v1/runtime/claims",
         headers={"Authorization": "Bearer polycolab-local-runtime-worker-token"},
@@ -125,8 +125,8 @@ def test_diagnostic_failures_are_safe_in_metadata_transcript_and_replay(
 ) -> None:
     project_id = str(create_project(client)["id"])
     session_id = str(create_session(client, project_id)["id"])
-    profile_id = str(create_profile(client, "owner")["id"])
-    run_id = send(client, session_id, profile_id).json()["run"]["id"]
+    provider_connection_id = str(create_connection(client, "owner")["id"])
+    run_id = send(client, session_id, provider_connection_id).json()["run"]["id"]
     claim = client.post(
         "/internal/v1/runtime/claims",
         headers={"Authorization": "Bearer polycolab-local-runtime-worker-token"},

@@ -14,7 +14,7 @@
           ? 'security'
           : path === '/settings/recovery'
             ? 'recovery'
-            : path === '/settings/model-providers'
+            : path === '/settings/provider-connections'
               ? 'providers'
               : 'general',
   );
@@ -46,10 +46,10 @@
           <KeyRound aria-hidden="true" />API keys
         </a>
         <a
-          href="/settings/model-providers"
+          href="/settings/provider-connections"
           aria-current={section === 'providers' ? 'page' : undefined}
         >
-          <Bot aria-hidden="true" />Model providers
+          <Bot aria-hidden="true" />Provider connections
         </a>
       </div>
     </nav>
@@ -64,7 +64,7 @@
       {:else}
         <section class="settings-content" aria-labelledby="providers-unavailable-title">
           <header class="settings-section-heading">
-            <h2 id="providers-unavailable-title">Model providers</h2>
+            <h2 id="providers-unavailable-title">Provider connections</h2>
           </header>
           <div class="settings-profile-action">
             <div>

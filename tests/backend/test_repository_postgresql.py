@@ -9,7 +9,7 @@ from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy.engine import Engine
-from test_sessions_api import create_profile, create_project, headers
+from test_sessions_api import create_connection, create_project, headers
 
 from polycolab.accounts.authentication import MappingIdentityVerifier
 from polycolab.app.application import create_app
@@ -98,7 +98,7 @@ def test_worktrees_postgresql(
                 from polycolab.agents.sessions import claim_next_run
 
                 task = tasks.create_task(pg_client, project_id)
-                profile = create_profile(pg_client, "owner")
+                profile = create_connection(pg_client, "owner")
                 for _ in range(2):
                     chat = tasks.task_chat(pg_client, project_id, task["id"])
                     response = pg_client.post(
@@ -110,7 +110,7 @@ def test_worktrees_postgresql(
                                 {
                                     "client_request_id": str(uuid4()),
                                     "content_md": "Task intent",
-                                    "provider_profile_id": profile["id"],
+                                    "provider_connection_id": profile["id"],
                                 }
                             ),
                         },

@@ -64,7 +64,7 @@ tests/system/run-local.sh --grep "unified sessions"
 ```
 
 It creates and reloads a session in the browser, changes sharing, and lets a
-second contributor submit using their own provider profile. Independent member
+second contributor submit using their own provider connection. Independent member
 contexts verify read-only access, private context isolation, concurrent admission,
 run-specific cancellation, archival, replay cursors, and revocation. A bounded
 deterministic-provider hold makes cancellation reproducible. This establishes

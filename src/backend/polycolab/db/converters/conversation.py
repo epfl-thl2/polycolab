@@ -140,7 +140,7 @@ def legacy_execution(row: SqlLegacyConversationExecution) -> LegacyExecution:
         conversation_id=row.conversation_id,
         request_id=row.request_id,
         sequence=row.sequence,
-        profile_id=row.profile_id,
+        provider_connection_id=row.provider_connection_id,
         model_id=row.model_id,
         status=cast("Literal['completed', 'failed', 'interrupted']", row.status),
         failure_code=safe_failure_code(row.failure_code) if row.failure_code is not None else None,

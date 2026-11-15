@@ -144,7 +144,7 @@ async function mock(
       });
     if (path.endsWith('/members') || path.endsWith('/invitations'))
       return route.fulfill({ json: [] });
-    if (path.endsWith('/account/provider-profiles'))
+    if (path.endsWith('/account/provider-connections'))
       return route.fulfill({
         json: [
           {
@@ -1776,7 +1776,7 @@ test('provider keys remain write-only across create, validation, rotation, failu
   let profiles = [original];
   let failCreate = false;
   const writes: Array<{ path: string; body?: Record<string, string> }> = [];
-  await page.route('**/api/v1/account/provider-profiles**', async (route) => {
+  await page.route('**/api/v1/account/provider-connections**', async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
     if (new URL(route.request().url()).pathname === '/api/v1/config')
@@ -1789,12 +1789,12 @@ test('provider keys remain write-only across create, validation, rotation, failu
     if (request.method() === 'GET') return route.fulfill({ json: profiles });
     const body = request.postData() ? (request.postDataJSON() as Record<string, string>) : null;
     writes.push({ path, body: body ?? undefined });
-    if (path === '/api/v1/account/provider-profiles' && failCreate)
+    if (path === '/api/v1/account/provider-connections' && failCreate)
       return route.fulfill({
         status: 503,
         json: { error: { code: 'credential_unavailable' } },
       });
-    if (path === '/api/v1/account/provider-profiles' && request.method() === 'POST') {
+    if (path === '/api/v1/account/provider-connections' && request.method() === 'POST') {
       const created = {
         api_key_preview: 'cre••••cret',
         id: 'profile-2',
@@ -1816,8 +1816,8 @@ test('provider keys remain write-only across create, validation, rotation, failu
     return route.fulfill({ status: 404, json: { error: { code: 'not_found' } } });
   });
 
-  await page.goto('/settings/model-providers');
-  await expect(page.getByRole('heading', { name: 'Model providers' })).toBeVisible();
+  await page.goto('/settings/provider-connections');
+  await expect(page.getByRole('heading', { name: 'Provider connections' })).toBeVisible();
   await expect(page.getByText('Preview unavailable', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Display name')).toHaveCount(0);
   await page.getByRole('button', { name: 'Add model provider' }).click();
@@ -1896,14 +1896,14 @@ test('provider keys remain write-only across create, validation, rotation, failu
   expect(writes).toEqual(
     expect.arrayContaining([
       {
-        path: '/api/v1/account/provider-profiles',
+        path: '/api/v1/account/provider-connections',
         body: expect.objectContaining({ api_key: 'create-secret' }),
       },
       {
-        path: '/api/v1/account/provider-profiles/profile-2/rotate',
+        path: '/api/v1/account/provider-connections/profile-2/rotate',
         body: { api_key: 'rotation-secret' },
       },
-      { path: '/api/v1/account/provider-profiles/profile-2', body: undefined },
+      { path: '/api/v1/account/provider-connections/profile-2', body: undefined },
     ]),
   );
 });
@@ -3711,12 +3711,13 @@ test('Explorer preview replacement, explicit filter reveal, and clean failure pr
 test('legacy key settings links redirect to the general settings sections', async ({ page }) => {
   await mock(page);
   await page.goto('/settings/providers?source=bookmark');
-  await expect(page).toHaveURL('/settings/model-providers?source=bookmark');
-  await expect(page.getByRole('heading', { name: 'Model providers', exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Model providers', exact: true })).toHaveAttribute(
-    'aria-current',
-    'page',
-  );
+  await expect(page).toHaveURL('/settings/provider-connections?source=bookmark');
+  await expect(
+    page.getByRole('heading', { name: 'Provider connections', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Provider connections', exact: true }),
+  ).toHaveAttribute('aria-current', 'page');
   await page.goto('/settings/agent-keys');
   await expect(page).toHaveURL('/settings/api-keys');
   await expect(page.getByRole('heading', { name: 'API keys', exact: true })).toBeVisible();

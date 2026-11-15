@@ -66,7 +66,7 @@
     })),
   );
   let agentId = $state('');
-  let profileId = $state('');
+  let providerConnectionId = $state('');
   let configurationMode = $state<'preset' | 'custom'>('preset');
   let customSystemPrompt = $state('');
   let customizationOpen = $state(false);
@@ -197,12 +197,12 @@
       error = explain(reason);
     }
   }
-  const profiles = createInfiniteQuery(
+  const connections = createInfiniteQuery(
     toStore(() => ({
-      queryKey: ['profiles'],
+      queryKey: ['connections'],
       initialPageParam: undefined as string | undefined,
       queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
-        api.listProviderProfiles(pageParam),
+        api.listProviderConnections(pageParam),
       getNextPageParam: (p: { nextCursor?: string }) => p.nextCursor,
     })),
   );
@@ -220,8 +220,8 @@
     toStore(() => ({ queryKey: ['agents'], queryFn: () => agents.listAgents() })),
   );
   const availableAgents = $derived($available.data?.items ?? []);
-  const availableProfiles = $derived(
-    $profiles.data?.pages.flatMap((profilePage) => profilePage.items) ?? [],
+  const availableConnections = $derived(
+    $connections.data?.pages.flatMap((connectionPage) => connectionPage.items) ?? [],
   );
   const selectedAgent = $derived(availableAgents.find((agent) => agent.id === agentId));
   const hasCustomSettings = $derived(
@@ -231,8 +231,8 @@
     if (!agentId && availableAgents[0]) agentId = availableAgents[0].id;
   });
   $effect(() => {
-    if (!sessionId && !allSessions && !profileId && availableProfiles[0])
-      profileId = availableProfiles[0].id;
+    if (!sessionId && !allSessions && !providerConnectionId && availableConnections[0])
+      providerConnectionId = availableConnections[0].id;
   });
   function agentDescription(kind: string) {
     if (kind === 'RESEARCHER') return 'Explore project files and develop approaches.';
@@ -244,7 +244,7 @@
   }
   function resetNewChatSettings() {
     agentId = availableAgents[0]?.id ?? '';
-    profileId = availableProfiles[0]?.id ?? '';
+    providerConnectionId = availableConnections[0]?.id ?? '';
     configurationMode = 'preset';
     customSystemPrompt = '';
     responseStyle = 'balanced';
@@ -261,7 +261,7 @@
     if (!executionEnabled) return 'Hosted execution is disabled.';
     if (configurationMode === 'custom' && !hostedAvailable) return 'Hosted Codex is unavailable.';
     if (!agentId) return 'Choose a preset below.';
-    if (!profileId) return 'Choose an AI provider.';
+    if (!providerConnectionId) return 'Choose an AI provider.';
     if (configurationMode === 'custom' && !customSystemPrompt.trim())
       return 'Add a system prompt in Customize.';
     if (!chatDraft.message.trim()) return 'Write a message to send.';
@@ -281,7 +281,7 @@
     if (!executionEnabled) return 'Hosted execution is disabled.';
     if (!$capabilities.data?.execution_available) return 'Agent execution is unavailable.';
     if (active) return 'Wait for the current run to finish.';
-    if (!profileId) return 'Choose an AI provider in Chat settings.';
+    if (!providerConnectionId) return 'Choose an AI provider in Chat settings.';
     if (!chatDraft.message.trim()) return 'Write a message to send.';
     return '';
   });
@@ -292,7 +292,7 @@
       (worktreeId && ($worktree.isPending || $worktree.isError || $worktree.data?.removed_at)) ||
       !executionEnabled ||
       !chatDraft.message.trim() ||
-      !profileId ||
+      !providerConnectionId ||
       (configurationMode === 'custom' && (!hostedAvailable || !customSystemPrompt.trim()))
     )
       return;
@@ -321,7 +321,7 @@
         await repository.enableSession(projectId, chatDraft.startingSessionId);
       const body = {
         content_md: submittedMessage.trim(),
-        provider_profile_id: profileId,
+        provider_connection_id: providerConnectionId,
       };
       const serialized = JSON.stringify(body);
       if (chatDraft.startRequest?.body !== serialized)
@@ -444,7 +444,7 @@
       const body = {
         content_md: submittedMessage.trim(),
         context_artifact_ids: ids(artifactIds),
-        provider_profile_id: profileId,
+        provider_connection_id: providerConnectionId,
       };
       const serialized = JSON.stringify(body);
       if (chatDraft.request?.body !== serialized)
@@ -494,9 +494,9 @@
   action={{ label: 'Retry', run: () => $available.refetch() }}
 />
 <FeedbackToast
-  message={$profiles.isError ? explain($profiles.error) : ''}
+  message={$connections.isError ? explain($connections.error) : ''}
   variant="error"
-  action={{ label: 'Retry', run: () => $profiles.refetch() }}
+  action={{ label: 'Retry', run: () => $connections.refetch() }}
 />
 <FeedbackToast
   message={$sessions.isError ? explain($sessions.error) : ''}
@@ -595,7 +595,7 @@
                       <option value="detailed">Detailed</option>
                     </NativeSelect></Field.Label
                   >
-                  <a href="/settings/model-providers">Manage AI providers</a>
+                  <a href="/settings/provider-connections">Manage provider connections</a>
                   <button
                     type="button"
                     class="project-chat-custom-toggle"
@@ -806,8 +806,8 @@
           >
           <p>
             Project sharing includes this full transcript and future messages. Contributors use
-            their own provider profiles when participation is enabled. Private prompts, tool inputs,
-            and artifacts keep their existing permissions.
+            their own provider connections when participation is enabled. Private prompts, tool
+            inputs, and artifacts keep their existing permissions.
           </p>
           {#each $messages.data?.pages.flatMap((p) => p.items) ?? [] as item (item.id)}
             <SessionTranscriptItem
@@ -976,16 +976,17 @@
           {#snippet contextControls()}
             <div class="project-chat-side-controls" use:chatPanelPortal={isVisible}>
               <Field.Label
-                >AI provider<NativeSelect required bind:value={profileId}
+                >AI provider<NativeSelect required bind:value={providerConnectionId}
                   ><option value="">Choose an AI provider</option
-                  >{#each $profiles.data?.pages.flatMap((p) => p.items) ?? [] as profile (profile.id)}<option
-                      value={profile.id}>{profile.display_name} · {profile.model_id}</option
+                  >{#each $connections.data?.pages.flatMap((p) => p.items) ?? [] as connection (connection.id)}<option
+                      value={connection.id}
+                      >{connection.display_name} · {connection.model_id}</option
                     >{/each}</NativeSelect
                 ></Field.Label
-              >{#if $profiles.hasNextPage}<Button
+              >{#if $connections.hasNextPage}<Button
                   type="button"
-                  onclick={() => $profiles.fetchNextPage()}>Load more providers</Button
-                >{/if}<a href="/settings/model-providers">Manage AI providers</a>
+                  onclick={() => $connections.fetchNextPage()}>Load more providers</Button
+                >{/if}<a href="/settings/provider-connections">Manage provider connections</a>
               <details class="project-chat-settings">
                 <summary>Artifact context · {ids(artifactIds).length} files</summary>
                 <p>Enter up to 32 artifact IDs from this project to include their metadata.</p>

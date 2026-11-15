@@ -16,7 +16,7 @@ from polycolab.db.models import (
     SqlGatewayRunGrant,
     SqlMembership,
     SqlProject,
-    SqlProviderProfile,
+    SqlProviderConnection,
 )
 from polycolab.entities.enums import AgentRunStatus, PlatformAgentKind, ProjectRole
 from polycolab.model_gateway.service import (
@@ -57,9 +57,9 @@ class FakeStreamTransport:
         return ProviderStreamResponse(200, chunks, close)
 
 
-def create_profile(client: TestClient) -> dict[str, Any]:
+def create_connection(client: TestClient) -> dict[str, Any]:
     response = client.post(
-        "/api/v1/account/provider-profiles",
+        "/api/v1/account/provider-connections",
         headers=headers("owner"),
         json={
             "display_name": "streaming",
@@ -72,7 +72,7 @@ def create_profile(client: TestClient) -> dict[str, Any]:
     return cast(dict[str, Any], response.json())
 
 
-def issue_grant(client: TestClient, profile_id: UUID, run_id: UUID) -> str:
+def issue_grant(client: TestClient, provider_connection_id: UUID, run_id: UUID) -> str:
     app = app_for(client)
     user_id = UUID(client.get("/api/v1/account", headers=headers("owner")).json()["id"])
     session = app.state.session_factory()
@@ -91,7 +91,7 @@ def issue_grant(client: TestClient, profile_id: UUID, run_id: UUID) -> str:
                 created_by_user_id=user_id,
                 agent_kind=PlatformAgentKind.RESEARCHER,
             )
-            profile = session.get(SqlProviderProfile, profile_id)
+            profile = session.get(SqlProviderConnection, provider_connection_id)
             assert profile is not None
             session.add(
                 SqlAgentRun(
@@ -100,7 +100,7 @@ def issue_grant(client: TestClient, profile_id: UUID, run_id: UUID) -> str:
                     project_id=project.id,
                     agent_version_id=conversation.agent_version_id,
                     requested_by_user_id=user_id,
-                    provider_profile_id=profile_id,
+                    provider_connection_id=provider_connection_id,
                     gateway_credential_version=profile.credential_version,
                     gateway_model_id="research-model",
                     queue_sequence=1,
@@ -112,7 +112,7 @@ def issue_grant(client: TestClient, profile_id: UUID, run_id: UUID) -> str:
         return issue_run_grant(
             session,
             user_id=user_id,
-            profile_id=profile_id,
+            provider_connection_id=provider_connection_id,
             run_id=run_id,
             model_id="research-model",
             ttl_seconds=60,
@@ -135,7 +135,7 @@ def install_stream_transport(client: TestClient, body: list[bytes]) -> FakeStrea
 def test_private_stream_normalizes_provider_frames_and_consumes_grant(
     client: TestClient,
 ) -> None:
-    profile = create_profile(client)
+    profile = create_connection(client)
     run_id = uuid4()
     token = issue_grant(client, UUID(profile["id"]), run_id)
     fake = install_stream_transport(
@@ -183,7 +183,7 @@ def test_private_stream_normalizes_provider_frames_and_consumes_grant(
 def test_private_stream_rejects_tools_before_consuming_grant(
     client: TestClient,
 ) -> None:
-    profile = create_profile(client)
+    profile = create_connection(client)
     run_id = uuid4()
     token = issue_grant(client, UUID(profile["id"]), run_id)
     fake = install_stream_transport(client, [])
@@ -216,7 +216,7 @@ def test_private_stream_rejects_tools_before_consuming_grant(
 def test_stream_parser_failure_is_stable_and_closes_provider(
     client: TestClient,
 ) -> None:
-    profile = create_profile(client)
+    profile = create_connection(client)
     run_id = uuid4()
     token = issue_grant(client, UUID(profile["id"]), run_id)
     fake = install_stream_transport(
@@ -241,7 +241,7 @@ def test_stream_parser_failure_is_stable_and_closes_provider(
 
 
 def test_stream_generator_close_closes_upstream(client: TestClient) -> None:
-    profile = create_profile(client)
+    profile = create_connection(client)
     run_id = uuid4()
     token = issue_grant(client, UUID(profile["id"]), run_id)
     fake = install_stream_transport(
@@ -299,7 +299,7 @@ def test_invalid_derived_grant_digest_rolls_back_and_bounds_input(
 
 
 def test_stream_uses_configured_response_limit(client: TestClient) -> None:
-    profile = create_profile(client)
+    profile = create_connection(client)
     run_id = uuid4()
     token = issue_grant(client, UUID(profile["id"]), run_id)
     fake = install_stream_transport(client, [b"x" * 65])

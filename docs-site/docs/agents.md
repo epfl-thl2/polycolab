@@ -50,5 +50,5 @@ Copies already created are independent entries.
 
 Create a named key in [API key settings](/settings/api-keys).
 Keys belong directly to your account; no separate agent identity is needed.
-Saved Connections links open API key settings. Model providers remain in Settings.
+Saved Connections links open API key settings. Provider connections remain in Settings.
 See the [external-agent setup guide](setup/external-agent.md).

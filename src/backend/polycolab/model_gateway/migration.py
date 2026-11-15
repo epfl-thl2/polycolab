@@ -18,7 +18,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from polycolab.db.models import SqlGatewayCredentialRewrapAudit, SqlProviderProfile
+from polycolab.db.models import SqlGatewayCredentialRewrapAudit, SqlProviderConnection
 from polycolab.model_gateway.credentials import (
     CredentialError,
     EncryptedCredential,
@@ -33,7 +33,7 @@ class CredentialMigrationConflict(Exception):
 
 @dataclass(frozen=True)
 class CredentialEnvelopeSnapshot:
-    profile_id: UUID
+    provider_connection_id: UUID
     user_id: UUID
     credential_version: int
     encrypted: EncryptedCredential = field(repr=False)
@@ -145,28 +145,28 @@ def rewrap_snapshot_page(
     if not 1 <= limit <= 100:
         raise ValueError("credential migration page limit must be between 1 and 100")
     statement = (
-        select(SqlProviderProfile)
+        select(SqlProviderConnection)
         .where(
-            SqlProviderProfile.deleted_at.is_(None),
-            SqlProviderProfile.encryption_key_version != target_version,
+            SqlProviderConnection.deleted_at.is_(None),
+            SqlProviderConnection.encryption_key_version != target_version,
         )
-        .order_by(SqlProviderProfile.id)
+        .order_by(SqlProviderConnection.id)
         .limit(limit)
     )
     if after is not None:
-        statement = statement.where(SqlProviderProfile.id > after)
+        statement = statement.where(SqlProviderConnection.id > after)
     return [
         CredentialEnvelopeSnapshot(
-            profile_id=profile.id,
-            user_id=profile.user_id,
-            credential_version=profile.credential_version,
+            provider_connection_id=connection.id,
+            user_id=connection.user_id,
+            credential_version=connection.credential_version,
             encrypted=EncryptedCredential(
-                profile.encrypted_credential,
-                profile.wrapped_data_key,
-                profile.encryption_key_version,
+                connection.encrypted_credential,
+                connection.wrapped_data_key,
+                connection.encryption_key_version,
             ),
         )
-        for profile in session.scalars(statement)
+        for connection in session.scalars(statement)
     ]
 
 
@@ -187,27 +187,31 @@ def commit_rewrap_candidate(
     if candidate.encrypted.key_version == snapshot.encrypted.key_version:
         raise ValueError("rewrap target must differ from the source version")
     try:
-        profile = session.scalar(
-            select(SqlProviderProfile)
-            .where(SqlProviderProfile.id == snapshot.profile_id)
+        connection = session.scalar(
+            select(SqlProviderConnection)
+            .where(SqlProviderConnection.id == snapshot.provider_connection_id)
             .with_for_update()
         )
-        if profile is None or profile.deleted_at is not None or profile.user_id != snapshot.user_id:
+        if (
+            connection is None
+            or connection.deleted_at is not None
+            or connection.user_id != snapshot.user_id
+        ):
             raise CredentialMigrationConflict("credential_owner_binding_changed")
         current = EncryptedCredential(
-            profile.encrypted_credential,
-            profile.wrapped_data_key,
-            profile.encryption_key_version,
+            connection.encrypted_credential,
+            connection.wrapped_data_key,
+            connection.encryption_key_version,
         )
-        if profile.credential_version != snapshot.credential_version or not hmac.compare_digest(
+        if connection.credential_version != snapshot.credential_version or not hmac.compare_digest(
             envelope_fingerprint(current), candidate.expected_fingerprint
         ):
             raise CredentialMigrationConflict("credential_envelope_changed")
-        profile.wrapped_data_key = candidate.encrypted.wrapped_key
-        profile.encryption_key_version = candidate.encrypted.key_version
+        connection.wrapped_data_key = candidate.encrypted.wrapped_key
+        connection.encryption_key_version = candidate.encrypted.key_version
         audit = SqlGatewayCredentialRewrapAudit(
-            profile_id=profile.id,
-            credential_version=profile.credential_version,
+            provider_connection_id=connection.id,
+            credential_version=connection.credential_version,
             source_key_version=snapshot.encrypted.key_version,
             target_key_version=candidate.encrypted.key_version,
             source_fingerprint=candidate.expected_fingerprint,

@@ -11,14 +11,20 @@ expiry, permissions, and counting rules are unchanged. Configure
 `AGENT_API_KEY_MAX_WRITES` instead of the former `EXTERNAL_AGENT_*` settings.
 Upgrade API and browser together; previous field names are not API aliases.
 
+The provider-connection migration renames `provider_profiles` to
+`provider_connections` and updates run, grant, audit, and legacy-history references.
+Clients must use `/api/v1/account/provider-connections` and
+`provider_connection_id`; the old provider-profile routes are removed. Provider
+credential ciphertext and authenticated encryption contexts remain unchanged.
+
 The account/worktree migrations retire external-agent identities, rename `project_tasks`
-to `worktrees`, and rename `gateway_profiles` to `provider_profiles`. Existing key
+to `worktrees`, and rename `gateway_profiles` to `provider_connections`. Existing key
 secrets and limits, provider credential envelopes, working-copy IDs, and Git branches
 are preserved. Deploy the matching API, browser, and workers together: the old
 `/api/v1/account/agents`, project `/tasks`, `/api/v1/gateway/profiles`, and
 `/api/v1/users/me` endpoints are removed. Clients must use the worktree endpoints,
-`/api/v1/account/provider-profiles`, and `/api/v1/account`, with `worktree_id` and
-`provider_profile_id` in session requests. Key creation accepts a name without an
+`/api/v1/account/provider-connections`, and `/api/v1/account`, with `worktree_id` and
+`provider_connection_id` in session requests. Key creation accepts a name without an
 `agent_id`. Apply both database and application updates before reopening traffic;
 rollback requires the matching pre-upgrade backup and application version.
 

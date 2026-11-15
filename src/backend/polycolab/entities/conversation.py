@@ -391,7 +391,7 @@ class LegacyExecution:
     conversation_id: UUID
     request_id: UUID
     sequence: int
-    profile_id: UUID
+    provider_connection_id: UUID
     model_id: str
     status: Literal["completed", "failed", "interrupted"]
     failure_code: str | None

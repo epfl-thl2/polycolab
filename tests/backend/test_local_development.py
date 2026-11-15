@@ -217,6 +217,7 @@ def test_provider_preview_upgrade_preserves_existing_encrypted_credentials(
         )
         command.upgrade(config, "head")
         assert connection.exec_driver_sql(
-            "SELECT api_key_preview, encrypted_credential, wrapped_data_key FROM provider_profiles"
+            "SELECT api_key_preview, encrypted_credential, wrapped_data_key "
+            "FROM provider_connections"
         ).one() == (None, b"encrypted-fixture", b"wrapped-fixture")
     engine.dispose()

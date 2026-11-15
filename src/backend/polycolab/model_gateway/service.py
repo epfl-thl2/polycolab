@@ -16,7 +16,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from polycolab.db.models import SqlGatewayRunGrant, SqlProviderProfile
+from polycolab.db.models import SqlGatewayRunGrant, SqlProviderConnection
 from polycolab.entities.accounts import IdentifiedUser
 from polycolab.entities.time import utc_now
 from polycolab.model_gateway.credentials import (
@@ -105,20 +105,20 @@ def validate_base_url(value: str, *, production: bool, resolver=socket.getaddrin
     return value.rstrip("/")
 
 
-def profile_for_user(
-    session: Session, *, profile_id: UUID, user_id: UUID, lock: bool = False
-) -> SqlProviderProfile:
-    statement = select(SqlProviderProfile).where(
-        SqlProviderProfile.id == profile_id,
-        SqlProviderProfile.user_id == user_id,
-        SqlProviderProfile.deleted_at.is_(None),
+def connection_for_user(
+    session: Session, *, provider_connection_id: UUID, user_id: UUID, lock: bool = False
+) -> SqlProviderConnection:
+    statement = select(SqlProviderConnection).where(
+        SqlProviderConnection.id == provider_connection_id,
+        SqlProviderConnection.user_id == user_id,
+        SqlProviderConnection.deleted_at.is_(None),
     )
     if lock:
         statement = statement.with_for_update()
-    profile = session.scalar(statement)
-    if profile is None:
+    connection = session.scalar(statement)
+    if connection is None:
         raise GatewayNotFound
-    return profile
+    return connection
 
 
 def _api_key_preview(api_key: str) -> str:
@@ -130,7 +130,7 @@ def _api_key_preview(api_key: str) -> str:
     return "••••"
 
 
-def create_profile(
+def create_connection(
     session: Session,
     *,
     user: IdentifiedUser,
@@ -141,10 +141,10 @@ def create_profile(
     api_key: str,
     production: bool,
     wire_api: str = "responses",
-) -> SqlProviderProfile:
+) -> SqlProviderConnection:
     if wire_api not in {"responses", "chat_completions"}:
         raise ValueError("unsupported provider protocol")
-    profile = SqlProviderProfile(
+    connection = SqlProviderConnection(
         user_id=user.id,
         display_name=display_name,
         base_url=validate_base_url(base_url, production=production),
@@ -157,43 +157,51 @@ def create_profile(
         encryption_key_version=wrapper.key_version,
     )
     try:
-        session.add(profile)
+        session.add(connection)
         session.flush()
         encrypted = encrypt_credential(
             wrapper,
-            context=credential_context(user_id=user.id, profile_id=profile.id),
+            context=credential_context(user_id=user.id, provider_connection_id=connection.id),
             secret=api_key,
         )
-        profile.encrypted_credential = encrypted.ciphertext
-        profile.wrapped_data_key = encrypted.wrapped_key
+        connection.encrypted_credential = encrypted.ciphertext
+        connection.wrapped_data_key = encrypted.wrapped_key
         session.commit()
     except Exception:
         session.rollback()
         raise
-    session.refresh(profile)
-    return profile
+    session.refresh(connection)
+    return connection
 
 
-def rotate_profile(
-    session: Session, *, profile_id: UUID, user: IdentifiedUser, wrapper: KeyWrapper, api_key: str
-) -> SqlProviderProfile:
+def rotate_connection(
+    session: Session,
+    *,
+    provider_connection_id: UUID,
+    user: IdentifiedUser,
+    wrapper: KeyWrapper,
+    api_key: str,
+) -> SqlProviderConnection:
     try:
-        profile = profile_for_user(session, profile_id=profile_id, user_id=user.id, lock=True)
+        connection = connection_for_user(
+            session, provider_connection_id=provider_connection_id, user_id=user.id, lock=True
+        )
         encrypted = encrypt_credential(
             wrapper,
-            context=credential_context(user_id=user.id, profile_id=profile.id),
+            context=credential_context(user_id=user.id, provider_connection_id=connection.id),
             secret=api_key,
         )
-        profile.encrypted_credential, profile.wrapped_data_key = (
+        connection.encrypted_credential, connection.wrapped_data_key = (
             encrypted.ciphertext,
             encrypted.wrapped_key,
         )
-        profile.encryption_key_version = encrypted.key_version
-        profile.api_key_preview = _api_key_preview(api_key)
-        profile.credential_version += 1
+        connection.encryption_key_version = encrypted.key_version
+        connection.api_key_preview = _api_key_preview(api_key)
+        connection.credential_version += 1
         for grant in session.scalars(
             select(SqlGatewayRunGrant).where(
-                SqlGatewayRunGrant.profile_id == profile.id, SqlGatewayRunGrant.used_at.is_(None)
+                SqlGatewayRunGrant.provider_connection_id == connection.id,
+                SqlGatewayRunGrant.used_at.is_(None),
             )
         ):
             grant.revoked = True
@@ -201,19 +209,24 @@ def rotate_profile(
     except Exception:
         session.rollback()
         raise
-    session.refresh(profile)
-    return profile
+    session.refresh(connection)
+    return connection
 
 
-def delete_profile(session: Session, *, profile_id: UUID, user: IdentifiedUser) -> None:
-    profile = profile_for_user(session, profile_id=profile_id, user_id=user.id, lock=True)
-    profile.deleted_at = utc_now()
-    profile.api_key_preview = None
-    profile.encrypted_credential = b""
-    profile.wrapped_data_key = b""
+def delete_connection(
+    session: Session, *, provider_connection_id: UUID, user: IdentifiedUser
+) -> None:
+    connection = connection_for_user(
+        session, provider_connection_id=provider_connection_id, user_id=user.id, lock=True
+    )
+    connection.deleted_at = utc_now()
+    connection.api_key_preview = None
+    connection.encrypted_credential = b""
+    connection.wrapped_data_key = b""
     for grant in session.scalars(
         select(SqlGatewayRunGrant).where(
-            SqlGatewayRunGrant.profile_id == profile.id, SqlGatewayRunGrant.used_at.is_(None)
+            SqlGatewayRunGrant.provider_connection_id == connection.id,
+            SqlGatewayRunGrant.used_at.is_(None),
         )
     ):
         grant.revoked = True
@@ -224,7 +237,7 @@ def issue_run_grant(
     session: Session,
     *,
     user_id: UUID,
-    profile_id: UUID,
+    provider_connection_id: UUID,
     run_id: UUID,
     model_id: str,
     ttl_seconds: int,
@@ -233,10 +246,12 @@ def issue_run_grant(
 ) -> str:
     if ttl_seconds < 1 or ttl_seconds > max_ttl_seconds:
         raise GrantInvalid
-    profile = profile_for_user(session, profile_id=profile_id, user_id=user_id, lock=True)
-    if profile.model_id != model_id or (
+    connection = connection_for_user(
+        session, provider_connection_id=provider_connection_id, user_id=user_id, lock=True
+    )
+    if connection.model_id != model_id or (
         expected_credential_version is not None
-        and profile.credential_version != expected_credential_version
+        and connection.credential_version != expected_credential_version
     ):
         raise GrantInvalid
     token = secrets.token_urlsafe(32)
@@ -244,10 +259,10 @@ def issue_run_grant(
         SqlGatewayRunGrant(
             token_digest=hashlib.sha256(token.encode()).hexdigest(),
             user_id=user_id,
-            profile_id=profile_id,
+            provider_connection_id=provider_connection_id,
             run_id=run_id,
             model_id=model_id,
-            credential_version=profile.credential_version,
+            credential_version=connection.credential_version,
             expires_at=utc_now() + timedelta(seconds=ttl_seconds),
         )
     )
@@ -266,9 +281,9 @@ def exchange_run_grant(
         if candidate is None:
             raise GrantInvalid
         # Profile is the serialization point shared with rotate/delete/issuance.
-        profile = session.scalar(
-            select(SqlProviderProfile)
-            .where(SqlProviderProfile.id == candidate.profile_id)
+        connection = session.scalar(
+            select(SqlProviderConnection)
+            .where(SqlProviderConnection.id == candidate.provider_connection_id)
             .with_for_update()
         )
         grant = session.scalar(
@@ -287,17 +302,17 @@ def exchange_run_grant(
         ):
             raise GrantInvalid
         if (
-            profile is None
-            or profile.deleted_at is not None
-            or profile.user_id != grant.user_id
-            or profile.credential_version != grant.credential_version
+            connection is None
+            or connection.deleted_at is not None
+            or connection.user_id != grant.user_id
+            or connection.credential_version != grant.credential_version
         ):
             raise GrantInvalid
         grant.used_at = utc_now()
         session.commit()
         return grant
     except Exception:
-        # A failed scope/replay/expiry check must release the profile serialization
+        # A failed scope/replay/expiry check must release the connection serialization
         # lock immediately; API request handlers may reuse this database session.
         session.rollback()
         raise
@@ -424,22 +439,24 @@ def request_model(
     grant = exchange_run_grant(
         session, token=token, run_id=run_id, user_id=user_id, model_id=model_id
     )
-    profile = profile_for_user(session, profile_id=grant.profile_id, user_id=user_id)
+    connection = connection_for_user(
+        session, provider_connection_id=grant.provider_connection_id, user_id=user_id
+    )
     try:
         credential = decrypt_credential(
             wrapper,
-            context=credential_context(user_id=user_id, profile_id=profile.id),
+            context=credential_context(user_id=user_id, provider_connection_id=connection.id),
             encrypted=EncryptedCredential(
-                profile.encrypted_credential,
-                profile.wrapped_data_key,
-                profile.encryption_key_version,
+                connection.encrypted_credential,
+                connection.wrapped_data_key,
+                connection.encryption_key_version,
             ),
         )
     except CredentialError as exc:
         raise ProviderFailure("credential_unavailable") from exc
     try:
         result = transport.request_json(
-            base_url=profile.base_url,
+            base_url=connection.base_url,
             api_key=credential,
             payload=payload,
         )
@@ -499,26 +516,28 @@ def stream_model(
     if (
         run is None
         or run.requested_by_user_id != grant.user_id
-        or run.provider_profile_id != grant.profile_id
+        or run.provider_connection_id != grant.provider_connection_id
         or run.gateway_credential_version != grant.credential_version
     ):
         raise GrantInvalid
-    profile = profile_for_user(session, profile_id=grant.profile_id, user_id=grant.user_id)
+    connection = connection_for_user(
+        session, provider_connection_id=grant.provider_connection_id, user_id=grant.user_id
+    )
     try:
         credential = decrypt_credential(
             wrapper,
-            context=credential_context(user_id=grant.user_id, profile_id=profile.id),
+            context=credential_context(user_id=grant.user_id, provider_connection_id=connection.id),
             encrypted=EncryptedCredential(
-                profile.encrypted_credential,
-                profile.wrapped_data_key,
-                profile.encryption_key_version,
+                connection.encrypted_credential,
+                connection.wrapped_data_key,
+                connection.encryption_key_version,
             ),
         )
     except CredentialError as exc:
         raise ProviderFailure("credential_unavailable") from exc
     try:
         response = transport.open_stream(
-            base_url=profile.base_url,
+            base_url=connection.base_url,
             api_key=credential,
             payload=payload,
         )
@@ -550,9 +569,9 @@ def stream_model(
     return body()
 
 
-def validate_profile_credential(
+def validate_connection_credential(
     *,
-    profile: SqlProviderProfile,
+    connection: SqlProviderConnection,
     user_id: UUID,
     wrapper: KeyWrapper,
     transport: ProviderTransport,
@@ -561,23 +580,23 @@ def validate_profile_credential(
 
     credential = decrypt_credential(
         wrapper,
-        context=credential_context(user_id=user_id, profile_id=profile.id),
+        context=credential_context(user_id=user_id, provider_connection_id=connection.id),
         encrypted=EncryptedCredential(
-            profile.encrypted_credential,
-            profile.wrapped_data_key,
-            profile.encryption_key_version,
+            connection.encrypted_credential,
+            connection.wrapped_data_key,
+            connection.encryption_key_version,
         ),
     )
     try:
-        if profile.wire_api == "responses":
+        if connection.wire_api == "responses":
             from polycolab.model_gateway.responses import completed_response
 
             stream = transport.open_stream(
-                base_url=profile.base_url,
+                base_url=connection.base_url,
                 api_key=credential,
                 responses=True,
                 payload={
-                    "model": profile.model_id,
+                    "model": connection.model_id,
                     "input": "Reply with OK.",
                     "max_output_tokens": 16,
                     "store": False,
@@ -590,10 +609,10 @@ def validate_profile_credential(
                 stream.close()
             return
         payload = transport.request_json(
-            base_url=profile.base_url,
+            base_url=connection.base_url,
             api_key=credential,
             payload={
-                "model": profile.model_id,
+                "model": connection.model_id,
                 "messages": [{"role": "user", "content": "Reply with OK."}],
                 "max_tokens": 1,
             },

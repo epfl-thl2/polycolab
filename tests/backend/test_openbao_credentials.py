@@ -98,7 +98,7 @@ def test_context_environment_and_explicit_version() -> None:
     first = wrapper(service)
     second = wrapper(service, environment="staging")
     try:
-        context = credential_context(user_id=uuid4(), profile_id=uuid4())
+        context = credential_context(user_id=uuid4(), provider_connection_id=uuid4())
         encrypted = encrypt_credential(first, context=context, secret="provider-secret")
         assert encrypted.key_version == "openbao:v1:primary:production:transit:gateway:1"
         assert decrypt_credential(first, context=context, encrypted=encrypted) == "provider-secret"
@@ -214,7 +214,7 @@ def test_application_settings_retain_exact_historical_openbao_reader(
         )
     )
     assert isinstance(selected, CredentialKeyring)
-    context = credential_context(user_id=uuid4(), profile_id=uuid4())
+    context = credential_context(user_id=uuid4(), provider_connection_id=uuid4())
     old = selected.wrapper("openbao:v1:primary:local:transit:gateway:1")
     old_envelope = encrypt_credential(old, context=context, secret="old-secret")
     new_envelope = encrypt_credential(selected, context=context, secret="new-secret")

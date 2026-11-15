@@ -10,7 +10,7 @@ export type MembershipInput =
   | { username: string; user_id?: never; role: Role }
   | { user_id: string; username?: never; role: Role };
 export type Invitation = components['schemas']['InvitationRead'];
-export type ProviderProfile = components['schemas']['ProviderProfileRead'];
+export type ProviderConnection = components['schemas']['ProviderConnectionRead'];
 export interface Page<T> {
   total?: number;
   items: T[];
@@ -57,16 +57,19 @@ export interface ProjectsApi {
   listInvitations(projectId: string, cursor?: string): Promise<Page<Invitation>>;
   createInvitation(projectId: string, input: { email: string; role: Role }): Promise<Invitation>;
   revokeInvitation(projectId: string, invitationId: string): Promise<void>;
-  listProviderProfiles(cursor?: string): Promise<Page<ProviderProfile>>;
-  createProviderProfile(input: {
+  listProviderConnections(cursor?: string): Promise<Page<ProviderConnection>>;
+  createProviderConnection(input: {
     display_name: string;
     base_url: string;
     model_id: string;
     api_key: string;
-  }): Promise<ProviderProfile>;
-  rotateProviderProfile(profileId: string, apiKey: string): Promise<ProviderProfile>;
-  validateProviderProfile(profileId: string): Promise<ProviderProfile>;
-  deleteProviderProfile(profileId: string): Promise<void>;
+  }): Promise<ProviderConnection>;
+  rotateProviderConnection(
+    providerConnectionId: string,
+    apiKey: string,
+  ): Promise<ProviderConnection>;
+  validateProviderConnection(providerConnectionId: string): Promise<ProviderConnection>;
+  deleteProviderConnection(providerConnectionId: string): Promise<void>;
   getPublicProject(projectId: string): Promise<PublicProject>;
   listPublicProjects(
     query?: string,
@@ -218,35 +221,38 @@ export function createProjectsApi(
           params: { path: { project_id: projectId, invitation_id: invitationId } },
         }),
       ),
-    listProviderProfiles: (cursor) =>
+    listProviderConnections: (cursor) =>
       unwrapPage(
-        memberClient.GET('/api/v1/account/provider-profiles', {
+        memberClient.GET('/api/v1/account/provider-connections', {
           params: { query: pageQuery(cursor) },
         }),
       ),
-    createProviderProfile: (body) =>
+    createProviderConnection: (body) =>
       unwrap(
-        memberClient.POST('/api/v1/account/provider-profiles', {
+        memberClient.POST('/api/v1/account/provider-connections', {
           body: { ...body, wire_api: 'responses' },
         }),
       ),
-    rotateProviderProfile: (profileId, api_key) =>
+    rotateProviderConnection: (providerConnectionId, api_key) =>
       unwrap(
-        memberClient.POST('/api/v1/account/provider-profiles/{profile_id}/rotate', {
-          params: { path: { profile_id: profileId } },
+        memberClient.POST('/api/v1/account/provider-connections/{provider_connection_id}/rotate', {
+          params: { path: { provider_connection_id: providerConnectionId } },
           body: { api_key },
         }),
       ),
-    validateProviderProfile: (profileId) =>
+    validateProviderConnection: (providerConnectionId) =>
       unwrap(
-        memberClient.POST('/api/v1/account/provider-profiles/{profile_id}/validate', {
-          params: { path: { profile_id: profileId } },
-        }),
+        memberClient.POST(
+          '/api/v1/account/provider-connections/{provider_connection_id}/validate',
+          {
+            params: { path: { provider_connection_id: providerConnectionId } },
+          },
+        ),
       ),
-    deleteProviderProfile: (profileId) =>
+    deleteProviderConnection: (providerConnectionId) =>
       unwrap(
-        memberClient.DELETE('/api/v1/account/provider-profiles/{profile_id}', {
-          params: { path: { profile_id: profileId } },
+        memberClient.DELETE('/api/v1/account/provider-connections/{provider_connection_id}', {
+          params: { path: { provider_connection_id: providerConnectionId } },
         }),
       ),
     getPublicProject: (projectId) =>

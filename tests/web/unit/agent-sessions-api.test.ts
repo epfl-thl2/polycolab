@@ -25,7 +25,7 @@ describe('agent sessions API adapter', () => {
     });
     const result = await api.listProfiles();
     expect(result.items[0]?.id).toBe('profile');
-    expect(requests[0]?.url).toContain('/api/v1/account/provider-profiles');
+    expect(requests[0]?.url).toContain('/api/v1/account/provider-connections');
     expect(requests[0]?.headers.get('Authorization')).toBe(`Bearer ${token}`);
   });
 });

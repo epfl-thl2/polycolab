@@ -86,7 +86,7 @@ test('shared contributors use their profile and read-only members receive the sa
           });
         if (path.endsWith('/stream'))
           return route.fulfill({ contentType: 'text/event-stream', body: ': heartbeat\n\n' });
-        if (path.endsWith('/account/provider-profiles'))
+        if (path.endsWith('/account/provider-connections'))
           return route.fulfill({
             json: [
               { id: `${name}-profile`, display_name: `${name} provider`, model_id: 'test-model' },
@@ -135,7 +135,7 @@ test('shared contributors use their profile and read-only members receive the sa
     await expect(authorPage.getByText('A second perspective from the contributor.')).toBeVisible();
     expect(submitted).toMatchObject({
       type: 'message',
-      provider_profile_id: 'contributor-profile',
+      provider_connection_id: 'contributor-profile',
     });
     expect(submitted).not.toHaveProperty('author');
     await authorPage.getByRole('button', { name: 'Stop agent', exact: true }).click();

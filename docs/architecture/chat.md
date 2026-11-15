@@ -91,7 +91,7 @@ Message acceptance commits a human item and queued execution together, then retu
 receipt, including after archival; changed content or authority conflicts. The
 receipt describes acceptance; run reads supply current execution state. A retry
 still requires current read access and the original sender. New admissions use the
-sender's provider profile, quota and delegated authority. Human events cannot append
+sender's provider connection, quota and delegated authority. Human events cannot append
 worker output or impersonate transcript authors.
 
 The sender can interrupt their own runs; the session owner can interrupt any run.

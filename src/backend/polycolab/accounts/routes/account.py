@@ -1,4 +1,4 @@
-"""Human account and private provider profile endpoints."""
+"""Human account and private provider connection endpoints."""
 
 from __future__ import annotations
 
@@ -11,21 +11,21 @@ from polycolab.access.actors import human_actor
 from polycolab.access.authorization import ProjectNotFound, require_manage_credentials
 from polycolab.accounts.schemas import UserRead
 from polycolab.app.dependencies import CurrentUser, DbSession, Page, paginated
-from polycolab.db.models import SqlProviderProfile
+from polycolab.db.models import SqlProviderConnection
 from polycolab.model_gateway.schemas import (
-    ProviderProfileCreate,
-    ProviderProfileRead,
-    ProviderProfileRotate,
+    ProviderConnectionCreate,
+    ProviderConnectionRead,
+    ProviderConnectionRotate,
 )
 from polycolab.model_gateway.service import (
     GatewayNotFound,
     ProviderFailure,
     UnsafeBaseUrl,
-    create_profile,
-    delete_profile,
-    profile_for_user,
-    rotate_profile,
-    validate_profile_credential,
+    connection_for_user,
+    create_connection,
+    delete_connection,
+    rotate_connection,
+    validate_connection_credential,
 )
 
 router = APIRouter(prefix="/api/v1")
@@ -37,24 +37,24 @@ def get_current_user(user: CurrentUser, response: Response) -> UserRead:
     return UserRead.model_validate(user)
 
 
-def _provider_profile_read(profile: SqlProviderProfile) -> ProviderProfileRead:
-    return ProviderProfileRead.model_validate(profile)
+def _provider_connection_read(connection: SqlProviderConnection) -> ProviderConnectionRead:
+    return ProviderConnectionRead.model_validate(connection)
 
 
 @router.post(
-    "/account/provider-profiles",
-    response_model=ProviderProfileRead,
+    "/account/provider-connections",
+    response_model=ProviderConnectionRead,
     status_code=status.HTTP_201_CREATED,
-    operation_id="createProviderProfile",
-    tags=["provider-profiles"],
+    operation_id="createProviderConnection",
+    tags=["provider-connections"],
 )
-def post_provider_profile(
-    payload: ProviderProfileCreate, request: Request, session: DbSession, user: CurrentUser
-) -> ProviderProfileRead:
+def post_provider_connection(
+    payload: ProviderConnectionCreate, request: Request, session: DbSession, user: CurrentUser
+) -> ProviderConnectionRead:
     require_manage_credentials(human_actor(user.id))
     wrapper = request.app.state.credential_wrapper
     try:
-        profile = create_profile(
+        connection = create_connection(
             session,
             user=user,
             wrapper=wrapper,
@@ -67,48 +67,50 @@ def post_provider_profile(
         )
     except UnsafeBaseUrl:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT) from None
-    return _provider_profile_read(profile)
+    return _provider_connection_read(connection)
 
 
 @router.get(
-    "/account/provider-profiles",
-    response_model=list[ProviderProfileRead],
-    operation_id="listProviderProfiles",
-    tags=["provider-profiles"],
+    "/account/provider-connections",
+    response_model=list[ProviderConnectionRead],
+    operation_id="listProviderConnections",
+    tags=["provider-connections"],
 )
-def list_provider_profiles(
+def list_provider_connections(
     response: Response, page: Page, session: DbSession, user: CurrentUser
-) -> list[ProviderProfileRead]:
-    profiles = [
-        _provider_profile_read(profile)
-        for profile in session.scalars(
-            select(SqlProviderProfile)
-            .where(SqlProviderProfile.user_id == user.id, SqlProviderProfile.deleted_at.is_(None))
-            .order_by(SqlProviderProfile.created_at.desc(), SqlProviderProfile.id.desc())
+) -> list[ProviderConnectionRead]:
+    connections = [
+        _provider_connection_read(connection)
+        for connection in session.scalars(
+            select(SqlProviderConnection)
+            .where(
+                SqlProviderConnection.user_id == user.id, SqlProviderConnection.deleted_at.is_(None)
+            )
+            .order_by(SqlProviderConnection.created_at.desc(), SqlProviderConnection.id.desc())
         )
     ]
-    return paginated(profiles, page, response)
+    return paginated(connections, page, response)
 
 
 @router.post(
-    "/account/provider-profiles/{profile_id}/rotate",
-    response_model=ProviderProfileRead,
-    operation_id="rotateProviderProfile",
-    tags=["provider-profiles"],
+    "/account/provider-connections/{provider_connection_id}/rotate",
+    response_model=ProviderConnectionRead,
+    operation_id="rotateProviderConnection",
+    tags=["provider-connections"],
 )
-def post_provider_profile_rotate(
-    profile_id: UUID,
-    payload: ProviderProfileRotate,
+def post_provider_connection_rotate(
+    provider_connection_id: UUID,
+    payload: ProviderConnectionRotate,
     request: Request,
     session: DbSession,
     user: CurrentUser,
-) -> ProviderProfileRead:
+) -> ProviderConnectionRead:
     require_manage_credentials(human_actor(user.id))
     try:
-        return _provider_profile_read(
-            rotate_profile(
+        return _provider_connection_read(
+            rotate_connection(
                 session,
-                profile_id=profile_id,
+                provider_connection_id=provider_connection_id,
                 user=user,
                 wrapper=request.app.state.credential_wrapper,
                 api_key=payload.api_key.get_secret_value(),
@@ -119,19 +121,21 @@ def post_provider_profile_rotate(
 
 
 @router.post(
-    "/account/provider-profiles/{profile_id}/validate",
-    response_model=ProviderProfileRead,
-    operation_id="validateProviderProfile",
-    tags=["provider-profiles"],
+    "/account/provider-connections/{provider_connection_id}/validate",
+    response_model=ProviderConnectionRead,
+    operation_id="validateProviderConnection",
+    tags=["provider-connections"],
 )
-def post_provider_profile_validate(
-    profile_id: UUID, request: Request, session: DbSession, user: CurrentUser
-) -> ProviderProfileRead:
+def post_provider_connection_validate(
+    provider_connection_id: UUID, request: Request, session: DbSession, user: CurrentUser
+) -> ProviderConnectionRead:
     require_manage_credentials(human_actor(user.id))
     try:
-        profile = profile_for_user(session, profile_id=profile_id, user_id=user.id)
-        validate_profile_credential(
-            profile=profile,
+        connection = connection_for_user(
+            session, provider_connection_id=provider_connection_id, user_id=user.id
+        )
+        validate_connection_credential(
+            connection=connection,
             user_id=user.id,
             wrapper=request.app.state.credential_wrapper,
             transport=request.app.state.provider_transport,
@@ -140,19 +144,21 @@ def post_provider_profile_validate(
         raise ProjectNotFound from None
     except UnsafeBaseUrl, ProviderFailure:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT) from None
-    return _provider_profile_read(profile)
+    return _provider_connection_read(connection)
 
 
 @router.delete(
-    "/account/provider-profiles/{profile_id}",
+    "/account/provider-connections/{provider_connection_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    operation_id="deleteProviderProfile",
-    tags=["provider-profiles"],
+    operation_id="deleteProviderConnection",
+    tags=["provider-connections"],
 )
-def remove_provider_profile(profile_id: UUID, session: DbSession, user: CurrentUser) -> Response:
+def remove_provider_connection(
+    provider_connection_id: UUID, session: DbSession, user: CurrentUser
+) -> Response:
     require_manage_credentials(human_actor(user.id))
     try:
-        delete_profile(session, profile_id=profile_id, user=user)
+        delete_connection(session, provider_connection_id=provider_connection_id, user=user)
     except GatewayNotFound:
         raise ProjectNotFound from None
     return Response(status_code=status.HTTP_204_NO_CONTENT)

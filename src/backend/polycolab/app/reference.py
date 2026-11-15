@@ -15,7 +15,7 @@ REFERENCE_GROUPS = [
     },
     {
         "name": "Optional hosted services",
-        "tags": ["agents", "sessions", "runs", "provider-profiles"],
+        "tags": ["agents", "sessions", "runs", "provider-connections"],
     },
 ]
 
@@ -88,9 +88,9 @@ REFERENCE_TAGS = {
         "x-displayName": "Hosted runs",
         "description": "Session executions scoped to the user and project permissions.",
     },
-    "provider-profiles": {
-        "name": "provider-profiles",
-        "x-displayName": "Model provider profiles",
+    "provider-connections": {
+        "name": "provider-connections",
+        "x-displayName": "Model provider connections",
         "description": "Optional human-owned provider configuration and secret lifecycle.",
     },
 }
@@ -179,11 +179,11 @@ OPERATION_SECTIONS = {
     "submitSessionEvent": "sessions",
     "readArtifact": "artifacts",
     "downloadArtifact": "artifacts",
-    "listProviderProfiles": "provider-profiles",
-    "createProviderProfile": "provider-profiles",
-    "deleteProviderProfile": "provider-profiles",
-    "rotateProviderProfile": "provider-profiles",
-    "validateProviderProfile": "provider-profiles",
+    "listProviderConnections": "provider-connections",
+    "createProviderConnection": "provider-connections",
+    "deleteProviderConnection": "provider-connections",
+    "rotateProviderConnection": "provider-connections",
+    "validateProviderConnection": "provider-connections",
     "acceptInvitation": "invitations",
     "getCurrentIdentity": "identity",
     "listPlatformAgents": "agents",
@@ -251,7 +251,7 @@ def arrange_reference(schema: dict[str, Any]) -> None:
                 "agents",
                 "sessions",
                 "runs",
-                "provider-profiles",
+                "provider-connections",
                 "account recovery",
             }:
                 notes.append(

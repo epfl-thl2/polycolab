@@ -22,7 +22,7 @@ from polycolab.db.models import (
     SqlAgentRun,
     SqlAgentRunUsage,
     SqlHostedModelRequest,
-    SqlProviderProfile,
+    SqlProviderConnection,
 )
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.enums import AgentRunEventKind, AgentRunStatus, UsageSource
@@ -130,7 +130,7 @@ def recover_pending(session: Session) -> int:
 class Dispatch:
     request_id: UUID
     user_id: UUID
-    profile_id: UUID
+    provider_connection_id: UUID
     base_url: str
     encrypted: EncryptedCredential
     payload: dict[str, object]
@@ -198,16 +198,16 @@ def prepare(
         )
         if count >= spec.max_model_requests:
             raise ProviderFailure("model_request_limit_exceeded")
-        profile = session.get(SqlProviderProfile, run.provider_profile_id)
+        connection = session.get(SqlProviderConnection, run.provider_connection_id)
         if (
-            profile is None
-            or profile.deleted_at is not None
-            or profile.user_id != run.requested_by_user_id
-            or profile.credential_version != run.gateway_credential_version
-            or profile.model_id != run.gateway_model_id
+            connection is None
+            or connection.deleted_at is not None
+            or connection.user_id != run.requested_by_user_id
+            or connection.credential_version != run.gateway_credential_version
+            or connection.model_id != run.gateway_model_id
         ):
-            raise ProviderFailure("provider_profile_changed")
-        if profile.wire_api != "responses":
+            raise ProviderFailure("provider_connection_changed")
+        if connection.wire_api != "responses":
             raise ProviderFailure("provider_protocol_incompatible")
         assert run.deadline_at is not None
         remaining = min(55, (utc(run.deadline_at) - utc_now()).total_seconds())
@@ -224,13 +224,19 @@ def prepare(
             settle_by=utc_now() + timedelta(seconds=remaining + 5),
         )
         encrypted = EncryptedCredential(
-            profile.encrypted_credential, profile.wrapped_data_key, profile.encryption_key_version
+            connection.encrypted_credential,
+            connection.wrapped_data_key,
+            connection.encryption_key_version,
         )
-        user_id, profile_id, base_url = profile.user_id, profile.id, profile.base_url
+        user_id, provider_connection_id, base_url = (
+            connection.user_id,
+            connection.id,
+            connection.base_url,
+        )
         session.add(entry)
         session.commit()
         return Dispatch(
-            entry.id, user_id, profile_id, base_url, encrypted, payload, spec, remaining
+            entry.id, user_id, provider_connection_id, base_url, encrypted, payload, spec, remaining
         )
 
 
@@ -238,12 +244,12 @@ def authorize_delivery(request: Request, run_id: UUID, worker_id: str, generatio
     with request.app.state.session_factory() as session:
         run = session.get(SqlAgentRun, run_id)
         _require_live_lease(run, worker_id=worker_id, lease_generation=generation, now=utc_now())
-        profile = session.get(SqlProviderProfile, run.provider_profile_id)
+        connection = session.get(SqlProviderConnection, run.provider_connection_id)
         if (
             run.status != AgentRunStatus.RUNNING
-            or profile is None
-            or profile.deleted_at is not None
-            or profile.credential_version != run.gateway_credential_version
+            or connection is None
+            or connection.deleted_at is not None
+            or connection.credential_version != run.gateway_credential_version
             or not can_execute(
                 SqlAlchemyTransaction(session), run.session_id, run.requested_by_user_id
             )
@@ -284,7 +290,7 @@ async def respond(
                 decrypt_credential,
                 request.app.state.credential_wrapper,
                 context=credential_context(
-                    user_id=dispatch.user_id, profile_id=dispatch.profile_id
+                    user_id=dispatch.user_id, provider_connection_id=dispatch.provider_connection_id
                 ),
                 encrypted=dispatch.encrypted,
             )

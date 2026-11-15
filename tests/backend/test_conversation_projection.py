@@ -96,7 +96,7 @@ def test_human_event_schema_cannot_supply_runtime_outputs_or_authorship() -> Non
         "type": "message",
         "client_request_id": str(uuid4()),
         "content_md": "Hello",
-        "provider_profile_id": str(uuid4()),
+        "provider_connection_id": str(uuid4()),
     }
     assert adapter.validate_python(message).type == "message"
     for override in (

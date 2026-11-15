@@ -102,7 +102,7 @@ def repository_claim(
             db,
             session_id=previous.session_id,
             requested_by_user_id=previous.requested_by_user_id,
-            provider_profile_id=previous.provider_profile_id,
+            provider_connection_id=previous.provider_connection_id,
             content_md="Work on the saved repository.",
             runtime_spec=spec().model_dump(mode="json"),
             deadline_at=utc_now() + timedelta(minutes=5),

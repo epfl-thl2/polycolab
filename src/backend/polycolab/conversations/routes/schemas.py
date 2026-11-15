@@ -59,7 +59,7 @@ class SessionMessage(RequestModel):
     type: Literal["message"]
     client_request_id: UUID
     content_md: str = Field(min_length=1, max_length=200_000)
-    provider_profile_id: UUID
+    provider_connection_id: UUID
     context_artifact_ids: list[UUID] = Field(default_factory=list, max_length=32)
 
     @model_validator(mode="after")
@@ -79,7 +79,7 @@ type SessionEvent = Annotated[SessionMessage | SessionInterrupt, Field(discrimin
 
 class RunResume(RequestModel):
     client_request_id: UUID
-    provider_profile_id: UUID
+    provider_connection_id: UUID
 
 
 class AgentConfigurationRead(ApiModel):

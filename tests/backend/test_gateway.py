@@ -13,7 +13,7 @@ from sqlalchemy import select
 from polycolab.db.models import (
     SqlGatewayCredentialRewrapAudit,
     SqlGatewayRunGrant,
-    SqlProviderProfile,
+    SqlProviderConnection,
 )
 from polycolab.entities.time import utc_now
 from polycolab.model_gateway.credentials import (
@@ -48,6 +48,20 @@ def headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+def test_provider_connection_cutover(client: TestClient) -> None:
+    assert (
+        client.get("/api/v1/account/provider-connections", headers=headers("owner")).status_code
+        == 200
+    )
+    assert (
+        client.get("/api/v1/account/provider-profiles", headers=headers("owner")).status_code == 404
+    )
+    user_id, connection_id = uuid4(), uuid4()
+    assert credential_context(
+        user_id=user_id, provider_connection_id=connection_id
+    ) == f"polycolab:gateway-profile:{user_id}:{connection_id}".encode("ascii")
+
+
 class RecordingProvider:
     def __init__(self, response: dict[str, object] | None = None) -> None:
         self.response = response or {
@@ -67,9 +81,9 @@ def app_for(client: TestClient) -> FastAPI:
     return cast(FastAPI, client.app)
 
 
-def create_provider_profile(client: TestClient, token: str = "owner") -> dict[str, Any]:
+def create_provider_connection(client: TestClient, token: str = "owner") -> dict[str, Any]:
     response = client.post(
-        "/api/v1/account/provider-profiles",
+        "/api/v1/account/provider-connections",
         headers=headers(token),
         json={
             "display_name": "Primary model",
@@ -86,7 +100,7 @@ def create_provider_profile(client: TestClient, token: str = "owner") -> dict[st
 def test_credential_rewrap_is_bounded_audited_and_compare_and_swap(
     client: TestClient,
 ) -> None:
-    created = create_provider_profile(client)
+    created = create_provider_connection(client)
     app = app_for(client)
     target = LocalAesGcmKeyWrapper(b"b" * 32, "replacement-v2")
     ring = CredentialKeyring([app.state.credential_wrapper, target])
@@ -97,12 +111,14 @@ def test_credential_rewrap_is_bounded_audited_and_compare_and_swap(
         snapshot = snapshots[0]
         db.rollback()  # Key-service work happens after the read transaction ends.
         candidate = ring.prepare_rewrap(
-            context=credential_context(user_id=snapshot.user_id, profile_id=snapshot.profile_id),
+            context=credential_context(
+                user_id=snapshot.user_id, provider_connection_id=snapshot.provider_connection_id
+            ),
             encrypted=snapshot.encrypted,
             target_version=target.key_version,
         )
         audit = commit_rewrap_candidate(db, snapshot=snapshot, candidate=candidate)
-        stored = db.get(SqlProviderProfile, UUID(created["id"]))
+        stored = db.get(SqlProviderConnection, UUID(created["id"]))
         assert stored is not None
         assert stored.api_key_preview == created["api_key_preview"]
         assert stored.encryption_key_version == target.key_version
@@ -118,7 +134,7 @@ def test_credential_rewrap_is_bounded_audited_and_compare_and_swap(
 def test_credential_rewrap_rejects_concurrent_rotation_without_audit(
     client: TestClient,
 ) -> None:
-    create_provider_profile(client)
+    create_provider_connection(client)
     app = app_for(client)
     target = LocalAesGcmKeyWrapper(b"c" * 32, "replacement-v3")
     ring = CredentialKeyring([app.state.credential_wrapper, target])
@@ -126,11 +142,13 @@ def test_credential_rewrap_rejects_concurrent_rotation_without_audit(
         snapshot = rewrap_snapshot_page(db, target_version=target.key_version)[0]
         db.rollback()
         candidate = ring.prepare_rewrap(
-            context=credential_context(user_id=snapshot.user_id, profile_id=snapshot.profile_id),
+            context=credential_context(
+                user_id=snapshot.user_id, provider_connection_id=snapshot.provider_connection_id
+            ),
             encrypted=snapshot.encrypted,
             target_version=target.key_version,
         )
-        profile = db.get(SqlProviderProfile, snapshot.profile_id)
+        profile = db.get(SqlProviderConnection, snapshot.provider_connection_id)
         assert profile is not None
         profile.credential_version += 1
         db.commit()
@@ -141,7 +159,7 @@ def test_credential_rewrap_rejects_concurrent_rotation_without_audit(
 
 def test_envelope_ciphertext_is_not_plaintext_and_context_bound() -> None:
     wrapper = LocalAesGcmKeyWrapper(b"a" * 32)
-    context = credential_context(user_id=uuid4(), profile_id=uuid4())
+    context = credential_context(user_id=uuid4(), provider_connection_id=uuid4())
     encrypted = encrypt_credential(wrapper, context=context, secret="sk-live-secret")
     assert b"sk-live-secret" not in encrypted.ciphertext
     assert decrypt_credential(wrapper, context=context, encrypted=encrypted) == "sk-live-secret"
@@ -228,7 +246,7 @@ def test_log_redaction_never_serializes_provider_secrets() -> None:
 def test_profile_routes_encrypt_never_read_back_validate_rotate_and_delete(
     client: TestClient,
 ) -> None:
-    created = create_provider_profile(client)
+    created = create_provider_connection(client)
     assert created["api_key_preview"] == "sk-••••alue"
     assert "api_key" not in created
     assert "encrypted_credential" not in created
@@ -236,7 +254,7 @@ def test_profile_routes_encrypt_never_read_back_validate_rotate_and_delete(
 
     session = app_for(client).state.session_factory()
     try:
-        stored = session.get(SqlProviderProfile, UUID(created["id"]))
+        stored = session.get(SqlProviderConnection, UUID(created["id"]))
         assert stored is not None
         assert b"sk-super-secret-value" not in stored.encrypted_credential
         first_ciphertext = stored.encrypted_credential
@@ -246,7 +264,7 @@ def test_profile_routes_encrypt_never_read_back_validate_rotate_and_delete(
     provider = RecordingProvider()
     app_for(client).state.provider_transport = provider
     validated = client.post(
-        f"/api/v1/account/provider-profiles/{created['id']}/validate", headers=headers("owner")
+        f"/api/v1/account/provider-connections/{created['id']}/validate", headers=headers("owner")
     )
     assert validated.status_code == 200
     assert provider.calls[0]["api_key"] == "sk-super-secret-value"
@@ -254,7 +272,7 @@ def test_profile_routes_encrypt_never_read_back_validate_rotate_and_delete(
     assert "sk-super-secret-value" not in validated.text
 
     rotated = client.post(
-        f"/api/v1/account/provider-profiles/{created['id']}/rotate",
+        f"/api/v1/account/provider-connections/{created['id']}/rotate",
         headers=headers("owner"),
         json={"api_key": "sk-rotated-secret"},
     )
@@ -263,7 +281,7 @@ def test_profile_routes_encrypt_never_read_back_validate_rotate_and_delete(
     assert "sk-rotated-secret" not in rotated.text
     session = app_for(client).state.session_factory()
     try:
-        stored = session.get(SqlProviderProfile, UUID(created["id"]))
+        stored = session.get(SqlProviderConnection, UUID(created["id"]))
         assert stored is not None
         assert stored.api_key_preview == "sk-••••cret"
         assert stored.credential_version == 2
@@ -271,10 +289,12 @@ def test_profile_routes_encrypt_never_read_back_validate_rotate_and_delete(
     finally:
         session.close()
 
-    assert client.get("/api/v1/account/provider-profiles", headers=headers("outsider")).json() == []
+    assert (
+        client.get("/api/v1/account/provider-connections", headers=headers("outsider")).json() == []
+    )
     assert (
         client.post(
-            f"/api/v1/account/provider-profiles/{created['id']}/rotate",
+            f"/api/v1/account/provider-connections/{created['id']}/rotate",
             headers=headers("outsider"),
             json={"api_key": "sk-cross-user"},
         ).status_code
@@ -282,17 +302,17 @@ def test_profile_routes_encrypt_never_read_back_validate_rotate_and_delete(
     )
     assert (
         client.delete(
-            f"/api/v1/account/provider-profiles/{created['id']}", headers=headers("owner")
+            f"/api/v1/account/provider-connections/{created['id']}", headers=headers("owner")
         ).status_code
         == 204
     )
-    assert client.get("/api/v1/account/provider-profiles", headers=headers("owner")).json() == []
+    assert client.get("/api/v1/account/provider-connections", headers=headers("owner")).json() == []
 
 
 def test_profile_validation_failure_is_normalized_and_secret_safe(
     client: TestClient,
 ) -> None:
-    created = create_provider_profile(client)
+    created = create_provider_connection(client)
 
     class FailingProvider:
         def request_json(self, **_kwargs: object) -> dict[str, object]:
@@ -300,7 +320,7 @@ def test_profile_validation_failure_is_normalized_and_secret_safe(
 
     app_for(client).state.provider_transport = FailingProvider()
     response = client.post(
-        f"/api/v1/account/provider-profiles/{created['id']}/validate", headers=headers("owner")
+        f"/api/v1/account/provider-connections/{created['id']}/validate", headers=headers("owner")
     )
     assert response.status_code == 422
     assert "secret" not in response.text.casefold()
@@ -320,7 +340,7 @@ def test_profile_creation_rolls_back_when_key_service_is_unavailable(
 
     app_for(client).state.credential_wrapper = FailingWrapper()
     response = client.post(
-        "/api/v1/account/provider-profiles",
+        "/api/v1/account/provider-connections",
         headers=headers("owner"),
         json={
             "display_name": "Unavailable KMS",
@@ -333,7 +353,7 @@ def test_profile_creation_rolls_back_when_key_service_is_unavailable(
     assert response.json()["error"]["code"] == "credential_unavailable"
     session = app_for(client).state.session_factory()
     try:
-        assert list(session.scalars(select(SqlProviderProfile))) == []
+        assert list(session.scalars(select(SqlProviderConnection))) == []
     finally:
         session.close()
 
@@ -341,16 +361,16 @@ def test_profile_creation_rolls_back_when_key_service_is_unavailable(
 def test_run_grant_is_scoped_one_use_expiring_and_invalidated_by_rotation(
     client: TestClient,
 ) -> None:
-    created = create_provider_profile(client)
+    created = create_provider_connection(client)
     user_id = UUID(client.get("/api/v1/account", headers=headers("owner")).json()["id"])
-    profile_id = UUID(created["id"])
+    provider_connection_id = UUID(created["id"])
     run_id = uuid4()
     session = app_for(client).state.session_factory()
     try:
         token = issue_run_grant(
             session,
             user_id=user_id,
-            profile_id=profile_id,
+            provider_connection_id=provider_connection_id,
             run_id=run_id,
             model_id="research-model",
             ttl_seconds=60,
@@ -394,7 +414,7 @@ def test_run_grant_is_scoped_one_use_expiring_and_invalidated_by_rotation(
             issue_run_grant(
                 session,
                 user_id=user_id,
-                profile_id=profile_id,
+                provider_connection_id=provider_connection_id,
                 run_id=uuid4(),
                 model_id="other-model",
                 ttl_seconds=60,
@@ -404,7 +424,7 @@ def test_run_grant_is_scoped_one_use_expiring_and_invalidated_by_rotation(
             issue_run_grant(
                 session,
                 user_id=user_id,
-                profile_id=profile_id,
+                provider_connection_id=provider_connection_id,
                 run_id=uuid4(),
                 model_id="research-model",
                 ttl_seconds=301,
@@ -413,7 +433,7 @@ def test_run_grant_is_scoped_one_use_expiring_and_invalidated_by_rotation(
         expiring = issue_run_grant(
             session,
             user_id=user_id,
-            profile_id=profile_id,
+            provider_connection_id=provider_connection_id,
             run_id=uuid4(),
             model_id="research-model",
             ttl_seconds=60,
@@ -438,7 +458,7 @@ def test_run_grant_is_scoped_one_use_expiring_and_invalidated_by_rotation(
         rotating = issue_run_grant(
             session,
             user_id=user_id,
-            profile_id=profile_id,
+            provider_connection_id=provider_connection_id,
             run_id=uuid4(),
             model_id="research-model",
             ttl_seconds=60,
@@ -452,7 +472,7 @@ def test_run_grant_is_scoped_one_use_expiring_and_invalidated_by_rotation(
         assert rotating_row is not None
         assert (
             client.post(
-                f"/api/v1/account/provider-profiles/{profile_id}/rotate",
+                f"/api/v1/account/provider-connections/{provider_connection_id}/rotate",
                 headers=headers("owner"),
                 json={"api_key": "sk-another-rotation"},
             ).status_code
@@ -474,9 +494,9 @@ def test_run_grant_is_scoped_one_use_expiring_and_invalidated_by_rotation(
 def test_model_gateway_applies_key_and_enforces_input_output_cost_and_usage(
     client: TestClient,
 ) -> None:
-    created = create_provider_profile(client)
+    created = create_provider_connection(client)
     user_id = UUID(client.get("/api/v1/account", headers=headers("owner")).json()["id"])
-    profile_id = UUID(created["id"])
+    provider_connection_id = UUID(created["id"])
     limits = GatewayLimits(
         run_token_ttl_seconds=300,
         max_input_bytes=1000,
@@ -492,7 +512,7 @@ def test_model_gateway_applies_key_and_enforces_input_output_cost_and_usage(
         token = issue_run_grant(
             session,
             user_id=user_id,
-            profile_id=profile_id,
+            provider_connection_id=provider_connection_id,
             run_id=run_id,
             model_id="research-model",
             ttl_seconds=60,
@@ -518,7 +538,7 @@ def test_model_gateway_applies_key_and_enforces_input_output_cost_and_usage(
         excessive_token = issue_run_grant(
             session,
             user_id=user_id,
-            profile_id=profile_id,
+            provider_connection_id=provider_connection_id,
             run_id=excessive_run_id,
             model_id="research-model",
             ttl_seconds=60,
@@ -550,7 +570,7 @@ def test_model_gateway_applies_key_and_enforces_input_output_cost_and_usage(
         missing_usage_token = issue_run_grant(
             session,
             user_id=user_id,
-            profile_id=profile_id,
+            provider_connection_id=provider_connection_id,
             run_id=missing_usage_run_id,
             model_id="research-model",
             ttl_seconds=60,
@@ -612,7 +632,7 @@ def test_provider_preview_is_bounded_and_persisted(
     client: TestClient, api_key: str, preview: str
 ) -> None:
     response = client.post(
-        "/api/v1/account/provider-profiles",
+        "/api/v1/account/provider-connections",
         headers=headers("owner"),
         json={
             "display_name": "Preview model",
@@ -625,10 +645,10 @@ def test_provider_preview_is_bounded_and_persisted(
     assert response.json()["api_key_preview"] == preview
     assert api_key not in preview
     with app_for(client).state.session_factory() as db:
-        stored = db.get(SqlProviderProfile, UUID(response.json()["id"]))
+        stored = db.get(SqlProviderConnection, UUID(response.json()["id"]))
         assert stored is not None
         assert stored.api_key_preview == preview
-    listed = client.get("/api/v1/account/provider-profiles", headers=headers("owner")).json()
+    listed = client.get("/api/v1/account/provider-connections", headers=headers("owner")).json()
     assert listed[0]["api_key_preview"] == preview
     assert "api_key" not in listed[0]
 
@@ -636,9 +656,9 @@ def test_provider_preview_is_bounded_and_persisted(
 def test_existing_preview_is_null_until_replacement_and_reads_do_not_decrypt(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    created = create_provider_profile(client)
+    created = create_provider_connection(client)
     with app_for(client).state.session_factory() as db:
-        stored = db.get(SqlProviderProfile, UUID(created["id"]))
+        stored = db.get(SqlProviderConnection, UUID(created["id"]))
         assert stored is not None
         stored.api_key_preview = None
         db.commit()
@@ -647,18 +667,18 @@ def test_existing_preview_is_null_until_replacement_and_reads_do_not_decrypt(
         raise AssertionError("Listing previews must not decrypt credentials")
 
     monkeypatch.setattr("polycolab.model_gateway.service.decrypt_credential", fail_decrypt)
-    listed = client.get("/api/v1/account/provider-profiles", headers=headers("owner"))
+    listed = client.get("/api/v1/account/provider-connections", headers=headers("owner"))
     assert listed.status_code == 200
     assert listed.json()[0]["api_key_preview"] is None
     response = client.post(
-        f"/api/v1/account/provider-profiles/{created['id']}/rotate",
+        f"/api/v1/account/provider-connections/{created['id']}/rotate",
         headers=headers("owner"),
         json={"api_key": "sk-replacement-1234"},
     )
     assert response.status_code == 200
     assert response.json()["api_key_preview"] == "sk-••••1234"
     assert (
-        client.get("/api/v1/account/provider-profiles", headers=headers("owner")).json()[0][
+        client.get("/api/v1/account/provider-connections", headers=headers("owner")).json()[0][
             "api_key_preview"
         ]
         == "sk-••••1234"
@@ -668,9 +688,9 @@ def test_existing_preview_is_null_until_replacement_and_reads_do_not_decrypt(
 def test_failed_replacement_preserves_preview_and_encrypted_key(
     client: TestClient,
 ) -> None:
-    created = create_provider_profile(client)
+    created = create_provider_connection(client)
     with app_for(client).state.session_factory() as db:
-        stored = db.get(SqlProviderProfile, UUID(created["id"]))
+        stored = db.get(SqlProviderConnection, UUID(created["id"]))
         assert stored is not None
         original_ciphertext = stored.encrypted_credential
 
@@ -685,14 +705,14 @@ def test_failed_replacement_preserves_preview_and_encrypted_key(
 
     app_for(client).state.credential_wrapper = FailingWrapper()
     response = client.post(
-        f"/api/v1/account/provider-profiles/{created['id']}/rotate",
+        f"/api/v1/account/provider-connections/{created['id']}/rotate",
         headers=headers("owner"),
         json={"api_key": "sk-new-key-1234"},
     )
     assert response.status_code == 503
     assert "sk-new-key-1234" not in response.text
     with app_for(client).state.session_factory() as db:
-        stored = db.get(SqlProviderProfile, UUID(created["id"]))
+        stored = db.get(SqlProviderConnection, UUID(created["id"]))
         assert stored is not None
         assert stored.api_key_preview == created["api_key_preview"]
         assert stored.encrypted_credential == original_ciphertext

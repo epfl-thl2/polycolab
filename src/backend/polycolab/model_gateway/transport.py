@@ -1,7 +1,7 @@
 """Secret-safe, IP-pinned transport for OpenAI-compatible providers.
 
 This module deliberately owns only outbound HTTP mechanics.  Credential lookup,
-profile ownership, and run-capability checks stay in the gateway domain layer.
+connection ownership, and run-capability checks stay in the gateway domain layer.
 """
 
 from __future__ import annotations

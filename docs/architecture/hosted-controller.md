@@ -100,9 +100,9 @@ Readiness disables new execution without hiding history.
 The generated client includes the bounded `GET /api/v1/sessions/{session_id}/runs` listing and `execution_available`.
 Customized Hosted Codex sessions persist a selected harness and additional system prompt on the session.
 Every run in that session includes the prompt after the pinned platform agent instructions.
-The selected provider profile still supplies the model endpoint and remains a per-turn credential boundary.
+The selected provider connection still supplies the model endpoint and remains a per-turn credential boundary.
 
-New provider profiles default to Responses.
+New provider connections default to Responses.
 The migration preserves historical profiles as chat-completions.
 `RUNTIME_CODEX_IMAGE`, `RUNTIME_SANDBOX_BACKEND` and `RUNTIME_SANDBOX_VERSION` pin the immutable runtime specification for new/resumed runs.
 Readiness and claims require the matching backend, version and image. Historical specs without a backend retain microsandbox identity.

@@ -28,7 +28,7 @@ from polycolab.db.models import (
     SqlConversationConfiguration,
     SqlConversationItem,
     SqlPlatformAgentVersion,
-    SqlProviderProfile,
+    SqlProviderConnection,
     SqlRuntimeRunBinding,
     SqlRuntimeSessionBinding,
     SqlRunToolCapability,
@@ -280,19 +280,21 @@ def _locked_session(session: Session, session_id: UUID) -> SqlConversation:
     return result
 
 
-def _active_profile(session: Session, *, profile_id: UUID, user_id: UUID) -> SqlProviderProfile:
-    profile = session.scalar(
-        select(SqlProviderProfile)
+def _active_connection(
+    session: Session, *, provider_connection_id: UUID, user_id: UUID
+) -> SqlProviderConnection:
+    connection = session.scalar(
+        select(SqlProviderConnection)
         .where(
-            SqlProviderProfile.id == profile_id,
-            SqlProviderProfile.user_id == user_id,
-            SqlProviderProfile.deleted_at.is_(None),
+            SqlProviderConnection.id == provider_connection_id,
+            SqlProviderConnection.user_id == user_id,
+            SqlProviderConnection.deleted_at.is_(None),
         )
         .with_for_update()
     )
-    if profile is None:
-        raise SessionStateError("gateway profile is unavailable")
-    return profile
+    if connection is None:
+        raise SessionStateError("provider connection is unavailable")
+    return connection
 
 
 def accepted_user_message(
@@ -300,7 +302,7 @@ def accepted_user_message(
     *,
     session_id: UUID,
     requested_by_user_id: UUID,
-    provider_profile_id: UUID,
+    provider_connection_id: UUID,
     content_md: str,
     context_artifact_ids: list[UUID] | None,
     client_request_id: UUID,
@@ -317,7 +319,7 @@ def accepted_user_message(
         if (
             existing_message is None
             or existing_run.requested_by_user_id != requested_by_user_id
-            or existing_run.provider_profile_id != provider_profile_id
+            or existing_run.provider_connection_id != provider_connection_id
             or existing_message.content_md != content_md
             or existing_run.requested_context_artifact_ids
             != [str(value) for value in context_artifact_ids or []]
@@ -333,7 +335,7 @@ def append_user_message_and_queue_run(
     *,
     session_id: UUID,
     requested_by_user_id: UUID,
-    provider_profile_id: UUID,
+    provider_connection_id: UUID,
     content_md: str,
     context_artifact_ids: list[UUID] | None = None,
     client_request_id: UUID | None = None,
@@ -344,7 +346,7 @@ def append_user_message_and_queue_run(
 ) -> tuple[SqlConversationItem, SqlAgentRun]:
     """Append a human message and its ordered run atomically.
 
-    The requester-owned profile's model and credential version are copied to the
+    The requester-owned connection's model and credential version are copied to the
     durable run; no secret or run grant is persisted.
     """
 
@@ -377,7 +379,7 @@ def append_user_message_and_queue_run(
         session,
         session_id=parent.id,
         requested_by_user_id=requested_by_user_id,
-        provider_profile_id=provider_profile_id,
+        provider_connection_id=provider_connection_id,
         content_md=content_md,
         context_artifact_ids=context_artifact_ids,
         client_request_id=request_id,
@@ -393,8 +395,10 @@ def append_user_message_and_queue_run(
             limits=execution_limits,
             now=_utc(now or utc_now()),
         )
-    profile = _active_profile(session, profile_id=provider_profile_id, user_id=requested_by_user_id)
-    if runtime_spec is not None and profile.wire_api != "responses":
+    connection = _active_connection(
+        session, provider_connection_id=provider_connection_id, user_id=requested_by_user_id
+    )
+    if runtime_spec is not None and connection.wire_api != "responses":
         raise SessionStateError("provider_protocol_incompatible")
     run_id = uuid4()
     parent.next_message_sequence += 1
@@ -417,9 +421,9 @@ def append_user_message_and_queue_run(
         requested_by_user_id=requested_by_user_id,
         request_message_id=message.id,
         client_request_id=request_id,
-        provider_profile_id=profile.id,
-        gateway_credential_version=profile.credential_version,
-        gateway_model_id=profile.model_id,
+        provider_connection_id=connection.id,
+        gateway_credential_version=connection.credential_version,
+        gateway_model_id=connection.model_id,
         runtime_spec=runtime_spec,
         queue_sequence=parent.next_run_sequence,
         input_message_sequence=message.sequence,
@@ -1241,7 +1245,7 @@ def resume_run(
     *,
     run_id: UUID,
     requested_by_user_id: UUID,
-    provider_profile_id: UUID,
+    provider_connection_id: UUID,
     client_request_id: UUID | None = None,
     deadline_at: datetime | None = None,
     execution_limits: ExecutionLimits | None = None,
@@ -1289,7 +1293,7 @@ def resume_run(
         if (
             existing.parent_run_id != previous.id
             or existing.requested_by_user_id != requested_by_user_id
-            or existing.provider_profile_id != provider_profile_id
+            or existing.provider_connection_id != provider_connection_id
         ):
             session.rollback()
             raise SessionStateError("idempotency key reused with different resume")
@@ -1303,8 +1307,10 @@ def resume_run(
             limits=execution_limits,
             now=_utc(now or utc_now()),
         )
-    profile = _active_profile(session, profile_id=provider_profile_id, user_id=requested_by_user_id)
-    if runtime_spec is not None and profile.wire_api != "responses":
+    connection = _active_connection(
+        session, provider_connection_id=provider_connection_id, user_id=requested_by_user_id
+    )
+    if runtime_spec is not None and connection.wire_api != "responses":
         raise SessionStateError("provider_protocol_incompatible")
     parent.next_run_sequence += 1
     successor = SqlAgentRun(
@@ -1314,9 +1320,9 @@ def resume_run(
         requested_by_user_id=requested_by_user_id,
         parent_run_id=previous.id,
         client_request_id=request_id,
-        provider_profile_id=profile.id,
-        gateway_credential_version=profile.credential_version,
-        gateway_model_id=profile.model_id,
+        provider_connection_id=connection.id,
+        gateway_credential_version=connection.credential_version,
+        gateway_model_id=connection.model_id,
         runtime_spec=runtime_spec,
         queue_sequence=parent.next_run_sequence,
         input_message_sequence=parent.next_message_sequence,

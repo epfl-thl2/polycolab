@@ -3137,7 +3137,7 @@
         "title": "ProjectVisibility",
         "type": "string"
       },
-      "ProviderProfileCreate": {
+      "ProviderConnectionCreate": {
         "additionalProperties": false,
         "properties": {
           "api_key": {
@@ -3182,10 +3182,10 @@
           "model_id",
           "api_key"
         ],
-        "title": "ProviderProfileCreate",
+        "title": "ProviderConnectionCreate",
         "type": "object"
       },
-      "ProviderProfileRead": {
+      "ProviderConnectionRead": {
         "properties": {
           "api_key_preview": {
             "anyOf": [
@@ -3248,10 +3248,10 @@
           "created_at",
           "updated_at"
         ],
-        "title": "ProviderProfileRead",
+        "title": "ProviderConnectionRead",
         "type": "object"
       },
-      "ProviderProfileRotate": {
+      "ProviderConnectionRotate": {
         "additionalProperties": false,
         "properties": {
           "api_key": {
@@ -3266,7 +3266,7 @@
         "required": [
           "api_key"
         ],
-        "title": "ProviderProfileRotate",
+        "title": "ProviderConnectionRotate",
         "type": "object"
       },
       "PublicProjectRead": {
@@ -4070,15 +4070,15 @@
             "title": "Client Request Id",
             "type": "string"
           },
-          "provider_profile_id": {
+          "provider_connection_id": {
             "format": "uuid",
-            "title": "Provider Profile Id",
+            "title": "Provider Connection Id",
             "type": "string"
           }
         },
         "required": [
           "client_request_id",
-          "provider_profile_id"
+          "provider_connection_id"
         ],
         "title": "RunResume",
         "type": "object"
@@ -4233,9 +4233,9 @@
             "title": "Context Artifact Ids",
             "type": "array"
           },
-          "provider_profile_id": {
+          "provider_connection_id": {
             "format": "uuid",
-            "title": "Provider Profile Id",
+            "title": "Provider Connection Id",
             "type": "string"
           },
           "type": {
@@ -4248,7 +4248,7 @@
           "type",
           "client_request_id",
           "content_md",
-          "provider_profile_id"
+          "provider_connection_id"
         ],
         "title": "SessionMessage",
         "type": "object"
@@ -6328,10 +6328,10 @@
         ]
       }
     },
-    "/api/v1/account/provider-profiles": {
+    "/api/v1/account/provider-connections": {
       "get": {
         "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
-        "operationId": "listProviderProfiles",
+        "operationId": "listProviderConnections",
         "parameters": [
           {
             "in": "query",
@@ -6369,9 +6369,9 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/ProviderProfileRead"
+                    "$ref": "#/components/schemas/ProviderConnectionRead"
                   },
-                  "title": "Response Listproviderprofiles",
+                  "title": "Response Listproviderconnections",
                   "type": "array"
                 }
               }
@@ -6482,19 +6482,19 @@
             "SessionCookie": []
           }
         ],
-        "summary": "List provider profiles",
+        "summary": "List provider connections",
         "tags": [
-          "provider-profiles"
+          "provider-connections"
         ]
       },
       "post": {
         "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
-        "operationId": "createProviderProfile",
+        "operationId": "createProviderConnection",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ProviderProfileCreate"
+                "$ref": "#/components/schemas/ProviderConnectionCreate"
               }
             }
           },
@@ -6505,7 +6505,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProviderProfileRead"
+                  "$ref": "#/components/schemas/ProviderConnectionRead"
                 }
               }
             },
@@ -6610,24 +6610,24 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Create provider profile",
+        "summary": "Create provider connection",
         "tags": [
-          "provider-profiles"
+          "provider-connections"
         ]
       }
     },
-    "/api/v1/account/provider-profiles/{profile_id}": {
+    "/api/v1/account/provider-connections/{provider_connection_id}": {
       "delete": {
         "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
-        "operationId": "deleteProviderProfile",
+        "operationId": "deleteProviderConnection",
         "parameters": [
           {
             "in": "path",
-            "name": "profile_id",
+            "name": "provider_connection_id",
             "required": true,
             "schema": {
               "format": "uuid",
-              "title": "Profile Id",
+              "title": "Provider Connection Id",
               "type": "string"
             }
           }
@@ -6725,24 +6725,24 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Delete provider profile",
+        "summary": "Delete provider connection",
         "tags": [
-          "provider-profiles"
+          "provider-connections"
         ]
       }
     },
-    "/api/v1/account/provider-profiles/{profile_id}/rotate": {
+    "/api/v1/account/provider-connections/{provider_connection_id}/rotate": {
       "post": {
         "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
-        "operationId": "rotateProviderProfile",
+        "operationId": "rotateProviderConnection",
         "parameters": [
           {
             "in": "path",
-            "name": "profile_id",
+            "name": "provider_connection_id",
             "required": true,
             "schema": {
               "format": "uuid",
-              "title": "Profile Id",
+              "title": "Provider Connection Id",
               "type": "string"
             }
           }
@@ -6751,7 +6751,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ProviderProfileRotate"
+                "$ref": "#/components/schemas/ProviderConnectionRotate"
               }
             }
           },
@@ -6762,7 +6762,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProviderProfileRead"
+                  "$ref": "#/components/schemas/ProviderConnectionRead"
                 }
               }
             },
@@ -6867,24 +6867,24 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Rotate provider profile",
+        "summary": "Rotate provider connection",
         "tags": [
-          "provider-profiles"
+          "provider-connections"
         ]
       }
     },
-    "/api/v1/account/provider-profiles/{profile_id}/validate": {
+    "/api/v1/account/provider-connections/{provider_connection_id}/validate": {
       "post": {
         "description": "**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
-        "operationId": "validateProviderProfile",
+        "operationId": "validateProviderConnection",
         "parameters": [
           {
             "in": "path",
-            "name": "profile_id",
+            "name": "provider_connection_id",
             "required": true,
             "schema": {
               "format": "uuid",
-              "title": "Profile Id",
+              "title": "Provider Connection Id",
               "type": "string"
             }
           }
@@ -6894,7 +6894,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProviderProfileRead"
+                  "$ref": "#/components/schemas/ProviderConnectionRead"
                 }
               }
             },
@@ -6999,9 +6999,9 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Validate provider profile",
+        "summary": "Validate provider connection",
         "tags": [
-          "provider-profiles"
+          "provider-connections"
         ]
       }
     },
@@ -20277,8 +20277,8 @@
     },
     {
       "description": "Optional human-owned provider configuration and secret lifecycle.",
-      "name": "provider-profiles",
-      "x-displayName": "Model provider profiles"
+      "name": "provider-connections",
+      "x-displayName": "Model provider connections"
     }
   ],
   "x-tagGroups": [
@@ -20317,7 +20317,7 @@
         "agents",
         "sessions",
         "runs",
-        "provider-profiles"
+        "provider-connections"
       ]
     }
   ]

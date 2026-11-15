@@ -102,9 +102,11 @@ describe('project API adapter', () => {
       getAccessToken: () => 'owner-token',
     });
 
-    await expect(api.deleteProviderProfile('profile-a')).resolves.toBeUndefined();
+    await expect(api.deleteProviderConnection('profile-a')).resolves.toBeUndefined();
     expect(requests[0]?.method).toBe('DELETE');
-    expect(new URL(requests[0]!.url).pathname).toBe('/api/v1/account/provider-profiles/profile-a');
+    expect(new URL(requests[0]!.url).pathname).toBe(
+      '/api/v1/account/provider-connections/profile-a',
+    );
   });
 
   it('notifies the auth boundary when a member request is unauthorized', async () => {

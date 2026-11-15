@@ -168,7 +168,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/account/provider-profiles": {
+    "/api/v1/account/provider-connections": {
         parameters: {
             query?: never;
             header?: never;
@@ -176,27 +176,27 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List provider profiles
+         * List provider connections
          * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
-        get: operations["listProviderProfiles"];
+        get: operations["listProviderConnections"];
         put?: never;
         /**
-         * Create provider profile
+         * Create provider connection
          * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
-        post: operations["createProviderProfile"];
+        post: operations["createProviderConnection"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/account/provider-profiles/{profile_id}": {
+    "/api/v1/account/provider-connections/{provider_connection_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -207,18 +207,18 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Delete provider profile
+         * Delete provider connection
          * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
-        delete: operations["deleteProviderProfile"];
+        delete: operations["deleteProviderConnection"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/account/provider-profiles/{profile_id}/rotate": {
+    "/api/v1/account/provider-connections/{provider_connection_id}/rotate": {
         parameters: {
             query?: never;
             header?: never;
@@ -228,19 +228,19 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Rotate provider profile
+         * Rotate provider connection
          * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
-        post: operations["rotateProviderProfile"];
+        post: operations["rotateProviderConnection"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/account/provider-profiles/{profile_id}/validate": {
+    "/api/v1/account/provider-connections/{provider_connection_id}/validate": {
         parameters: {
             query?: never;
             header?: never;
@@ -250,12 +250,12 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Validate provider profile
+         * Validate provider connection
          * @description **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
          *
          *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
          */
-        post: operations["validateProviderProfile"];
+        post: operations["validateProviderConnection"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3106,8 +3106,8 @@ export interface components {
          * @enum {string}
          */
         ProjectVisibility: "PRIVATE" | "PUBLIC";
-        /** ProviderProfileCreate */
-        ProviderProfileCreate: {
+        /** ProviderConnectionCreate */
+        ProviderConnectionCreate: {
             /**
              * Api Key
              * Format: password
@@ -3126,8 +3126,8 @@ export interface components {
              */
             wire_api: "responses" | "chat_completions";
         };
-        /** ProviderProfileRead */
-        ProviderProfileRead: {
+        /** ProviderConnectionRead */
+        ProviderConnectionRead: {
             /** Api Key Preview */
             api_key_preview?: string | null;
             /** Base Url */
@@ -3159,8 +3159,8 @@ export interface components {
              */
             wire_api: "responses" | "chat_completions";
         };
-        /** ProviderProfileRotate */
-        ProviderProfileRotate: {
+        /** ProviderConnectionRotate */
+        ProviderConnectionRotate: {
             /**
              * Api Key
              * Format: password
@@ -3427,10 +3427,10 @@ export interface components {
              */
             client_request_id: string;
             /**
-             * Provider Profile Id
+             * Provider Connection Id
              * Format: uuid
              */
-            provider_profile_id: string;
+            provider_connection_id: string;
         };
         /** SessionCapabilities */
         SessionCapabilities: {
@@ -3491,10 +3491,10 @@ export interface components {
             /** Context Artifact Ids */
             context_artifact_ids?: string[];
             /**
-             * Provider Profile Id
+             * Provider Connection Id
              * Format: uuid
              */
-            provider_profile_id: string;
+            provider_connection_id: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -4700,7 +4700,7 @@ export interface operations {
             };
         };
     };
-    listProviderProfiles: {
+    listProviderConnections: {
         parameters: {
             query?: {
                 limit?: number;
@@ -4722,7 +4722,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProviderProfileRead"][];
+                    "application/json": components["schemas"]["ProviderConnectionRead"][];
                 };
             };
             /** @description Authentication required */
@@ -4799,7 +4799,7 @@ export interface operations {
             };
         };
     };
-    createProviderProfile: {
+    createProviderConnection: {
         parameters: {
             query?: never;
             header?: never;
@@ -4808,7 +4808,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ProviderProfileCreate"];
+                "application/json": components["schemas"]["ProviderConnectionCreate"];
             };
         };
         responses: {
@@ -4818,7 +4818,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProviderProfileRead"];
+                    "application/json": components["schemas"]["ProviderConnectionRead"];
                 };
             };
             /** @description Authentication required */
@@ -4904,12 +4904,12 @@ export interface operations {
             };
         };
     };
-    deleteProviderProfile: {
+    deleteProviderConnection: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                profile_id: string;
+                provider_connection_id: string;
             };
             cookie?: never;
         };
@@ -4996,18 +4996,18 @@ export interface operations {
             };
         };
     };
-    rotateProviderProfile: {
+    rotateProviderConnection: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                profile_id: string;
+                provider_connection_id: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ProviderProfileRotate"];
+                "application/json": components["schemas"]["ProviderConnectionRotate"];
             };
         };
         responses: {
@@ -5017,7 +5017,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProviderProfileRead"];
+                    "application/json": components["schemas"]["ProviderConnectionRead"];
                 };
             };
             /** @description Authentication required */
@@ -5103,12 +5103,12 @@ export interface operations {
             };
         };
     };
-    validateProviderProfile: {
+    validateProviderConnection: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                profile_id: string;
+                provider_connection_id: string;
             };
             cookie?: never;
         };
@@ -5120,7 +5120,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProviderProfileRead"];
+                    "application/json": components["schemas"]["ProviderConnectionRead"];
                 };
             };
             /** @description Authentication required */

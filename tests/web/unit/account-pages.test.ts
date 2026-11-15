@@ -42,7 +42,7 @@ it('shows core settings without capability configuration', () => {
 
   expect(screen.getByRole('heading', { name: 'Profile' })).toBeTruthy();
   const navigation = screen.getByRole('navigation', { name: 'Settings sections' });
-  for (const item of ['Profile', 'Password and authentication', 'API keys', 'Model providers'])
+  for (const item of ['Profile', 'Password and authentication', 'API keys', 'Provider connections'])
     expect(within(navigation).getByRole('link', { name: item })).toBeTruthy();
   for (const item of ['Account recovery'])
     expect(within(navigation).queryByRole('link', { name: item })).toBeNull();
@@ -91,9 +91,9 @@ it('groups API keys and model providers under Access', () => {
   expect(within(group).getByRole('link', { name: 'API keys' }).getAttribute('href')).toBe(
     '/settings/api-keys',
   );
-  expect(within(group).getByRole('link', { name: 'Model providers' }).getAttribute('href')).toBe(
-    '/settings/model-providers',
-  );
+  expect(
+    within(group).getByRole('link', { name: 'Provider connections' }).getAttribute('href'),
+  ).toBe('/settings/provider-connections');
 });
 
 it('creates an account-wide key without a project and forgets its secret on navigation', async () => {
@@ -146,13 +146,16 @@ it('creates an account-wide key without a project and forgets its secret on navi
 });
 
 it('keeps model providers accessible when agent execution is unavailable', () => {
-  render(AccountSettings, { props: { path: '/settings/model-providers' }, context: context() });
-  expect(screen.getByRole('heading', { name: 'Model providers' })).toBeTruthy();
+  render(AccountSettings, {
+    props: { path: '/settings/provider-connections' },
+    context: context(),
+  });
+  expect(screen.getByRole('heading', { name: 'Provider connections' })).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'Built-in agents are unavailable' })).toBeTruthy();
   expect(
     (screen.getByRole('button', { name: 'Add model provider' }) as HTMLButtonElement).disabled,
   ).toBe(true);
-  expect(screen.getByRole('link', { name: 'Model providers' }).getAttribute('aria-current')).toBe(
-    'page',
-  );
+  expect(
+    screen.getByRole('link', { name: 'Provider connections' }).getAttribute('aria-current'),
+  ).toBe('page');
 });

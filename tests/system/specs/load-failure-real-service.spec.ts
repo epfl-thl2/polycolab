@@ -48,14 +48,19 @@ test('concurrent SSE reconnects replay one ordered suffix without duplication', 
     data: { name: `SSE load ${Date.now()}` },
   });
   expect(project.status).toBe(201);
-  const profile = await call<{ id: string }>(request, 'post', '/api/v1/account/provider-profiles', {
-    data: {
-      display_name: 'SSE load provider',
-      base_url: 'https://8.8.8.8/v1',
-      model_id: 'integration-model',
-      api_key: 'integration-secret',
+  const profile = await call<{ id: string }>(
+    request,
+    'post',
+    '/api/v1/account/provider-connections',
+    {
+      data: {
+        display_name: 'SSE load provider',
+        base_url: 'https://8.8.8.8/v1',
+        model_id: 'integration-model',
+        api_key: 'integration-secret',
+      },
     },
-  });
+  );
   const session = await call<{ id: string }>(request, 'post', '/api/v1/sessions', {
     data: { project_id: project.body.id, agent_kind: 'RESEARCHER' },
   });
@@ -68,7 +73,7 @@ test('concurrent SSE reconnects replay one ordered suffix without duplication', 
         type: 'message',
         client_request_id: randomUUID(),
         content_md: 'Generate a bounded sequence for reconnect testing.',
-        provider_profile_id: profile.body.id,
+        provider_connection_id: profile.body.id,
       },
     },
   );
@@ -194,14 +199,19 @@ test('PostgreSQL outage makes readiness fail and recovers durable writes and wor
     data: { name: `Recovered database ${Date.now()}` },
   });
   expect(project.status).toBe(201);
-  const profile = await call<{ id: string }>(request, 'post', '/api/v1/account/provider-profiles', {
-    data: {
-      display_name: 'Recovered provider',
-      base_url: 'https://8.8.8.8/v1',
-      model_id: 'integration-model',
-      api_key: 'integration-secret',
+  const profile = await call<{ id: string }>(
+    request,
+    'post',
+    '/api/v1/account/provider-connections',
+    {
+      data: {
+        display_name: 'Recovered provider',
+        base_url: 'https://8.8.8.8/v1',
+        model_id: 'integration-model',
+        api_key: 'integration-secret',
+      },
     },
-  });
+  );
   const session = await call<{ id: string }>(request, 'post', '/api/v1/sessions', {
     data: { project_id: project.body.id, agent_kind: 'CRITIC' },
   });
@@ -214,7 +224,7 @@ test('PostgreSQL outage makes readiness fail and recovers durable writes and wor
         type: 'message',
         client_request_id: randomUUID(),
         content_md: 'Verify the recovered worker can persist a run.',
-        provider_profile_id: profile.body.id,
+        provider_connection_id: profile.body.id,
       },
     },
   );

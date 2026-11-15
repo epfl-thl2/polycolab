@@ -4,7 +4,7 @@ Hosted conversations and external agents work within project permissions.
 
 ## Hosted conversations
 
-When hosted execution is enabled, add a model provider in **Settings → Model providers**, open a project, and start a conversation. Choose an available preset or supported custom prompt. Messages, runs, cancellation, and hosted artifacts stay associated with the session. Private conversations remain private unless explicitly shared with project members.
+When hosted execution is enabled, add a model provider in **Settings → Provider connections**, open a project, and start a conversation. Choose an available preset or supported custom prompt. Messages, runs, cancellation, and hosted artifacts stay associated with the session. Private conversations remain private unless explicitly shared with project members.
 
 Agents can work on project files through the workspace's supported execution path. Review saved files and run results. Optional artifact IDs add project artifact metadata to a turn; they do not grant broader access.
 
@@ -23,7 +23,7 @@ The conversation retains its agent configuration and exact execution references.
 
 Conversations start private. Their owner can open **Sharing**, preview the visible
 transcript and choose whether project members may read or contributors may also
-participate. Each participant uses their own provider profile and execution budget.
+participate. Each participant uses their own provider connection and execution budget.
 Sharing the transcript does not share private prompts, tool inputs or private output
 artifacts. Membership and sharing changes apply to subsequent reads and worker actions.
 

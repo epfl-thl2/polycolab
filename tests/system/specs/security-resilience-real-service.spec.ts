@@ -38,15 +38,20 @@ test('revoked memberships block active-session SSE reconnect and cross-project s
     data: { user_id: contributor.body.id, role: 'CONTRIBUTOR' },
   });
   expect(membership.status).toBe(201);
-  const profile = await call<{ id: string }>(request, 'post', '/api/v1/account/provider-profiles', {
-    token: 'contributor',
-    data: {
-      display_name: 'Contributor provider',
-      base_url: 'https://8.8.8.8/v1',
-      model_id: 'integration-model',
-      api_key: 'integration-secret',
+  const profile = await call<{ id: string }>(
+    request,
+    'post',
+    '/api/v1/account/provider-connections',
+    {
+      token: 'contributor',
+      data: {
+        display_name: 'Contributor provider',
+        base_url: 'https://8.8.8.8/v1',
+        model_id: 'integration-model',
+        api_key: 'integration-secret',
+      },
     },
-  });
+  );
   const session = await call<{ id: string }>(request, 'post', '/api/v1/sessions', {
     token: 'contributor',
     data: { project_id: first.body.id, agent_kind: 'CRITIC' },
@@ -61,7 +66,7 @@ test('revoked memberships block active-session SSE reconnect and cross-project s
         type: 'message',
         client_request_id: randomUUID(),
         content_md: 'This reconnect must be revoked.',
-        provider_profile_id: profile.body.id,
+        provider_connection_id: profile.body.id,
       },
     },
   );
@@ -92,14 +97,19 @@ test('provider faults finish as normalized failures without provider credential 
   const project = await call<{ id: string }>(request, 'post', '/api/v1/projects', {
     data: { name: `Provider fault ${Date.now()}` },
   });
-  const profile = await call<{ id: string }>(request, 'post', '/api/v1/account/provider-profiles', {
-    data: {
-      display_name: 'Failing provider',
-      base_url: 'https://8.8.8.8/v1',
-      model_id: 'integration-provider-error',
-      api_key: 'integration-secret',
+  const profile = await call<{ id: string }>(
+    request,
+    'post',
+    '/api/v1/account/provider-connections',
+    {
+      data: {
+        display_name: 'Failing provider',
+        base_url: 'https://8.8.8.8/v1',
+        model_id: 'integration-provider-error',
+        api_key: 'integration-secret',
+      },
     },
-  });
+  );
   const session = await call<{ id: string }>(request, 'post', '/api/v1/sessions', {
     data: { project_id: project.body.id, agent_kind: 'CRITIC' },
   });
@@ -112,7 +122,7 @@ test('provider faults finish as normalized failures without provider credential 
         type: 'message',
         client_request_id: randomUUID(),
         content_md: 'Trigger the deterministic provider failure.',
-        provider_profile_id: profile.body.id,
+        provider_connection_id: profile.body.id,
       },
     },
   );

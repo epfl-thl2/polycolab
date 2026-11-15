@@ -37,7 +37,7 @@ from polycolab.db.models import (
     SqlAgentRunEvent,
     SqlMembership,
     SqlProject,
-    SqlProviderProfile,
+    SqlProviderConnection,
     SqlUser,
 )
 from polycolab.entities.enums import (
@@ -60,7 +60,7 @@ def _queue_run(client: TestClient) -> tuple[Any, UUID]:
         visibility=ProjectVisibility.PRIVATE,
         created_by_user_id=user.id,
     )
-    profile = SqlProviderProfile(
+    profile = SqlProviderConnection(
         user_id=user.id,
         display_name="runtime profile",
         base_url="https://models.example/v1",
@@ -84,7 +84,7 @@ def _queue_run(client: TestClient) -> tuple[Any, UUID]:
         session,
         session_id=agent_session.id,
         requested_by_user_id=user.id,
-        provider_profile_id=profile.id,
+        provider_connection_id=profile.id,
         content_md="Check the private runtime boundary.",
     )
     run_id = run.id

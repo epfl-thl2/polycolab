@@ -13,7 +13,7 @@ The legacy normalized model endpoint remains for the existing worker.
 
 ## Credential handling
 
-Provider profiles never return the full API key, ciphertext, or wrapped data key.
+Provider connections never return the full API key, ciphertext, or wrapped data key.
 They return an owner-only `api_key_preview`, saved atomically when a key is created or replaced.
 For keys of at least 12 characters, it contains the first three and last four characters separated by four bullets.
 Keys of 5–11 characters show four bullets and the last four characters; shorter keys show only four bullets.

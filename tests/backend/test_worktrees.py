@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from test_sessions_api import add_member, create_profile, create_project, headers
+from test_sessions_api import add_member, create_connection, create_project, headers
 
 from polycolab.agents.sessions import (
     append_user_message_and_queue_run,
@@ -154,7 +154,7 @@ def test_task_serializes_runs_across_private_chats_and_pins_shared_branch(
     app = cast(FastAPI, client.app)
     task = create_task(client, project_id)
     chats = [task_chat(client, project_id, task["id"]) for _ in range(2)]
-    profile = create_profile(client, "owner")
+    profile = create_connection(client, "owner")
     runs = []
     for chat in chats:
         response = client.post(
@@ -166,7 +166,7 @@ def test_task_serializes_runs_across_private_chats_and_pins_shared_branch(
                     {
                         "client_request_id": str(uuid4()),
                         "content_md": "Work on task",
-                        "provider_profile_id": profile["id"],
+                        "provider_connection_id": profile["id"],
                     }
                 ),
             },
@@ -228,7 +228,7 @@ def test_task_serializes_runs_across_private_chats_and_pins_shared_branch(
             db,
             run_id=first.id,
             requested_by_user_id=first.requested_by_user_id,
-            provider_profile_id=first.provider_profile_id,
+            provider_connection_id=first.provider_connection_id,
             client_request_id=uuid4(),
         )
         assert resumed.session_id == first.session_id
@@ -238,7 +238,7 @@ def test_task_serializes_runs_across_private_chats_and_pins_shared_branch(
             db,
             session_id=first.session_id,
             requested_by_user_id=first.requested_by_user_id,
-            provider_profile_id=first.provider_profile_id,
+            provider_connection_id=first.provider_connection_id,
             content_md="Old-timestamp intent",
             client_request_id=uuid4(),
             now=utc_now() - timedelta(hours=1),

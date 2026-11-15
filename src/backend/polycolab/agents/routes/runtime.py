@@ -464,7 +464,7 @@ def issue_model_grant(run_id: UUID, payload: LeaseRequest, request: Request) -> 
             grant = issue_run_grant(
                 session,
                 user_id=run.requested_by_user_id,
-                profile_id=run.provider_profile_id,
+                provider_connection_id=run.provider_connection_id,
                 run_id=run.id,
                 model_id=run.gateway_model_id,
                 ttl_seconds=settings.gateway_run_token_ttl_seconds,
@@ -476,7 +476,7 @@ def issue_model_grant(run_id: UUID, payload: LeaseRequest, request: Request) -> 
             raise RuntimeApiConflict(exc.code) from exc
         except GrantInvalid as exc:
             session.rollback()
-            raise RuntimeApiConflict("provider_profile_changed") from exc
+            raise RuntimeApiConflict("provider_connection_changed") from exc
         return {"grant": grant}
     finally:
         session.close()

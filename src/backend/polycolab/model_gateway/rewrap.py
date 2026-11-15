@@ -37,9 +37,9 @@ def migrate_page(
 ) -> MigrationReport:
     """Resume from canonical state: already-target envelopes are never selected.
 
-    Stop at the first failure. Each successful profile update and its audit row
+    Stop at the first failure. Each successful connection update and its audit row
     commit together; rerunning is safe after interruption or ambiguous commits.
-    Reports contain counts/status only, not profile IDs, fingerprints or secrets.
+    Reports contain counts/status only, not connection IDs, fingerprints or secrets.
     """
     if type(limit) is not int or not 1 <= limit <= 100:
         raise ValueError("migration limit must be between 1 and 100")
@@ -59,7 +59,7 @@ def migrate_page(
         try:
             candidate = keyring.prepare_rewrap(
                 context=credential_context(
-                    user_id=snapshot.user_id, profile_id=snapshot.profile_id
+                    user_id=snapshot.user_id, provider_connection_id=snapshot.provider_connection_id
                 ),
                 encrypted=snapshot.encrypted,
                 target_version=keyring.key_version,
@@ -84,7 +84,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--apply", action="store_true", help="commit verified rewraps (default: count only)"
     )
-    parser.add_argument("--limit", type=int, default=100, help="maximum profiles, 1-100")
+    parser.add_argument("--limit", type=int, default=100, help="maximum connections, 1-100")
     parser.add_argument(
         "--expected-target-version", help="required exact envelope version for --apply"
     )

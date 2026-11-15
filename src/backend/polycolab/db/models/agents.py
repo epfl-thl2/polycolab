@@ -275,8 +275,8 @@ class SqlAgentRun(Base):
     request_message_id: Mapped[UUID | None] = mapped_column(nullable=True)
     client_request_id: Mapped[UUID] = mapped_column(index=True, default=uuid4)
     parent_run_id: Mapped[UUID | None] = mapped_column(ForeignKey("agent_runs.id"), nullable=True)
-    provider_profile_id: Mapped[UUID] = mapped_column(
-        ForeignKey("provider_profiles.id"), index=True
+    provider_connection_id: Mapped[UUID] = mapped_column(
+        ForeignKey("provider_connections.id"), index=True
     )
     gateway_credential_version: Mapped[int] = mapped_column(Integer)
     gateway_model_id: Mapped[str] = mapped_column(String(500))

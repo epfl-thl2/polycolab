@@ -62,7 +62,7 @@ def test_live_versions_and_verified_rewrap(
     transit: Callable[[int, str], OpenBaoKeyWrapper],
 ) -> None:
     first, second = transit(1, "integration"), transit(2, "integration")
-    context = credential_context(user_id=uuid4(), profile_id=uuid4())
+    context = credential_context(user_id=uuid4(), provider_connection_id=uuid4())
     original = encrypt_credential(first, context=context, secret="synthetic-test-credential")
     assert original.wrapped_key.startswith(b"vault:v1:")
     keyring = CredentialKeyring([first, second])
@@ -85,12 +85,12 @@ def test_live_context_isolation(
     transit: Callable[[int, str], OpenBaoKeyWrapper], changed: str
 ) -> None:
     user, profile = uuid4(), uuid4()
-    context = credential_context(user_id=user, profile_id=profile)
+    context = credential_context(user_id=user, provider_connection_id=profile)
     wrapper = transit(1, "integration")
     encrypted = encrypt_credential(wrapper, context=context, secret="synthetic-test-credential")
     other_context = credential_context(
         user_id=uuid4() if changed == "user" else user,
-        profile_id=uuid4() if changed == "profile" else profile,
+        provider_connection_id=uuid4() if changed == "profile" else profile,
     )
     other_wrapper = transit(1, "other-environment") if changed == "environment" else wrapper
     # Exercise Transit directly rather than stopping at envelope-version routing.
@@ -106,7 +106,7 @@ def test_live_unavailable_version_preserves_original(
     transit: Callable[[int, str], OpenBaoKeyWrapper],
 ) -> None:
     first, absent = transit(1, "integration"), transit(2**31 - 1, "integration")
-    context = credential_context(user_id=uuid4(), profile_id=uuid4())
+    context = credential_context(user_id=uuid4(), provider_connection_id=uuid4())
     original = encrypt_credential(first, context=context, secret="synthetic-test-credential")
     keyring = CredentialKeyring([first, absent])
     with pytest.raises(CredentialError, match="key_service_policy_invalid"):

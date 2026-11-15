@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from polycolab.artifacts.storage import ArtifactIntegrity, GarageStorage, garage_storage
 from polycolab.db.models import (
     SqlArtifact,
-    SqlProviderProfile,
+    SqlProviderConnection,
 )
 from polycolab.db.session import make_engine, make_session_factory
 from polycolab.entities.enums import (
@@ -81,7 +81,7 @@ def verify_artifacts(
 def verify_credentials(
     factory: sessionmaker[Session], wrapper: KeyWrapper, *, max_items: int = 1000
 ) -> DependencyReport:
-    """Check all retained envelopes, including deleted profiles, without retaining plaintext."""
+    """Check all retained envelopes, including deleted connections, without retaining plaintext."""
     if type(max_items) is not int or not 1 <= max_items <= 1_000_000:
         raise ValueError("invalid item bound")
     checked = 0
@@ -90,10 +90,10 @@ def verify_credentials(
         try:
             with factory() as session:
                 _read_only(session)
-                query = select(SqlProviderProfile)
+                query = select(SqlProviderConnection)
                 if cursor is not None:
-                    query = query.where(SqlProviderProfile.id > cursor)
-                rows = list(session.scalars(query.order_by(SqlProviderProfile.id).limit(100)))
+                    query = query.where(SqlProviderConnection.id > cursor)
+                rows = list(session.scalars(query.order_by(SqlProviderConnection.id).limit(100)))
             if not rows:
                 return DependencyReport("VERIFIED", checked)
         except Exception:
@@ -104,7 +104,7 @@ def verify_credentials(
             try:
                 decrypt_credential(
                     wrapper,
-                    context=credential_context(user_id=row.user_id, profile_id=row.id),
+                    context=credential_context(user_id=row.user_id, provider_connection_id=row.id),
                     encrypted=EncryptedCredential(
                         row.encrypted_credential, row.wrapped_data_key, row.encryption_key_version
                     ),

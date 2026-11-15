@@ -8,14 +8,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
 from test_sessions_api import (
     add_member,
-    create_profile,
+    create_connection,
     create_project,
     create_session,
     headers,
 )
 
 from polycolab.conversations.service import set_sharing
-from polycolab.db.models import SqlAgentRun, SqlMembership, SqlProviderProfile
+from polycolab.db.models import SqlAgentRun, SqlMembership, SqlProviderConnection
 from polycolab.db.stores.conversations import SqlConversationStore
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.conversation import ConversationSharing
@@ -39,12 +39,12 @@ def shared_session(client: TestClient) -> tuple[Any, UUID, UUID, UUID, dict[str,
             owner_id,
             ConversationSharing.PROJECT_CONTRIBUTABLE,
         )
-    profile = create_profile(client, "contributor")
+    profile = create_connection(client, "contributor")
     message = {
         "type": "message",
         "client_request_id": str(uuid4()),
         "content_md": "Contribute with my own model profile.",
-        "provider_profile_id": str(profile["id"]),
+        "provider_connection_id": str(profile["id"]),
     }
     return app, project_id, session_id, sender_id, message
 
@@ -54,11 +54,11 @@ def test_shared_submission_profiles_retries_and_owner_interruption(
 ) -> None:
     app, _, session_id, sender_id, message = shared_session(client)
     path = f"/api/v1/sessions/{session_id}/events"
-    owner_profile = create_profile(client, "owner")
+    owner_profile = create_connection(client, "owner")
     stolen_profile = client.post(
         path,
         headers=headers("contributor"),
-        json={**message, "provider_profile_id": owner_profile["id"]},
+        json={**message, "provider_connection_id": owner_profile["id"]},
     )
     assert stolen_profile.status_code == 409
     assert client.post(path, headers=headers("reader"), json=message).status_code == 403
@@ -80,10 +80,10 @@ def test_shared_submission_profiles_retries_and_owner_interruption(
     assert client.post(path, headers=headers("owner"), json=message).status_code == 409
     with app.state.session_factory() as db:
         run = db.get(SqlAgentRun, run_id)
-        profile = db.get(SqlProviderProfile, UUID(message["provider_profile_id"]))
+        profile = db.get(SqlProviderConnection, UUID(message["provider_connection_id"]))
         assert run is not None and profile is not None
         assert run.requested_by_user_id == sender_id == profile.user_id
-        assert run.provider_profile_id == profile.id
+        assert run.provider_connection_id == profile.id
         assert run.gateway_credential_version == profile.credential_version
     assert (
         client.patch(
@@ -112,7 +112,7 @@ def test_shared_submission_profiles_retries_and_owner_interruption(
         headers=headers("contributor"),
         json={
             "client_request_id": str(uuid4()),
-            "provider_profile_id": message["provider_profile_id"],
+            "provider_connection_id": message["provider_connection_id"],
         },
     )
     assert resume.status_code == 202, resume.text
