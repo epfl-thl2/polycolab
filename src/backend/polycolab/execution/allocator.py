@@ -62,7 +62,7 @@ def admit(session: Session, run: SqlAgentRun) -> None:
     session.add(
         SqlExecutionWorkItem(
             agent_run_id=run.id,
-            sponsor_user_id=run.requested_by_user_id,
+            requested_by_user_id=run.requested_by_user_id,
             project_id=run.project_id,
             workload_class=AGENT,
             policy_version=POLICY.version,
@@ -156,7 +156,7 @@ def _candidate(
                         )
                     )
                 ),
-                item.sponsor_user_id == SqlAgentRun.requested_by_user_id
+                item.requested_by_user_id == SqlAgentRun.requested_by_user_id
                 if user_scope
                 else item.project_id == SqlAgentRun.project_id,
             )

@@ -17,7 +17,7 @@ from polycolab.db.models.accounts import SqlSocialAuthTransaction as SqlSocialAu
 from polycolab.db.models.accounts import SqlSocialIdentityAudit as SqlSocialIdentityAudit
 from polycolab.db.models.accounts import SqlUser as SqlUser
 from polycolab.db.models.agent_access import (
-    SqlExternalAgentCredential as SqlExternalAgentCredential,
+    SqlAgentApiKey as SqlAgentApiKey,
 )
 from polycolab.db.models.agents import SqlAgentRun as SqlAgentRun
 from polycolab.db.models.agents import SqlAgentRunEvent as SqlAgentRunEvent
@@ -140,7 +140,7 @@ __all__ = [
     "SqlContextManifest",
     "SqlContextManifestArtifact",
     "SqlRunToolCapability",
-    "SqlExternalAgentCredential",
+    "SqlAgentApiKey",
     "SqlArtifact",
     "SqlExecutionWorkItem",
     "SqlExecutionClassState",

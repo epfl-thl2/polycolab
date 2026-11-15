@@ -17,16 +17,16 @@ it('authenticates account key management', async () => {
         id: 'credential-a',
         project_id: null,
         scope_kind: 'ACCOUNT',
-        sponsor_user_id: 'user-a',
+        owner_user_id: 'user-a',
         name: 'Lean helper',
         secret: 'shown-once',
         expires_at: '2026-09-10T10:00:00Z',
         created_at: '2026-09-09T10:00:00Z',
         revoked_at: null,
         request_count: 0,
-        mutation_count: 0,
+        write_count: 0,
         max_requests: 100,
-        max_mutations: 20,
+        max_writes: 20,
       });
     }
     if (request.method === 'DELETE') return new Response(null, { status: 204 });

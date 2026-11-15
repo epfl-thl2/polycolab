@@ -52,7 +52,7 @@ class SqlExecutionWorkItem(Base):
     agent_run_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("agent_runs.id"), nullable=True, unique=True
     )
-    sponsor_user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    requested_by_user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
     project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), index=True)
     workload_class: Mapped[ExecutionWorkloadClass] = mapped_column(
         Enum(ExecutionWorkloadClass, native_enum=False, length=24)

@@ -13,8 +13,8 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 
 from polycolab.db.models import (
+    SqlAgentApiKey,
     SqlAuthSession,
-    SqlExternalAgentCredential,
     SqlOperatorRestoreInvalidation,
 )
 from polycolab.db.session import make_engine, make_session_factory
@@ -55,8 +55,8 @@ def invalidate_restored_protected_access(
     revoked_credentials = cast(
         CursorResult[Any],
         session.execute(
-            update(SqlExternalAgentCredential)
-            .where(SqlExternalAgentCredential.revoked_at.is_(None))
+            update(SqlAgentApiKey)
+            .where(SqlAgentApiKey.revoked_at.is_(None))
             .values(revoked_at=observed_at)
         ),
     ).rowcount

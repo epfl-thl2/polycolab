@@ -33,7 +33,7 @@ def test_agent_work_item_and_slot_keep_physical_release_separate(
         session.commit()
         item = SqlExecutionWorkItem(
             agent_run_id=run.id,
-            sponsor_user_id=user.id,
+            requested_by_user_id=user.id,
             project_id=run.project_id,
             workload_class=ExecutionWorkloadClass.AGENT,
             policy_version=1,

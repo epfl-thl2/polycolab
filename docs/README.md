@@ -26,6 +26,8 @@ See [Linear projects](architecture/linear-projects.md) for live collaboration an
 
 See [Project files](architecture/project-files.md) for Git-backed task working copies, collaboration, and coordinated backups.
 
+See the [product terminology](terminology.md) for canonical names and distinctions.
+
 ## Authority
 
 After an explicit task or design decision, use this order when documents disagree:

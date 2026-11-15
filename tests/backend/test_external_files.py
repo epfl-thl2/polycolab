@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from test_default_files import files as files
 from test_sessions_api import add_member, headers
 
-from polycolab.db.models import SqlExternalAgentCredential
+from polycolab.db.models import SqlAgentApiKey
 from polycolab.entities.time import utc_now
 from polycolab.projects.default_files import DefaultFiles
 from polycolab.projects.file_access import FileAccess
@@ -161,7 +161,7 @@ def test_invalid_or_exhausted_key_cannot_write(
     key = key_for(client)
     app = cast(Any, client.app)
     with app.state.session_factory() as db:
-        row = db.get(SqlExternalAgentCredential, UUID(key["id"]))
+        row = db.get(SqlAgentApiKey, UUID(key["id"]))
         if condition == "expired":
             row.expires_at = utc_now() - timedelta(seconds=1)
         elif condition == "revoked":
@@ -169,7 +169,7 @@ def test_invalid_or_exhausted_key_cannot_write(
         elif condition == "requests":
             row.request_count = row.max_requests
         elif condition == "mutations":
-            row.mutation_count = row.max_mutations
+            row.write_count = row.max_writes
         else:
             other = client.post(
                 "/api/v1/projects", headers=headers("owner"), json={"name": "Other"}
@@ -202,7 +202,7 @@ def test_project_key_is_bound_to_its_project(
     client, root, _ = files
     key = key_for(client)
     with cast(Any, client.app).state.session_factory() as db:
-        row = db.get(SqlExternalAgentCredential, UUID(key["id"]))
+        row = db.get(SqlAgentApiKey, UUID(key["id"]))
         row.scope_kind, row.project_id = "PROJECT", UUID(root.split("/")[-2])
         db.commit()
     assert client.get(root, headers=headers(key["secret"])).status_code == 200
@@ -217,7 +217,7 @@ def test_revocation_after_admission_prevents_write(
 
     def revoked(access: FileAccess, db: Session, instance: DefaultFiles, *, write: bool) -> None:
         with cast(Any, client.app).state.session_factory() as revoke_db:
-            revoke_db.get(SqlExternalAgentCredential, UUID(key["id"])).revoked_at = utc_now()
+            revoke_db.get(SqlAgentApiKey, UUID(key["id"])).revoked_at = utc_now()
             revoke_db.commit()
         original(access, db, instance, write=write)
 
@@ -240,7 +240,7 @@ def test_concurrent_agent_writes_cannot_exceed_budget(
     client, root, directory = files
     key = key_for(client)
     with cast(Any, client.app).state.session_factory() as db:
-        db.get(SqlExternalAgentCredential, UUID(key["id"])).max_mutations = 1
+        db.get(SqlAgentApiKey, UUID(key["id"])).max_writes = 1
         db.commit()
 
     def write(name: str) -> int:

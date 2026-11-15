@@ -202,9 +202,9 @@ class Settings(BaseSettings):
     runtime_api_max_response_bytes: int = Field(default=1_000_000, ge=1, le=20_000_000)
     runtime_worker_poll_seconds: float = Field(default=0.25, gt=0, le=5)
     # Human moderation of public projects is separate from Library moderation.
-    external_agent_credential_ttl_seconds: int = Field(default=2_592_000, ge=3600, le=31_536_000)
-    external_agent_max_requests: int = Field(default=10_000, ge=1, le=1_000_000)
-    external_agent_max_mutations: int = Field(default=1_000, ge=1, le=100_000)
+    agent_api_key_ttl_seconds: int = Field(default=2_592_000, ge=3600, le=31_536_000)
+    agent_api_key_max_requests: int = Field(default=10_000, ge=1, le=1_000_000)
+    agent_api_key_max_writes: int = Field(default=1_000, ge=1, le=100_000)
     project_repository_directory: Path | None = Field(
         default=None,
         validation_alias=AliasChoices(

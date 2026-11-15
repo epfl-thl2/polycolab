@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi.testclient import TestClient
 
-from polycolab.db.models import SqlExternalAgentCredential
+from polycolab.db.models import SqlAgentApiKey
 from polycolab.model_gateway.credentials import LocalAesGcmKeyWrapper
 
 
@@ -26,7 +26,7 @@ def test_owner_can_reveal_repeatedly_but_list_never_contains_secret(
     assert key["secret_reveal_available"] is True
     app = cast(Any, client.app)
     with app.state.session_factory() as session:
-        row = session.get(SqlExternalAgentCredential, UUID(key["id"]))
+        row = session.get(SqlAgentApiKey, UUID(key["id"]))
         assert row is not None
         assert row.encrypted_secret is not None
         assert key["secret"].encode() not in row.encrypted_secret
@@ -60,7 +60,7 @@ def test_legacy_and_revoked_keys_cannot_be_revealed(client: TestClient) -> None:
     key = create_key(client)
     app = cast(Any, client.app)
     with app.state.session_factory() as session:
-        row = session.get(SqlExternalAgentCredential, UUID(key["id"]))
+        row = session.get(SqlAgentApiKey, UUID(key["id"]))
         assert row is not None
         row.encrypted_secret = None
         row.wrapped_data_key = None

@@ -29,7 +29,7 @@ class FileAccess:
         if self.secret is None:
             return
         key = credential_from_secret(db, self.secret, consume_request=False, allow_project=True)
-        if key.sponsor_user_id != self.user_id or (
+        if key.owner_user_id != self.user_id or (
             key.scope_kind == "PROJECT" and key.project_id != project_id
         ):
             raise ProjectNotFound
@@ -62,7 +62,7 @@ def file_access(
         key = credential_from_secret(db, token, allow_project=True)
         if key.scope_kind == "PROJECT" and key.project_id != project_id:
             raise ProjectNotFound
-        return FileAccess(key.sponsor_user_id, token)
+        return FileAccess(key.owner_user_id, token)
     user = current_user(SqlAlchemyTransaction(db), current_principal(request))
     return FileAccess(user.id)
 

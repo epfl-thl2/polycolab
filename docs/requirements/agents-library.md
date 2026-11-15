@@ -1,7 +1,7 @@
 # Agent library
 
 Agents is the destination for reusable agent instructions and external plugin listings.
-It contains Library and Yours. External keys belong directly to their human sponsor and are managed in Settings.
+It contains Library and Yours. External keys belong directly to their owner and are managed in Settings.
 Saved custom-agent configurations remain future work.
 
 ## Discovery and use

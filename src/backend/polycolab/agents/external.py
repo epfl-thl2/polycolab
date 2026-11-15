@@ -47,7 +47,7 @@ from polycolab.agents.credentials import (
     fixed_right_values as fixed_right_values,
 )
 from polycolab.db.models import (
-    SqlExternalAgentCredential,
+    SqlAgentApiKey,
 )
 from polycolab.entities.accounts import IdentifiedUser
 from polycolab.entities.time import utc_now
@@ -61,37 +61,37 @@ from polycolab.model_gateway.credentials import (
 
 @dataclass(frozen=True, slots=True)
 class IssuedCredential:
-    credential: SqlExternalAgentCredential
+    credential: SqlAgentApiKey
     secret: str
 
 
 def issue_credential(
     session: Session,
     *,
-    sponsor: IdentifiedUser,
+    owner: IdentifiedUser,
     name: str,
     ttl_seconds: int,
     max_requests: int,
-    max_mutations: int,
+    max_writes: int,
     wrapper: KeyWrapper | None = None,
 ) -> IssuedCredential:
     credential_id = uuid4()
     secret = f"pca_{credential_id.hex}_{secrets.token_urlsafe(32)}"
-    credential = SqlExternalAgentCredential(
+    credential = SqlAgentApiKey(
         id=credential_id,
         project_id=None,
         scope_kind="ACCOUNT",
-        sponsor_user_id=sponsor.id,
+        owner_user_id=owner.id,
         name=name,
         token_digest=_digest(secret),
         fixed_rights=fixed_right_values(),
         expires_at=utc_now() + timedelta(seconds=ttl_seconds),
         max_requests=max_requests,
-        max_mutations=max_mutations,
+        max_writes=max_writes,
     )
     if wrapper is not None:
         encrypted = encrypt_credential(
-            wrapper, context=key_secret_context(sponsor.id, credential_id), secret=secret
+            wrapper, context=key_secret_context(owner.id, credential_id), secret=secret
         )
         credential.encrypted_secret = encrypted.ciphertext
         credential.wrapped_data_key = encrypted.wrapped_key
@@ -110,10 +110,10 @@ def reveal_credential(
     session: Session, *, credential_id: UUID, user_id: UUID, wrapper: KeyWrapper
 ) -> str:
     credential = session.scalar(
-        select(SqlExternalAgentCredential)
+        select(SqlAgentApiKey)
         .where(
-            SqlExternalAgentCredential.id == credential_id,
-            SqlExternalAgentCredential.sponsor_user_id == user_id,
+            SqlAgentApiKey.id == credential_id,
+            SqlAgentApiKey.owner_user_id == user_id,
         )
         .with_for_update()
     )
@@ -137,14 +137,12 @@ def reveal_credential(
     )
 
 
-def revoke_credential(
-    session: Session, *, credential_id: UUID, user_id: UUID
-) -> SqlExternalAgentCredential:
+def revoke_credential(session: Session, *, credential_id: UUID, user_id: UUID) -> SqlAgentApiKey:
     credential = session.scalar(
-        select(SqlExternalAgentCredential)
+        select(SqlAgentApiKey)
         .where(
-            SqlExternalAgentCredential.id == credential_id,
-            SqlExternalAgentCredential.sponsor_user_id == user_id,
+            SqlAgentApiKey.id == credential_id,
+            SqlAgentApiKey.owner_user_id == user_id,
         )
         .with_for_update()
         .execution_options(populate_existing=True)

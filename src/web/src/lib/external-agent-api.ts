@@ -3,8 +3,8 @@ import type { components } from '$lib/api-client';
 import { createWebApiClient } from './runtime';
 import { ApiError, type Page } from './projects-api';
 
-export type ExternalCredential = components['schemas']['ExternalCredentialRead'];
-export type IssuedExternalCredential = components['schemas']['ExternalCredentialIssued'];
+export type AgentApiKey = components['schemas']['AgentApiKeyRead'];
+export type IssuedAgentApiKey = components['schemas']['AgentApiKeyIssued'];
 
 type ErrorBody = { error?: { code?: string } };
 

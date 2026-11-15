@@ -18,6 +18,6 @@ Use HTTPS except for explicit loopback development. Send `Authorization: Bearer 
 
 On a conflict, read and compare current contents before retrying. Keep paths relative to the project root. Report changed paths and relevant checks. Ask for a concrete task before making changes if the human only asked to connect.
 
-Keys follow the sponsor's current and future memberships. Limit work to the user's intended project. Read-only membership allows reads; active owner/contributor membership permits writes. Revoked/expired keys and exhausted budgets are denied. A failed write may consume mutation budget.
+Keys follow the owner's current and future memberships. Limit work to the user's intended project. Read-only membership allows reads; active owner/contributor membership permits writes. Revoked/expired keys and exhausted limits are denied. A failed write may consume write limit.
 
 External keys currently support Default files, not Git or Linear HTTP resources. They cannot manage accounts, members, keys, or access private conversations. There is no research-object, commons, catalogue, publication, or verification API. Use files for notes, code, and other project material.

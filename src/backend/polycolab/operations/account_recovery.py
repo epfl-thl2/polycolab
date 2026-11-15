@@ -14,8 +14,8 @@ from sqlalchemy.orm import Session
 
 from polycolab.accounts.builtin import hash_password, normalize_username
 from polycolab.db.models import (
+    SqlAgentApiKey,
     SqlAuthSession,
-    SqlExternalAgentCredential,
     SqlLocalAccount,
     SqlOperatorAccountRecovery,
     SqlUser,
@@ -77,10 +77,10 @@ def recover_account(
     )
     credentials = list(
         session.scalars(
-            select(SqlExternalAgentCredential)
+            select(SqlAgentApiKey)
             .where(
-                SqlExternalAgentCredential.sponsor_user_id == user.id,
-                SqlExternalAgentCredential.revoked_at.is_(None),
+                SqlAgentApiKey.owner_user_id == user.id,
+                SqlAgentApiKey.revoked_at.is_(None),
             )
             .with_for_update()
         )

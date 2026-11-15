@@ -13,17 +13,17 @@
   import { Input } from '../lib/components/ui/input';
   import * as Field from '../lib/components/ui/field';
   import { explain, projectContext } from '../svelte-lib/context';
-  import type { ExternalCredential, IssuedExternalCredential } from '../lib/external-agent-api';
+  import type { AgentApiKey, IssuedAgentApiKey } from '../lib/external-agent-api';
   let {
     embeddedCreate = false,
     onDone = () => {},
   }: { embeddedCreate?: boolean; onDone?: () => void } = $props();
   const { externalAgents, auth } = projectContext();
   const confirmation = new Confirmation();
-  let keys = $state<ExternalCredential[]>([]);
+  let keys = $state<AgentApiKey[]>([]);
   let cursor = $state<string>();
   let policy = $state<Awaited<ReturnType<typeof externalAgents.identity>>['agent_key_policy']>();
-  let issued = $state<IssuedExternalCredential>();
+  let issued = $state<IssuedAgentApiKey>();
   let name = $state('');
   let busy = $state(false);
   let error = $state('');
@@ -56,7 +56,7 @@
     notice = '';
     dialogOpen = true;
   }
-  async function copyMaskedKey(key: ExternalCredential) {
+  async function copyMaskedKey(key: AgentApiKey) {
     const current = generation;
     busy = true;
     error = '';
@@ -135,7 +135,7 @@
       busy = false;
     }
   }
-  async function reveal(key: ExternalCredential) {
+  async function reveal(key: AgentApiKey) {
     const current = generation;
     busy = true;
     error = '';
@@ -151,7 +151,7 @@
       busy = false;
     }
   }
-  async function revoke(key: ExternalCredential) {
+  async function revoke(key: AgentApiKey) {
     document.getElementById(`key-actions-${key.id}`)?.focus();
     if (
       !(await confirmation.ask(
@@ -172,10 +172,10 @@
       busy = false;
     }
   }
-  function status(key: ExternalCredential) {
+  function status(key: AgentApiKey) {
     if (key.revoked_at) return 'Revoked';
     if (Date.parse(key.expires_at) <= Date.now()) return 'Expired';
-    if (key.request_count >= key.max_requests || key.mutation_count >= key.max_mutations)
+    if (key.request_count >= key.max_requests || key.write_count >= key.max_writes)
       return 'Exhausted';
     return 'Active';
   }
@@ -496,7 +496,7 @@
             <p>Keys cannot access conversations or manage your account and project memberships.</p>
             <p>
               Expires after {Math.round(policy.ttl_seconds / 86400)} days. Each key includes {policy.max_requests.toLocaleString()}
-              requests and {policy.max_mutations.toLocaleString()} mutations.
+              requests and {policy.max_writes.toLocaleString()} writes.
             </p>
           </details>
         </div>

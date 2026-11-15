@@ -385,13 +385,13 @@ def verify(connection: Connection, ids: dict[str, Any]) -> None:
     assert saved.storage_key == "staging/retained" and saved.byte_length == 10
     orphan = connection.execute(sa.select(artifacts).where(artifacts.c.id == key("orphan"))).one()
     assert orphan.project_id is None and orphan.state == "DELETING" and orphan.committed_at is None
-    credentials = metadata.tables["external_agent_credentials"]
+    credentials = metadata.tables["agent_api_keys"]
     credential = connection.execute(
         sa.select(credentials).where(credentials.c.id == key("key"))
     ).one()
     assert credential.token_digest == "a" * 64 and credential.fixed_rights == ["PROJECT_WRITE"]
     assert credential.encrypted_secret == b"keep ciphertext"
-    assert credential.request_count == 7 and credential.mutation_count == 2
+    assert credential.request_count == 7 and credential.write_count == 2
     messages = metadata.tables["conversation_items"]
     assert (
         connection.scalar(sa.select(messages.c.content_md).where(messages.c.id == key("message")))

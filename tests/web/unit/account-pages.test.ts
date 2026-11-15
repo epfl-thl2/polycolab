@@ -108,7 +108,7 @@ it('creates an account-wide key without a project and forgets its secret on navi
         scope: 'ACCOUNT',
         ttl_seconds: 2592000,
         max_requests: 10000,
-        max_mutations: 1000,
+        max_writes: 1000,
       },
     }),
     listCredentials: vi.fn().mockResolvedValue({ items: [], nextCursor: undefined }),

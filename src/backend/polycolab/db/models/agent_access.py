@@ -1,4 +1,4 @@
-"""Human-sponsored external credentials."""
+"""User-owned agent API keys."""
 
 from datetime import datetime
 from uuid import UUID, uuid4
@@ -19,31 +19,29 @@ from polycolab.db.base import Base
 from polycolab.entities.time import utc_now
 
 
-class SqlExternalAgentCredential(Base):
+class SqlAgentApiKey(Base):
     """Opaque delegated identity; historical project grants remain immutable."""
 
-    __tablename__ = "external_agent_credentials"
+    __tablename__ = "agent_api_keys"
     __table_args__ = (
-        UniqueConstraint(
-            "id", "project_id", "sponsor_user_id", name="uq_external_agent_credential_identity"
-        ),
-        UniqueConstraint("id", "sponsor_user_id", name="uq_external_credential_sponsor"),
+        UniqueConstraint("id", "project_id", "owner_user_id", name="uq_agent_api_key_identity"),
+        UniqueConstraint("id", "owner_user_id", name="uq_agent_api_key_owner"),
         CheckConstraint(
             "(scope_kind = 'ACCOUNT' AND project_id IS NULL) OR "
             "(scope_kind = 'PROJECT' AND project_id IS NOT NULL)",
-            name="ck_external_credential_scope",
+            name="ck_agent_api_key_scope",
         ),
-        CheckConstraint("length(token_digest) = 64", name="ck_external_agent_token_digest"),
-        CheckConstraint("request_count >= 0", name="ck_external_agent_request_count"),
-        CheckConstraint("mutation_count >= 0", name="ck_external_agent_mutation_count"),
-        CheckConstraint("max_requests > 0", name="ck_external_agent_max_requests"),
-        CheckConstraint("max_mutations > 0", name="ck_external_agent_max_mutations"),
+        CheckConstraint("length(token_digest) = 64", name="ck_agent_api_key_token_digest"),
+        CheckConstraint("request_count >= 0", name="ck_agent_api_key_request_count"),
+        CheckConstraint("write_count >= 0", name="ck_agent_api_key_write_count"),
+        CheckConstraint("max_requests > 0", name="ck_agent_api_key_max_requests"),
+        CheckConstraint("max_writes > 0", name="ck_agent_api_key_max_writes"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     project_id: Mapped[UUID | None] = mapped_column(ForeignKey("projects.id"), index=True)
     scope_kind: Mapped[str] = mapped_column(String(16), default="ACCOUNT")
-    sponsor_user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    owner_user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
     name: Mapped[str] = mapped_column(String(200))
     token_digest: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     encrypted_secret: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
@@ -60,7 +58,7 @@ class SqlExternalAgentCredential(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     request_count: Mapped[int] = mapped_column(Integer, default=0)
-    mutation_count: Mapped[int] = mapped_column(Integer, default=0)
+    write_count: Mapped[int] = mapped_column(Integer, default=0)
     max_requests: Mapped[int] = mapped_column(Integer)
-    max_mutations: Mapped[int] = mapped_column(Integer)
+    max_writes: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

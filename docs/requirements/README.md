@@ -10,4 +10,4 @@ Polycolab is a shared online project workspace for people and agents. Project fi
 | [Agent library](agents-library.md)    | Reusable prompts, skills, and plugin listings           |
 | [Non-functional](non-functional.md)   | Privacy, consistency, recovery, and usability           |
 
-Public project visibility exposes its name and description. Files, artifacts, and conversations require their applicable membership or session permissions. Owners manage membership and visibility. External keys follow their sponsor's current permissions.
+Public project visibility exposes its name and description. Files, artifacts, and conversations require their applicable membership or session permissions. Owners manage membership and visibility. External keys follow their owner's current permissions.

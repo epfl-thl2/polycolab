@@ -107,20 +107,25 @@ def verify(
     user, credentials = data
     inspector = sa.inspect(connection)
     assert "external_agent_identities" not in inspector.get_table_names()
-    assert "agent_id" not in {
-        c["name"] for c in inspector.get_columns("external_agent_credentials")
-    }
+    assert "agent_id" not in {c["name"] for c in inspector.get_columns("agent_api_keys")}
     from alembic.autogenerate import compare_metadata
     from alembic.migration import MigrationContext
 
     assert not compare_metadata(MigrationContext.configure(connection), Base.metadata)
-    table = sa.Table("external_agent_credentials", sa.MetaData(), autoload_with=connection)
+    table = sa.Table("agent_api_keys", sa.MetaData(), autoload_with=connection)
     for index, (identifier, secret, before) in enumerate(credentials):
         stored_id = identifier.hex if connection.dialect.name == "sqlite" else identifier
         after = dict(
             connection.execute(sa.select(table).where(table.c.id == stored_id)).mappings().one()
         )
-        assert after == before
+        assert after == {
+            {
+                "sponsor_user_id": "owner_user_id",
+                "mutation_count": "write_count",
+                "max_mutations": "max_writes",
+            }.get(k, k): v
+            for k, v in before.items()
+        }
         with Session(connection, join_transaction_mode="create_savepoint") as session:
             if index in (1, 2):
                 with pytest.raises(ExternalAgentInvalid):
@@ -128,7 +133,7 @@ def verify(
             else:
                 credential = credential_from_secret(session, secret, consume_request=False)
                 assert credential.id == identifier
-                assert credential.sponsor_user_id == user
+                assert credential.owner_user_id == user
                 assert (
                     reveal_credential(
                         session, credential_id=identifier, user_id=user, wrapper=WRAPPER
@@ -139,9 +144,9 @@ def verify(
         assert connection.exec_driver_sql("PRAGMA foreign_key_check").all() == []
     else:
         # Grant immutability must survive replacing the trigger's identity binding.
-        with pytest.raises(sa.exc.DBAPIError, match="credential grant is immutable"):
+        with pytest.raises(sa.exc.DBAPIError, match="API key grant is immutable"):
             with connection.begin_nested():
-                connection.execute(table.update().values(max_mutations=999))
+                connection.execute(table.update().values(max_writes=999))
 
 
 def test_sqlite_upgrade_preserves_sponsored_keys(tmp_path: Path) -> None:
@@ -186,9 +191,15 @@ def test_retired_identity_paths_and_fields_are_rejected(client: TestClient) -> N
     created = client.post("/api/v1/account/agent-keys", headers=headers, json={"name": "Named key"})
     assert created.status_code == 201
     assert "agent_id" not in created.json()
+    assert "owner_user_id" in created.json()
+    assert created.json()["write_count"] == 0
+    assert created.json()["max_writes"] > 0
+    assert not {"sponsor_user_id", "mutation_count", "max_mutations"} & created.json().keys()
     identity = client.get(
         "/api/v1/me", headers={"Authorization": f"Bearer {created.json()['secret']}"}
     )
     assert identity.status_code == 200
     assert identity.json()["credential_id"] == created.json()["id"]
     assert "agent_id" not in identity.json()
+    assert identity.json()["writes_remaining"] == created.json()["max_writes"]
+    assert "mutations_remaining" not in identity.json()

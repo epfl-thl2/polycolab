@@ -33,19 +33,19 @@ export interface paths {
         };
         /**
          * List your agent keys
-         * @description Human-only, sponsor-only paginated key metadata and usage. Never returns secrets.
+         * @description Human-only, owner-only paginated key metadata and usage. Never returns secrets.
          *
          *     **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
          */
-        get: operations["listExternalAgentCredentials"];
+        get: operations["listAgentApiKeys"];
         put?: never;
         /**
          * Create an account-wide agent key
-         * @description Human-only. Creates a named key following current and future project memberships, including private projects. Returns the secret, with encrypted storage for later owner-only reveal. Expiry and budgets are set by the server.
+         * @description Human-only. Creates a named key following current and future project memberships, including private projects. Returns the secret, with encrypted storage for later owner-only reveal. Expiry and limits are set by the server.
          *
          *     **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
          */
-        post: operations["createExternalAgentCredential"];
+        post: operations["createAgentApiKey"];
         delete?: never;
         options?: never;
         head?: never;
@@ -64,11 +64,11 @@ export interface paths {
         post?: never;
         /**
          * Revoke your agent key
-         * @description Human-only and sponsor-only. Revokes file access for this key.
+         * @description Human-only and owner-only. Revokes file access for this key.
          *
          *     **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
          */
-        delete: operations["revokeExternalAgentCredential"];
+        delete: operations["revokeAgentApiKey"];
         options?: never;
         head?: never;
         patch?: never;
@@ -85,11 +85,11 @@ export interface paths {
         put?: never;
         /**
          * Reveal your agent key
-         * @description Human-only and sponsor-only. Reveals a recoverable, non-revoked key. Legacy hash-only keys cannot be revealed.
+         * @description Human-only and owner-only. Reveals a recoverable, non-revoked key. Legacy hash-only keys cannot be revealed.
          *
          *     **Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.
          */
-        post: operations["revealExternalAgentCredential"];
+        post: operations["revealAgentApiKey"];
         delete?: never;
         options?: never;
         head?: never;
@@ -628,8 +628,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Inspect identity and agent budgets
-         * @description Returns human key-issuance policy or agent rights, expiry and remaining budgets. Does not consume the agent request budget; rate protection still applies.
+         * Inspect identity and agent limits
+         * @description Returns human key-issuance policy or agent rights, expiry and remaining limits. Does not consume the agent request budget; rate protection still applies.
          *
          *     **Access:** Human session/OIDC token or agent key accepted. Current membership and operation-specific rights apply.
          */
@@ -1926,6 +1926,116 @@ export interface components {
              */
             token: string;
         };
+        /** AgentApiKeyCreate */
+        AgentApiKeyCreate: {
+            /** Name */
+            name: string;
+        };
+        /** AgentApiKeyIssued */
+        AgentApiKeyIssued: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Fixed Rights */
+            fixed_rights: string[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Max Requests */
+            max_requests: number;
+            /** Max Writes */
+            max_writes: number;
+            /** Name */
+            name: string;
+            /**
+             * Owner User Id
+             * Format: uuid
+             */
+            owner_user_id: string;
+            /** Project Id */
+            project_id: string | null;
+            /** Request Count */
+            request_count: number;
+            /** Revoked At */
+            revoked_at: string | null;
+            /**
+             * Scope Kind
+             * @enum {string}
+             */
+            scope_kind: "ACCOUNT" | "PROJECT";
+            /** Secret */
+            secret: string;
+            /**
+             * Secret Reveal Available
+             * @default false
+             */
+            secret_reveal_available: boolean;
+            /** Write Count */
+            write_count: number;
+        };
+        /** AgentApiKeyRead */
+        AgentApiKeyRead: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Fixed Rights */
+            fixed_rights: string[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Max Requests */
+            max_requests: number;
+            /** Max Writes */
+            max_writes: number;
+            /** Name */
+            name: string;
+            /**
+             * Owner User Id
+             * Format: uuid
+             */
+            owner_user_id: string;
+            /** Project Id */
+            project_id: string | null;
+            /** Request Count */
+            request_count: number;
+            /** Revoked At */
+            revoked_at: string | null;
+            /**
+             * Scope Kind
+             * @enum {string}
+             */
+            scope_kind: "ACCOUNT" | "PROJECT";
+            /**
+             * Secret Reveal Available
+             * @default false
+             */
+            secret_reveal_available: boolean;
+            /** Write Count */
+            write_count: number;
+        };
+        /** AgentApiKeySecret */
+        AgentApiKeySecret: {
+            /** Secret */
+            secret: string;
+        };
         /** AgentAuthorRead */
         AgentAuthorRead: {
             /** Agent Version Id */
@@ -1971,10 +2081,10 @@ export interface components {
         };
         /** AgentKeyPolicy */
         AgentKeyPolicy: {
-            /** Max Mutations */
-            max_mutations: number;
             /** Max Requests */
             max_requests: number;
+            /** Max Writes */
+            max_writes: number;
             /**
              * Scope
              * @default ACCOUNT
@@ -2136,10 +2246,10 @@ export interface components {
             /** Title */
             title: string;
         };
-        /** Collection[ExternalCredentialRead] */
-        Collection_ExternalCredentialRead_: {
+        /** Collection[AgentApiKeyRead] */
+        Collection_AgentApiKeyRead_: {
             /** Items */
-            items: components["schemas"]["ExternalCredentialRead"][];
+            items: components["schemas"]["AgentApiKeyRead"][];
             /** Next Cursor */
             next_cursor?: string | null;
         };
@@ -2313,116 +2423,6 @@ export interface components {
             /** Status */
             status: components["schemas"]["AgentRunStatus"] | "INTERRUPTED";
         };
-        /** ExternalCredentialCreate */
-        ExternalCredentialCreate: {
-            /** Name */
-            name: string;
-        };
-        /** ExternalCredentialIssued */
-        ExternalCredentialIssued: {
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Expires At
-             * Format: date-time
-             */
-            expires_at: string;
-            /** Fixed Rights */
-            fixed_rights: string[];
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Max Mutations */
-            max_mutations: number;
-            /** Max Requests */
-            max_requests: number;
-            /** Mutation Count */
-            mutation_count: number;
-            /** Name */
-            name: string;
-            /** Project Id */
-            project_id: string | null;
-            /** Request Count */
-            request_count: number;
-            /** Revoked At */
-            revoked_at: string | null;
-            /**
-             * Scope Kind
-             * @enum {string}
-             */
-            scope_kind: "ACCOUNT" | "PROJECT";
-            /** Secret */
-            secret: string;
-            /**
-             * Secret Reveal Available
-             * @default false
-             */
-            secret_reveal_available: boolean;
-            /**
-             * Sponsor User Id
-             * Format: uuid
-             */
-            sponsor_user_id: string;
-        };
-        /** ExternalCredentialRead */
-        ExternalCredentialRead: {
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Expires At
-             * Format: date-time
-             */
-            expires_at: string;
-            /** Fixed Rights */
-            fixed_rights: string[];
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Max Mutations */
-            max_mutations: number;
-            /** Max Requests */
-            max_requests: number;
-            /** Mutation Count */
-            mutation_count: number;
-            /** Name */
-            name: string;
-            /** Project Id */
-            project_id: string | null;
-            /** Request Count */
-            request_count: number;
-            /** Revoked At */
-            revoked_at: string | null;
-            /**
-             * Scope Kind
-             * @enum {string}
-             */
-            scope_kind: "ACCOUNT" | "PROJECT";
-            /**
-             * Secret Reveal Available
-             * @default false
-             */
-            secret_reveal_available: boolean;
-            /**
-             * Sponsor User Id
-             * Format: uuid
-             */
-            sponsor_user_id: string;
-        };
-        /** ExternalCredentialSecret */
-        ExternalCredentialSecret: {
-            /** Secret */
-            secret: string;
-        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -2495,12 +2495,12 @@ export interface components {
              * @enum {string}
              */
             kind: "human" | "agent";
-            /** Mutations Remaining */
-            mutations_remaining?: number | null;
             /** Requests Remaining */
             requests_remaining?: number | null;
             /** User Id */
             user_id?: string | null;
+            /** Writes Remaining */
+            writes_remaining?: number | null;
         };
         /** InterruptAccepted */
         InterruptAccepted: {
@@ -3947,7 +3947,7 @@ export interface operations {
             };
         };
     };
-    listExternalAgentCredentials: {
+    listAgentApiKeys: {
         parameters: {
             query?: {
                 limit?: number;
@@ -3965,7 +3965,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Collection_ExternalCredentialRead_"];
+                    "application/json": components["schemas"]["Collection_AgentApiKeyRead_"];
                 };
             };
             /** @description Authentication required */
@@ -4042,7 +4042,7 @@ export interface operations {
             };
         };
     };
-    createExternalAgentCredential: {
+    createAgentApiKey: {
         parameters: {
             query?: never;
             header?: never;
@@ -4051,7 +4051,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ExternalCredentialCreate"];
+                "application/json": components["schemas"]["AgentApiKeyCreate"];
             };
         };
         responses: {
@@ -4061,7 +4061,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ExternalCredentialIssued"];
+                    "application/json": components["schemas"]["AgentApiKeyIssued"];
                 };
             };
             /** @description Authentication required */
@@ -4138,7 +4138,7 @@ export interface operations {
             };
         };
     };
-    revokeExternalAgentCredential: {
+    revokeAgentApiKey: {
         parameters: {
             query?: never;
             header?: never;
@@ -4230,7 +4230,7 @@ export interface operations {
             };
         };
     };
-    revealExternalAgentCredential: {
+    revealAgentApiKey: {
         parameters: {
             query?: never;
             header?: never;
@@ -4247,7 +4247,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ExternalCredentialSecret"];
+                    "application/json": components["schemas"]["AgentApiKeySecret"];
                 };
             };
             /** @description Authentication required */

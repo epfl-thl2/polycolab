@@ -2,6 +2,15 @@
 
 Fresh installations apply the complete Alembic chain. Existing installations upgrade to `head` using forward migrations.
 
+The key terminology migration renames `external_agent_credentials` to
+`agent_api_keys`, its ownership field to `owner_user_id`, and its write counters to
+`write_count` and `max_writes`. The API uses those same names and reports
+`writes_remaining`. Execution requests use `requested_by_user_id`. Key bytes,
+expiry, permissions, and counting rules are unchanged. Configure
+`AGENT_API_KEY_TTL_SECONDS`, `AGENT_API_KEY_MAX_REQUESTS`, and
+`AGENT_API_KEY_MAX_WRITES` instead of the former `EXTERNAL_AGENT_*` settings.
+Upgrade API and browser together; previous field names are not API aliases.
+
 The account/worktree migrations retire external-agent identities, rename `project_tasks`
 to `worktrees`, and rename `gateway_profiles` to `provider_profiles`. Existing key
 secrets and limits, provider credential envelopes, working-copy IDs, and Git branches

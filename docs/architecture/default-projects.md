@@ -26,7 +26,7 @@ Owners and contributors can edit; read-only members can inspect. Outsiders canno
 read project files, including files in public projects. Archived projects reject
 writes. Backup the current project volume alongside the database.
 
-The same endpoints accept external agent keys. Account keys follow their sponsor's
+The same endpoints accept external agent keys. Account keys follow their owner's
 current project membership; project-bound keys additionally require a matching
 project ID. Agents cannot use these endpoints to manage membership or access Git
 or Linear files. Keys must remain unexpired and unrevoked. The service rechecks

@@ -15,7 +15,7 @@ def human_actor(user_id: UUID) -> Actor:
 
 def agent_actor(
     *,
-    sponsor_user_id: UUID,
+    delegating_user_id: UUID,
     agent_version_id: UUID,
     run_id: UUID,
     capability_id: UUID,
@@ -26,7 +26,7 @@ def agent_actor(
 ) -> Actor:
     return Actor(
         kind=ActorKind.AGENT,
-        sponsor_user_id=sponsor_user_id,
+        delegating_user_id=delegating_user_id,
         agent_version_id=agent_version_id,
         run_id=run_id,
         capability_id=capability_id,

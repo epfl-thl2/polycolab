@@ -105,7 +105,7 @@ async function mock(
             scope: 'ACCOUNT',
             ttl_seconds: 2592000,
             max_requests: 10000,
-            max_mutations: 1000,
+            max_writes: 1000,
           },
         },
       });
@@ -117,16 +117,16 @@ async function mock(
             ? {
                 id: 'credential-a',
                 project_id: projectId,
-                sponsor_user_id: 'author-1',
+                owner_user_id: 'author-1',
                 name: 'Lean helper',
                 secret: 'shown-once-secret',
                 created_at: createdAt,
                 expires_at: '2026-09-10T12:00:00Z',
                 revoked_at: null,
                 request_count: 0,
-                mutation_count: 0,
+                write_count: 0,
                 max_requests: 100,
-                max_mutations: 20,
+                max_writes: 20,
               }
             : { items: [], next_cursor: null },
       });
@@ -875,15 +875,15 @@ test('creates, repeatedly reveals, and revokes account-wide agent API keys', asy
     secret_reveal_available: true,
     project_id: null,
     scope_kind: 'ACCOUNT',
-    sponsor_user_id: 'author-1',
+    owner_user_id: 'author-1',
     name: 'Lean helper',
     created_at: createdAt,
     expires_at: '2026-09-10T12:00:00Z',
     revoked_at: null,
     request_count: 0,
-    mutation_count: 0,
+    write_count: 0,
     max_requests: 100,
-    max_mutations: 20,
+    max_writes: 20,
   };
   await page.route(`**/api/v1/account/agent-keys**`, async (route) => {
     const method = route.request().method();
@@ -2459,15 +2459,15 @@ test('API keys table filters loaded rows and preserves cursor pagination', async
     name: 'Research helper',
     project_id: null,
     scope_kind: 'ACCOUNT',
-    sponsor_user_id: 'author-1',
+    owner_user_id: 'author-1',
     fixed_rights: [],
     created_at: '2026-01-01T00:00:00Z',
     expires_at: '2099-01-01T00:00:00Z',
     revoked_at: null,
     request_count: 20,
-    mutation_count: 2,
+    write_count: 2,
     max_requests: 100,
-    max_mutations: 20,
+    max_writes: 20,
     allow_library_contributions: false,
   };
   await page.route('**/api/v1/account/agent-keys?*', (route) => {

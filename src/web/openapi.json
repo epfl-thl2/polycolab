@@ -93,6 +93,250 @@
         "title": "AccountRecoveryTokenRequest",
         "type": "object"
       },
+      "AgentApiKeyCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "AgentApiKeyCreate",
+        "type": "object"
+      },
+      "AgentApiKeyIssued": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "fixed_rights": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fixed Rights",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "max_requests": {
+            "title": "Max Requests",
+            "type": "integer"
+          },
+          "max_writes": {
+            "title": "Max Writes",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_user_id": {
+            "format": "uuid",
+            "title": "Owner User Id",
+            "type": "string"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "request_count": {
+            "title": "Request Count",
+            "type": "integer"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "scope_kind": {
+            "enum": [
+              "ACCOUNT",
+              "PROJECT"
+            ],
+            "title": "Scope Kind",
+            "type": "string"
+          },
+          "secret": {
+            "title": "Secret",
+            "type": "string"
+          },
+          "secret_reveal_available": {
+            "default": false,
+            "title": "Secret Reveal Available",
+            "type": "boolean"
+          },
+          "write_count": {
+            "title": "Write Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "scope_kind",
+          "owner_user_id",
+          "name",
+          "fixed_rights",
+          "expires_at",
+          "revoked_at",
+          "request_count",
+          "write_count",
+          "max_requests",
+          "max_writes",
+          "created_at",
+          "secret"
+        ],
+        "title": "AgentApiKeyIssued",
+        "type": "object"
+      },
+      "AgentApiKeyRead": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "fixed_rights": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fixed Rights",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "max_requests": {
+            "title": "Max Requests",
+            "type": "integer"
+          },
+          "max_writes": {
+            "title": "Max Writes",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_user_id": {
+            "format": "uuid",
+            "title": "Owner User Id",
+            "type": "string"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "request_count": {
+            "title": "Request Count",
+            "type": "integer"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "scope_kind": {
+            "enum": [
+              "ACCOUNT",
+              "PROJECT"
+            ],
+            "title": "Scope Kind",
+            "type": "string"
+          },
+          "secret_reveal_available": {
+            "default": false,
+            "title": "Secret Reveal Available",
+            "type": "boolean"
+          },
+          "write_count": {
+            "title": "Write Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "scope_kind",
+          "owner_user_id",
+          "name",
+          "fixed_rights",
+          "expires_at",
+          "revoked_at",
+          "request_count",
+          "write_count",
+          "max_requests",
+          "max_writes",
+          "created_at"
+        ],
+        "title": "AgentApiKeyRead",
+        "type": "object"
+      },
+      "AgentApiKeySecret": {
+        "properties": {
+          "secret": {
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret"
+        ],
+        "title": "AgentApiKeySecret",
+        "type": "object"
+      },
       "AgentAuthorRead": {
         "properties": {
           "agent_version_id": {
@@ -227,12 +471,12 @@
       },
       "AgentKeyPolicy": {
         "properties": {
-          "max_mutations": {
-            "title": "Max Mutations",
-            "type": "integer"
-          },
           "max_requests": {
             "title": "Max Requests",
+            "type": "integer"
+          },
+          "max_writes": {
+            "title": "Max Writes",
             "type": "integer"
           },
           "scope": {
@@ -249,7 +493,7 @@
         "required": [
           "ttl_seconds",
           "max_requests",
-          "max_mutations"
+          "max_writes"
         ],
         "title": "AgentKeyPolicy",
         "type": "object"
@@ -596,11 +840,11 @@
         "title": "CheckpointCreate",
         "type": "object"
       },
-      "Collection_ExternalCredentialRead_": {
+      "Collection_AgentApiKeyRead_": {
         "properties": {
           "items": {
             "items": {
-              "$ref": "#/components/schemas/ExternalCredentialRead"
+              "$ref": "#/components/schemas/AgentApiKeyRead"
             },
             "title": "Items",
             "type": "array"
@@ -620,7 +864,7 @@
         "required": [
           "items"
         ],
-        "title": "Collection[ExternalCredentialRead]",
+        "title": "Collection[AgentApiKeyRead]",
         "type": "object"
       },
       "Collection_LibraryOwnedRead_": {
@@ -1161,250 +1405,6 @@
         "title": "ExecutionSummaryRead",
         "type": "object"
       },
-      "ExternalCredentialCreate": {
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name"
-        ],
-        "title": "ExternalCredentialCreate",
-        "type": "object"
-      },
-      "ExternalCredentialIssued": {
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "expires_at": {
-            "format": "date-time",
-            "title": "Expires At",
-            "type": "string"
-          },
-          "fixed_rights": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Fixed Rights",
-            "type": "array"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "max_mutations": {
-            "title": "Max Mutations",
-            "type": "integer"
-          },
-          "max_requests": {
-            "title": "Max Requests",
-            "type": "integer"
-          },
-          "mutation_count": {
-            "title": "Mutation Count",
-            "type": "integer"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "project_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Project Id"
-          },
-          "request_count": {
-            "title": "Request Count",
-            "type": "integer"
-          },
-          "revoked_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Revoked At"
-          },
-          "scope_kind": {
-            "enum": [
-              "ACCOUNT",
-              "PROJECT"
-            ],
-            "title": "Scope Kind",
-            "type": "string"
-          },
-          "secret": {
-            "title": "Secret",
-            "type": "string"
-          },
-          "secret_reveal_available": {
-            "default": false,
-            "title": "Secret Reveal Available",
-            "type": "boolean"
-          },
-          "sponsor_user_id": {
-            "format": "uuid",
-            "title": "Sponsor User Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "project_id",
-          "scope_kind",
-          "sponsor_user_id",
-          "name",
-          "fixed_rights",
-          "expires_at",
-          "revoked_at",
-          "request_count",
-          "mutation_count",
-          "max_requests",
-          "max_mutations",
-          "created_at",
-          "secret"
-        ],
-        "title": "ExternalCredentialIssued",
-        "type": "object"
-      },
-      "ExternalCredentialRead": {
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "expires_at": {
-            "format": "date-time",
-            "title": "Expires At",
-            "type": "string"
-          },
-          "fixed_rights": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Fixed Rights",
-            "type": "array"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "max_mutations": {
-            "title": "Max Mutations",
-            "type": "integer"
-          },
-          "max_requests": {
-            "title": "Max Requests",
-            "type": "integer"
-          },
-          "mutation_count": {
-            "title": "Mutation Count",
-            "type": "integer"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "project_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Project Id"
-          },
-          "request_count": {
-            "title": "Request Count",
-            "type": "integer"
-          },
-          "revoked_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Revoked At"
-          },
-          "scope_kind": {
-            "enum": [
-              "ACCOUNT",
-              "PROJECT"
-            ],
-            "title": "Scope Kind",
-            "type": "string"
-          },
-          "secret_reveal_available": {
-            "default": false,
-            "title": "Secret Reveal Available",
-            "type": "boolean"
-          },
-          "sponsor_user_id": {
-            "format": "uuid",
-            "title": "Sponsor User Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "project_id",
-          "scope_kind",
-          "sponsor_user_id",
-          "name",
-          "fixed_rights",
-          "expires_at",
-          "revoked_at",
-          "request_count",
-          "mutation_count",
-          "max_requests",
-          "max_mutations",
-          "created_at"
-        ],
-        "title": "ExternalCredentialRead",
-        "type": "object"
-      },
-      "ExternalCredentialSecret": {
-        "properties": {
-          "secret": {
-            "title": "Secret",
-            "type": "string"
-          }
-        },
-        "required": [
-          "secret"
-        ],
-        "title": "ExternalCredentialSecret",
-        "type": "object"
-      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1602,17 +1602,6 @@
             "title": "Kind",
             "type": "string"
           },
-          "mutations_remaining": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Mutations Remaining"
-          },
           "requests_remaining": {
             "anyOf": [
               {
@@ -1635,6 +1624,17 @@
               }
             ],
             "title": "User Id"
+          },
+          "writes_remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Writes Remaining"
           }
         },
         "required": [
@@ -5395,8 +5395,8 @@
     },
     "/api/v1/account/agent-keys": {
       "get": {
-        "description": "Human-only, sponsor-only paginated key metadata and usage. Never returns secrets.\n\n**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
-        "operationId": "listExternalAgentCredentials",
+        "description": "Human-only, owner-only paginated key metadata and usage. Never returns secrets.\n\n**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "operationId": "listAgentApiKeys",
         "parameters": [
           {
             "in": "query",
@@ -5434,7 +5434,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Collection_ExternalCredentialRead_"
+                  "$ref": "#/components/schemas/Collection_AgentApiKeyRead_"
                 }
               }
             },
@@ -5535,13 +5535,13 @@
         ]
       },
       "post": {
-        "description": "Human-only. Creates a named key following current and future project memberships, including private projects. Returns the secret, with encrypted storage for later owner-only reveal. Expiry and budgets are set by the server.\n\n**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
-        "operationId": "createExternalAgentCredential",
+        "description": "Human-only. Creates a named key following current and future project memberships, including private projects. Returns the secret, with encrypted storage for later owner-only reveal. Expiry and limits are set by the server.\n\n**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "operationId": "createAgentApiKey",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ExternalCredentialCreate"
+                "$ref": "#/components/schemas/AgentApiKeyCreate"
               }
             }
           },
@@ -5552,7 +5552,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ExternalCredentialIssued"
+                  "$ref": "#/components/schemas/AgentApiKeyIssued"
                 }
               }
             },
@@ -5655,8 +5655,8 @@
     },
     "/api/v1/account/agent-keys/{credential_id}": {
       "delete": {
-        "description": "Human-only and sponsor-only. Revokes file access for this key.\n\n**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
-        "operationId": "revokeExternalAgentCredential",
+        "description": "Human-only and owner-only. Revokes file access for this key.\n\n**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "operationId": "revokeAgentApiKey",
         "parameters": [
           {
             "in": "path",
@@ -5770,8 +5770,8 @@
     },
     "/api/v1/account/agent-keys/{credential_id}/reveal": {
       "post": {
-        "description": "Human-only and sponsor-only. Reveals a recoverable, non-revoked key. Legacy hash-only keys cannot be revealed.\n\n**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
-        "operationId": "revealExternalAgentCredential",
+        "description": "Human-only and owner-only. Reveals a recoverable, non-revoked key. Legacy hash-only keys cannot be revealed.\n\n**Access:** Human authentication required. Agent keys are not accepted. Current role and operation-specific authority apply.",
+        "operationId": "revealAgentApiKey",
         "parameters": [
           {
             "in": "path",
@@ -5789,7 +5789,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ExternalCredentialSecret"
+                  "$ref": "#/components/schemas/AgentApiKeySecret"
                 }
               }
             },
@@ -9671,7 +9671,7 @@
     },
     "/api/v1/me": {
       "get": {
-        "description": "Returns human key-issuance policy or agent rights, expiry and remaining budgets. Does not consume the agent request budget; rate protection still applies.\n\n**Access:** Human session/OIDC token or agent key accepted. Current membership and operation-specific rights apply.",
+        "description": "Returns human key-issuance policy or agent rights, expiry and remaining limits. Does not consume the agent request budget; rate protection still applies.\n\n**Access:** Human session/OIDC token or agent key accepted. Current membership and operation-specific rights apply.",
         "operationId": "getCurrentIdentity",
         "responses": {
           "200": {
@@ -9776,7 +9776,7 @@
             "ExternalAgentBearer": []
           }
         ],
-        "summary": "Inspect identity and agent budgets",
+        "summary": "Inspect identity and agent limits",
         "tags": [
           "identity"
         ]

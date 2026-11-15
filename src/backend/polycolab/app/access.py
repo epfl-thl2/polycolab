@@ -16,7 +16,7 @@ from polycolab.accounts.authentication import (
 from polycolab.accounts.identity import current_user
 from polycolab.agents.credentials import credential_from_secret
 from polycolab.app.dependencies import DbSession
-from polycolab.db.models import SqlExternalAgentCredential, SqlMembership, SqlProject
+from polycolab.db.models import SqlAgentApiKey, SqlMembership, SqlProject
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.accounts import User
 
@@ -24,12 +24,12 @@ from polycolab.entities.accounts import User
 @dataclass(frozen=True)
 class ResourceAccess:
     user: User | None = None
-    credential: SqlExternalAgentCredential | None = None
+    credential: SqlAgentApiKey | None = None
 
     @property
     def user_id(self) -> UUID | None:
         return (
-            self.credential.sponsor_user_id
+            self.credential.owner_user_id
             if self.credential
             else self.user.id
             if self.user

@@ -30,16 +30,16 @@ class AgentRunEventRead(ApiModel):
     occurred_at: datetime
 
 
-class ExternalCredentialCreate(RequestModel):
+class AgentApiKeyCreate(RequestModel):
     name: str = Field(min_length=1, max_length=200)
 
 
-class ExternalCredentialRead(ApiModel):
+class AgentApiKeyRead(ApiModel):
     secret_reveal_available: bool = False
     id: UUID
     project_id: UUID | None
     scope_kind: Literal["ACCOUNT", "PROJECT"]
-    sponsor_user_id: UUID
+    owner_user_id: UUID
     name: str
     fixed_rights: list[str]
 
@@ -52,13 +52,13 @@ class ExternalCredentialRead(ApiModel):
     expires_at: datetime
     revoked_at: datetime | None
     request_count: int
-    mutation_count: int
+    write_count: int
     max_requests: int
-    max_mutations: int
+    max_writes: int
     created_at: datetime
 
 
-class ExternalCredentialIssued(ExternalCredentialRead):
+class AgentApiKeyIssued(AgentApiKeyRead):
     # List projections never contain this field.
     secret: str
 

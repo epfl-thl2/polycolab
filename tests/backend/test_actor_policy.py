@@ -29,7 +29,7 @@ from polycolab.accounts.authentication import (
 
 def delegated_agent(*operations: ActorOperation, project_id: UUID | None = None) -> Actor:
     return agent_actor(
-        sponsor_user_id=uuid4(),
+        delegating_user_id=uuid4(),
         agent_version_id=uuid4(),
         run_id=uuid4(),
         capability_id=uuid4(),
@@ -81,7 +81,7 @@ def test_human_actor_is_constructed_from_verified_identity_only() -> None:
     assert actor.kind is ActorKind.HUMAN
 
     with pytest.raises(ValueError):
-        Actor(kind=ActorKind.HUMAN, human_user_id=user_id, sponsor_user_id=uuid4())
+        Actor(kind=ActorKind.HUMAN, human_user_id=user_id, delegating_user_id=uuid4())
 
 
 def test_request_actor_kind_is_rejected_at_http_boundaries(client: TestClient) -> None:

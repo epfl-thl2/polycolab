@@ -171,7 +171,7 @@ def test_local_upgrade_from_either_merged_branch(tmp_path: Path, previous: str) 
         assert db.execute("SELECT value FROM user_marker").fetchone() == ("retained",)
         assert db.execute("SELECT version_num FROM alembic_version").fetchone() == (current_head(),)
         assert "encrypted_secret" in {
-            row[1] for row in db.execute("PRAGMA table_info(external_agent_credentials)")
+            row[1] for row in db.execute("PRAGMA table_info(agent_api_keys)")
         }
         assert db.execute(
             "SELECT count(*) FROM sqlite_master WHERE name = 'research_objects'"

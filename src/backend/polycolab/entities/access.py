@@ -25,14 +25,14 @@ class Actor:
 
     kind: ActorKind
     human_user_id: UUID | None = None
-    sponsor_user_id: UUID | None = None
+    delegating_user_id: UUID | None = None
     agent_version_id: UUID | None = None
     run_id: UUID | None = None
     capability_id: UUID | None = None
     session_id: UUID | None = None
     context_manifest_id: UUID | None = None
     project_id: UUID | None = None
-    external_credential_id: UUID | None = None
+    agent_api_key_id: UUID | None = None
     operation_scope: frozenset[ActorOperation] = field(default_factory=frozenset)
 
     def __post_init__(self) -> None:
@@ -40,14 +40,14 @@ class Actor:
             if self.human_user_id is None or any(
                 value is not None
                 for value in (
-                    self.sponsor_user_id,
+                    self.delegating_user_id,
                     self.agent_version_id,
                     self.run_id,
                     self.capability_id,
                     self.session_id,
                     self.context_manifest_id,
                     self.project_id,
-                    self.external_credential_id,
+                    self.agent_api_key_id,
                 )
             ):
                 raise ValueError("human actors cannot carry agent or delegated scope")
@@ -66,10 +66,10 @@ class Actor:
                 self.context_manifest_id,
             )
         )
-        external = self.external_credential_id is not None
+        external = self.agent_api_key_id is not None
         if (
             self.human_user_id is not None
-            or self.sponsor_user_id is None
+            or self.delegating_user_id is None
             or (hosted and self.project_id is None)
             or hosted == external
         ):

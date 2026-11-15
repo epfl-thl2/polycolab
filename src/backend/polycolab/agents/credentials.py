@@ -8,7 +8,7 @@ from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from polycolab.db.models.agent_access import SqlExternalAgentCredential
+from polycolab.db.models.agent_access import SqlAgentApiKey
 from polycolab.entities.access import ActorOperation
 from polycolab.entities.time import utc_now
 
@@ -35,7 +35,7 @@ def fixed_right_values() -> list[str]:
     return sorted(right.value for right in FIXED_RIGHTS)
 
 
-def credential_rights(credential: SqlExternalAgentCredential) -> frozenset[ActorOperation]:
+def credential_rights(credential: SqlAgentApiKey) -> frozenset[ActorOperation]:
     try:
         values = credential.fixed_rights
         rights = frozenset(ActorOperation(value) for value in values)
@@ -56,7 +56,7 @@ def _digest(secret: str) -> str:
 
 def credential_from_secret(
     session: Session, secret: str, *, consume_request: bool = True, allow_project: bool = False
-) -> SqlExternalAgentCredential:
+) -> SqlAgentApiKey:
     parts = secret.split("_", maxsplit=2)
     if len(parts) != 3 or parts[0] != "pca":
         raise ExternalAgentInvalid
@@ -67,19 +67,19 @@ def credential_from_secret(
     # Atomic admission also works with SQLite, whose SELECT FOR UPDATE is a no-op.
     if consume_request:
         admitted = session.scalar(
-            update(SqlExternalAgentCredential)
+            update(SqlAgentApiKey)
             .where(
-                SqlExternalAgentCredential.id == credential_id,
-                SqlExternalAgentCredential.token_digest == _digest(secret),
-                SqlExternalAgentCredential.revoked_at.is_(None),
-                SqlExternalAgentCredential.expires_at > utc_now(),
-                SqlExternalAgentCredential.request_count < SqlExternalAgentCredential.max_requests,
-                SqlExternalAgentCredential.scope_kind.in_(
+                SqlAgentApiKey.id == credential_id,
+                SqlAgentApiKey.token_digest == _digest(secret),
+                SqlAgentApiKey.revoked_at.is_(None),
+                SqlAgentApiKey.expires_at > utc_now(),
+                SqlAgentApiKey.request_count < SqlAgentApiKey.max_requests,
+                SqlAgentApiKey.scope_kind.in_(
                     ["ACCOUNT", "PROJECT"] if allow_project else ["ACCOUNT"]
                 ),
             )
-            .values(request_count=SqlExternalAgentCredential.request_count + 1)
-            .returning(SqlExternalAgentCredential)
+            .values(request_count=SqlAgentApiKey.request_count + 1)
+            .returning(SqlAgentApiKey)
             .execution_options(populate_existing=True, synchronize_session=False)
         )
         if admitted is not None:
@@ -87,8 +87,8 @@ def credential_from_secret(
             session.commit()
             return admitted
     credential = session.scalar(
-        select(SqlExternalAgentCredential)
-        .where(SqlExternalAgentCredential.id == credential_id)
+        select(SqlAgentApiKey)
+        .where(SqlAgentApiKey.id == credential_id)
         .with_for_update()
         .execution_options(populate_existing=True)
     )
@@ -102,27 +102,27 @@ def credential_from_secret(
         raise ExternalAgentInvalid
     credential_rights(credential)
     if consume_request:
-        raise ExternalAgentLimit("credential_request_budget_exhausted")
+        raise ExternalAgentLimit("agent_key_request_limit_exhausted")
     return credential
 
 
 def reserve_file_mutation(session: Session, secret: str) -> None:
     """Reserve before filesystem I/O without a read-to-write transaction upgrade."""
     credential = session.scalar(
-        update(SqlExternalAgentCredential)
+        update(SqlAgentApiKey)
         .where(
-            SqlExternalAgentCredential.token_digest == _digest(secret),
-            SqlExternalAgentCredential.revoked_at.is_(None),
-            SqlExternalAgentCredential.expires_at > utc_now(),
-            SqlExternalAgentCredential.mutation_count < SqlExternalAgentCredential.max_mutations,
+            SqlAgentApiKey.token_digest == _digest(secret),
+            SqlAgentApiKey.revoked_at.is_(None),
+            SqlAgentApiKey.expires_at > utc_now(),
+            SqlAgentApiKey.write_count < SqlAgentApiKey.max_writes,
         )
-        .values(mutation_count=SqlExternalAgentCredential.mutation_count + 1)
-        .returning(SqlExternalAgentCredential)
+        .values(write_count=SqlAgentApiKey.write_count + 1)
+        .returning(SqlAgentApiKey)
         .execution_options(populate_existing=True, synchronize_session=False)
     )
     if credential is None:
         credential_from_secret(session, secret, consume_request=False, allow_project=True)
-        raise ExternalAgentLimit("credential_mutation_budget_exhausted")
+        raise ExternalAgentLimit("agent_key_write_limit_exhausted")
     credential_rights(credential)
     session.commit()
 
@@ -131,13 +131,13 @@ def consume_mutation(session: Session, *, credential_id: UUID) -> None:
     """Consume one finite mutation only after an idempotency check created work."""
 
     credential = session.scalar(
-        select(SqlExternalAgentCredential)
-        .where(SqlExternalAgentCredential.id == credential_id)
+        select(SqlAgentApiKey)
+        .where(SqlAgentApiKey.id == credential_id)
         .with_for_update()
         .execution_options(populate_existing=True)
     )
     if credential is None:
         raise ExternalAgentInvalid
-    if credential.mutation_count >= credential.max_mutations:
-        raise ExternalAgentLimit("credential_mutation_budget_exhausted")
-    credential.mutation_count += 1
+    if credential.write_count >= credential.max_writes:
+        raise ExternalAgentLimit("agent_key_write_limit_exhausted")
+    credential.write_count += 1
