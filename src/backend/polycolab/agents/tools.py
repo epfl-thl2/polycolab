@@ -42,7 +42,7 @@ def allowed_tools(session: Session, run: SqlAgentRun) -> frozenset[str]:
     from polycolab.db.models import SqlProject
 
     project = session.get(SqlProject, run.project_id)
-    if project is not None and project.workspace_mode == "default":
+    if project is not None and project.file_mode == "basic":
         names.add("project_files")
     return frozenset(names)
 
@@ -51,7 +51,7 @@ def definitions(session: Session, run: SqlAgentRun) -> list[dict[str, object]]:
     values = list(PLATFORM_TOOL_DEFINITIONS)
     names = allowed_tools(session, run)
     if "project_files" in names:
-        from polycolab.projects.default_files import DefaultAgentFileCommand
+        from polycolab.projects.basic_files import BasicAgentFileCommand
 
         values.append(
             {
@@ -68,7 +68,7 @@ def definitions(session: Session, run: SqlAgentRun) -> list[dict[str, object]]:
                         "Read returns byte ranges; list returns at most 100 files. Continue "
                         "with next_offset and the same expected_digest for further read ranges."
                     ),
-                    "parameters": DefaultAgentFileCommand.model_json_schema(),
+                    "parameters": BasicAgentFileCommand.model_json_schema(),
                 },
             }
         )
@@ -270,9 +270,9 @@ def execute_tool(
     if name not in allowed_tools(session, run):
         raise ToolCapabilityInvalid
     if name == "project_files":
-        from polycolab.projects.default_files import (
-            DefaultAgentFileCommand,
-            DefaultFiles,
+        from polycolab.projects.basic_files import (
+            BasicAgentFileCommand,
+            BasicFiles,
             agent_result,
         )
 
@@ -284,10 +284,10 @@ def execute_tool(
         ):
             raise ToolCapabilityInvalid
         try:
-            command = DefaultAgentFileCommand.model_validate(arguments)
+            command = BasicAgentFileCommand.model_validate(arguments)
         except ValidationError as exc:
             raise ToolCapabilityInvalid from exc
-        files = DefaultFiles(
+        files = BasicFiles(
             SqlAlchemyTransaction(session),
             settings.project_repository_directory,
             run.project_id,

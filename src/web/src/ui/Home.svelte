@@ -24,7 +24,7 @@
   const { api, query, auth } = projectContext();
   let search = $state('');
   let visibility = $state<'PUBLIC' | 'PRIVATE'>('PUBLIC');
-  let workspaceMode = $state<'default' | 'linear' | 'git'>('default');
+  let fileMode = $state<'basic' | 'collaborative' | 'git'>('basic');
   let searchDraft = $state('');
   let searchInput = $state<HTMLInputElement | null>(null);
   type Category = 'active' | 'owned' | 'shared' | 'archived';
@@ -144,7 +144,7 @@
         name: name.trim(),
         description,
         visibility: visibility,
-        workspace_mode: workspaceMode,
+        file_mode: fileMode,
       });
       await query.invalidateQueries({ queryKey: ['projects'] });
       await query.invalidateQueries({ queryKey: ['public-projects'] });
@@ -174,9 +174,9 @@
             >
             <form onsubmit={create}>
               <Field.Label
-                >Workspace mode<NativeSelect bind:value={workspaceMode}
-                  ><option value="default">Default — files and chat</option><option value="linear"
-                    >Linear history — live collaboration</option
+                >File mode<NativeSelect bind:value={fileMode}
+                  ><option value="basic">Basic — files and chat</option><option
+                    value="collaborative">Collaborative history — live collaboration</option
                   ><option value="git">Git — branches and worktrees</option></NativeSelect
                 ></Field.Label
               >

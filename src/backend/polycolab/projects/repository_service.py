@@ -50,8 +50,8 @@ class RepositoryService:
             ProjectAction.WRITE_FILES if write else ProjectAction.VIEW,
         )
         if write and (
-            access.project.workspace_mode != "git"
-            or self.transaction.linear.conversion_pending(self.project_id)
+            access.project.file_mode != "git"
+            or self.transaction.collaborative.conversion_pending(self.project_id)
         ):
             raise RepositoryError("git_workspace_read_only")
         if write:

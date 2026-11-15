@@ -12,25 +12,25 @@
     createProjectConversations,
     projectConversationItems,
   } from '../../lib/conversation-queries';
-  import { createDefaultFilesApi, type DefaultFiles } from '../../lib/default-files-api';
+  import { createBasicFilesApi, type BasicFiles } from '../../lib/basic-files-api';
   import { bytesToBase64 } from '../../lib/repository-api';
   import { projectRouteTab, type ProjectTab } from '../../lib/project-tabs';
   import { canWriteProject } from '../../lib/access';
   import { FileText } from '@lucide/svelte';
   import ProjectToolsHeader from './components/ProjectToolsHeader.svelte';
   import SidebarFileView from './components/SidebarFileView.svelte';
-  import DefaultFileEditor from './components/DefaultFileEditor.svelte';
+  import BasicFileEditor from './components/BasicFileEditor.svelte';
   let { project }: { project: Project; path: string } = $props();
   const context = projectContext();
   setContext(contextKey, {
     ...context,
     repository: undefined,
     worktrees: undefined,
-    linear: undefined,
-    defaultFiles: true,
+    collaborative: undefined,
+    basicFiles: true,
   });
-  const api = createDefaultFilesApi({ getAccessToken: context.auth.token });
-  let workspace = $state<DefaultFiles>();
+  const api = createBasicFilesApi({ getAccessToken: context.auth.token });
+  let workspace = $state<BasicFiles>();
   let shell = $state<ChatWorkbenchShell>();
   let tabs = $state<ProjectTab[]>([]);
   const chats = createProjectConversations(context.agents, () => project.id);
@@ -53,7 +53,7 @@
     if (['conversations', 'files', 'overview'].includes(section)) rightMode = 'file';
   });
   let filePath = $state('');
-  let fileEditor = $state<DefaultFileEditor>();
+  let fileEditor = $state<BasicFileEditor>();
   const activeId = $derived(active?.id || '');
   const canChat = $derived(
     canWriteProject(project.current_user_role, Boolean(project.archived_at)),
@@ -206,7 +206,7 @@
 </ChatWorkbenchShell>
 
 <SidebarFileView active={rightMode === 'file'}>
-  {#if filePath}<DefaultFileEditor
+  {#if filePath}<BasicFileEditor
       bind:this={fileEditor}
       projectId={project.id}
       path={filePath}

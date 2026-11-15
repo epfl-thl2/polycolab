@@ -21,18 +21,20 @@ from polycolab.db.base import Base
 from polycolab.entities.time import utc_now
 
 
-class SqlLinearWorkspace(Base):
-    __tablename__ = "linear_workspaces"
+class SqlCollaborativeWorkspace(Base):
+    __tablename__ = "collaborative_workspaces"
     project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), primary_key=True)
     epoch: Mapped[int] = mapped_column(Integer, default=1)
     sequence: Mapped[int] = mapped_column(BigInteger, default=0)
     stored_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
 
 
-class SqlLinearFile(Base):
-    __tablename__ = "linear_files"
+class SqlCollaborativeFile(Base):
+    __tablename__ = "collaborative_files"
     id: Mapped[UUID] = mapped_column(primary_key=True)
-    project_id: Mapped[UUID] = mapped_column(ForeignKey("linear_workspaces.project_id"), index=True)
+    project_id: Mapped[UUID] = mapped_column(
+        ForeignKey("collaborative_workspaces.project_id"), index=True
+    )
     path: Mapped[str] = mapped_column(String(1024))
     content: Mapped[bytes] = mapped_column(LargeBinary)
     document: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
@@ -40,15 +42,15 @@ class SqlLinearFile(Base):
     deleted: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
-class SqlLinearOperation(Base):
-    __tablename__ = "linear_operations"
+class SqlCollaborativeOperation(Base):
+    __tablename__ = "collaborative_operations"
     __table_args__ = (
         UniqueConstraint(
-            "project_id", "user_id", "request_key", name="uq_linear_operation_request"
+            "project_id", "user_id", "request_key", name="uq_collaborative_operation_request"
         ),
     )
     project_id: Mapped[UUID] = mapped_column(
-        ForeignKey("linear_workspaces.project_id"), primary_key=True
+        ForeignKey("collaborative_workspaces.project_id"), primary_key=True
     )
     sequence: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     epoch: Mapped[int] = mapped_column(Integer)
@@ -60,10 +62,12 @@ class SqlLinearOperation(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
-class SqlLinearCheckpoint(Base):
-    __tablename__ = "linear_checkpoints"
+class SqlCollaborativeCheckpoint(Base):
+    __tablename__ = "collaborative_checkpoints"
     id: Mapped[UUID] = mapped_column(primary_key=True)
-    project_id: Mapped[UUID] = mapped_column(ForeignKey("linear_workspaces.project_id"), index=True)
+    project_id: Mapped[UUID] = mapped_column(
+        ForeignKey("collaborative_workspaces.project_id"), index=True
+    )
     sequence: Mapped[int] = mapped_column(BigInteger)
     epoch: Mapped[int] = mapped_column(Integer)
     title: Mapped[str] = mapped_column(String(300))
@@ -72,10 +76,12 @@ class SqlLinearCheckpoint(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
 
-class SqlLinearBatch(Base):
-    __tablename__ = "linear_batches"
+class SqlChangeSet(Base):
+    __tablename__ = "change_sets"
     id: Mapped[UUID] = mapped_column(primary_key=True)
-    project_id: Mapped[UUID] = mapped_column(ForeignKey("linear_workspaces.project_id"), index=True)
+    project_id: Mapped[UUID] = mapped_column(
+        ForeignKey("collaborative_workspaces.project_id"), index=True
+    )
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
     run_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("agent_runs.id"), nullable=True, unique=True
@@ -88,20 +94,22 @@ class SqlLinearBatch(Base):
     conflicts: Mapped[list[str]] = mapped_column(JSON, default=list)
 
 
-class SqlLinearRun(Base):
-    __tablename__ = "linear_runs"
+class SqlCollaborativeRun(Base):
+    __tablename__ = "collaborative_runs"
     run_id: Mapped[UUID] = mapped_column(ForeignKey("agent_runs.id"), primary_key=True)
-    project_id: Mapped[UUID] = mapped_column(ForeignKey("linear_workspaces.project_id"), index=True)
+    project_id: Mapped[UUID] = mapped_column(
+        ForeignKey("collaborative_workspaces.project_id"), index=True
+    )
     epoch: Mapped[int] = mapped_column(Integer)
-    original_checkpoint_id: Mapped[UUID] = mapped_column(ForeignKey("linear_checkpoints.id"))
-    current_checkpoint_id: Mapped[UUID] = mapped_column(ForeignKey("linear_checkpoints.id"))
+    original_checkpoint_id: Mapped[UUID] = mapped_column(ForeignKey("collaborative_checkpoints.id"))
+    current_checkpoint_id: Mapped[UUID] = mapped_column(ForeignKey("collaborative_checkpoints.id"))
     refresh_generation: Mapped[int] = mapped_column(Integer, default=0)
     refresh_data: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     applied_sequence: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
 
-class SqlLinearConversion(Base):
-    __tablename__ = "linear_conversions"
+class SqlCollaborativeConversion(Base):
+    __tablename__ = "collaborative_conversions"
     project_id: Mapped[UUID] = mapped_column(ForeignKey("projects.id"), primary_key=True)
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
     source_worktree_id: Mapped[UUID] = mapped_column(ForeignKey("worktrees.id"))

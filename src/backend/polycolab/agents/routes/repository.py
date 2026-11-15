@@ -35,15 +35,17 @@ def checkout(run_id: UUID, request: Request, payload: Annotated[LeaseRequest, Qu
         run = _lease_or_conflict(
             db, run_id, payload, request.app.state.settings.runtime_lease_seconds
         )
-        from polycolab.db.models.linear import SqlLinearRun
+        from polycolab.db.models.collaborative import SqlCollaborativeRun
 
-        linear = db.get(SqlLinearRun, run_id)
-        if linear is not None:
-            from polycolab.projects.routes.linear import service as linear_service
+        collaborative = db.get(SqlCollaborativeRun, run_id)
+        if collaborative is not None:
+            from polycolab.projects.routes.collaborative import service as collaborative_service
 
-            live = linear_service(request, db, run.project_id, run.requested_by_user_id)
+            live = collaborative_service(request, db, run.project_id, run.requested_by_user_id)
             live.authorize()
-            checkpoint = live.tx.linear.checkpoint(run.project_id, linear.current_checkpoint_id)
+            checkpoint = live.tx.collaborative.checkpoint(
+                run.project_id, collaborative.current_checkpoint_id
+            )
             assert checkpoint is not None
             with live.git.locked():
                 data = live.git.bundle("main", commit=checkpoint.tree)
@@ -85,10 +87,10 @@ def _save(request: Request, run_id: UUID, payload: LeaseRequest, data: bytes) ->
         def authority() -> None:
             require_authority(request, db, run_id, payload, project_id, user_id)
 
-        from polycolab.db.models.linear import SqlLinearRun
+        from polycolab.db.models.collaborative import SqlCollaborativeRun
 
-        if db.get(SqlLinearRun, run_id) is not None:
-            from polycolab.agents.linear_files import save
+        if db.get(SqlCollaborativeRun, run_id) is not None:
+            from polycolab.agents.collaborative_files import save
 
             return save(request.app.state.settings, db, run, data, authority)
         return {"commit": instance.export_run(run_id, data, authority)}
@@ -145,7 +147,7 @@ def require_authority(
 def workspace_status(
     run_id: UUID, request: Request, payload: Annotated[LeaseRequest, Query()]
 ) -> dict[str, object]:
-    from polycolab.agents.linear_refresh import status
+    from polycolab.agents.collaborative_refresh import status
 
     _authorize_worker(request)
     with request.app.state.session_factory() as db:
@@ -168,12 +170,12 @@ class RefreshAckLease(LeaseRequest):
 async def workspace_refresh(
     run_id: UUID, request: Request, payload: Annotated[RefreshLease, Query()]
 ) -> dict[str, object]:
-    from polycolab.agents.linear_refresh import prepare
+    from polycolab.agents.collaborative_refresh import prepare
 
     _authorize_worker(request)
     key = payload.key
     if not 1 <= len(key) <= 200:
-        raise RepositoryError("linear_invalid_refresh_key", 422)
+        raise RepositoryError("collaborative_invalid_refresh_key", 422)
     data = bytearray()
     async with asyncio.timeout(30):
         async for chunk in request.stream():
@@ -201,7 +203,7 @@ async def workspace_refresh(
 def workspace_refresh_ack(
     run_id: UUID, request: Request, payload: Annotated[RefreshAckLease, Query()]
 ) -> dict[str, object]:
-    from polycolab.agents.linear_refresh import acknowledge
+    from polycolab.agents.collaborative_refresh import acknowledge
 
     _authorize_worker(request)
     with request.app.state.session_factory() as db:

@@ -107,7 +107,7 @@ The migration preserves historical profiles as chat-completions.
 `RUNTIME_CODEX_IMAGE`, `RUNTIME_SANDBOX_BACKEND` and `RUNTIME_SANDBOX_VERSION` pin the immutable runtime specification for new/resumed runs.
 Readiness and claims require the matching backend, version and image. Historical specs without a backend retain microsandbox identity.
 Legacy workers cannot claim these runs.
-External agents continue using their existing credentials and Default project file APIs.
+External agents continue using their existing credentials and Basic project file APIs.
 
 ## Removal and remaining acceptance
 

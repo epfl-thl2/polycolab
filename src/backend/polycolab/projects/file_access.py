@@ -17,7 +17,7 @@ from polycolab.agents.credentials import credential_from_secret, reserve_file_mu
 from polycolab.app.dependencies import DbSession
 from polycolab.db.models.projects import SqlProject
 from polycolab.db.transaction import SqlAlchemyTransaction
-from polycolab.projects.default_files import DefaultFiles
+from polycolab.projects.basic_files import BasicFiles
 
 
 @dataclass(frozen=True)
@@ -34,7 +34,7 @@ class FileAccess:
         ):
             raise ProjectNotFound
 
-    def bind(self, db: Session, files: DefaultFiles, *, write: bool) -> None:
+    def bind(self, db: Session, files: BasicFiles, *, write: bool) -> None:
         if self.secret is None:
             return
         if write:

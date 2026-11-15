@@ -237,14 +237,14 @@ class SqlProjectStore:
         name: str,
         description: str | None,
         visibility: ProjectVisibility,
-        workspace_mode: str = "git",
+        file_mode: str = "git",
     ) -> Project:
         row = SqlProject(
             name=name,
             description=description,
             visibility=visibility,
             created_by_user_id=creator_id,
-            workspace_mode=workspace_mode,
+            file_mode=file_mode,
         )
         self._session.add(row)
         self._session.flush()

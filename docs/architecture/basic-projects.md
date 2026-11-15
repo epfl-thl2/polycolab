@@ -1,13 +1,12 @@
-# Default projects
+# Basic projects
 
-Default is the browser's initial choice for new projects.
-Existing projects keep their mode. API callers that omit `workspace_mode` retain
-the Git default for compatibility. No database migration is needed: the existing
-mode column accepts `default`, `linear`, and `git`.
+Basic is the browser's initial choice for new projects.
+Existing projects keep their mode. API callers that omit `file_mode` retain
+the Git default for compatibility. The `file_mode` column accepts `basic`, `collaborative`, and `git`.
 
 ## Files and access
 
-Each Default project stores its current files at
+Each Basic project stores its current files at
 `PROJECT_REPOSITORY_DIRECTORY/<project UUID>.files/` on the API server volume.
 There is no Git repository, operation log, checkpoint, tombstone, or retained file
 revision. Project metadata, membership, conversations, and artifact metadata remain
@@ -29,7 +28,7 @@ writes. Backup the current project volume alongside the database.
 The same endpoints accept external agent keys. Account keys follow their owner's
 current project membership; project-bound keys additionally require a matching
 project ID. Agents cannot use these endpoints to manage membership or access Git
-or Linear files. Keys must remain unexpired and unrevoked. The service rechecks
+or Collaborative files. Keys must remain unexpired and unrevoked. The service rechecks
 key authority under the project/membership and filesystem locks before file I/O.
 
 Authenticated agent requests consume the key's request budget. Mutating commands
@@ -40,7 +39,7 @@ as human edits. Responses are private and non-cacheable.
 
 ## Browser
 
-Default uses the shared project shell, logo, navigation, chat center, and resizable
+Basic uses the shared project shell, logo, navigation, chat center, and resizable
 side panels. Chats and Files in the navigation rail select the left panel: either
 a New chat action with an icon above a scrolling Recents list, or the file tree
 with creation and upload controls. Recents includes drafts and accessible shared conversations.
@@ -53,19 +52,19 @@ Files support creation, upload, explicit save, download, rename, and deletion.
 Unsaved edits block opening another file or leaving the project and remain visible
 after a save conflict. Switching conversations, sidebar views, or mobile drawers
 retains the mounted editor and its draft. Reload
-fetches current bytes; it does not merge concurrent edits. Default does not use
-Linear's Yjs collaboration service.
+fetches current bytes; it does not merge concurrent edits. Basic does not use
+Collaborative's Yjs collaboration service.
 
 ## Agents
 
-Private Default conversations expose the `project_files` tool through the existing
+Private Basic conversations expose the `project_files` tool through the existing
 authenticated tool gateway. It reads and writes the same current server files with
 the same digest checks and current membership checks. Mutations apply immediately;
 there is no batch merge, revert, or checkpoint. The existing run capability and
 lease checks apply.
 
-Default files are not automatically mounted in a hosted execution directory.
+Basic files are not automatically mounted in a hosted execution directory.
 An agent uses `project_files` to read inputs and save outputs; shell commands act
 on its isolated execution directory. No repository binding or Git bundle is
-created for a Default run. Conversation and tool event records remain part of the
+created for a Basic run. Conversation and tool event records remain part of the
 existing agent system, independently of filesystem versioning.

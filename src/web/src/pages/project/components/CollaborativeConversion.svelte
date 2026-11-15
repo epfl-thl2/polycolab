@@ -1,13 +1,13 @@
 <script lang="ts">
   import FeedbackToast from '../../../ui/FeedbackToast.svelte';
   import { projectContext, explain } from '../../../svelte-lib/context';
-  import { createLinearApi } from '../../../lib/linear-api';
+  import { createCollaborativeApi } from '../../../lib/collaborative-api';
   import type { Project } from '../../../lib/projects-api';
   import { Button } from '../../../lib/components/ui/button';
   import { NativeSelect } from '../../../lib/components/ui/native-select';
   let { project }: { project: Project } = $props();
   const { auth, worktrees } = projectContext();
-  const api = createLinearApi({ getAccessToken: auth.token });
+  const api = createCollaborativeApi({ getAccessToken: auth.token });
   let trees = $state<{ id: string; title: string }[]>([]);
   let selected = $state('');
   let preview = $state<{ revision: string; files: string[]; saved_changes: boolean }>();
@@ -27,9 +27,9 @@
   }
 </script>
 
-{#if project.workspace_mode === 'git' && project.current_user_role === 'OWNER'}
+{#if project.file_mode === 'git' && project.current_user_role === 'OWNER'}
   <section>
-    <h2>Switch to linear history</h2>
+    <h2>Switch to collaborative history</h2>
     <p>
       Choose a saved working copy for live collaboration. Its uncommitted saved files are included.
       The Git branches and working copies remain available as a read-only archive. Finish active
@@ -74,7 +74,7 @@
         onclick={() => {
           if (
             confirm(
-              'Convert this project to linear history for all members? The selected saved files become the shared workspace. Git becomes read-only.',
+              'Convert this project to collaborative history for all members? The selected saved files become the shared workspace. Git becomes read-only.',
             )
           )
             void act(async () => {

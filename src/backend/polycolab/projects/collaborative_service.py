@@ -17,7 +17,12 @@ from uuid import UUID, uuid4, uuid5
 import httpx
 
 from polycolab.access.authorization import ProjectAction, project_policy
-from polycolab.entities.linear import LinearCheckpoint, LinearFile, LinearOperation, LinearState
+from polycolab.entities.collaborative import (
+    CollaborativeCheckpoint,
+    CollaborativeFile,
+    CollaborativeOperation,
+    CollaborativeState,
+)
 from polycolab.entities.repositories import RepositoryError
 from polycolab.entities.time import utc_now
 from polycolab.projects.git_storage import TRANSFER_LIMIT, GitRepository, path_name
@@ -32,10 +37,10 @@ def decode(value: str) -> bytes:
     try:
         return base64.b64decode(value, validate=True)
     except ValueError:
-        raise RepositoryError("linear_invalid_bytes", 422) from None
+        raise RepositoryError("collaborative_invalid_bytes", 422) from None
 
 
-def file_value(file: LinearFile) -> dict[str, Any]:
+def file_value(file: CollaborativeFile) -> dict[str, Any]:
     return {
         "id": str(file.id),
         "path": file.path,
@@ -46,8 +51,8 @@ def file_value(file: LinearFile) -> dict[str, Any]:
     }
 
 
-def file_from(value: dict[str, Any]) -> LinearFile:
-    return LinearFile(
+def file_from(value: dict[str, Any]) -> CollaborativeFile:
+    return CollaborativeFile(
         UUID(value["id"]),
         value["path"],
         decode(value["content_base64"]),
@@ -86,7 +91,7 @@ class CollaborationClient:
                     json={"project_id": str(project_id), "documents": values},
                 )
             if response.status_code == 422:
-                raise RepositoryError("linear_invalid_update", 422)
+                raise RepositoryError("collaborative_invalid_update", 422)
             response.raise_for_status()
             result = response.json()["documents"]
             if not isinstance(result, list) or len(result) != len(values):
@@ -96,7 +101,7 @@ class CollaborationClient:
             raise RepositoryError("collaboration_unavailable", 503) from None
 
 
-class LinearService:
+class CollaborativeService:
     def __init__(
         self,
         transaction: Transaction,
@@ -120,22 +125,22 @@ class LinearService:
             else ProjectAction.VIEW
         )
         access = project_policy.require_scope(self.tx, self.project_id, self.user_id, action)
-        if not converting and access.project.workspace_mode != "linear":
-            raise RepositoryError("linear_mode_required", 409)
+        if not converting and access.project.file_mode != "collaborative":
+            raise RepositoryError("collaborative_mode_required", 409)
         if write and access.project.archived_at:
-            raise RepositoryError("linear_writes_unavailable", 503)
+            raise RepositoryError("collaborative_writes_unavailable", 503)
 
-    def state(self) -> LinearState:
+    def state(self) -> CollaborativeState:
         self.authorize()
-        state = self.tx.linear.state(self.project_id)
+        state = self.tx.collaborative.state(self.project_id)
         if state is None:
             self.tx.commit()
             with self.git.locked():
-                self.tx.linear.begin_write(self.project_id)
+                self.tx.collaborative.begin_write(self.project_id)
                 self.authorize()
-                self.tx.linear.initialize(self.project_id)
+                self.tx.collaborative.initialize(self.project_id)
                 self.tx.commit()
-            state = self.tx.linear.state(self.project_id)
+            state = self.tx.collaborative.state(self.project_id)
         assert state is not None
         return state
 
@@ -152,8 +157,8 @@ class LinearService:
         converting: bool = False,
         restored_checkpoint: UUID | None = None,
         authority: Callable[[], None] | None = None,
-        accepted: Callable[[LinearOperation], None] | None = None,
-    ) -> LinearOperation:
+        accepted: Callable[[CollaborativeOperation], None] | None = None,
+    ) -> CollaborativeOperation:
         digest = hashlib.sha256(
             json.dumps(
                 {
@@ -166,27 +171,27 @@ class LinearService:
                 sort_keys=True,
             ).encode()
         ).hexdigest()
-        initialize = self.tx.linear.state(self.project_id) is None
+        initialize = self.tx.collaborative.state(self.project_id) is None
         self.tx.commit()
         with self.git.locked(initialize=initialize):
-            self.tx.linear.begin_write(self.project_id)
+            self.tx.collaborative.begin_write(self.project_id)
             self.authorize(True, owner, converting=converting)
-            self.tx.linear.initialize(self.project_id)
-            prior = self.tx.linear.receipt(self.project_id, self.user_id, key)
+            self.tx.collaborative.initialize(self.project_id)
+            prior = self.tx.collaborative.receipt(self.project_id, self.user_id, key)
             if prior:
                 if prior.digest != digest:
-                    raise RepositoryError("linear_retry_mismatch")
+                    raise RepositoryError("collaborative_retry_mismatch")
                 return prior
-            state = self.tx.linear.state(self.project_id)
+            state = self.tx.collaborative.state(self.project_id)
             assert state is not None
             if state.epoch != epoch:
-                raise RepositoryError("linear_epoch_changed")
+                raise RepositoryError("collaborative_epoch_changed")
             if expected_sequence is not None and expected_sequence != state.sequence:
-                raise RepositoryError("linear_stale_revision")
+                raise RepositoryError("collaborative_stale_revision")
             if expected_sequence is None and any(c["kind"] != "update" for c in commands):
-                raise RepositoryError("linear_expected_revision_required", 422)
+                raise RepositoryError("collaborative_expected_revision_required", 422)
             files = {f.id: f for f in state.files}
-            changed: dict[UUID, LinearFile] = {}
+            changed: dict[UUID, CollaborativeFile] = {}
             deltas: list[dict[str, Any]] = []
             for command in commands:
                 identifier = UUID(command["file_id"])
@@ -194,7 +199,7 @@ class LinearService:
                 operation = command["kind"]
                 if operation == "create":
                     if old is not None:
-                        raise RepositoryError("linear_file_exists")
+                        raise RepositoryError("collaborative_file_exists")
                     content = decode(command.get("content_base64", ""))
                     if command.get("binary", False):
                         document, update = None, None
@@ -202,10 +207,10 @@ class LinearService:
                         try:
                             text = content.decode("utf-8")
                         except UnicodeError:
-                            raise RepositoryError("linear_invalid_text", 422) from None
+                            raise RepositoryError("collaborative_invalid_text", 422) from None
                         prepared = self.collaboration.prepare(self.project_id, [{"text": text}])[0]
                         document, update = decode(prepared["state"]), prepared["update"]
-                    file = LinearFile(
+                    file = CollaborativeFile(
                         identifier,
                         path_name(command["path"]),
                         content,
@@ -214,12 +219,12 @@ class LinearService:
                     )
                 else:
                     if old is None or old.deleted:
-                        raise RepositoryError("linear_file_not_found", 404)
+                        raise RepositoryError("collaborative_file_not_found", 404)
                     file, update = old, None
                     if operation in {"update", "replace"}:
                         if old.document is None:
                             if operation == "update":
-                                raise RepositoryError("linear_binary_file", 422)
+                                raise RepositoryError("collaborative_binary_file", 422)
                             file = replace(old, content=decode(command["content_base64"]))
                         else:
                             candidate = {"state": encode(old.document)}
@@ -231,7 +236,9 @@ class LinearService:
                                         "utf-8"
                                     )
                                 except UnicodeError:
-                                    raise RepositoryError("linear_invalid_text", 422) from None
+                                    raise RepositoryError(
+                                        "collaborative_invalid_text", 422
+                                    ) from None
                             prepared = self.collaboration.prepare(self.project_id, [candidate])[0]
                             file = replace(
                                 old,
@@ -246,7 +253,7 @@ class LinearService:
                     elif operation == "mode":
                         file = replace(old, executable=bool(command["executable"]))
                     else:
-                        raise RepositoryError("linear_invalid_operation", 422)
+                        raise RepositoryError("collaborative_invalid_operation", 422)
                 files[identifier] = file
                 changed[identifier] = file
                 delta = {
@@ -275,7 +282,7 @@ class LinearService:
                 payload["restored_checkpoint"] = str(restored_checkpoint)
             stored_bytes = state.stored_bytes + len(json.dumps(payload).encode())
             self.check_quota(replace(state, stored_bytes=stored_bytes, files=tuple(files.values())))
-            value = LinearOperation(
+            value = CollaborativeOperation(
                 self.project_id,
                 state.sequence + 1,
                 epoch + int(new_epoch),
@@ -289,13 +296,14 @@ class LinearService:
             self.authorize(True, owner, converting=converting)
             if authority:
                 authority()
-            self.tx.linear.accept(state, value, list(changed.values()), stored_bytes)
+            self.tx.collaborative.accept(state, value, list(changed.values()), stored_bytes)
             if accepted:
                 accepted(value)
             self.tx.commit()
             return value
 
-    def check_quota(self, state: LinearState, extra: int = 0) -> None:
+    def check_quota(self, state: CollaborativeState, extra: int = 0) -> None:
+        # Preserve historical on-disk directories and Git refs across the vocabulary cutover.
         materialized = self.git.root / f"{self.project_id}.linear"
         volume_bytes = sum(p.stat().st_size for p in materialized.rglob("*") if p.is_file())
         current_bytes = sum(len(f.content) + len(f.document or b"") for f in state.files)
@@ -308,13 +316,13 @@ class LinearService:
     def automatic_checkpoint(self) -> None:
         # An acknowledged SQL change must remain successful if its derived checkpoint fails.
         try:
-            values = self.tx.linear.checkpoints(self.project_id)
+            values = self.tx.collaborative.checkpoints(self.project_id)
             if not values or (utc_now() - values[0].created_at).total_seconds() >= 60:
                 self.checkpoint()
         except RepositoryError, OSError:
             self.tx.rollback()
             logging.getLogger(__name__).warning(
-                "Linear checkpoint deferred for %s", self.project_id
+                "Collaborative checkpoint deferred for %s", self.project_id
             )
 
     def checkpoint(
@@ -323,16 +331,16 @@ class LinearService:
         *,
         identifier: UUID | None = None,
         converting: bool = False,
-    ) -> LinearCheckpoint:
+    ) -> CollaborativeCheckpoint:
         self.tx.commit()
         with self.git.locked(initialize=False):
-            self.tx.linear.begin_write(self.project_id)
+            self.tx.collaborative.begin_write(self.project_id)
             self.authorize(converting=converting)
-            state = self.tx.linear.state(self.project_id)
+            state = self.tx.collaborative.state(self.project_id)
             if state is None:
-                raise RepositoryError("linear_not_initialized")
+                raise RepositoryError("collaborative_not_initialized")
             identifier = identifier or uuid4()
-            existing = self.tx.linear.checkpoint(self.project_id, identifier)
+            existing = self.tx.collaborative.checkpoint(self.project_id, identifier)
             if existing:
                 return existing
             files = [f for f in state.files if not f.deleted]
@@ -352,12 +360,12 @@ class LinearService:
                     records.extend(f"{mode} {blob}\t{file.path}\0".encode())
                 self.git.git("update-index", "-z", "--index-info", data=bytes(records), env=env)
                 tree = self.git.git("write-tree", env=env).decode().strip()
-            previous = self.tx.linear.checkpoints(self.project_id)
+            previous = self.tx.collaborative.checkpoints(self.project_id)
             commit = self.git.commit_tree(
                 tree, [previous[0].tree] if previous else [], title, "Polycolab"
             )
             self.git.git("update-ref", f"refs/polycolab/linear/{identifier}", commit)
-            value = LinearCheckpoint(
+            value = CollaborativeCheckpoint(
                 identifier,
                 self.project_id,
                 state.sequence,
@@ -368,12 +376,12 @@ class LinearService:
                 utc_now(),
             )
             self.materialize(state)
-            self.tx.linear.add_checkpoint(value)
-            self.tx.linear.add_storage(self.project_id, checkpoint_bytes)
+            self.tx.collaborative.add_checkpoint(value)
+            self.tx.collaborative.add_storage(self.project_id, checkpoint_bytes)
             self.tx.commit()
             return value
 
-    def materialize(self, state: LinearState) -> Path:
+    def materialize(self, state: CollaborativeState) -> Path:
         # Immutable revision directories avoid readers observing partially replaced trees.
         root = self.git.root / f"{self.project_id}.linear"
         root.mkdir(mode=0o700, exist_ok=True)
@@ -407,18 +415,20 @@ class LinearService:
                 os.close(fd)
         return target
 
-    def restore(self, checkpoint_id: UUID, epoch: int, sequence: int, key: str) -> LinearOperation:
+    def restore(
+        self, checkpoint_id: UUID, epoch: int, sequence: int, key: str
+    ) -> CollaborativeOperation:
         self.authorize(True, True)
-        target = self.tx.linear.checkpoint(self.project_id, checkpoint_id)
+        target = self.tx.collaborative.checkpoint(self.project_id, checkpoint_id)
         if target is None:
-            raise RepositoryError("linear_checkpoint_not_found", 404)
+            raise RepositoryError("collaborative_checkpoint_not_found", 404)
         state = self.state()
-        prior = self.tx.linear.receipt(self.project_id, self.user_id, key)
+        prior = self.tx.collaborative.receipt(self.project_id, self.user_id, key)
         if prior:
             if prior.kind != "restore" or prior.payload.get("restored_checkpoint") != str(
                 checkpoint_id
             ):
-                raise RepositoryError("linear_retry_mismatch")
+                raise RepositoryError("collaborative_retry_mismatch")
             return prior
         self.checkpoint("Before restore", identifier=uuid5(checkpoint_id, key))
         commands: list[dict[str, Any]] = [

@@ -14,7 +14,7 @@ from polycolab.entities.enums import InvitationStatus, ProjectRole, ProjectVisib
 
 
 class ProjectCreate(RequestModel):
-    workspace_mode: Literal["default", "linear", "git"] = "git"
+    file_mode: Literal["basic", "collaborative", "git"] = "git"
     name: str = Field(min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=20_000)
     visibility: ProjectVisibility = ProjectVisibility.PUBLIC
@@ -28,7 +28,7 @@ class ProjectUpdate(RequestModel):
 
 
 class ProjectMemberRead(ApiModel):
-    workspace_mode: Literal["default", "linear", "git"] = "git"
+    file_mode: Literal["basic", "collaborative", "git"] = "git"
     id: UUID
     name: str
     description: str | None

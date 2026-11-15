@@ -17,11 +17,11 @@ def _member_read(
     member_count: int,
 ) -> ProjectMemberRead:
     return ProjectMemberRead(
-        workspace_mode=(
-            "default"
-            if project.workspace_mode == "default"
-            else "linear"
-            if project.workspace_mode == "linear"
+        file_mode=(
+            "basic"
+            if project.file_mode == "basic"
+            else "collaborative"
+            if project.file_mode == "collaborative"
             else "git"
         ),
         id=project.id,

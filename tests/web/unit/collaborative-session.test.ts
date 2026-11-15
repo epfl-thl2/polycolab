@@ -1,9 +1,9 @@
 import { expect, it, vi } from 'vitest';
-import { LinearSession } from '../../../src/web/src/lib/linear-session';
-import type { LinearDocument } from '../../../src/web/src/lib/linear-api';
+import { CollaborativeSession } from '../../../src/web/src/lib/collaborative-session';
+import type { CollaborativeDocument } from '../../../src/web/src/lib/collaborative-api';
 
 it('shares a document when file preview and double-click overlap', async () => {
-  const live = new LinearSession(
+  const live = new CollaborativeSession(
     'project',
     async () => undefined,
     () => {},
@@ -16,8 +16,8 @@ it('shares a document when file preview and double-click overlap', async () => {
     has_git_archive: false,
     files: [],
   };
-  let finish!: (document: LinearDocument) => void;
-  const request = new Promise<LinearDocument>((resolve) => {
+  let finish!: (document: CollaborativeDocument) => void;
+  const request = new Promise<CollaborativeDocument>((resolve) => {
     finish = resolve;
   });
   vi.spyOn(live.api, 'file').mockReturnValue(request);

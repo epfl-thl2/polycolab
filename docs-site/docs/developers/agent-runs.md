@@ -20,6 +20,6 @@ Use the returned digest to protect an update:
 
 New files omit the expected digest. Renames include a destination; deletes and renames also require the current digest. On conflict, compare current contents before retrying.
 
-The API checks current membership, project state, key expiry/revocation, and budgets at each operation. It rechecks mutable authority after obtaining the filesystem lock. Keys do not grant Git/Linear HTTP access or conversation access.
+The API checks current membership, project state, key expiry/revocation, and budgets at each operation. It rechecks mutable authority after obtaining the filesystem lock. Keys do not grant Git/Collaborative HTTP access or conversation access.
 
 Hosted execution uses separate authenticated internal capabilities. Public research runs, per-turn research grants, object revisions, and proposal/verification tools have been removed. See [API fundamentals](api-fundamentals.md) and the [API reference](../api.md).

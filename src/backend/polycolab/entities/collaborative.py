@@ -7,7 +7,7 @@ from uuid import UUID
 
 
 @dataclass(frozen=True)
-class LinearFile:
+class CollaborativeFile:
     id: UUID
     path: str
     content: bytes
@@ -17,16 +17,16 @@ class LinearFile:
 
 
 @dataclass(frozen=True)
-class LinearState:
+class CollaborativeState:
     project_id: UUID
     epoch: int = 1
     sequence: int = 0
     stored_bytes: int = 0
-    files: tuple[LinearFile, ...] = ()
+    files: tuple[CollaborativeFile, ...] = ()
 
 
 @dataclass(frozen=True)
-class LinearOperation:
+class CollaborativeOperation:
     project_id: UUID
     sequence: int
     epoch: int
@@ -39,7 +39,7 @@ class LinearOperation:
 
 
 @dataclass(frozen=True)
-class LinearCheckpoint:
+class CollaborativeCheckpoint:
     id: UUID
     project_id: UUID
     sequence: int
@@ -51,7 +51,7 @@ class LinearCheckpoint:
 
 
 @dataclass(frozen=True)
-class LinearBatch:
+class ChangeSet:
     id: UUID
     project_id: UUID
     user_id: UUID

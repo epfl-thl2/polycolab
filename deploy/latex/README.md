@@ -1,6 +1,6 @@
 # LaTeX compilation
 
-Compilation is available in Git-mode projects. Linear-history projects do not yet
+Compilation is available in Git-mode projects. Collaborative-history projects do not yet
 have a compilation interface.
 
 The API owns permissions, worktree snapshots, the durable queue, and build metadata.

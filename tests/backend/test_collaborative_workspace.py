@@ -1,4 +1,4 @@
-"""Real Yjs + SQLite API coverage for the linear filesystem boundary."""
+"""Real Yjs + SQLite API coverage for the collaborative filesystem boundary."""
 
 import base64
 import os
@@ -29,7 +29,7 @@ from polycolab.platform.config import Environment, Settings
 def client(tmp_path: Path, identity_verifier: MappingIdentityVerifier) -> Iterator[TestClient]:
     # WebSocket polling and HTTP revocation need independent SQLite connections.
     # A single in-memory StaticPool connection cannot own both transactions.
-    database = tmp_path / "linear.db"
+    database = tmp_path / "collaborative.db"
     upgrade_database(database)
     app = create_app(
         Settings(
@@ -86,7 +86,7 @@ def collaboration_url() -> Iterator[str]:
 
 
 @pytest.fixture
-def linear(
+def collaborative(
     hosted_client: TestClient, tmp_path: Path, collaboration_url: str
 ) -> tuple[TestClient, str, str]:
     client = hosted_client
@@ -97,11 +97,11 @@ def linear(
     result = client.post(
         "/api/v1/projects",
         headers=headers("owner"),
-        json={"name": "Live proof", "workspace_mode": "linear"},
+        json={"name": "Live proof", "file_mode": "collaborative"},
     )
     assert result.status_code == 201, result.text
     project = result.json()["id"]
-    root = f"/api/v1/projects/{project}/linear"
+    root = f"/api/v1/projects/{project}/collaborative"
     assert client.get(root, headers=headers("owner")).status_code == 200
     return client, project, root
 
@@ -134,8 +134,8 @@ def create_file(
     }
 
 
-def test_saved_history_retry_and_authority(linear: tuple[TestClient, str, str]) -> None:
-    client, project, root = linear
+def test_saved_history_retry_and_authority(collaborative: tuple[TestClient, str, str]) -> None:
+    client, project, root = collaborative
     command = create_file()
     result = write(client, root, [command], key="create")
     assert result.status_code == 200, result.text
@@ -154,9 +154,9 @@ def test_saved_history_retry_and_authority(linear: tuple[TestClient, str, str]) 
 
 
 def test_restore_is_owner_only_and_fences_old_documents(
-    linear: tuple[TestClient, str, str],
+    collaborative: tuple[TestClient, str, str],
 ) -> None:
-    client, project, root = linear
+    client, project, root = collaborative
     command = create_file()
     assert write(client, root, [command]).status_code == 200
     checkpoint = client.post(
@@ -204,8 +204,8 @@ def test_restore_is_owner_only_and_fences_old_documents(
     assert state["files"][0]["id"] != command["file_id"]
 
 
-def test_structural_batch_is_atomic(linear: tuple[TestClient, str, str]) -> None:
-    client, _, root = linear
+def test_structural_change_set_is_atomic(collaborative: tuple[TestClient, str, str]) -> None:
+    client, _, root = collaborative
     first, second = create_file("a.txt"), create_file("b.txt")
     assert write(client, root, [first, second]).status_code == 200
     result = write(
@@ -224,11 +224,11 @@ def test_structural_batch_is_atomic(linear: tuple[TestClient, str, str]) -> None
 
 
 def test_shared_chat_read_access_and_unshare(
-    linear: tuple[TestClient, str, str],
+    collaborative: tuple[TestClient, str, str],
 ) -> None:
     from test_sessions_api import create_session
 
-    client, project, root = linear
+    client, project, root = collaborative
     add_member(client, project, "reader", "VIEWER")
     add_member(client, project, "contributor", "EDITOR")
     chat = create_session(client, project)
@@ -285,17 +285,20 @@ def test_conversion_preserves_saved_overlay_and_freezes_git(
     )
     assert saved.status_code == 200, saved.text
     preview = client.get(
-        base + "/linear/conversion-preview",
+        base + "/collaborative/conversion-preview",
         params={"worktree_id": tree["id"]},
         headers=headers("owner"),
     )
     assert preview.json()["saved_changes"] is True
     body = {"worktree_id": tree["id"], "revision": preview.json()["revision"]}
     auth = {**headers("owner"), "Idempotency-Key": "convert"}
-    converted = client.post(base + "/linear/convert", headers=auth, json=body)
+    converted = client.post(base + "/collaborative/convert", headers=auth, json=body)
     assert converted.status_code == 200, converted.text
     assert converted.json()["files"][0]["path"] == "notes.txt"
-    assert client.post(base + "/linear/convert", headers=auth, json=body).json() == converted.json()
+    assert (
+        client.post(base + "/collaborative/convert", headers=auth, json=body).json()
+        == converted.json()
+    )
     archive = client.get(base + f"/worktrees/{tree['id']}", headers=headers("owner"))
     assert archive.json()["head_commit"] == tree["head_commit"]
     assert archive.json()["writable"] is False
@@ -314,9 +317,9 @@ def test_conversion_preserves_saved_overlay_and_freezes_git(
 
 @pytest.mark.parametrize("client", ["file"], indirect=True)
 def test_websocket_ack_replay_and_revoked_write(
-    linear: tuple[TestClient, str, str], collaboration_url: str
+    collaborative: tuple[TestClient, str, str], collaboration_url: str
 ) -> None:
-    client, project, root = linear
+    client, project, root = collaborative
     command = create_file(text="first\nsecond\n")
     assert write(client, root, [command]).status_code == 200
     add_member(client, project, "contributor", "EDITOR")
@@ -325,7 +328,7 @@ def test_websocket_ack_replay_and_revoked_write(
     doc = client.get(root + "/files/" + command["file_id"], headers=headers("owner")).json()
     from uuid import UUID
 
-    from polycolab.projects.linear_service import CollaborationClient
+    from polycolab.projects.collaborative_service import CollaborationClient
 
     engine = CollaborationClient(
         collaboration_url, app.state.settings.collaboration_token.get_secret_value()
@@ -371,9 +374,9 @@ def test_websocket_ack_replay_and_revoked_write(
 
 
 def test_missing_repository_blocks_writes_without_reinitializing(
-    linear: tuple[TestClient, str, str],
+    collaborative: tuple[TestClient, str, str],
 ) -> None:
-    client, project, root = linear
+    client, project, root = collaborative
     assert write(client, root, [create_file()]).status_code == 200
     app = cast(FastAPI, client.app)
     repository = app.state.settings.project_repository_directory / f"{project}.git"
@@ -385,31 +388,31 @@ def test_missing_repository_blocks_writes_without_reinitializing(
 
 
 def test_accepted_change_survives_checkpoint_failure(
-    linear: tuple[TestClient, str, str], monkeypatch: pytest.MonkeyPatch
+    collaborative: tuple[TestClient, str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from polycolab.entities.repositories import RepositoryError
-    from polycolab.projects.linear_service import LinearService
+    from polycolab.projects.collaborative_service import CollaborativeService
 
-    client, project, root = linear
+    client, project, root = collaborative
 
     def unavailable(*args: object, **kwargs: object) -> None:
         raise RepositoryError("repository_unavailable", 503)
 
-    monkeypatch.setattr(LinearService, "checkpoint", unavailable)
+    monkeypatch.setattr(CollaborativeService, "checkpoint", unavailable)
     response = write(client, root, [create_file()], key="durable")
     assert response.status_code == 200, response.text
     assert client.get(root, headers=headers("owner")).json()["sequence"] == 1
 
 
 def test_transient_collaboration_failure_allows_same_update_to_retry(
-    linear: tuple[TestClient, str, str], monkeypatch: pytest.MonkeyPatch
+    collaborative: tuple[TestClient, str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from starlette.websockets import WebSocketDisconnect
 
     from polycolab.entities.repositories import RepositoryError
-    from polycolab.projects.linear_service import CollaborationClient
+    from polycolab.projects.collaborative_service import CollaborationClient
 
-    client, project, root = linear
+    client, project, root = collaborative
     app = cast(FastAPI, client.app)
     origin = str(app.state.settings.allowed_origins[0]).rstrip("/")
     command = create_file()

@@ -4,7 +4,7 @@ The Svelte application uses typed adapters over generated OpenAPI types. FastAPI
 
 `/` and `/projects` show the project directory. Member and public scopes use the same project API. Public visitors can read project metadata; project files and conversations require membership.
 
-Projects choose Default, Linear, or Git workbenches. They retain file explorers, editors, conversation tabs, settings, and Agent connect. Default projects operate on current server files with guarded saves. Git and Linear retain their respective file history and collaboration interfaces. LaTeX builds are available where the saved-file capability supports them.
+Projects choose Basic, Collaborative, or Git workbenches. They retain file explorers, editors, conversation tabs, settings, and Agent connect. Basic projects operate on current server files with guarded saves. Git and Collaborative retain their respective file history and collaboration interfaces. LaTeX builds are available where the saved-file capability supports them.
 
 Chat drafts survive tab switches and are cleared with account/project teardown. Query caches are cleared on sign-out and authentication changes. Hosted conversations retain provider selection, streaming events, cancellation, and project artifact IDs as optional context.
 

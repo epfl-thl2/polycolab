@@ -10,7 +10,7 @@ async function signup(page: Page, username: string) {
   await expect(page).toHaveURL(/\/projects$/);
 }
 
-test('linear coediting persists, reconnects, and restores across two real members', async ({
+test('collaborative coediting persists, reconnects, and restores across two real members', async ({
   page,
   browser,
   baseURL,
@@ -19,13 +19,13 @@ test('linear coediting persists, reconnects, and restores across two real member
   const peerContext = await browser.newContext({ baseURL });
   const peer = await peerContext.newPage();
   try {
-    await signup(page, `linearowner${Date.now()}`);
-    await signup(peer, `linearpeer${Date.now()}`);
+    await signup(page, `collaborativeowner${Date.now()}`);
+    await signup(peer, `collaborativepeer${Date.now()}`);
     const member = await (await peer.request.get('/api/v1/account')).json();
     const headers = { Origin: baseURL! };
     const response = await page.request.post('/api/v1/projects', {
       headers,
-      data: { name: 'Live collaboration', visibility: 'PRIVATE', workspace_mode: 'linear' },
+      data: { name: 'Live collaboration', visibility: 'PRIVATE', file_mode: 'collaborative' },
     });
     expect(response.status()).toBe(201);
     const project = await response.json();
@@ -48,9 +48,9 @@ test('linear coediting persists, reconnects, and restores across two real member
     const editor = page.getByRole('textbox', { name: 'File contents', exact: true });
     await editor.fill('Shared text\n');
     await expect(page.getByRole('status').filter({ hasText: /^Saved/ })).toBeVisible();
-    await page.screenshot({ path: test.info().outputPath('linear-desktop.png') });
-    await test.info().attach('linear-desktop', {
-      path: test.info().outputPath('linear-desktop.png'),
+    await page.screenshot({ path: test.info().outputPath('collaborative-desktop.png') });
+    await test.info().attach('collaborative-desktop', {
+      path: test.info().outputPath('collaborative-desktop.png'),
       contentType: 'image/png',
     });
     await peer.goto(path + '?file=notes.txt');
@@ -67,9 +67,9 @@ test('linear coediting persists, reconnects, and restores across two real member
     await page.getByRole('button', { name: /^(Show|Hide) tools$/ }).click();
     const drawer = page.getByRole('dialog');
     await expect(drawer.getByRole('button', { name: /^Together/ })).toBeVisible();
-    await page.screenshot({ path: test.info().outputPath('linear-mobile-history.png') });
-    await test.info().attach('linear-mobile-history', {
-      path: test.info().outputPath('linear-mobile-history.png'),
+    await page.screenshot({ path: test.info().outputPath('collaborative-mobile-history.png') });
+    await test.info().attach('collaborative-mobile-history', {
+      path: test.info().outputPath('collaborative-mobile-history.png'),
       contentType: 'image/png',
     });
     await drawer.getByRole('button', { name: 'Close drawer', exact: true }).click();
@@ -120,7 +120,7 @@ test('linear coediting persists, reconnects, and restores across two real member
     );
     await page.getByRole('button', { name: 'Chats', exact: true }).click();
     await expect(chat).toHaveValue('Keep my conversation draft');
-    await page.screenshot({ path: test.info().outputPath('linear-chat-desktop.png') });
+    await page.screenshot({ path: test.info().outputPath('collaborative-chat-desktop.png') });
     await page.getByRole('tab', { name: 'Agent changes', exact: true }).click();
     await page.getByText('Agent file changes (0 to review)', { exact: true }).click();
     await expect(page.getByText('No agent file changes yet.', { exact: true })).toBeVisible();
@@ -133,7 +133,7 @@ test('linear coediting persists, reconnects, and restores across two real member
     await chatDrawer.getByRole('link', { name: 'New chat Draft', exact: true }).last().click();
     await expect(chatDrawer).toBeHidden();
     await expect(chat).toHaveValue('Second conversation draft');
-    await page.screenshot({ path: test.info().outputPath('linear-chat-mobile.png') });
+    await page.screenshot({ path: test.info().outputPath('collaborative-chat-mobile.png') });
   } finally {
     await peerContext.close();
   }

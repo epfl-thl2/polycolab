@@ -212,14 +212,14 @@ class AgentController:
                                 "export_artifact. "
                                 + (
                                     "On success, /workspace changes are integrated atomically "
-                                    "into the shared linear project. "
+                                    "into the shared collaborative project. "
                                     "People and other agents can keep editing. Use "
                                     "workspace_status and workspace_refresh "
                                     "between commands to inspect and incorporate newer shared "
                                     "changes. "
                                     "A conflicting result is preserved for reconciliation. "
                                     if claim.repository is not None
-                                    and claim.repository.get("mode") == "linear"
+                                    and claim.repository.get("mode") == "collaborative"
                                     else "On success, /workspace files are saved as uncommitted "
                                     "changes "
                                     "for human review. "
@@ -236,7 +236,7 @@ class AgentController:
                         EXPORT_TOOL,
                         *(
                             WORKSPACE_TOOLS
-                            if claim.repository and claim.repository.get("mode") == "linear"
+                            if claim.repository and claim.repository.get("mode") == "collaborative"
                             else []
                         ),
                     ],

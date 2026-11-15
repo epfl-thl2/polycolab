@@ -2,7 +2,7 @@
   import { notificationService } from '../../../svelte-lib/notifications.svelte';
   const notifications = notificationService();
   import FeedbackToast from '../../../ui/FeedbackToast.svelte';
-  import LinearConversion from '../components/LinearConversion.svelte';
+  import CollaborativeConversion from '../components/CollaborativeConversion.svelte';
   import ConfirmAction from '../../../ui/ConfirmAction.svelte';
   import { Confirmation } from '../../../svelte-lib/confirmation.svelte';
   const confirmation = new Confirmation();
@@ -98,7 +98,7 @@
 {#if !owner}<p>Only project owners can manage settings and membership.</p>{:else}
   <FeedbackToast pending={busy} message={error || notice} variant={error ? 'error' : 'success'} />
   <div class="settings-stack">
-    <LinearConversion {project} />
+    <CollaborativeConversion {project} />
     <section class="settings-section" aria-labelledby="project-details-heading">
       <div class="section-heading">
         <h2 id="project-details-heading">Project details</h2>

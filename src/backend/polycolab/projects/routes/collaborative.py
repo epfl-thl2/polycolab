@@ -22,19 +22,21 @@ from polycolab.accounts.identity import current_user
 from polycolab.app.dependencies import CurrentUser, DbSession
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.repositories import RepositoryError
-from polycolab.projects.linear_service import LinearService, file_value
+from polycolab.projects.collaborative_service import CollaborativeService, file_value
 from polycolab.projects.repository_schemas import RepositoryModel
 from polycolab.projects.routes.repository import RetryKey
 
-router = APIRouter(prefix="/api/v1/projects/{project_id}/linear", tags=["linear workspaces"])
+router = APIRouter(
+    prefix="/api/v1/projects/{project_id}/collaborative", tags=["collaborative workspaces"]
+)
 
 
-class LinearRevision(RepositoryModel):
+class CollaborativeRevision(RepositoryModel):
     epoch: int = Field(ge=1)
     sequence: int = Field(ge=0)
 
 
-class LinearCommand(RepositoryModel):
+class CollaborativeCommand(RepositoryModel):
     kind: Literal["create", "update", "replace", "rename", "delete", "mode"]
     file_id: UUID
     path: str | None = Field(default=None, max_length=240)
@@ -44,7 +46,7 @@ class LinearCommand(RepositoryModel):
     executable: bool = False
 
     @model_validator(mode="after")
-    def required_fields(self) -> LinearCommand:
+    def required_fields(self) -> CollaborativeCommand:
         if self.kind in {"create", "rename"} and self.path is None:
             raise ValueError("path is required")
         if self.kind == "replace" and self.content_base64 is None:
@@ -54,13 +56,13 @@ class LinearCommand(RepositoryModel):
         return self
 
 
-class LinearChange(RepositoryModel):
+class CollaborativeChange(RepositoryModel):
     epoch: int = Field(ge=1)
     expected_sequence: int | None = Field(default=None, ge=0)
-    commands: list[LinearCommand] = Field(min_length=1, max_length=256)
+    commands: list[CollaborativeCommand] = Field(min_length=1, max_length=256)
 
 
-class LinearFileRead(RepositoryModel):
+class CollaborativeFileRead(RepositoryModel):
     id: UUID
     path: str
     size: int
@@ -68,14 +70,14 @@ class LinearFileRead(RepositoryModel):
     binary: bool
 
 
-class LinearStateRead(LinearRevision):
+class CollaborativeStateRead(CollaborativeRevision):
     has_git_archive: bool
     writable: bool
     can_restore: bool
-    files: list[LinearFileRead]
+    files: list[CollaborativeFileRead]
 
 
-class LinearDocumentRead(RepositoryModel):
+class CollaborativeDocumentRead(RepositoryModel):
     id: UUID
     path: str
     content_base64: str
@@ -86,14 +88,14 @@ class LinearDocumentRead(RepositoryModel):
     sequence: int
 
 
-class LinearOperationRead(LinearRevision):
+class CollaborativeOperationRead(CollaborativeRevision):
     user_id: UUID
     kind: str
     payload: dict[str, Any]
     created_at: str
 
 
-class LinearCheckpointRead(LinearRevision):
+class CollaborativeCheckpointRead(CollaborativeRevision):
     id: UUID
     title: str
     created_at: str
@@ -104,20 +106,22 @@ class CheckpointCreate(RepositoryModel):
     title: str = Field(min_length=1, max_length=300)
 
 
-class Restore(LinearRevision):
+class Restore(CollaborativeRevision):
     checkpoint_id: UUID
 
 
-def service(request: Request, db: DbSession, project_id: UUID, user_id: UUID) -> LinearService:
-    from polycolab.projects.linear_factory import service as create_service
+def service(
+    request: Request, db: DbSession, project_id: UUID, user_id: UUID
+) -> CollaborativeService:
+    from polycolab.projects.collaborative_factory import service as create_service
 
     return create_service(request.app.state.settings, db, project_id, user_id)
 
 
-def state_read(instance: LinearService) -> LinearStateRead:
+def state_read(instance: CollaborativeService) -> CollaborativeStateRead:
     state = instance.state()
-    return LinearStateRead(
-        has_git_archive=instance.tx.linear.has_archive(instance.project_id),
+    return CollaborativeStateRead(
+        has_git_archive=instance.tx.collaborative.has_archive(instance.project_id),
         epoch=state.epoch,
         sequence=state.sequence,
         writable=project_policy.can(
@@ -127,7 +131,7 @@ def state_read(instance: LinearService) -> LinearStateRead:
             instance.tx, instance.project_id, instance.user_id, ProjectAction.MANAGE_SETTINGS
         ),
         files=[
-            LinearFileRead(
+            CollaborativeFileRead(
                 id=f.id,
                 path=f.path,
                 size=len(f.content),
@@ -140,8 +144,8 @@ def state_read(instance: LinearService) -> LinearStateRead:
     )
 
 
-def operation_read(value: Any) -> LinearOperationRead:
-    return LinearOperationRead(
+def operation_read(value: Any) -> CollaborativeOperationRead:
+    return CollaborativeOperationRead(
         epoch=value.epoch,
         sequence=value.sequence,
         user_id=value.user_id,
@@ -151,33 +155,33 @@ def operation_read(value: Any) -> LinearOperationRead:
     )
 
 
-@router.get("", operation_id="getLinearProject")
+@router.get("", operation_id="getCollaborativeProject")
 def get_state(
     project_id: UUID, request: Request, db: DbSession, user: CurrentUser
-) -> LinearStateRead:
+) -> CollaborativeStateRead:
     return state_read(service(request, db, project_id, user.id))
 
 
-@router.get("/files/{file_id}", operation_id="getLinearFile")
+@router.get("/files/{file_id}", operation_id="getCollaborativeFile")
 def get_file(
     project_id: UUID, file_id: UUID, request: Request, db: DbSession, user: CurrentUser
-) -> LinearDocumentRead:
+) -> CollaborativeDocumentRead:
     state = service(request, db, project_id, user.id).state()
     file = next((f for f in state.files if f.id == file_id and not f.deleted), None)
     if file is None:
-        raise RepositoryError("linear_file_not_found", 404)
-    return LinearDocumentRead(**file_value(file), epoch=state.epoch, sequence=state.sequence)
+        raise RepositoryError("collaborative_file_not_found", 404)
+    return CollaborativeDocumentRead(**file_value(file), epoch=state.epoch, sequence=state.sequence)
 
 
-@router.post("/changes", operation_id="changeLinearFiles")
+@router.post("/changes", operation_id="changeCollaborativeFiles")
 def changes(
     project_id: UUID,
-    body: LinearChange,
+    body: CollaborativeChange,
     key: RetryKey,
     request: Request,
     db: DbSession,
     user: CurrentUser,
-) -> LinearOperationRead:
+) -> CollaborativeOperationRead:
     instance = service(request, db, project_id, user.id)
     result = instance.change(
         epoch=body.epoch,
@@ -189,42 +193,44 @@ def changes(
     return operation_read(result)
 
 
-@router.get("/history", operation_id="getLinearHistory")
+@router.get("/history", operation_id="getCollaborativeHistory")
 def history(
     project_id: UUID, request: Request, db: DbSession, user: CurrentUser, after: int = 0
-) -> list[LinearOperationRead]:
-    instance = service(request, db, project_id, user.id)
-    instance.authorize()
-    return [operation_read(v) for v in instance.tx.linear.operations(project_id, max(0, after))]
-
-
-@router.get("/checkpoints", operation_id="listLinearCheckpoints")
-def checkpoints(
-    project_id: UUID, request: Request, db: DbSession, user: CurrentUser
-) -> list[LinearCheckpointRead]:
+) -> list[CollaborativeOperationRead]:
     instance = service(request, db, project_id, user.id)
     instance.authorize()
     return [
-        LinearCheckpointRead(
+        operation_read(v) for v in instance.tx.collaborative.operations(project_id, max(0, after))
+    ]
+
+
+@router.get("/checkpoints", operation_id="listCollaborativeCheckpoints")
+def checkpoints(
+    project_id: UUID, request: Request, db: DbSession, user: CurrentUser
+) -> list[CollaborativeCheckpointRead]:
+    instance = service(request, db, project_id, user.id)
+    instance.authorize()
+    return [
+        CollaborativeCheckpointRead(
             id=v.id,
             epoch=v.epoch,
             sequence=v.sequence,
             title=v.title,
             created_at=v.created_at.isoformat(),
         )
-        for v in instance.tx.linear.checkpoints(project_id)
+        for v in instance.tx.collaborative.checkpoints(project_id)
     ]
 
 
-@router.post("/checkpoints", operation_id="createLinearCheckpoint")
+@router.post("/checkpoints", operation_id="createCollaborativeCheckpoint")
 def checkpoint(
     project_id: UUID, body: CheckpointCreate, request: Request, db: DbSession, user: CurrentUser
-) -> LinearCheckpointRead:
+) -> CollaborativeCheckpointRead:
     instance = service(request, db, project_id, user.id)
     instance.authorize(True)
     instance.state()
     value = instance.checkpoint(body.title, identifier=body.id)
-    return LinearCheckpointRead(
+    return CollaborativeCheckpointRead(
         id=value.id,
         epoch=value.epoch,
         sequence=value.sequence,
@@ -233,21 +239,22 @@ def checkpoint(
     )
 
 
-@router.get("/checkpoints/{checkpoint_id}/files", operation_id="getLinearCheckpointFiles")
+@router.get("/checkpoints/{checkpoint_id}/files", operation_id="getCollaborativeCheckpointFiles")
 def checkpoint_files(
     project_id: UUID, checkpoint_id: UUID, request: Request, db: DbSession, user: CurrentUser
-) -> list[LinearDocumentRead]:
+) -> list[CollaborativeDocumentRead]:
     instance = service(request, db, project_id, user.id)
     instance.authorize()
-    value = instance.tx.linear.checkpoint(project_id, checkpoint_id)
+    value = instance.tx.collaborative.checkpoint(project_id, checkpoint_id)
     if value is None:
-        raise RepositoryError("linear_checkpoint_not_found", 404)
+        raise RepositoryError("collaborative_checkpoint_not_found", 404)
     return [
-        LinearDocumentRead(**f, epoch=value.epoch, sequence=value.sequence) for f in value.files
+        CollaborativeDocumentRead(**f, epoch=value.epoch, sequence=value.sequence)
+        for f in value.files
     ]
 
 
-@router.post("/restore", operation_id="restoreLinearCheckpoint")
+@router.post("/restore", operation_id="restoreCollaborativeCheckpoint")
 def restore(
     project_id: UUID,
     body: Restore,
@@ -255,7 +262,7 @@ def restore(
     request: Request,
     db: DbSession,
     user: CurrentUser,
-) -> LinearOperationRead:
+) -> CollaborativeOperationRead:
     return operation_read(
         service(request, db, project_id, user.id).restore(
             body.checkpoint_id, body.epoch, body.sequence, key
@@ -334,7 +341,7 @@ async def events(socket: WebSocket, project_id: UUID) -> None:
                     instance.authorize()
                     return [
                         operation_read(v).model_dump(mode="json")
-                        for v in instance.tx.linear.operations(project_id, after)
+                        for v in instance.tx.collaborative.operations(project_id, after)
                     ]
 
             for operation in await run_in_threadpool(poll):
@@ -357,12 +364,12 @@ async def events(socket: WebSocket, project_id: UUID) -> None:
             message = json.loads(raw)
             if message.get("kind") == "update":
                 try:
-                    body = LinearChange.model_validate(message["body"])
+                    body = CollaborativeChange.model_validate(message["body"])
                     key = str(message["request_id"])
                     if not 1 <= len(key) <= 200:
                         raise ValueError
 
-                    def write(body: LinearChange = body, key: str = key) -> dict[str, Any]:
+                    def write(body: CollaborativeChange = body, key: str = key) -> dict[str, Any]:
                         with socket.app.state.session_factory() as db:
                             return changes(
                                 project_id,
@@ -419,16 +426,16 @@ class ConversionRequest(RepositoryModel):
     revision: str = Field(pattern=r"^[0-9a-f]{40}$")
 
 
-@router.get("/conversion-preview", operation_id="previewLinearConversion")
+@router.get("/conversion-preview", operation_id="previewCollaborativeConversion")
 def conversion_preview(
     project_id: UUID, worktree_id: UUID, request: Request, db: DbSession, user: CurrentUser
 ) -> dict[str, Any]:
-    from polycolab.projects.linear_conversion import preview
+    from polycolab.projects.collaborative_conversion import preview
 
     return preview(request.app.state.settings, db, project_id, user.id, worktree_id)
 
 
-@router.post("/convert", operation_id="convertProjectToLinear")
+@router.post("/convert", operation_id="convertProjectToCollaborative")
 def conversion(
     project_id: UUID,
     body: ConversionRequest,
@@ -436,8 +443,8 @@ def conversion(
     request: Request,
     db: DbSession,
     user: CurrentUser,
-) -> LinearStateRead:
-    from polycolab.projects.linear_conversion import convert
+) -> CollaborativeStateRead:
+    from polycolab.projects.collaborative_conversion import convert
 
     convert(
         request.app.state.settings, db, project_id, user.id, body.worktree_id, body.revision, key
@@ -445,7 +452,7 @@ def conversion(
     return state_read(service(request, db, project_id, user.id))
 
 
-class BatchRead(RepositoryModel):
+class ChangeSetRead(RepositoryModel):
     id: UUID
     run_id: UUID | None
     status: str
@@ -455,77 +462,80 @@ class BatchRead(RepositoryModel):
     conflicts: list[str]
 
 
-class BatchResolution(LinearChange):
-    commands: list[LinearCommand] = Field(default_factory=list, max_length=256)
+class ChangeSetResolution(CollaborativeChange):
+    commands: list[CollaborativeCommand] = Field(default_factory=list, max_length=256)
 
 
-def private_batch(instance: LinearService, db: DbSession, batch_id: UUID) -> Any:
-    from polycolab.db.models.linear import SqlLinearBatch
+def private_change_set(instance: CollaborativeService, db: DbSession, change_set_id: UUID) -> Any:
+    from polycolab.db.models.collaborative import SqlChangeSet
 
     instance.authorize()
-    batch = db.get(SqlLinearBatch, batch_id)
+    change_set = db.get(SqlChangeSet, change_set_id)
     if (
-        batch is None
-        or batch.project_id != instance.project_id
-        or batch.user_id != instance.user_id
+        change_set is None
+        or change_set.project_id != instance.project_id
+        or change_set.user_id != instance.user_id
     ):
-        raise RepositoryError("linear_batch_not_found", 404)
-    return batch
+        raise RepositoryError("change_set_not_found", 404)
+    return change_set
 
 
-@router.get("/batches", operation_id="listLinearBatches")
-def batches(
+@router.get("/change-sets", operation_id="listAgentChanges")
+def change_sets(
     project_id: UUID, request: Request, db: DbSession, user: CurrentUser
-) -> list[BatchRead]:
+) -> list[ChangeSetRead]:
     from sqlalchemy import select
 
-    from polycolab.db.models.linear import SqlLinearBatch
+    from polycolab.db.models.collaborative import SqlChangeSet
 
     instance = service(request, db, project_id, user.id)
     instance.authorize()
     return [
-        BatchRead.model_validate(batch, from_attributes=True)
-        for batch in db.scalars(
-            select(SqlLinearBatch)
-            .where(SqlLinearBatch.project_id == project_id, SqlLinearBatch.user_id == user.id)
+        ChangeSetRead.model_validate(change_set, from_attributes=True)
+        for change_set in db.scalars(
+            select(SqlChangeSet)
+            .where(SqlChangeSet.project_id == project_id, SqlChangeSet.user_id == user.id)
             .limit(100)
         )
     ]
 
 
-@router.post("/batches/{batch_id}/retry", operation_id="retryLinearBatch")
-def retry_batch(
-    project_id: UUID, batch_id: UUID, request: Request, db: DbSession, user: CurrentUser
-) -> BatchRead:
-    from polycolab.agents.linear_files import apply_batch
+@router.post("/change-sets/{change_set_id}/retry", operation_id="retryChangeSet")
+def retry_change_set(
+    project_id: UUID, change_set_id: UUID, request: Request, db: DbSession, user: CurrentUser
+) -> ChangeSetRead:
+    from polycolab.agents.collaborative_files import apply_change_set
 
     instance = service(request, db, project_id, user.id)
-    batch = private_batch(instance, db, batch_id)
-    if batch.status == "pending":
-        apply_batch(instance, db, batch)
-    return BatchRead.model_validate(batch, from_attributes=True)
+    change_set = private_change_set(instance, db, change_set_id)
+    if change_set.status == "pending":
+        apply_change_set(instance, db, change_set)
+    return ChangeSetRead.model_validate(change_set, from_attributes=True)
 
 
-@router.post("/batches/{batch_id}/resolve", operation_id="resolveLinearBatch")
-def resolve_batch(
+@router.post("/change-sets/{change_set_id}/resolve", operation_id="resolveChangeSet")
+def resolve_change_set(
     project_id: UUID,
-    batch_id: UUID,
-    body: BatchResolution,
+    change_set_id: UUID,
+    body: ChangeSetResolution,
     key: RetryKey,
     request: Request,
     db: DbSession,
     user: CurrentUser,
-) -> LinearOperationRead:
+) -> CollaborativeOperationRead:
     instance = service(request, db, project_id, user.id)
-    batch = private_batch(instance, db, batch_id)
-    if batch.status != "pending" and instance.tx.linear.receipt(project_id, user.id, key) is None:
-        raise RepositoryError("linear_batch_already_resolved")
+    change_set = private_change_set(instance, db, change_set_id)
+    if (
+        change_set.status != "pending"
+        and instance.tx.collaborative.receipt(project_id, user.id, key) is None
+    ):
+        raise RepositoryError("change_set_already_resolved")
     if body.expected_sequence is None:
-        raise RepositoryError("linear_expected_revision_required", 422)
+        raise RepositoryError("collaborative_expected_revision_required", 422)
 
     def accepted(operation: Any) -> None:
-        batch.status = "resolved"
-        batch.conflicts = []
+        change_set.status = "resolved"
+        change_set.conflicts = []
 
     result = instance.change(
         epoch=body.epoch,
@@ -539,28 +549,28 @@ def resolve_batch(
     return operation_read(result)
 
 
-@router.post("/batches/{batch_id}/revert", operation_id="revertLinearBatch")
-def revert_batch(
-    project_id: UUID, batch_id: UUID, request: Request, db: DbSession, user: CurrentUser
-) -> BatchRead:
+@router.post("/change-sets/{change_set_id}/revert", operation_id="revertChangeSet")
+def revert_change_set(
+    project_id: UUID, change_set_id: UUID, request: Request, db: DbSession, user: CurrentUser
+) -> ChangeSetRead:
     from uuid import uuid5
 
-    from polycolab.agents.linear_files import apply_batch
-    from polycolab.db.models.linear import SqlLinearBatch
+    from polycolab.agents.collaborative_files import apply_change_set
+    from polycolab.db.models.collaborative import SqlChangeSet
 
     instance = service(request, db, project_id, user.id)
-    batch = private_batch(instance, db, batch_id)
+    change_set = private_change_set(instance, db, change_set_id)
     instance.authorize(True)
-    if batch.status != "applied":
-        raise RepositoryError("linear_batch_not_applied")
-    identifier = uuid5(batch_id, "revert")
-    inverse = db.get(SqlLinearBatch, identifier)
+    if change_set.status != "applied":
+        raise RepositoryError("change_set_not_applied")
+    identifier = uuid5(change_set_id, "revert")
+    inverse = db.get(SqlChangeSet, identifier)
     if inverse is None:
-        inverse = SqlLinearBatch(
+        inverse = SqlChangeSet(
             id=identifier,
             project_id=project_id,
             user_id=user.id,
-            epoch=batch.epoch,
+            epoch=change_set.epoch,
             base_sequence=instance.state().sequence,
             status="pending",
             changes=[
@@ -571,36 +581,36 @@ def revert_batch(
                     "base": change["target"],
                     "target": change["base"],
                 }
-                for change in batch.changes
+                for change in change_set.changes
             ],
             conflicts=[],
         )
         db.commit()
         with instance.git.locked(initialize=False):
-            instance.tx.linear.begin_write(project_id)
+            instance.tx.collaborative.begin_write(project_id)
             instance.authorize(True)
             stored_bytes = len(json.dumps(inverse.changes).encode())
             instance.check_quota(instance.state(), stored_bytes)
-            instance.tx.linear.add_storage(project_id, stored_bytes)
+            instance.tx.collaborative.add_storage(project_id, stored_bytes)
             db.add(inverse)
             db.commit()
-    apply_batch(instance, db, inverse)
-    return BatchRead.model_validate(inverse, from_attributes=True)
+    apply_change_set(instance, db, inverse)
+    return ChangeSetRead.model_validate(inverse, from_attributes=True)
 
 
-@router.get("/checkpoints/{checkpoint_id}/diff", operation_id="diffLinearCheckpoint")
+@router.get("/checkpoints/{checkpoint_id}/diff", operation_id="diffCollaborativeCheckpoint")
 def checkpoint_diff(
     project_id: UUID, checkpoint_id: UUID, request: Request, db: DbSession, user: CurrentUser
 ) -> str:
     import difflib
 
-    from polycolab.projects.linear_service import file_from
+    from polycolab.projects.collaborative_service import file_from
 
     instance = service(request, db, project_id, user.id)
     state = instance.state()
-    checkpoint = instance.tx.linear.checkpoint(project_id, checkpoint_id)
+    checkpoint = instance.tx.collaborative.checkpoint(project_id, checkpoint_id)
     if checkpoint is None:
-        raise RepositoryError("linear_checkpoint_not_found", 404)
+        raise RepositoryError("collaborative_checkpoint_not_found", 404)
     before = {file["path"]: file_from(file) for file in checkpoint.files}
     after = {file.path: file for file in state.files if not file.deleted}
     output = [f"Checkpoint {checkpoint.sequence} → current revision {state.sequence}\n"]

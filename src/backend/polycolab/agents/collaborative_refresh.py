@@ -10,23 +10,23 @@ from uuid import UUID, uuid5
 
 from sqlalchemy.orm import Session
 
-from polycolab.agents.linear_files import content, contribution, reconcile
-from polycolab.db.models.linear import SqlLinearRun
+from polycolab.agents.collaborative_files import content, contribution, reconcile
+from polycolab.db.models.collaborative import SqlCollaborativeRun
 from polycolab.entities.repositories import RepositoryError
 from polycolab.platform.config import Settings
-from polycolab.projects.linear_factory import service
-from polycolab.projects.linear_service import decode, encode
+from polycolab.projects.collaborative_factory import service
+from polycolab.projects.collaborative_service import decode, encode
 
 
 def status(settings: Settings, db: Session, run: Any) -> dict[str, Any]:
     instance = service(settings, db, run.project_id, run.requested_by_user_id)
     state = instance.state()
-    binding = db.get(SqlLinearRun, run.id)
+    binding = db.get(SqlCollaborativeRun, run.id)
     if binding is None:
-        raise RepositoryError("linear_run_not_found", 404)
-    checkpoint = instance.tx.linear.checkpoint(run.project_id, binding.current_checkpoint_id)
+        raise RepositoryError("collaborative_run_not_found", 404)
+    checkpoint = instance.tx.collaborative.checkpoint(run.project_id, binding.current_checkpoint_id)
     assert checkpoint is not None
-    operations = instance.tx.linear.operations(run.project_id, checkpoint.sequence)
+    operations = instance.tx.collaborative.operations(run.project_id, checkpoint.sequence)
     return {
         "input_sequence": checkpoint.sequence,
         "sequence": state.sequence,
@@ -45,22 +45,24 @@ def prepare(
     instance = service(settings, db, run.project_id, run.requested_by_user_id)
     instance.authorize(True)
     db.commit()
-    binding = db.get(SqlLinearRun, run.id)
+    binding = db.get(SqlCollaborativeRun, run.id)
     if binding is None:
-        raise RepositoryError("linear_run_not_found", 404)
+        raise RepositoryError("collaborative_run_not_found", 404)
     digest = hashlib.sha256(data).hexdigest()
     if binding.refresh_data:
         pending = binding.refresh_data
         if pending["key"] != key or pending["digest"] != digest:
-            raise RepositoryError("linear_refresh_unacknowledged")
+            raise RepositoryError("collaborative_refresh_unacknowledged")
     else:
         state = instance.state()
         if binding.epoch != state.epoch:
             return {
-                "error": "linear_epoch_changed",
+                "error": "collaborative_epoch_changed",
                 "instruction": "Finish this turn. Reconcile in a new turn after the restore.",
             }
-        previous = instance.tx.linear.checkpoint(run.project_id, binding.current_checkpoint_id)
+        previous = instance.tx.collaborative.checkpoint(
+            run.project_id, binding.current_checkpoint_id
+        )
         assert previous is not None
         with instance.git.locked(initialize=False):
             authority()
@@ -68,11 +70,11 @@ def prepare(
             changes = contribution(instance, previous, imported, run.id)
         commands, conflicts, _ = reconcile(instance, changes)
         if conflicts:
-            return {"error": "linear_refresh_conflict", "paths": conflicts}
+            return {"error": "collaborative_refresh_conflict", "paths": conflicts}
         latest = instance.checkpoint("Agent refresh input", identifier=uuid5(run.id, key))
         if latest.epoch != state.epoch or latest.sequence != state.sequence:
             return {
-                "error": "linear_stale_revision",
+                "error": "collaborative_stale_revision",
                 "instruction": "Inspect status and request refresh again.",
             }
         files = {str(f.id): content(f) for f in state.files if not f.deleted}
@@ -88,7 +90,7 @@ def prepare(
                 )
         db.commit()
         with instance.git.locked(initialize=False):
-            instance.tx.linear.begin_write(instance.project_id)
+            instance.tx.collaborative.begin_write(instance.project_id)
             with tempfile.TemporaryDirectory(dir=instance.git.root) as temporary:
                 env = {"GIT_INDEX_FILE": str(Path(temporary) / "index")}
                 instance.git.git("read-tree", "--empty", env=env)
@@ -130,14 +132,14 @@ def prepare(
 def acknowledge(settings: Settings, db: Session, run: Any, generation: int) -> dict[str, Any]:
     instance = service(settings, db, run.project_id, run.requested_by_user_id)
     instance.authorize(True)
-    binding = db.get(SqlLinearRun, run.id)
+    binding = db.get(SqlCollaborativeRun, run.id)
     if binding is None:
-        raise RepositoryError("linear_run_not_found", 404)
+        raise RepositoryError("collaborative_run_not_found", 404)
     if binding.refresh_generation == generation and binding.refresh_data is None:
         return {"generation": generation}
     pending = binding.refresh_data
     if pending is None or pending["generation"] != generation:
-        raise RepositoryError("linear_refresh_generation_mismatch")
+        raise RepositoryError("collaborative_refresh_generation_mismatch")
     binding.current_checkpoint_id = UUID(pending["checkpoint_id"])
     binding.refresh_generation = generation
     binding.refresh_data = None

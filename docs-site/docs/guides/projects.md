@@ -4,11 +4,11 @@ A project groups shared files, members, and conversations. Owners manage setting
 
 ## File modes
 
-| Mode    | Behavior                                                                                |
-| ------- | --------------------------------------------------------------------------------------- |
-| Default | Current files in a server directory, with conflict checks and no version history        |
-| Linear  | Shared live editing, saved checkpoints, and agent changes reconciled with current files |
-| Git     | Worktrees, saved edits, explicit commits, and branch comparison                         |
+| Mode          | Behavior                                                                                |
+| ------------- | --------------------------------------------------------------------------------------- |
+| Default       | Current files in a server directory, with conflict checks and no version history        |
+| Collaborative | Shared live editing, saved checkpoints, and agent changes reconciled with current files |
+| Git           | Worktrees, saved edits, explicit commits, and branch comparison                         |
 
 Project conversations use the selected workspace. LaTeX builds operate on saved files where supported. File previews and editors retain drafts when switching tabs; resolve conflicting saves by comparing current contents.
 

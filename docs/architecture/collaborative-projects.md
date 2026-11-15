@@ -1,13 +1,13 @@
-# Linear projects
+# Collaborative projects
 
-Projects select `default`, `git`, or `linear` at creation. The browser offers Default
-initially; omitted API fields retain the Git default. Linear remains available for
+Projects select `basic`, `git`, or `collaborative` at creation. The browser offers Basic
+initially; omitted API fields retain the Git default. Collaborative remains available for
 live collaboration and retained history.
 Existing projects keep their mode.
 
 ## Browser workbench
 
-Linear projects use the shared project shell with a chat-first center and no
+Collaborative projects use the shared project shell with a chat-first center and no
 visible document or conversation tabs. Opening a project starts a new chat;
 conversations and unsent drafts are selected in the left sidebar. Drafts stay
 mounted while users switch conversations or inspect a file. Files open in the
@@ -25,8 +25,8 @@ The right sidebar provides File, History, Agent changes, and agent history. Agen
 restore, and any converted Git archive live in History.
 
 Both workbenches provide resizable, collapsible side panels and mobile drawers.
-Linear History exposes checkpoints and restore instead of Git source control.
-The linear explorer uses the shared file tree; its toolbar opens file creation
+Collaborative History exposes checkpoints and restore instead of Git source control.
+The collaborative explorer uses the shared file tree; its toolbar opens file creation
 and upload controls. New-file creation uses an inline path field with Enter to
 create and Escape to cancel.
 
@@ -34,7 +34,7 @@ create and Escape to cancel.
 
 FastAPI remains the authority for membership, roles, project state, quotas, and
 accepted changes. PostgreSQL stores stable file identities, Yjs documents, current
-bytes, ordered operations, checkpoints, private AI batches, and run snapshot
+bytes, ordered operations, checkpoints, private AI change_sets, and run snapshot
 bindings. SQLite uses the same contracts in local mode. An internal Node service
 validates and prepares Yjs updates against supplied committed state. It has neither
 database credentials nor access to the project volume. Its ephemeral presence
@@ -62,10 +62,10 @@ the user. This is not a durable offline editor.
 
 ## History and the project volume
 
-Linear projects use the existing repository volume. Private Git refs store exact
+Collaborative projects use the existing repository volume. Private Git refs store exact
 checkpoint trees and a single-parent checkpoint history; users do not manage Git
 branches in this mode. Immutable materialized directories live at
-`<project UUID>.linear/<epoch>-<sequence>`. A checkpoint writes and fsyncs a staged
+`<project UUID>.collaborative/<epoch>-<sequence>`. A checkpoint writes and fsyncs a staged
 directory before making it visible. Agents receive bounded bundles of exact
 checkpoint contents in their isolated execution directory.
 
@@ -74,7 +74,7 @@ on edits at most once per minute; users can name checkpoints. Checkpoints also
 capture agent input, refresh input, and the state before applying AI changes or
 restoring. Checkpoint failure does not retract an accepted edit. A later edit or
 explicit checkpoint retries materialization. Current documents, checkpoint JSON,
-operation payloads, retained AI batches, Git data, and materialized directories
+operation payloads, retained AI change_sets, Git data, and materialized directories
 consume the project quota. History is retained; storage limits stop further writes.
 
 Only owners restore the entire project. Restore appends a new operation, starts a
@@ -87,7 +87,7 @@ the former contents available. There is no history rewrite.
 API and execution controllers must be upgraded together to protocol 7, with a rebuilt
 curated guest image. Protocol-4 controllers are rejected for both project modes.
 Private runtime protocol 7 pins an exact checkpoint for each turn. The normal
-execution allocator and existing per-user/project limits still apply; linear
+execution allocator and existing per-user/project limits still apply; collaborative
 projects introduce no extra one- or two-chat cap and do not serialize unrelated
 conversations on an archived Git worktree.
 
@@ -107,11 +107,11 @@ cancellation, deadline, membership, epoch, and sequence. Creates, replacements,
 renames, deletions, and executable modes succeed together. Shared edits remain
 available while the agent reasons and executes.
 
-Conflicts preserve the whole result in a creator-private pending batch. No paid
+Conflicts preserve the whole result in a creator-private pending change_set. No paid
 retry is automatic. The creator can retry the merge, review original/current/
 proposed contents and apply a manual resolution, or open a reconciliation draft
 in the originating chat. Sending that draft explicitly starts a new turn on the
-latest snapshot. Revert computes the inverse of an applied batch against current
+latest snapshot. Revert computes the inverse of an applied change_set against current
 files and preserves conflicts for review.
 
 ## Conversations and conversion
@@ -120,16 +120,16 @@ Chats are private initially. The creator can preview the complete user-visible
 transcript and share it, including future messages, with project members. Shared
 viewers can read messages and live responses; only the creator sends messages,
 changes visibility, or controls runs. System prompts, raw tool events, private AI
-batches, and session artifact downloads are excluded from the shared view.
+change_sets, and session artifact downloads are excluded from the shared view.
 Unsharing revokes further access but cannot recall content already viewed.
 
 Owners can preview and convert a selected Git worktree's saved revision, including
 saved uncommitted changes. Existing runs must drain. A durable conversion receipt
-fences Git writes and new run admission during preparation. The initial linear
+fences Git writes and new run admission during preparation. The initial collaborative
 checkpoint is durable before the mode switches. Retrying the same conversion is
 safe. Original branches, saved worktrees, and historic run bindings remain in the
 read-only Git archive. Existing chats can continue with their history and an
-explicit notice that new turns use the linear project.
+explicit notice that new turns use the collaborative project.
 
 ## Operation and verification
 
@@ -140,11 +140,11 @@ network; expose only the API WebSocket. The local runner starts the sidecar;
 Compose builds its separate image. Production uses an immutable
 `POLYCOLAB_COLLABORATION_IMAGE` and an explicit token. Back up SQL and the complete
 repository volume together. Restore both before reopening writes. Presence needs
-no backup. The project mode selects linear or Git behavior; no rollout flag is required.
+no backup. The project mode selects collaborative or Git behavior; no rollout flag is required.
 
-`tests/backend/test_linear_workspace.py` and `test_linear_agents.py` use actual
+`tests/backend/test_collaborative_workspace.py` and `test_collaborative_agents.py` use actual
 Yjs and Git transport with SQLite and disposable PostgreSQL schemas (set
-`M0_POSTGRES_TEST_URL`). `tests/web/browser/local/linear.spec.ts` exercises two
+`M0_POSTGRES_TEST_URL`). `tests/web/browser/local/collaborative.spec.ts` exercises two
 real browser members through the disposable local-mode runner. Native VM agent
 execution and target deployment acceptance are separate release gates; API bundle
 transport tests do not establish those gates.

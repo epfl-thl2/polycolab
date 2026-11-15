@@ -2,7 +2,7 @@ import { plainFileEditor } from '../helpers/project-editor';
 import { expect, test } from '@playwright/test';
 import { createHash } from 'node:crypto';
 
-test('Default project files, delegated keys, artifacts, and retired routes use the real service', async ({
+test('Basic project files, delegated keys, artifacts, and retired routes use the real service', async ({
   page,
   request,
   baseURL,
@@ -21,7 +21,7 @@ test('Default project files, delegated keys, artifacts, and retired routes use t
     data: {
       name: 'Shared filesystem',
       visibility: 'PUBLIC',
-      workspace_mode: 'default',
+      file_mode: 'basic',
     },
   });
   expect(response.status()).toBe(201);

@@ -1,4 +1,4 @@
-"""Resumable Git-to-linear cutover, preserving original checkouts and refs."""
+"""Resumable Git-to-collaborative cutover, preserving original checkouts and refs."""
 
 from uuid import UUID, uuid5
 
@@ -7,12 +7,12 @@ from sqlalchemy.orm import Session
 
 from polycolab.access.authorization import ProjectAction, project_policy
 from polycolab.db.models import SqlAgentRun, SqlProject
-from polycolab.db.models.linear import SqlLinearConversion
+from polycolab.db.models.collaborative import SqlCollaborativeConversion
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.repositories import RepositoryError
 from polycolab.platform.config import Settings
-from polycolab.projects.linear_factory import repository_service
-from polycolab.projects.linear_service import encode
+from polycolab.projects.collaborative_factory import repository_service
+from polycolab.projects.collaborative_service import encode
 
 
 def preview(
@@ -42,7 +42,7 @@ def convert(
     revision: str,
     key: str,
 ) -> None:
-    from polycolab.projects.linear_factory import service
+    from polycolab.projects.collaborative_factory import service
 
     instance = service(settings, db, project_id, user_id)
     native = repository_service(settings, db, project_id, user_id).native_service()
@@ -50,7 +50,7 @@ def convert(
         access = project_policy.require_scope(
             instance.tx, project_id, user_id, ProjectAction.MANAGE_SETTINGS
         )
-        existing = db.get(SqlLinearConversion, project_id)
+        existing = db.get(SqlCollaborativeConversion, project_id)
         if existing:
             if (
                 existing.user_id,
@@ -58,12 +58,12 @@ def convert(
                 existing.source_revision,
                 existing.request_key,
             ) != (user_id, worktree_id, revision, key):
-                raise RepositoryError("linear_conversion_in_progress")
+                raise RepositoryError("collaborative_conversion_in_progress")
             if existing.completed:
                 return
         else:
-            if access.project.workspace_mode != "git" or access.project.archived_at:
-                raise RepositoryError("linear_conversion_unavailable")
+            if access.project.file_mode != "git" or access.project.archived_at:
+                raise RepositoryError("collaborative_conversion_unavailable")
             active = db.scalar(
                 select(SqlAgentRun.id)
                 .where(
@@ -73,12 +73,12 @@ def convert(
                 .limit(1)
             )
             if active:
-                raise RepositoryError("linear_conversion_runs_must_drain")
+                raise RepositoryError("collaborative_conversion_runs_must_drain")
             task = native.store.worktree(project_id, worktree_id)
             if native.require_available(task) != revision:
                 raise RepositoryError("worktree_stale_revision")
             db.add(
-                SqlLinearConversion(
+                SqlCollaborativeConversion(
                     project_id=project_id,
                     user_id=user_id,
                     source_worktree_id=worktree_id,
@@ -123,7 +123,7 @@ def convert(
     with instance.git.locked():
         instance.authorize(True, True, converting=True)
         project = db.get(SqlProject, project_id)
-        receipt = db.get(SqlLinearConversion, project_id)
+        receipt = db.get(SqlCollaborativeConversion, project_id)
         assert project is not None and receipt is not None
-        project.workspace_mode, receipt.completed = "linear", True
+        project.file_mode, receipt.completed = "collaborative", True
         db.commit()

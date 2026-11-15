@@ -6,8 +6,8 @@ import type { Auth } from './auth.svelte';
 import type { createArtifactApi } from '../lib/artifact-api';
 import type { createExternalAgentApi } from '../lib/external-agent-api';
 export type ProjectContext = {
-  defaultFiles?: boolean;
-  linear?: import('../lib/linear-session').LinearSession;
+  basicFiles?: boolean;
+  collaborative?: import('../lib/collaborative-session').CollaborativeSession;
   documentBuilds?: ReturnType<typeof import('../lib/document-builds-api').createDocumentBuildsApi>;
   worktrees?: ReturnType<typeof import('../lib/worktrees-api').createWorktreesApi>;
   repository?: ReturnType<typeof import('../lib/repository-api').createRepositoryApi>;

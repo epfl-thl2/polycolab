@@ -64,11 +64,11 @@
 
 <svelte:head><title>{$project.data?.name ?? 'Project'} · Polycolab</title></svelte:head>
 {#if member && $project.data}
-  {#if $project.data.workspace_mode === 'default'}
-    {#await import('./DefaultWorkbench.svelte')}<LoadingState>Opening project…</LoadingState>
+  {#if $project.data.file_mode === 'basic'}
+    {#await import('./BasicWorkbench.svelte')}<LoadingState>Opening project…</LoadingState>
     {:then module}<module.default project={$project.data} {path} />{/await}
-  {:else if $project.data.workspace_mode === 'linear'}
-    {#await import('./LinearWorkbench.svelte')}<LoadingState>Opening project…</LoadingState>
+  {:else if $project.data.file_mode === 'collaborative'}
+    {#await import('./CollaborativeWorkbench.svelte')}<LoadingState>Opening project…</LoadingState>
     {:then module}<module.default project={$project.data} {path} />{/await}
   {:else}<ProjectWorkbench project={$project.data} {path} />{/if}
   <ProjectUtilityDialogs project={$project.data} bind:utility {returnFocus} />

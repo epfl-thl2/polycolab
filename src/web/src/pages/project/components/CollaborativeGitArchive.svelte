@@ -33,7 +33,7 @@
       if (!archive) void open();
     }}>Git archive · read only</summary
   >
-  {#if archive}<p>Preserved at conversion. New changes are in linear history.</p>
+  {#if archive}<p>Preserved at conversion. New changes are in collaborative history.</p>
     {#each Object.keys(archive.branches ?? {}) as branch (branch)}<Button
         variant="ghost"
         onclick={() => open(branch)}>{branch}</Button

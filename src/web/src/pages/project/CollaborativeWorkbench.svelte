@@ -13,8 +13,8 @@
     createProjectConversations,
     projectConversationItems,
   } from '../../lib/conversation-queries';
-  import type { LinearCheckpoint, LinearDocument } from '../../lib/linear-api';
-  import { LinearSession } from '../../lib/linear-session';
+  import type { CollaborativeCheckpoint, CollaborativeDocument } from '../../lib/collaborative-api';
+  import { CollaborativeSession } from '../../lib/collaborative-session';
   import { bytesToBase64 } from '../../lib/repository-api';
   import { projectRouteTab, type ProjectTab } from '../../lib/project-tabs';
   import { ProjectEditorSessions } from '../../lib/project-editor-session';
@@ -25,20 +25,20 @@
   import ProjectPanelHeader from './components/ProjectPanelHeader.svelte';
   import { Input } from '../../lib/components/ui/input';
   import MonacoSourceEditor from '../../ui/MonacoSourceEditor.svelte';
-  import LinearGitArchive from './components/LinearGitArchive.svelte';
-  import LinearBatches from './components/LinearBatches.svelte';
+  import CollaborativeGitArchive from './components/CollaborativeGitArchive.svelte';
+  import AgentChanges from './components/AgentChanges.svelte';
   import Markdown from '../../ui/Markdown.svelte';
   import SidebarFileView from './components/SidebarFileView.svelte';
   import ProjectFileView from './components/ProjectFileView.svelte';
   let { project, path }: { project: Project; path: string } = $props();
   const context = projectContext();
   let revision = $state(0);
-  const live = new LinearSession(
+  const live = new CollaborativeSession(
     untrack(() => project.id),
     context.auth.token,
     () => revision++,
   );
-  setContext(contextKey, { ...context, repository: undefined, linear: live });
+  setContext(contextKey, { ...context, repository: undefined, collaborative: live });
   const workspace = $derived.by(() => {
     void revision;
     return live.state;
@@ -103,9 +103,9 @@
   }
 
   let historyDiff = $state('');
-  let checkpoints = $state<LinearCheckpoint[]>([]);
-  let historical = $state<LinearDocument[]>([]);
-  let selectedCheckpoint = $state<LinearCheckpoint>();
+  let checkpoints = $state<CollaborativeCheckpoint[]>([]);
+  let historical = $state<CollaborativeDocument[]>([]);
+  let selectedCheckpoint = $state<CollaborativeCheckpoint>();
   let mode = $state<'source' | 'preview' | 'changes'>('source');
   let enhanced = $state(true);
   let wordWrap = $state(true);
@@ -366,7 +366,7 @@
       {#if !current}<p class="tool-empty">Choose a file from Files in the left sidebar.</p>{/if}
     {/if}
     <div class="agent-changes" hidden={rightMode !== 'changes'}>
-      <LinearBatches projectId={project.id} {live} />
+      <AgentChanges projectId={project.id} {live} />
     </div>
     {#if rightMode === 'details'}
       {#if section === 'conversations'}<div data-chat-panel-host={placement}></div>
@@ -377,7 +377,7 @@
     {:else if history}
       <div class="history-content">
         <ProjectPanelHeader title="History" />
-        {#if workspace?.has_git_archive}<LinearGitArchive projectId={project.id} />{/if}
+        {#if workspace?.has_git_archive}<CollaborativeGitArchive projectId={project.id} />{/if}
 
         {#if writable}<Input aria-label="Checkpoint name" bind:value={checkpointTitle} /><Button
             onclick={() =>

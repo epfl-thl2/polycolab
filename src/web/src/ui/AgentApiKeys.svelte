@@ -488,7 +488,7 @@
         >
         <div class="key-access-summary">
           <p>
-            Each key can access Default project files using your current membership. Owners and
+            Each key can access Basic project files using your current membership. Owners and
             editors can write; viewers can read.
           </p>
           <details>

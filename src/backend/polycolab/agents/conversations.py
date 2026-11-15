@@ -220,7 +220,7 @@ def create_agent_conversation(
         SqlAlchemyTransaction(session), project_id, created_by_user_id, ProjectAction.RUN_AGENTS
     )
     project = session.get(SqlProject, project_id)
-    if project is not None and project.workspace_mode in {"linear", "default"}:
+    if project is not None and project.file_mode in {"collaborative", "basic"}:
         worktree_id = None
     elif worktree_id is None:
         worktree_id = session.scalar(
@@ -359,17 +359,18 @@ def append_user_message_and_queue_run(
         raise ConversationStateError("legacy history is read-only")
     if parent.configuration is None or parent.configuration.harness not in {"platform", "codex"}:
         raise ConversationStateError("unsupported harness")
-    from polycolab.db.stores.linear import SqlLinearStore
+    from polycolab.db.stores.collaborative import SqlCollaborativeStore
 
-    linear_project = session.get(SqlProject, parent.project_id)
-    if parent.project_id is not None and SqlLinearStore(session).conversion_pending(
+    collaborative_project = session.get(SqlProject, parent.project_id)
+    if parent.project_id is not None and SqlCollaborativeStore(session).conversion_pending(
         parent.project_id
     ):
-        raise RepositoryError("linear_conversion_in_progress")
+        raise RepositoryError("collaborative_conversion_in_progress")
     if parent.status is not StoredConversationStatus.ACTIVE:
         raise ConversationStateError("conversation is archived")
     if parent.worktree_id is not None and (
-        linear_project is None or linear_project.workspace_mode not in {"linear", "default"}
+        collaborative_project is None
+        or collaborative_project.file_mode not in {"collaborative", "basic"}
     ):
         task = session.get(SqlWorktree, parent.worktree_id)
         if task is None or task.removed_at is not None:
@@ -455,12 +456,12 @@ def update_conversation_metadata(
     current = require_owner(transaction, conversation_id, user_id)
     now = utc_now()
     if archived and parent.origin == "agent":
-        from polycolab.db.stores.linear import SqlLinearStore
+        from polycolab.db.stores.collaborative import SqlCollaborativeStore
 
-        if parent.project_id is not None and SqlLinearStore(session).conversion_pending(
+        if parent.project_id is not None and SqlCollaborativeStore(session).conversion_pending(
             parent.project_id
         ):
-            raise RepositoryError("linear_conversion_in_progress")
+            raise RepositoryError("collaborative_conversion_in_progress")
         if parent.status is StoredConversationStatus.ACTIVE:
             _archive_locked_conversation(session, parent, archived_at=now)
     value = transaction.conversations.set_metadata(
@@ -477,12 +478,12 @@ def update_conversation_metadata(
 
 def archive_agent_conversation(session: Session, *, conversation_id: UUID) -> SqlConversation:
     parent = _locked_conversation(session, conversation_id)
-    from polycolab.db.stores.linear import SqlLinearStore
+    from polycolab.db.stores.collaborative import SqlCollaborativeStore
 
-    if parent.project_id is not None and SqlLinearStore(session).conversion_pending(
+    if parent.project_id is not None and SqlCollaborativeStore(session).conversion_pending(
         parent.project_id
     ):
-        raise RepositoryError("linear_conversion_in_progress")
+        raise RepositoryError("collaborative_conversion_in_progress")
     if parent.status is StoredConversationStatus.ACTIVE:
         _archive_locked_conversation(session, parent, archived_at=utc_now())
         _commit(session)
@@ -682,7 +683,7 @@ def claim_next_run_in_transaction(
                     ~exists(
                         select(SqlProject.id).where(
                             SqlProject.id == SqlAgentRun.project_id,
-                            SqlProject.workspace_mode.in_(["linear", "default"]),
+                            SqlProject.file_mode.in_(["collaborative", "basic"]),
                         )
                     ),
                     earlier_session.worktree_id == SqlConversation.worktree_id,
@@ -721,7 +722,7 @@ def claim_next_run_in_transaction(
                 exists(
                     select(SqlProject.id).where(
                         SqlProject.id == SqlAgentRun.project_id,
-                        SqlProject.workspace_mode.in_(["linear", "default"]),
+                        SqlProject.file_mode.in_(["collaborative", "basic"]),
                     )
                 ),
                 exists(
@@ -1265,17 +1266,18 @@ def resume_run(
     if parent.project_id is None:
         raise ConversationStateError("legacy history is read-only")
     require_submit(SqlAlchemyTransaction(session), parent.id, requested_by_user_id)
-    linear_project = session.get(SqlProject, parent.project_id)
-    from polycolab.db.stores.linear import SqlLinearStore
+    collaborative_project = session.get(SqlProject, parent.project_id)
+    from polycolab.db.stores.collaborative import SqlCollaborativeStore
 
-    if parent.project_id is not None and SqlLinearStore(session).conversion_pending(
+    if parent.project_id is not None and SqlCollaborativeStore(session).conversion_pending(
         parent.project_id
     ):
-        raise RepositoryError("linear_conversion_in_progress")
+        raise RepositoryError("collaborative_conversion_in_progress")
     if parent.status is not StoredConversationStatus.ACTIVE:
         raise ConversationStateError("conversation is archived")
     if parent.worktree_id is not None and (
-        linear_project is None or linear_project.workspace_mode not in {"linear", "default"}
+        collaborative_project is None
+        or collaborative_project.file_mode not in {"collaborative", "basic"}
     ):
         task = session.get(SqlWorktree, parent.worktree_id)
         if task is None or task.removed_at is not None:

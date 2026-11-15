@@ -90,7 +90,7 @@ It does not represent staging validation, backup restore, deployed network-role 
 
 Run `uv run --directory src/backend python ../../tests/system/run_local_mode.py` after installing the normal locked dependencies and Playwright Chromium.
 It starts a real API and Vite on unused loopback ports with temporary migrated SQLite and filesystem storage.
-It exercises registration, Default file editing, agent-key revocation, private project uploads, Git worktrees, and Linear coediting without mocking HTTP or changing the user's local database or Docker services.
+It exercises registration, Default file editing, agent-key revocation, private project uploads, Git worktrees, and Collaborative coediting without mocking HTTP or changing the user's local database or Docker services.
 The runner stops its process groups and removes its temporary data on exit.
 Persistent restart, migration backup/rollback and storage integrity are additionally covered by `tests/backend/test_local_development.py` and `tests/backend/test_workspace_only_migration.py`.
 

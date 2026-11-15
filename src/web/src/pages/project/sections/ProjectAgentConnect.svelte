@@ -109,7 +109,7 @@
     <h2>Choose a task</h2>
     <p>
       Give the agent a specific task and file path. Review its changes in the project files.
-      External API keys currently support Default project files.
+      External API keys currently support Basic project files.
     </p>
   </li>
 </ol>

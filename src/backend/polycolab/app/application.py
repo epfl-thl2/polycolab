@@ -140,7 +140,7 @@ List projects with `GET /api/v1/projects?scope=member`, then use
 for Default files. Reads return a digest; edits require it as `expected_digest`.
 Current membership, project state, and key budgets are checked on each request.
 
-Git worktrees and Linear workspaces have their own file, collaboration, and snapshot
+Git worktrees and Collaborative workspaces have their own file, collaboration, and snapshot
 resources. Agent sessions run within a project and can receive project artifacts as
 context. Conversations and hosted outputs retain their session access controls.
 

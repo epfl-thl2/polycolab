@@ -26,7 +26,7 @@ FILE_LIMIT = 700_000
 FILE_COUNT = 2000
 
 
-class DefaultFileCommand(RepositoryModel):
+class BasicFileCommand(RepositoryModel):
     action: Literal["list", "read", "write", "rename", "delete"]
     path: str = Field(default="", max_length=240)
     destination: str | None = Field(default=None, max_length=240)
@@ -35,7 +35,7 @@ class DefaultFileCommand(RepositoryModel):
     content_base64: str | None = Field(default=None, max_length=1_000_000)
 
     @model_validator(mode="after")
-    def validate_command(self) -> DefaultFileCommand:
+    def validate_command(self) -> BasicFileCommand:
         if self.action != "list":
             path_name(self.path)
         if self.action == "rename":
@@ -49,7 +49,7 @@ class DefaultFileCommand(RepositoryModel):
         return self
 
 
-class DefaultFileRead(RepositoryModel):
+class BasicFileRead(RepositoryModel):
     path: str
     size: int
     digest: str
@@ -58,12 +58,12 @@ class DefaultFileRead(RepositoryModel):
     content: str | None = None
 
 
-class DefaultFilesRead(RepositoryModel):
-    files: list[DefaultFileRead]
+class BasicFilesRead(RepositoryModel):
+    files: list[BasicFileRead]
     writable: bool
 
 
-class DefaultFiles:
+class BasicFiles:
     def __init__(self, tx: Transaction, root: Path, project_id: UUID, user_id: UUID, quota: int):
         self.tx, self.project_id, self.user_id = tx, project_id, user_id
         self.root = root.resolve()
@@ -81,8 +81,8 @@ class DefaultFiles:
             self.user_id,
             ProjectAction.WRITE_FILES if write else ProjectAction.VIEW,
         )
-        if access.project.workspace_mode != "default":
-            raise RepositoryError("default_mode_required", 409)
+        if access.project.file_mode != "basic":
+            raise RepositoryError("basic_mode_required", 409)
         if write and access.project.archived_at:
             raise RepositoryError("project_archived", 409)
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -123,7 +123,7 @@ class DefaultFiles:
             raise RepositoryError("file_path_conflict", 409)
         return target
 
-    def read(self, target: Path, contents: bool = False) -> DefaultFileRead:
+    def read(self, target: Path, contents: bool = False) -> BasicFileRead:
         if not target.is_file():
             raise RepositoryError("file_not_found", 404)
         if target.stat().st_size > FILE_LIMIT:
@@ -133,7 +133,7 @@ class DefaultFiles:
             text = data.decode("utf-8") if b"\0" not in data else None
         except UnicodeDecodeError:
             text = None
-        return DefaultFileRead(
+        return BasicFileRead(
             path=target.relative_to(self.directory).as_posix(),
             size=len(data),
             digest=hashlib.sha256(data).hexdigest(),
@@ -142,7 +142,7 @@ class DefaultFiles:
             content=text if contents else None,
         )
 
-    def listing(self) -> DefaultFilesRead:
+    def listing(self) -> BasicFilesRead:
         files = []
         for target in sorted(self.directory.rglob("*")):
             if target.is_symlink():
@@ -151,7 +151,7 @@ class DefaultFiles:
                 files.append(self.read(self.path(target.relative_to(self.directory).as_posix())))
                 if len(files) > FILE_COUNT:
                     raise RepositoryError("repository_quota_exceeded", 413)
-        return DefaultFilesRead(
+        return BasicFilesRead(
             files=files,
             writable=project_policy.can(
                 self.tx,
@@ -175,7 +175,7 @@ class DefaultFiles:
             path = path.parent
         self.sync_directory(self.root)
 
-    def execute(self, command: DefaultFileCommand) -> DefaultFilesRead | DefaultFileRead:
+    def execute(self, command: BasicFileCommand) -> BasicFilesRead | BasicFileRead:
         with self.locked(command.action not in {"list", "read"}):
             if command.action == "list":
                 return self.listing()
@@ -235,16 +235,16 @@ class DefaultFiles:
             return self.listing()
 
 
-class DefaultAgentFileCommand(DefaultFileCommand):
+class BasicAgentFileCommand(BasicFileCommand):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=32_000, ge=1, le=32_000)
 
 
-def agent_result(files: DefaultFiles, command: DefaultAgentFileCommand) -> dict[str, object]:
+def agent_result(files: BasicFiles, command: BasicAgentFileCommand) -> dict[str, object]:
     """Bound tool results; writes return metadata, reads and listings are paginated."""
     value = files.execute(command)
     result: dict[str, object]
-    if isinstance(value, DefaultFilesRead):
+    if isinstance(value, BasicFilesRead):
         limit = min(command.limit, 100)
         page = value.files[command.offset : command.offset + limit]
         end = command.offset + len(page)

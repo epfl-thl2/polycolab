@@ -1,7 +1,7 @@
 """Managed linked checkouts and durable, replayable saved-file snapshots.
 
 All operations require the parent repository lock. A fsynced journal is the
-linearization point: recovery finishes only operations already authorized there.
+collaborativeization point: recovery finishes only operations already authorized there.
 Snapshots are private refs, never commits on the user's branch.
 """
 

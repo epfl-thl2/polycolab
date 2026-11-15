@@ -70,9 +70,9 @@ def state(
             project_policy.can(tx, project_id, user.id, ProjectAction.WRITE_FILES)
             and project_policy.require_scope(
                 tx, project_id, user.id, ProjectAction.VIEW
-            ).project.workspace_mode
+            ).project.file_mode
             == "git"
-            and not tx.linear.conversion_pending(project_id)
+            and not tx.collaborative.conversion_pending(project_id)
         )
         if instance.store.branch_active(project_id, branch) or instance.store.branch_removed(
             project_id, branch

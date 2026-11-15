@@ -8,7 +8,7 @@ from polycolab.accounts.store import AccountStore
 from polycolab.agents.library.store import AgentLibraryStore
 from polycolab.artifacts.store import ArtifactStore
 from polycolab.conversations.store import ConversationStore
-from polycolab.projects.linear_store import LinearStore
+from polycolab.projects.collaborative_store import CollaborativeStore
 from polycolab.projects.store import ProjectStore
 
 
@@ -28,7 +28,7 @@ class Transaction(Protocol):
     def agent_library(self) -> AgentLibraryStore: ...
 
     @property
-    def linear(self) -> LinearStore: ...
+    def collaborative(self) -> CollaborativeStore: ...
 
     @property
     def artifacts(self) -> ArtifactStore: ...

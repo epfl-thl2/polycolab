@@ -1,4 +1,4 @@
-"""Member-only access to the current files in Default projects."""
+"""Member-only access to the current files in Basic projects."""
 
 from uuid import UUID
 
@@ -9,21 +9,21 @@ from polycolab.app.dependencies import DbSession
 from polycolab.db.transaction import SqlAlchemyTransaction
 from polycolab.entities.repositories import RepositoryError
 from polycolab.platform.config import Settings
-from polycolab.projects.default_files import (
-    DefaultFileCommand,
-    DefaultFileRead,
-    DefaultFiles,
-    DefaultFilesRead,
+from polycolab.projects.basic_files import (
+    BasicFileCommand,
+    BasicFileRead,
+    BasicFiles,
+    BasicFilesRead,
 )
 from polycolab.projects.file_access import CurrentFileAccess
 
 router = APIRouter(prefix="/api/v1/projects/{project_id}/files", tags=["default files"])
 
 
-def service(settings: Settings, db: Session, project_id: UUID, user_id: UUID) -> DefaultFiles:
+def service(settings: Settings, db: Session, project_id: UUID, user_id: UUID) -> BasicFiles:
     if settings.project_repository_directory is None:
         raise RepositoryError("repository_disabled", 503)
-    return DefaultFiles(
+    return BasicFiles(
         SqlAlchemyTransaction(db),
         settings.project_repository_directory,
         project_id,
@@ -32,24 +32,24 @@ def service(settings: Settings, db: Session, project_id: UUID, user_id: UUID) ->
     )
 
 
-@router.get("", operation_id="getDefaultFiles")
+@router.get("", operation_id="getBasicFiles")
 def list_files(
     project_id: UUID, request: Request, db: DbSession, access: CurrentFileAccess
-) -> DefaultFilesRead:
+) -> BasicFilesRead:
     instance = service(request.app.state.settings, db, project_id, access.user_id)
     access.bind(db, instance, write=False)
     with instance.locked(False):
         return instance.listing()
 
 
-@router.post("", operation_id="changeDefaultFiles")
+@router.post("", operation_id="changeBasicFiles")
 def command(
     project_id: UUID,
-    payload: DefaultFileCommand,
+    payload: BasicFileCommand,
     request: Request,
     db: DbSession,
     access: CurrentFileAccess,
-) -> DefaultFileRead | DefaultFilesRead:
+) -> BasicFileRead | BasicFilesRead:
     instance = service(request.app.state.settings, db, project_id, access.user_id)
     access.bind(db, instance, write=payload.action not in {"list", "read"})
     return instance.execute(payload)

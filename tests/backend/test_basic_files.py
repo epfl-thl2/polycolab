@@ -1,4 +1,4 @@
-"""Default projects store only current files and enforce member save authority."""
+"""Basic projects store only current files and enforce member save authority."""
 
 from pathlib import Path
 from typing import Any, cast
@@ -18,11 +18,11 @@ def files(client: TestClient, tmp_path: Path) -> tuple[TestClient, str, Path]:
         json={
             "name": "Plain files",
             "visibility": "PRIVATE",
-            "workspace_mode": "default",
+            "file_mode": "basic",
         },
     )
     assert response.status_code == 201, response.text
-    assert response.json()["workspace_mode"] == "default"
+    assert response.json()["file_mode"] == "basic"
     project_id = response.json()["id"]
     return (
         client,
@@ -85,12 +85,13 @@ def test_permissions_and_mode_isolation(files: tuple[TestClient, str, Path]) -> 
     assert client.get(root, headers=headers("outsider")).status_code == 404
     assert client.get(root).status_code == 401
     assert (
-        client.get(root.replace("/files", "/linear"), headers=headers("owner")).status_code == 409
+        client.get(root.replace("/files", "/collaborative"), headers=headers("owner")).status_code
+        == 409
     )
     other = client.post(
         "/api/v1/projects",
         headers=headers("owner"),
-        json={"name": "Git", "workspace_mode": "git"},
+        json={"name": "Git", "file_mode": "git"},
     ).json()["id"]
     assert (
         client.get(f"/api/v1/projects/{other}/files", headers=headers("owner")).status_code == 409
@@ -164,7 +165,7 @@ def test_agent_tool_uses_current_directory_without_repository(
     with app.state.session_factory() as db:
         run = db.get(SqlAgentRun, run_id)
         project_id = str(run.project_id)
-        db.get(SqlProject, run.project_id).workspace_mode = "default"
+        db.get(SqlProject, run.project_id).file_mode = "basic"
         db.get(SqlUser, run.requested_by_user_id).subject = "owner"
         db.commit()
     claim = client.post(

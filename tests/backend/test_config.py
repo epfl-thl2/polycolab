@@ -135,7 +135,7 @@ def test_local_cors_default_matches_vite_development_server() -> None:
 
 
 @pytest.mark.parametrize("environment", list(Environment))
-def test_builtin_auth_is_default_in_every_environment(environment: Environment) -> None:
+def test_builtin_auth_is_basic_in_every_environment(environment: Environment) -> None:
     values = _deployed_oidc_settings("polycolab-web").model_dump()
     for key in (
         "auth_mode",

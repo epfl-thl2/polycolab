@@ -9,7 +9,7 @@ const createdAt = '2026-09-05T12:00:00Z';
 const project = {
   id: projectId,
   name: 'Spectral gaps',
-  workspace_mode: 'git',
+  file_mode: 'git',
   description: 'Exploring expansion in finite graphs.',
   visibility: 'PUBLIC',
   current_user_role: 'OWNER',
@@ -1592,7 +1592,7 @@ test('owner settings are reachable and save details without changing visibility'
   await expect(page.getByRole('dialog', { name: 'Project settings', exact: true })).toBeVisible();
   const settings = page.locator('.settings-stack');
   await expect(settings.getByRole('heading', { level: 2 })).toHaveText([
-    'Switch to linear history',
+    'Switch to collaborative history',
     'Project details',
     'Members',
     'Project lifecycle',
@@ -2430,7 +2430,7 @@ test('project Agent connect provides scoped instructions and a collapsed navigat
   await page.getByRole('button', { name: 'Create API key' }).click();
   const keyDialog = page.getByRole('dialog', { name: 'Create API key' });
   await expect(keyDialog).toBeVisible();
-  await expect(keyDialog).toContainText('Default project files using your current membership');
+  await expect(keyDialog).toContainText('Basic project files using your current membership');
   await expect(keyDialog.getByLabel('Polycolab agent name')).toHaveCount(0);
   await keyDialog.getByLabel('Key name').fill('Lean helper');
   await keyDialog.getByRole('button', { name: 'Create API key' }).click();

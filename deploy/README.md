@@ -337,10 +337,12 @@ It defaults to an empty list.
 On the Moderation page, choose Agent library entry, enter its ID, load the current revision, and record a reason for hiding or restoring.
 Published versions remain immutable; restore a verified backup instead of downgrading away library history.
 
-Projects choose Default files, Linear history, or Git mode. See [Linear project operations](../docs/architecture/linear-projects.md#operation-and-verification) for the collaboration service, configuration, and coordinated backups.
+Projects choose Default files, Collaborative history, or Git mode. See [Collaborative project operations](../docs/architecture/collaborative-projects.md#operation-and-verification) for the collaboration service, configuration, and coordinated backups.
 
 ## LaTeX compiler
 
 Optional project/worktree compilation uses a separate Docker controller. See the
 [LaTeX deployment guide](latex/README.md) for image setup, private credentials,
 local startup and hosted acceptance.
+
+The same cutover renames `projects.workspace_mode` to `file_mode`, mapping `default` to `basic` and `linear` to `collaborative`. File APIs use `/collaborative`, and grouped agent edits use `/collaborative/change-sets`. Existing `.linear` directories, checkpoint Git refs, operation payloads, digests, and `batch:` retry keys retain their storage identities.

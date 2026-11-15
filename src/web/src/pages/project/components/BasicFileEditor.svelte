@@ -3,7 +3,7 @@
   import { onMount, untrack } from 'svelte';
   import { Button } from '../../../lib/components/ui/button';
   import { projectContext, explain } from '../../../svelte-lib/context';
-  import { createDefaultFilesApi, type DefaultFile } from '../../../lib/default-files-api';
+  import { createBasicFilesApi, type BasicFile } from '../../../lib/basic-files-api';
   import ProjectFileView from './ProjectFileView.svelte';
   import Markdown from '../../../ui/Markdown.svelte';
   import MonacoSourceEditor from '../../../ui/MonacoSourceEditor.svelte';
@@ -14,8 +14,8 @@
     onChanged,
   }: { projectId: string; path: string; writable: boolean; onChanged: (path?: string) => void } =
     $props();
-  const api = createDefaultFilesApi({ getAccessToken: projectContext().auth.token });
-  let file = $state<DefaultFile>();
+  const api = createBasicFilesApi({ getAccessToken: projectContext().auth.token });
+  let file = $state<BasicFile>();
   let text = $state('');
   let rename = $state('');
   let error = $state('');

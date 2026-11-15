@@ -290,10 +290,10 @@ def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str
             from polycolab.db.stores.repositories import SqlRepositoryStore
 
             project = session.get(SqlProject, run.project_id)
-            is_default = project is not None and project.workspace_mode == "default"
-            is_linear = project is not None and project.workspace_mode == "linear"
+            is_basic = project is not None and project.file_mode == "basic"
+            is_collaborative = project is not None and project.file_mode == "collaborative"
             repository_enabled = (
-                is_linear
+                is_collaborative
                 or SqlRepositoryStore(session)
                 .conversation(run.project_id, run.conversation_id)
                 .enabled
@@ -333,11 +333,11 @@ def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str
                     _finish_claim_failure(session, run, payload.worker_id, "runtime_spec_missing")
                     return Response(status_code=status.HTTP_204_NO_CONTENT)
                 RuntimeSpec.model_validate(run.runtime_spec)
-                if settings.project_repository_directory is not None and not is_default:
+                if settings.project_repository_directory is not None and not is_basic:
                     from polycolab.projects.routes.repository import service as repository_service
 
-                    if is_linear:
-                        from polycolab.agents.linear_files import pin
+                    if is_collaborative:
+                        from polycolab.agents.collaborative_files import pin
 
                         envelope["repository"] = pin(request.app.state.settings, session, run)
                     else:
@@ -547,13 +547,13 @@ def finish(run_id: UUID, payload: FinishRequest, request: Request) -> Response:
         try:
             existing = session.get(SqlAgentRun, run_id)
             if existing is not None and existing.runtime_spec:
-                from polycolab.db.models.linear import SqlLinearBatch, SqlLinearRun
+                from polycolab.db.models.collaborative import SqlChangeSet, SqlCollaborativeRun
                 from polycolab.db.stores.repositories import SqlRepositoryStore
 
-                linear_binding = session.get(SqlLinearRun, run_id)
-                if payload.status == "COMPLETED" and linear_binding is not None:
+                collaborative_binding = session.get(SqlCollaborativeRun, run_id)
+                if payload.status == "COMPLETED" and collaborative_binding is not None:
                     batch = session.scalar(
-                        select(SqlLinearBatch).where(SqlLinearBatch.run_id == run_id)
+                        select(SqlChangeSet).where(SqlChangeSet.run_id == run_id)
                     )
                     if batch is None or batch.status not in {
                         "applied",

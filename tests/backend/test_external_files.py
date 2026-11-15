@@ -8,12 +8,12 @@ from uuid import UUID
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
-from test_default_files import files as files
+from test_basic_files import files as files
 from test_sessions_api import add_member, headers
 
 from polycolab.db.models import SqlAgentApiKey
 from polycolab.entities.time import utc_now
-from polycolab.projects.default_files import DefaultFiles
+from polycolab.projects.basic_files import BasicFiles
 from polycolab.projects.file_access import FileAccess
 
 
@@ -215,7 +215,7 @@ def test_revocation_after_admission_prevents_write(
     key = key_for(client)
     original = FileAccess.bind
 
-    def revoked(access: FileAccess, db: Session, instance: DefaultFiles, *, write: bool) -> None:
+    def revoked(access: FileAccess, db: Session, instance: BasicFiles, *, write: bool) -> None:
         with cast(Any, client.app).state.session_factory() as revoke_db:
             revoke_db.get(SqlAgentApiKey, UUID(key["id"])).revoked_at = utc_now()
             revoke_db.commit()

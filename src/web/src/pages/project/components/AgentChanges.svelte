@@ -3,16 +3,20 @@
   import { onMount } from 'svelte';
   import { Button } from '../../../lib/components/ui/button';
   import { projectContext, explain } from '../../../svelte-lib/context';
-  import type { LinearSession } from '../../../lib/linear-session';
-  import type { LinearBatch, LinearCommand, LinearState } from '../../../lib/linear-api';
+  import type { CollaborativeSession } from '../../../lib/collaborative-session';
+  import type {
+    ChangeSet,
+    CollaborativeCommand,
+    CollaborativeState,
+  } from '../../../lib/collaborative-api';
   import { bytesToBase64 } from '../../../lib/repository-api';
-  let { projectId, live }: { projectId: string; live: LinearSession } = $props();
+  let { projectId, live }: { projectId: string; live: CollaborativeSession } = $props();
   const { agents } = projectContext();
   type Snapshot = { path: string; content_base64: string; binary: boolean; executable: boolean };
   type Change = { file_id: string; base: Snapshot | null; target: Snapshot | null };
-  let batches = $state<LinearBatch[]>([]);
-  let selected = $state<LinearBatch>();
-  let reviewed = $state<LinearState>();
+  let changeSets = $state<ChangeSet[]>([]);
+  let selected = $state<ChangeSet>();
+  let reviewed = $state<CollaborativeState>();
   let edits = $state<
     { change: Change; text: string; path: string; keep: boolean; current: string }[]
   >([]);
@@ -27,7 +31,7 @@
         ? '[Binary file]'
         : '[File absent]';
   async function load() {
-    batches = await live.api.batches(projectId);
+    changeSets = await live.api.changeSets(projectId);
   }
   async function act(action: () => Promise<unknown>) {
     busy = true;
@@ -46,12 +50,12 @@
     const timer = setInterval(() => void load().catch(() => {}), 5000);
     return () => clearInterval(timer);
   });
-  async function review(batch: LinearBatch) {
+  async function review(change_set: ChangeSet) {
     await live.flush();
     reviewed = await live.api.state(projectId);
-    selected = batch;
+    selected = change_set;
     edits = await Promise.all(
-      (batch.changes as Change[]).map(async (change) => {
+      (change_set.changes as Change[]).map(async (change) => {
         const file = reviewed!.files.find((f) => f.id === change.file_id);
         const current = file ? await live.api.file(projectId, file.id) : null;
         return {
@@ -68,7 +72,7 @@
   }
   async function resolve() {
     if (!selected || !reviewed) return;
-    const commands: LinearCommand[] = [];
+    const commands: CollaborativeCommand[] = [];
     for (const edit of edits) {
       if (edit.keep) continue;
       const { target, file_id } = edit.change;
@@ -99,15 +103,15 @@
       }
     }
     // Keeping all current files records an explicit resolution without changing their contents.
-    await live.api.resolveBatch(projectId, selected.id, reviewed, commands);
+    await live.api.resolveChangeSet(projectId, selected.id, reviewed, commands);
     selected = undefined;
   }
-  async function reconcile(batch: LinearBatch) {
-    if (!batch.run_id) return;
-    const run = await agents.getRun(batch.run_id);
+  async function reconcile(change_set: ChangeSet) {
+    if (!change_set.run_id) return;
+    const run = await agents.getRun(change_set.run_id);
     // Opening a draft never queues or pays for a turn.
     location.assign(
-      `/projects/${projectId}/conversations/${run.conversation_id}?reconcile=${batch.id}`,
+      `/projects/${projectId}/conversations/${run.conversation_id}?reconcile=${change_set.id}`,
     );
   }
 </script>
@@ -116,28 +120,29 @@
 
 <details>
   <summary
-    >Agent file changes ({batches.filter((b) => b.status === 'pending').length} to review)</summary
+    >Agent file changes ({changeSets.filter((b) => b.status === 'pending').length} to review)</summary
   >
   <p>
     Review changes made by your agents. Conflicting changes wait here for your decision; applied
     changes can be reverted.
   </p>
-  {#if !batches.length}<p>No agent file changes yet.</p>{/if}
-  {#each batches as batch (batch.id)}<div class="batch">
-      <span>{batch.status.replace('_', ' ')}</span>
-      <Button variant="ghost" disabled={busy} onclick={() => act(() => review(batch))}
+  {#if !changeSets.length}<p>No agent file changes yet.</p>{/if}
+  {#each changeSets as change_set (change_set.id)}<div class="change_set">
+      <span>{change_set.status.replace('_', ' ')}</span>
+      <Button variant="ghost" disabled={busy} onclick={() => act(() => review(change_set))}
         >Review changes</Button
       >
-      {#if batch.status === 'pending'}<Button
+      {#if change_set.status === 'pending'}<Button
           variant="ghost"
           disabled={busy || !live.writable}
-          onclick={() => act(() => live.api.retryBatch(projectId, batch.id))}>Retry merge</Button
-        >{#if batch.run_id}<Button
+          onclick={() => act(() => live.api.retryChangeSet(projectId, change_set.id))}
+          >Retry merge</Button
+        >{#if change_set.run_id}<Button
             variant="ghost"
             disabled={busy}
-            onclick={() => act(() => reconcile(batch))}>Reconcile in chat</Button
+            onclick={() => act(() => reconcile(change_set))}>Reconcile in chat</Button
           >{/if}{/if}
-      {#if batch.status === 'applied'}<Button
+      {#if change_set.status === 'applied'}<Button
           variant="ghost"
           disabled={busy || !live.writable}
           onclick={() => {
@@ -146,7 +151,7 @@
                 'Revert this AI result while preserving later edits? Conflicts will need review.',
               )
             )
-              void act(() => live.api.revertBatch(projectId, batch.id));
+              void act(() => live.api.revertChangeSet(projectId, change_set.id));
           }}>Revert changes</Button
         >{/if}
     </div>{/each}
@@ -182,7 +187,7 @@
   </section>{/if}
 
 <style>
-  .batch {
+  .change_set {
     padding: 0.5rem 0;
     border-bottom: 1px solid var(--border);
   }

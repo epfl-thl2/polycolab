@@ -118,7 +118,7 @@ def post_project(
         name=payload.name,
         description=payload.description,
         visibility=visibility,
-        workspace_mode=payload.workspace_mode,
+        file_mode=payload.file_mode,
     )
     membership = project_policy.membership(SqlAlchemyTransaction(session), project.id, user.id)
     assert membership is not None

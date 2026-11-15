@@ -11,19 +11,19 @@ from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
+from test_collaborative_workspace import (
+    collaboration_url as collaboration_url,
+)
+from test_collaborative_workspace import (
+    create_file,
+    write,
+)
 from test_hosted_artifacts import OWNER, WORKER
 from test_hosted_scheduler import (
     hosted_client as hosted_client,
 )
 from test_hosted_scheduler import (
     new_hosted,
-)
-from test_linear_workspace import (
-    collaboration_url as collaboration_url,
-)
-from test_linear_workspace import (
-    create_file,
-    write,
 )
 from test_sessions_api import add_member, headers
 
@@ -42,9 +42,9 @@ def agent(hosted_client: TestClient, tmp_path: Path, collaboration_url: str) -> 
         run = db.get(SqlAgentRun, run_id)
         project_id = str(run.project_id)
         db.get(SqlUser, run.requested_by_user_id).subject = "owner"
-        db.get(SqlProject, run.project_id).workspace_mode = "linear"
+        db.get(SqlProject, run.project_id).file_mode = "collaborative"
         db.commit()
-    root = f"/api/v1/projects/{project_id}/linear"
+    root = f"/api/v1/projects/{project_id}/collaborative"
     command = create_file("notes.txt", "one\ntwo\nthree\nfour\nfive\n")
     assert write(client, root, [command]).status_code == 200
     claim = client.post(
@@ -54,7 +54,7 @@ def agent(hosted_client: TestClient, tmp_path: Path, collaboration_url: str) -> 
     )
     assert claim.status_code == 200, claim.text
     binding = claim.json()["repository"]
-    assert binding["mode"] == "linear"
+    assert binding["mode"] == "collaborative"
     lease = {
         "worker_id": "hosted",
         "lease_generation": claim.json()["lease_generation"],
@@ -96,7 +96,9 @@ def test_snapshot_merges_independent_edits_and_revert(agent: tuple[Any, ...]) ->
     assert result.json()["application_status"] == "applied"
     saved = client.get(root + "/files/" + command["file_id"], headers=OWNER).json()
     assert base64.b64decode(saved["content_base64"]) == b"AI\ntwo\nthree\nfour\nHuman\n"
-    reverted = client.post(root + f"/batches/{result.json()['batch_id']}/revert", headers=OWNER)
+    reverted = client.post(
+        root + f"/change-sets/{result.json()['change_set_id']}/revert", headers=OWNER
+    )
     assert reverted.status_code == 200, reverted.text
     assert reverted.json()["status"] == "applied"
     saved = client.get(root + "/files/" + command["file_id"], headers=OWNER).json()
@@ -136,10 +138,10 @@ def test_conflict_is_private_and_new_file_is_not_partially_applied(
     assert len(client.get(root, headers=OWNER).json()["files"]) == 1
     project_id = root.split("/")[4]
     add_member(client, project_id, "contributor", "EDITOR")
-    assert client.get(root + "/batches", headers=headers("contributor")).json() == []
+    assert client.get(root + "/change-sets", headers=headers("contributor")).json() == []
     assert (
         client.post(
-            root + f"/batches/{result.json()['batch_id']}/retry",
+            root + f"/change-sets/{result.json()['change_set_id']}/retry",
             headers=headers("contributor"),
         ).status_code
         == 404
@@ -247,4 +249,4 @@ def test_cancelled_agent_cannot_apply_files(agent: tuple[Any, ...]) -> None:
     assert result.status_code == 409
     assert result.json()["error"]["code"] == "lease_lost"
     assert client.get(root, headers=OWNER).json()["sequence"] == 1
-    assert client.get(root + "/batches", headers=OWNER).json() == []
+    assert client.get(root + "/change-sets", headers=OWNER).json() == []

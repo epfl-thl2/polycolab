@@ -34,7 +34,7 @@ export interface ProjectsApi {
     sort?: 'updated' | 'name' | 'name_desc' | 'relevance',
   ): Promise<Page<Project>>;
   createProject(input: {
-    workspace_mode?: 'default' | 'linear' | 'git';
+    file_mode?: 'basic' | 'collaborative' | 'git';
     name: string;
     description?: string;
     visibility: components['schemas']['ProjectVisibility'];
@@ -154,9 +154,7 @@ export function createProjectsApi(
         }),
       ),
     createProject: (body) =>
-      unwrap(
-        memberClient.POST('/api/v1/projects', { body: { workspace_mode: 'default', ...body } }),
-      ),
+      unwrap(memberClient.POST('/api/v1/projects', { body: { file_mode: 'basic', ...body } })),
     getProject: (projectId) =>
       unwrapMember<Project>(
         memberClient.GET('/api/v1/projects/{project_id}', {

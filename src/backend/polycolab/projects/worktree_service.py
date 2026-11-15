@@ -64,7 +64,7 @@ class WorktreeService(RepositoryService):
         access = project_policy.require_scope(
             self.transaction, self.project_id, self.user_id, ProjectAction.VIEW
         )
-        if access.project.workspace_mode != "git":
+        if access.project.file_mode != "git":
             raise RepositoryError("git_archive_unavailable", 404)
         # A fresh repository can be provisioned with its first worktree request.
         if len(self.git.history(self.git.head("main"), 2)) == 1 and not self.store.worktrees(
@@ -130,9 +130,9 @@ class WorktreeService(RepositoryService):
             "writable": available
             and project_policy.require_scope(
                 self.transaction, self.project_id, self.user_id, ProjectAction.VIEW
-            ).project.workspace_mode
+            ).project.file_mode
             == "git"
-            and not self.transaction.linear.conversion_pending(self.project_id)
+            and not self.transaction.collaborative.conversion_pending(self.project_id)
             and project_policy.can(
                 self.transaction, self.project_id, self.user_id, ProjectAction.WRITE_FILES
             )
@@ -298,8 +298,9 @@ class WorktreeService(RepositoryService):
             access = project_policy.require_scope(
                 self.transaction, self.project_id, self.user_id, ProjectAction.WRITE_FILES
             )
-            if access.project.workspace_mode != "git" or self.transaction.linear.conversion_pending(
-                self.project_id
+            if (
+                access.project.file_mode != "git"
+                or self.transaction.collaborative.conversion_pending(self.project_id)
             ):
                 raise RepositoryError("git_workspace_read_only")
             self.store.worktree(self.project_id, identifier, lock=True)

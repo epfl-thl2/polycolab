@@ -4,7 +4,7 @@ A project is the shared workspace for human and agent work. Members can browse f
 
 - Accounts support sign-in, provider credentials, and directly owned revocable agent keys.
 - Owners manage project metadata, visibility, membership, and lifecycle. Editors can write files; viewers can read. Archived projects prevent writes.
-- Default projects use current server files with digest-guarded updates. Git projects retain worktrees and explicit commits. Linear projects retain live collaboration and checkpoints.
+- Basic projects use current server files with digest-guarded updates. Git projects retain worktrees and explicit commits. Collaborative projects retain live collaboration and checkpoints.
 - Hosted agent conversations retain private or explicitly shared conversations, bounded execution, run history, cancellation, and output artifacts.
 - Project artifacts store verified bytes and require current project access. Hosted exports retain conversation-specific access restrictions.
 - LaTeX builds operate on saved project files and retain private PDFs and logs.

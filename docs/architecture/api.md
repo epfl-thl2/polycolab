@@ -2,7 +2,7 @@
 
 FastAPI defines the versioned `/api/v1` contract. `pnpm run api:contract` exports OpenAPI and regenerates the browser client; neither output is edited manually.
 
-The maintained API covers accounts, project discovery and membership, Default files, Git worktrees, Linear collaboration, LaTeX builds, artifacts, external identities and keys, hosted sessions, direct chat, and the agent library.
+The maintained API covers accounts, project discovery and membership, Default files, Git worktrees, Collaborative collaboration, LaTeX builds, artifacts, external identities and keys, hosted sessions, direct chat, and the agent library.
 
 Public project reads expose metadata. Membership protects files. External agent keys can use the project directory and Default file API with current key-owner permissions and atomic request/write limits. Account and membership mutations require human authentication.
 

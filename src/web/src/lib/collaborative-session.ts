@@ -1,16 +1,21 @@
 import * as Y from 'yjs';
 import {
-  createLinearApi,
-  type LinearState,
-  type LinearOperation,
-  type LinearDocument,
-  type LinearCommand,
-} from './linear-api';
+  createCollaborativeApi,
+  type CollaborativeState,
+  type CollaborativeOperation,
+  type CollaborativeDocument,
+  type CollaborativeCommand,
+} from './collaborative-api';
 import { bytesToBase64 } from './repository-api';
 const decode = (text: string) => Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
 const REMOTE = Symbol('committed update');
-type OpenDocument = { doc: Y.Doc; undo: Y.UndoManager; sequence: number; value: LinearDocument };
-type Pending = { request_id: string; body: { epoch: number; commands: LinearCommand[] } };
+type OpenDocument = {
+  doc: Y.Doc;
+  undo: Y.UndoManager;
+  sequence: number;
+  value: CollaborativeDocument;
+};
+type Pending = { request_id: string; body: { epoch: number; commands: CollaborativeCommand[] } };
 type FileDelta = {
   id: string;
   path: string;
@@ -22,9 +27,9 @@ type FileDelta = {
 };
 
 /** Per-project in-memory editing session. Saved always means a durable server receipt. */
-export class LinearSession {
+export class CollaborativeSession {
   readonly api;
-  state?: LinearState;
+  state?: CollaborativeState;
   documents = new Map<string, OpenDocument>();
   pending = new Map<string, Pending>();
   recovery = new Map<string, string>();
@@ -57,7 +62,7 @@ export class LinearSession {
     private token: () => Promise<string | undefined | null>,
     private changed: () => void,
   ) {
-    this.api = createLinearApi({ getAccessToken: token });
+    this.api = createCollaborativeApi({ getAccessToken: token });
   }
 
   get saving() {
@@ -94,7 +99,7 @@ export class LinearSession {
     )
       return;
     const url = new URL(
-      `/api/v1/projects/${this.projectId}/linear/events`,
+      `/api/v1/projects/${this.projectId}/collaborative/events`,
       import.meta.env.VITE_API_BASE_URL || location.origin,
     );
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -148,7 +153,7 @@ export class LinearSession {
     };
   }
 
-  private apply(operation: LinearOperation) {
+  private apply(operation: CollaborativeOperation) {
     if (!this.state) return;
     if (operation.epoch !== this.state.epoch) {
       this.preserve();
@@ -289,7 +294,7 @@ export class LinearSession {
     }
   }
 
-  async command(commands: LinearCommand[]) {
+  async command(commands: CollaborativeCommand[]) {
     await this.flush();
     if (!this.state || !this.writable) throw new Error('Workspace is not writable.');
     const accepted = await this.api.change(this.projectId, {

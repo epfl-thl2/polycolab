@@ -1,7 +1,7 @@
 import { plainFileEditor } from '../helpers/project-editor';
 import { expect, test } from '@playwright/test';
 
-test('Default projects save current server files without version history', async ({
+test('Basic projects save current server files without version history', async ({
   page,
   baseURL,
 }) => {
@@ -13,10 +13,10 @@ test('Default projects save current server files without version history', async
   await expect(page).toHaveURL(/\/projects$/);
   await page.getByRole('button', { name: 'New project', exact: true }).click();
   const dialog = page.getByRole('dialog');
-  await dialog.getByLabel('Project name', { exact: true }).fill('Default files');
+  await dialog.getByLabel('Project name', { exact: true }).fill('Basic files');
   await expect(
-    dialog.getByRole('combobox').filter({ has: page.locator('option[value="default"]') }),
-  ).toHaveValue('default');
+    dialog.getByRole('combobox').filter({ has: page.locator('option[value="basic"]') }),
+  ).toHaveValue('basic');
   await dialog.getByRole('button', { name: 'Create project', exact: true }).click();
   await expect(page).toHaveURL(/\/projects\/[^/]+\/conversations\/new/);
   const id = new URL(page.url()).pathname.split('/')[2];

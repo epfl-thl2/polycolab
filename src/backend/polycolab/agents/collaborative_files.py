@@ -1,4 +1,4 @@
-"""Snapshot execution and atomic integration of hosted linear file contributions."""
+"""Snapshot execution and atomic integration of hosted collaborative file contributions."""
 
 from __future__ import annotations
 
@@ -14,15 +14,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from polycolab.db.models import SqlAgentRun
-from polycolab.db.models.linear import SqlLinearBatch, SqlLinearRun
-from polycolab.entities.linear import LinearFile, LinearOperation
+from polycolab.db.models.collaborative import SqlChangeSet, SqlCollaborativeRun
+from polycolab.entities.collaborative import CollaborativeFile, CollaborativeOperation
 from polycolab.entities.repositories import RepositoryError
 from polycolab.platform.config import Settings
-from polycolab.projects.linear_factory import service
-from polycolab.projects.linear_service import LinearService, decode, encode
+from polycolab.projects.collaborative_factory import service
+from polycolab.projects.collaborative_service import CollaborativeService, decode, encode
 
 
-def content(file: LinearFile) -> dict[str, Any]:
+def content(file: CollaborativeFile) -> dict[str, Any]:
     return {
         "path": file.path,
         "content_base64": encode(file.content),
@@ -37,10 +37,10 @@ def pin(settings: Settings, db: Session, run: SqlAgentRun) -> dict[str, str]:
     instance.authorize(True)
     db.commit()
     instance.state()
-    binding = db.get(SqlLinearRun, run.id)
+    binding = db.get(SqlCollaborativeRun, run.id)
     if binding is None:
         checkpoint = instance.checkpoint("Agent input", identifier=uuid5(run.id, "input"))
-        binding = SqlLinearRun(
+        binding = SqlCollaborativeRun(
             run_id=run.id,
             project_id=run.project_id,
             epoch=checkpoint.epoch,
@@ -49,10 +49,10 @@ def pin(settings: Settings, db: Session, run: SqlAgentRun) -> dict[str, str]:
         )
         db.add(binding)
         db.commit()
-    pinned = instance.tx.linear.checkpoint(run.project_id, binding.current_checkpoint_id)
+    pinned = instance.tx.collaborative.checkpoint(run.project_id, binding.current_checkpoint_id)
     assert pinned is not None
     return {
-        "mode": "linear",
+        "mode": "collaborative",
         "branch": "main",
         "commit": pinned.tree,
         "epoch": str(binding.epoch),
@@ -62,7 +62,7 @@ def pin(settings: Settings, db: Session, run: SqlAgentRun) -> dict[str, str]:
 
 
 def merge_text(
-    instance: LinearService, base: bytes, current: bytes, incoming: bytes
+    instance: CollaborativeService, base: bytes, current: bytes, incoming: bytes
 ) -> bytes | None:
     if current == base or current == incoming:
         return incoming
@@ -86,7 +86,7 @@ def merge_text(
 
 
 def reconcile(
-    instance: LinearService, changes: list[dict[str, Any]]
+    instance: CollaborativeService, changes: list[dict[str, Any]]
 ) -> tuple[list[dict[str, Any]], list[str], list[dict[str, Any]]]:
     state = instance.state()
     files = {str(f.id): f for f in state.files if not f.deleted}
@@ -150,48 +150,49 @@ def reconcile(
     return commands, conflicts, applied
 
 
-def apply_batch(
-    instance: LinearService,
+def apply_change_set(
+    instance: CollaborativeService,
     db: Session,
-    batch: SqlLinearBatch,
+    change_set: SqlChangeSet,
     authority: Callable[[], None] | None = None,
 ) -> int | None:
-    if batch.status == "applied":
-        receipt = instance.tx.linear.receipt(
-            instance.project_id, instance.user_id, f"batch:{batch.id}"
+    # The batch: prefix is an immutable idempotency identity used by existing operations.
+    if change_set.status == "applied":
+        receipt = instance.tx.collaborative.receipt(
+            instance.project_id, instance.user_id, f"batch:{change_set.id}"
         )
         return receipt.sequence if receipt else None
     instance.authorize(True)
     db.commit()
     current = instance.state()
-    if batch.epoch != current.epoch:
+    if change_set.epoch != current.epoch:
         if authority:
             authority()
-        batch.status, batch.conflicts = (
+        change_set.status, change_set.conflicts = (
             "pending",
             ["Project restored; reconcile with the latest workspace."],
         )
         db.commit()
         return None
-    commands, conflicts, applied = reconcile(instance, batch.changes)
+    commands, conflicts, applied = reconcile(instance, change_set.changes)
     if conflicts:
         if authority:
             authority()
-        batch.status, batch.conflicts = "pending", conflicts
+        change_set.status, change_set.conflicts = "pending", conflicts
         db.commit()
         return None
     if not commands:
         if authority:
             authority()
-        batch.status = "no_changes"
+        change_set.status = "no_changes"
         db.commit()
         return current.sequence
-    instance.checkpoint("Before AI changes", identifier=uuid5(batch.id, "before"))
+    instance.checkpoint("Before AI changes", identifier=uuid5(change_set.id, "before"))
 
-    def accepted(operation: LinearOperation) -> None:
-        batch.status, batch.conflicts, batch.changes = "applied", [], applied
-        if batch.run_id:
-            binding = db.get(SqlLinearRun, batch.run_id)
+    def accepted(operation: CollaborativeOperation) -> None:
+        change_set.status, change_set.conflicts, change_set.changes = "applied", [], applied
+        if change_set.run_id:
+            binding = db.get(SqlCollaborativeRun, change_set.run_id)
             assert binding is not None
             binding.applied_sequence = operation.sequence
 
@@ -199,7 +200,7 @@ def apply_batch(
         operation = instance.change(
             epoch=current.epoch,
             expected_sequence=current.sequence,
-            key=f"batch:{batch.id}",
+            key=f"batch:{change_set.id}",
             commands=commands,
             kind="agent",
             authority=authority,
@@ -208,14 +209,14 @@ def apply_batch(
     except RepositoryError as error:
         db.rollback()
         if str(error) not in {
-            "linear_stale_revision",
-            "linear_epoch_changed",
+            "collaborative_stale_revision",
+            "collaborative_epoch_changed",
             "repository_path_collision",
         }:
             raise
         if authority:
             authority()
-        batch.status, batch.conflicts = (
+        change_set.status, change_set.conflicts = (
             "pending",
             ["Shared files changed during integration. Reconcile with latest."],
         )
@@ -226,7 +227,7 @@ def apply_batch(
 
 
 def contribution(
-    instance: LinearService, checkpoint: Any, imported: str, run_id: Any
+    instance: CollaborativeService, checkpoint: Any, imported: str, run_id: Any
 ) -> list[dict[str, Any]]:
     entries = instance.git.entries(imported)
     before = {f["path"]: f for f in checkpoint.files}
@@ -282,26 +283,26 @@ def contribution(
 def save(
     settings: Settings, db: Session, run: SqlAgentRun, data: bytes, authority: Callable[[], None]
 ) -> dict[str, str]:
-    binding = db.get(SqlLinearRun, run.id)
+    binding = db.get(SqlCollaborativeRun, run.id)
     if binding is None:
-        raise RepositoryError("linear_run_not_found", 404)
+        raise RepositoryError("collaborative_run_not_found", 404)
     if binding.refresh_data is not None:
-        raise RepositoryError("linear_refresh_unacknowledged")
+        raise RepositoryError("collaborative_refresh_unacknowledged")
     instance = service(settings, db, run.project_id, run.requested_by_user_id)
-    checkpoint = instance.tx.linear.checkpoint(run.project_id, binding.current_checkpoint_id)
+    checkpoint = instance.tx.collaborative.checkpoint(run.project_id, binding.current_checkpoint_id)
     assert checkpoint is not None
-    batch = db.scalar(select(SqlLinearBatch).where(SqlLinearBatch.run_id == run.id))
+    change_set = db.scalar(select(SqlChangeSet).where(SqlChangeSet.run_id == run.id))
     digest = hashlib.sha256(data).hexdigest()
-    if batch is not None and batch.digest != digest:
-        raise RepositoryError("linear_retry_mismatch")
-    if batch is None:
+    if change_set is not None and change_set.digest != digest:
+        raise RepositoryError("collaborative_retry_mismatch")
+    if change_set is None:
         db.commit()
         with instance.git.locked(initialize=False):
-            instance.tx.linear.begin_write(instance.project_id)
+            instance.tx.collaborative.begin_write(instance.project_id)
             authority()
             imported = instance.git.import_bundle(data, "main", checkpoint.tree)
             changes = contribution(instance, checkpoint, imported, run.id)
-            batch = SqlLinearBatch(
+            change_set = SqlChangeSet(
                 id=uuid5(run.id, "result"),
                 project_id=run.project_id,
                 user_id=run.requested_by_user_id,
@@ -316,12 +317,12 @@ def save(
             stored_bytes = len(json.dumps(changes).encode())
             instance.check_quota(instance.state(), stored_bytes)
             authority()
-            instance.tx.linear.add_storage(instance.project_id, stored_bytes)
-            db.add(batch)
+            instance.tx.collaborative.add_storage(instance.project_id, stored_bytes)
+            db.add(change_set)
             db.commit()
-    sequence = apply_batch(instance, db, batch, authority)
+    sequence = apply_change_set(instance, db, change_set, authority)
     return {
         "commit": str(sequence or checkpoint.sequence),
-        "application_status": batch.status,
-        "batch_id": str(batch.id),
+        "application_status": change_set.status,
+        "change_set_id": str(change_set.id),
     }

@@ -50,8 +50,8 @@
   const { api, agents, query, capabilities: applicationCapabilities } = projectContext();
   const executionEnabled = $derived(applicationCapabilities?.enabled('agent_execution') ?? false);
   const repository = projectContext().repository;
-  const linear = projectContext().linear;
-  const defaultFiles = projectContext().defaultFiles;
+  const collaborative = projectContext().collaborative;
+  const basicFiles = projectContext().basicFiles;
   let useProjectFiles = $state(false);
   const repositoryState = createQuery(
     toStore(() => ({
@@ -91,16 +91,16 @@
   const chatDraft = untrack(() => draftStore.get(entryKey));
   let reconciliationLoaded = false;
   $effect(() => {
-    if (!linear || reconciliationLoaded || typeof location === 'undefined') return;
+    if (!collaborative || reconciliationLoaded || typeof location === 'undefined') return;
     const id = new URL(location.href).searchParams.get('reconcile');
     if (!id) return;
     reconciliationLoaded = true;
-    void linear.api.batches(projectId).then((batches) => {
-      const batch = batches.find((value) => value.id === id && value.status === 'pending');
-      if (batch)
+    void collaborative.api.changeSets(projectId).then((changeSets) => {
+      const changeSet = changeSets.find((value) => value.id === id && value.status === 'pending');
+      if (changeSet)
         chatDraft.message =
           'Please reconcile this pending file result with the current shared workspace. Preserve newer human changes, review the original and proposed contents below, and validate the combined result.\n\n' +
-          JSON.stringify(batch.changes);
+          JSON.stringify(changeSet.changes);
     });
   });
   const promptStarters = [
@@ -335,7 +335,7 @@
       const serialized = JSON.stringify(body);
       if (chatDraft.startRequest?.body !== serialized)
         chatDraft.startRequest = { key: crypto.randomUUID(), body: serialized };
-      await linear?.flush();
+      await collaborative?.flush();
       await agents.queueTurn(chatDraft.startingConversationId, {
         ...body,
         client_request_id: chatDraft.startRequest.key,
@@ -449,7 +449,7 @@
     error = '';
     const submittedMessage = chatDraft.message;
     try {
-      await linear?.flush();
+      await collaborative?.flush();
       if (useProjectFiles && repository) {
         await repository.enableConversation(projectId, conversationId);
         await query.invalidateQueries({
@@ -499,7 +499,7 @@
     }
   }
   function threadHeaderPortal(node: HTMLElement, active: boolean) {
-    if (linear || defaultFiles) return chatPanelPortal(node, active);
+    if (collaborative || basicFiles) return chatPanelPortal(node, active);
   }
 </script>
 
@@ -755,7 +755,7 @@
       variant="error"
     />{:else}
     <header class="project-chat-thread-header" use:threadHeaderPortal={isVisible}>
-      {#if !linear && !defaultFiles}<a href={`/projects/${projectId}/conversations`}
+      {#if !collaborative && !basicFiles}<a href={`/projects/${projectId}/conversations`}
           >← All conversations</a
         >{/if}
       <h1>{$conversation.data?.title || $conversation.data?.configuration?.display_name}</h1>
@@ -857,8 +857,8 @@
           <Button variant="outline" onclick={() => (sharing = false)}>Cancel</Button>
         </section>{/if}
       <FeedbackToast
-        message={linear && $conversation.data?.working_context.worktree_id
-          ? 'This conversation began in Git mode. New turns use the linear project; earlier snapshots remain in the Git archive.'
+        message={collaborative && $conversation.data?.working_context.worktree_id
+          ? 'This conversation began in Git mode. New turns use the collaborative project; earlier snapshots remain in the Git archive.'
           : ''}
         variant="info"
       />

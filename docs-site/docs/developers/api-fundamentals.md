@@ -24,7 +24,7 @@ The default page size is 25 and the maximum is 100.
 
 ## Save current files
 
-Default project file reads return a content digest. Send that digest as `expected_digest` when updating, renaming, or deleting the file. A stale write returns a conflict; reread and reconcile before retrying. File history depends on the project's selected mode.
+Basic project file reads return a content digest. Send that digest as `expected_digest` when updating, renaming, or deleting the file. A stale write returns a conflict; reread and reconcile before retrying. File history depends on the project's selected mode.
 
 ## Handle errors
 
