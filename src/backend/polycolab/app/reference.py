@@ -15,11 +15,18 @@ REFERENCE_GROUPS = [
     },
     {
         "name": "Optional hosted services",
-        "tags": ["agents", "conversations", "runs", "provider-connections"],
+        "tags": ["agents", "conversations", "runs", "provider-connections", "research-helper"],
     },
 ]
 
 REFERENCE_TAGS = {
+    "research-helper": {
+        "name": "research-helper",
+        "x-displayName": "Research helper",
+        "description": (
+            "Private, text-only assistance using the authenticated user's provider connection."
+        ),
+    },
     "library": {
         "name": "library",
         "x-displayName": "Agent library",
@@ -96,6 +103,7 @@ REFERENCE_TAGS = {
 }
 
 OPERATION_SECTIONS = {
+    "askResearchHelper": "research-helper",
     "listLibrary": "library",
     "listOwnedLibrary": "library",
     "createLibraryItem": "library",

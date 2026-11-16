@@ -1,6 +1,6 @@
 # Human interface
 
-The home page lists projects. Users can create a project, choose Basic, Collaborative, or Git mode, manage members, open files, and start conversations when hosted execution is available.
+The home page shows projects and Library items. Search covers both and offers Ask AI for a general research helper independent of projects. The helper uses a shared platform-managed model for signed-in users and clearly distinguishes its temporary chat from saved project conversations. Users can create a project, choose Basic, Collaborative, or Git mode, manage members, open files, and start conversations when hosted execution is available.
 
 The project interface keeps file editing and conversations together. Switching tabs preserves drafts. Conflicting saves retain edits and provide a recovery path. Viewer roles and archived state disable writes.
 

@@ -1810,6 +1810,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/research-helper/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask research helper
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
+         */
+        post: operations["askResearchHelper"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/runs/{run_id}": {
         parameters: {
             query?: never;
@@ -2105,6 +2125,11 @@ export interface components {
             agent_execution: boolean;
             /** Email Recovery */
             email_recovery: boolean;
+            /**
+             * Research Helper
+             * @default false
+             */
+            research_helper: boolean;
         };
         /** ArtifactRead */
         ArtifactRead: {
@@ -3456,6 +3481,26 @@ export interface components {
              * @default false
              */
             writable: boolean;
+        };
+        /** ResearchHelperMessage */
+        ResearchHelperMessage: {
+            /** Content */
+            content: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant";
+        };
+        /** ResearchHelperReply */
+        ResearchHelperReply: {
+            /** Content */
+            content: string;
+        };
+        /** ResearchHelperRequest */
+        ResearchHelperRequest: {
+            /** Messages */
+            messages: components["schemas"]["ResearchHelperMessage"][];
         };
         /** Restore */
         Restore: {
@@ -13988,6 +14033,102 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorktreeSaved"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Request too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Request or write limit exhausted */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    askResearchHelper: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResearchHelperRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResearchHelperReply"];
                 };
             };
             /** @description Authentication required */

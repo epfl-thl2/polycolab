@@ -389,7 +389,7 @@ class SqlExecutionRateWindow(Base):
         UniqueConstraint("scope", "scope_id", "window_started_at", name="uq_execution_rate_window"),
         CheckConstraint(
             "scope IN ('user', 'project', 'public_ip', 'sse_user', 'registration_ip', "
-            "'login_ip', 'login_username')",
+            "'login_ip', 'login_username', 'helper_user', 'helper_global')",
             name="ck_execution_rate_window_scope",
         ),
         CheckConstraint("count >= 0", name="ck_execution_rate_window_count"),

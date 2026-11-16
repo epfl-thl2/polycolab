@@ -2,6 +2,10 @@
 
 Fresh installations apply the complete Alembic chain. Existing installations upgrade to `head` using forward migrations.
 
+The research helper uses a shared platform-managed model. Set `RESEARCH_HELPER_API_KEY` through the server environment or secret store, and set `RESEARCH_HELPER_BASE_URL` (an HTTPS API base URL) and `RESEARCH_HELPER_MODEL` (the model ID). `RESEARCH_HELPER_WIRE_API` defaults to `chat_completions`; use `responses` for Responses endpoints. No personal provider connections are used. The helper remains unavailable until all three required settings are present. `FEATURE_RESEARCH_HELPER_ENABLED` defaults to `true`; set it to `false` to disable the helper even when configured. `RESEARCH_HELPER_REQUESTS_PER_MINUTE` defaults to 5 per user, and `RESEARCH_HELPER_GLOBAL_REQUESTS_PER_MINUTE` defaults to 30 across users and API processes. No project or private worker is required.
+
+Apply the `20261115_research_helper` migration (or its `local_` SQLite counterpart) before enabling helper requests. It adds admission-counter scopes while preserving existing counters. Restart `dev:local` to back up and migrate an existing local database. Chat text is held only in the browser's current homepage session and is not saved to conversation history. Provider inference is charged to the platform credential.
+
 The key terminology migration renames `external_agent_credentials` to
 `agent_api_keys`, its ownership field to `owner_user_id`, and its write counters to
 `write_count` and `max_writes`. The API uses those same names and reports

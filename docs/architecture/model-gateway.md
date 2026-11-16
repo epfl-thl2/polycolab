@@ -34,6 +34,10 @@ Orchestration and live key rotation/restore verification remain deployment work.
 
 ## Network and usage policy
 
+The human-only `POST /api/v1/research-helper/messages` endpoint provides project-independent, text-only research assistance using a shared model configured by the platform operator. It accepts no personal provider connection selection. It supports Chat Completions and Responses endpoints, keeps the platform credential on the server, and sends a fixed research-assistant system prompt without tools. It does not read project data or persist transcripts. Provider requests disable stored responses; provider retention policies still apply.
+
+Helper requests accept at most 31 alternating user/assistant messages totaling 48,000 UTF-8 bytes and cap output at 2,048 tokens. The existing IP-pinned transport bounds request/response size and timeouts, rejects unsafe destinations, and performs no retries for helper requests. Durable per-user and global minute counters admit each request before provider I/O, including failed requests. These counters bound request volume; helper turns are not agent runs and do not participate in the agent-run usage ledger.
+
 Provider base URLs reject insecure schemes outside local development, credentialed URLs, private or metadata addresses, unsafe DNS answers, redirects, and proxy-environment routing.
 Connections use a vetted public IP while preserving the original HTTP host and TLS identity.
 

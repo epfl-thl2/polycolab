@@ -20,6 +20,7 @@ def test_public_configuration_is_safe_and_follows_runtime_settings(
     assert set(response.json()) == {
         "agent_execution",
         "email_recovery",
+        "research_helper",
     }
     assert all(type(value) is bool for value in response.json().values())
     assert "private-operator" not in response.text
@@ -31,6 +32,7 @@ def test_public_configuration_is_safe_and_follows_runtime_settings(
 
 def test_execution_defaults_off_and_email_requires_delivery_configuration() -> None:
     settings = Settings()
+    assert not application_configuration(settings).research_helper
     assert not application_configuration(settings).agent_execution
     assert not application_configuration(settings).email_recovery
     settings.smtp_host = "smtp.example"

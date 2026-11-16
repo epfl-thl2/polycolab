@@ -521,6 +521,11 @@
           "email_recovery": {
             "title": "Email Recovery",
             "type": "boolean"
+          },
+          "research_helper": {
+            "default": false,
+            "title": "Research Helper",
+            "type": "boolean"
           }
         },
         "required": [
@@ -4122,6 +4127,63 @@
           "branch"
         ],
         "title": "RepositoryState",
+        "type": "object"
+      },
+      "ResearchHelperMessage": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "maxLength": 32000,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ],
+        "title": "ResearchHelperMessage",
+        "type": "object"
+      },
+      "ResearchHelperReply": {
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "ResearchHelperReply",
+        "type": "object"
+      },
+      "ResearchHelperRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchHelperMessage"
+            },
+            "maxItems": 31,
+            "minItems": 1,
+            "title": "Messages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "messages"
+        ],
+        "title": "ResearchHelperRequest",
         "type": "object"
       },
       "Restore": {
@@ -19693,6 +19755,126 @@
         ]
       }
     },
+    "/api/v1/research-helper/messages": {
+      "post": {
+        "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.",
+        "operationId": "askResearchHelper",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchHelperRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchHelperReply"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Request too large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Request or write limit exhausted"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Internal error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Ask research helper",
+        "tags": [
+          "research-helper"
+        ]
+      }
+    },
     "/api/v1/runs/{run_id}": {
       "get": {
         "description": "**Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.\n\n**Availability:** Optional deployment capability; documentation does not imply that this service is enabled.",
@@ -20279,6 +20461,11 @@
       "description": "Optional human-owned provider configuration and secret lifecycle.",
       "name": "provider-connections",
       "x-displayName": "Provider connections"
+    },
+    {
+      "description": "Private, text-only assistance using the authenticated user's provider connection.",
+      "name": "research-helper",
+      "x-displayName": "Research helper"
     }
   ],
   "x-tagGroups": [
@@ -20317,7 +20504,8 @@
         "agents",
         "conversations",
         "runs",
-        "provider-connections"
+        "provider-connections",
+        "research-helper"
       ]
     }
   ]

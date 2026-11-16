@@ -9,10 +9,12 @@ from polycolab.platform.config import AuthMode, Settings
 class ApplicationConfiguration(ApiModel):
     agent_execution: bool
     email_recovery: bool
+    research_helper: bool = False
 
 
 def application_configuration(settings: Settings) -> ApplicationConfiguration:
     return ApplicationConfiguration(
+        research_helper=settings.research_helper_available,
         agent_execution=settings.feature_agent_execution_enabled,
         email_recovery=(
             settings.auth_mode is AuthMode.LOCAL

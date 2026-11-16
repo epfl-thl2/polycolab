@@ -72,6 +72,26 @@ class Settings(BaseSettings):
     database_pool_timeout_seconds: float = Field(default=30.0, gt=0, le=300, allow_inf_nan=False)
     allowed_origins: list[AnyUrl] = Field(default_factory=lambda: [AnyUrl("http://localhost:5173")])
     log_level: str = "INFO"
+    feature_research_helper_enabled: bool = True
+    research_helper_api_key: SecretStr | None = Field(default=None, min_length=1, max_length=4096)
+    research_helper_base_url: str | None = Field(default=None, min_length=1, max_length=2048)
+    research_helper_model: str | None = Field(default=None, min_length=1, max_length=256)
+    research_helper_wire_api: Literal["chat_completions", "responses"] = "chat_completions"
+
+    @property
+    def research_helper_available(self) -> bool:
+        return bool(
+            self.feature_research_helper_enabled
+            and self.research_helper_api_key
+            and self.research_helper_api_key.get_secret_value().strip()
+            and self.research_helper_base_url
+            and self.research_helper_base_url.strip()
+            and self.research_helper_model
+            and self.research_helper_model.strip()
+        )
+
+    research_helper_requests_per_minute: int = Field(default=5, ge=1, le=100)
+    research_helper_global_requests_per_minute: int = Field(default=30, ge=1, le=1000)
     log_json: bool | None = None
     auth_mode: AuthMode = AuthMode.LOCAL
     bootstrap_admin_password: SecretStr | None = Field(default=None, min_length=12, max_length=256)

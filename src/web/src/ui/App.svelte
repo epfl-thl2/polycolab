@@ -70,44 +70,46 @@
     new URLSearchParams(search).get('scope') ?? (auth.signedIn ? 'member' : 'public'),
   );
   const view = $derived(
-    path === '/' || path === '/projects'
+    path === '/'
       ? 'home'
-      : projectId
-        ? 'project'
-        : path === '/about'
-          ? 'about'
-          : path === '/docs' || path.startsWith('/docs/')
-            ? 'docs'
-            : path === '/connect'
-              ? 'connect'
-              : path === '/guide'
-                ? 'guide'
-                : path === '/library' || path.startsWith('/library/')
-                  ? 'library'
-                  : [
-                        '/account/password-reset',
-                        '/account/reset-password',
-                        '/account/verify-email',
-                        '/forgot-password',
-                        '/reset-password',
-                        '/verify-email',
-                      ].includes(path)
-                    ? 'recovery'
-                    : path === '/signin'
-                      ? 'signin'
-                      : path === '/signup'
-                        ? 'signup'
-                        : [
-                              '/settings',
-                              '/settings/security',
-                              '/settings/recovery',
-                              '/settings/api-keys',
-                              '/settings/provider-connections',
-                              '/settings/conversation-history',
-                            ].includes(path) ||
-                            /^\/settings\/conversation-history\/[^/]+$/.test(path)
-                          ? 'account-settings'
-                          : 'missing',
+      : path === '/projects'
+        ? 'projects'
+        : projectId
+          ? 'project'
+          : path === '/about'
+            ? 'about'
+            : path === '/docs' || path.startsWith('/docs/')
+              ? 'docs'
+              : path === '/connect'
+                ? 'connect'
+                : path === '/guide'
+                  ? 'guide'
+                  : path === '/library' || path.startsWith('/library/')
+                    ? 'library'
+                    : [
+                          '/account/password-reset',
+                          '/account/reset-password',
+                          '/account/verify-email',
+                          '/forgot-password',
+                          '/reset-password',
+                          '/verify-email',
+                        ].includes(path)
+                      ? 'recovery'
+                      : path === '/signin'
+                        ? 'signin'
+                        : path === '/signup'
+                          ? 'signup'
+                          : [
+                                '/settings',
+                                '/settings/security',
+                                '/settings/recovery',
+                                '/settings/api-keys',
+                                '/settings/provider-connections',
+                                '/settings/conversation-history',
+                              ].includes(path) ||
+                              /^\/settings\/conversation-history\/[^/]+$/.test(path)
+                            ? 'account-settings'
+                            : 'missing',
   );
   const identity = createQuery(
     toStore(() => ({
@@ -129,7 +131,7 @@
     }
   });
   const headerActive = $derived(
-    view === 'home'
+    view === 'projects'
       ? 'projects'
       : view === 'library'
         ? 'library'
@@ -139,7 +141,7 @@
   );
 </script>
 
-<svelte:head><title>Polycolab · Projects</title></svelte:head>
+<svelte:head><title>Polycolab · {view === 'home' ? 'Home' : 'Projects'}</title></svelte:head>
 <div class="product-shell" class:product-shell-project={view === 'project'}>
   <a class="skip-link" href="#main">Skip to content</a>
   {#if view !== 'project' && view !== 'docs'}<ProductHeader
@@ -162,9 +164,14 @@
           />{/await}
       {:else if view === 'home'}
         {#if !auth.loaded}<main id="main" class="page">
+            <LoadingState>Opening Polycolab…</LoadingState>
+          </main>
+        {:else}{#await import('./Home.svelte') then module}<module.default />{/await}{/if}
+      {:else if view === 'projects'}
+        {#if !auth.loaded}<main id="main" class="page">
             <LoadingState>Opening projects…</LoadingState>
           </main>
-        {:else}{#await import('./Home.svelte') then module}<module.default
+        {:else}{#await import('./Projects.svelte') then module}<module.default
               publicScope={projectScope === 'public'}
             />{/await}{/if}
       {:else if view === 'project' && projectId}

@@ -302,6 +302,24 @@ def _lock_rate_window_scope(session: Session, *, scope: str, scope_id: UUID) -> 
     session.execute(text("SELECT pg_advisory_xact_lock(:lock_key)"), {"lock_key": lock_key})
 
 
+def enforce_research_helper_limit(
+    session: Session, *, user_id: UUID, user_limit: int, global_limit: int, now: datetime
+) -> None:
+    """Bound helper inference across users and API processes before dispatch."""
+    for scope, scope_id, limit in (
+        ("helper_global", UUID(int=0), global_limit),
+        ("helper_user", user_id, user_limit),
+    ):
+        _consume_window(
+            session,
+            scope=scope,
+            scope_id=scope_id,
+            limit=limit,
+            now=now,
+            error_code="research_helper_rate_limited",
+        )
+
+
 def anonymous_address_scope_id(*, client_address: str, hmac_key: str) -> UUID:
     """Return a non-reversible, deployment-scoped identifier for an address."""
 

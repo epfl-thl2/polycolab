@@ -3,6 +3,7 @@ export * from '@playwright/test';
 
 export const configuredCapabilities = {
   agent_execution: true,
+  research_helper: true,
   email_recovery: true,
 };
 

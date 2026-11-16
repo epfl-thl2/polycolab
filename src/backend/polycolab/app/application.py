@@ -396,6 +396,12 @@ def create_app(
         max_request_bytes=settings.gateway_max_input_bytes,
         max_response_bytes=settings.gateway_max_response_bytes,
     )
+    app.state.research_helper_transport = ProviderTransport(
+        retry_count=0,
+        timeouts=TransportTimeouts(read=30.0),
+        max_request_bytes=65_536,
+        max_response_bytes=262_144,
+    )
     app.state.gateway_limits = GatewayLimits(
         run_token_ttl_seconds=settings.gateway_run_token_ttl_seconds,
         max_input_bytes=settings.gateway_max_input_bytes,
