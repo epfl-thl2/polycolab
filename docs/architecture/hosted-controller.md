@@ -1,6 +1,6 @@
 # Hosted controller
 
-The Linux hosted-agent controller supports explicit Docker/gVisor and microsandbox 0.6.18 backends, sharing Codex CLI 0.154.0, API transport, scheduling and output handling.
+The Linux hosted-agent controller supports explicit Docker/gVisor and microsandbox 0.6.18 backends, sharing Codex CLI 0.169.0, API transport, scheduling and output handling.
 Docker/gVisor accepts x86_64 and ARM64 Linux hosts and requires cached images for
 the host architecture. Microsandbox remains restricted to Linux x86_64.
 Production enablement requires an accepted Linux host, curated image and the remaining containment/provider/browser acceptance gates.
@@ -98,7 +98,8 @@ A failed journal write during failed cleanup cannot acknowledge successful termi
 Conversations polls canonical run history, offers explicit resume for failed/timed-out runs, and lets users select files from older completed runs.
 Readiness disables new execution without hiding history.
 The generated client includes the bounded `GET /api/v1/conversations/{conversation_id}/runs` listing and `execution_available`.
-Customized Hosted Codex conversations persist a selected harness and additional system prompt on the conversation.
+Users can select Codex in chat customization without adding custom instructions.
+Codex conversations persist the selected harness and optional additional system prompt on the conversation.
 Every run in that conversation includes the prompt after the pinned platform agent instructions.
 The selected provider connection still supplies the model endpoint and remains a per-turn credential boundary.
 

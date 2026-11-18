@@ -1,6 +1,7 @@
 """Disposable PostgreSQL/Garage/core/browser gate with a native SSH executor.
 
-Requires POLYCOLAB_GVISOR_SSH_HOST and POLYCOLAB_GVISOR_REMOTE_SOURCE. The remote
+Use POLYCOLAB_HOSTED_LOCAL_SOURCE for a prepared local executor, or set
+POLYCOLAB_GVISOR_SSH_HOST and POLYCOLAB_GVISOR_REMOTE_SOURCE. The remote
 source must have locked dependencies, matching code and an idle controller.toml.
 Only a deterministic provider transport is substituted; no live provider is used.
 """
@@ -29,8 +30,9 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def main() -> int:
-    host = os.environ["POLYCOLAB_GVISOR_SSH_HOST"]
-    source = os.environ["POLYCOLAB_GVISOR_REMOTE_SOURCE"]
+    local_source = os.environ.get("POLYCOLAB_HOSTED_LOCAL_SOURCE")
+    host = os.environ.get("POLYCOLAB_GVISOR_SSH_HOST", "")
+    source = local_source or os.environ["POLYCOLAB_GVISOR_REMOTE_SOURCE"]
     if host.startswith("-") or not source.startswith("/"):
         raise ValueError("explicit SSH host and absolute disposable source path required")
     remote_port = int(os.environ.get("POLYCOLAB_GVISOR_REMOTE_PORT", "55073"))
@@ -69,11 +71,14 @@ def main() -> int:
 
         try:
             config = tomllib.loads(
-                subprocess.check_output(
+                (Path(source) / "controller.toml").read_text()
+                if local_source
+                else subprocess.check_output(
                     ssh + ["cat " + shlex.quote(source + "/controller.toml")], text=True
                 )
             )
-            assert config["backend"] == "gvisor"
+            if config["backend"] not in {"gvisor", "microsandbox"}:
+                raise ValueError("unsupported native backend")
             command(compose + ["up", "-d", "--wait"])
 
             def port(service: str, internal: str) -> str:
@@ -114,9 +119,12 @@ def main() -> int:
                 "ARTIFACT_S3_ACCESS_KEY": "GK0123456789abcdef0123456789",
                 "ARTIFACT_S3_SECRET_KEY": "0123456789abcdef" * 4,
                 "PROJECT_REPOSITORY_DIRECTORY": str(folder / "repositories"),
+                "WEB_DIST_DIR": str(ROOT / "src/web/dist"),
                 "FEATURE_AGENT_EXECUTION_ENABLED": "true",
                 "RUNTIME_WORKER_TOKEN": token,
-                "RUNTIME_SANDBOX_BACKEND": "gvisor",
+                "COLLABORATION_TOKEN": secrets.token_hex(32),
+                "RUNTIME_SANDBOX_BACKEND": config["backend"],
+                "REGISTRATION_MODE": "closed",
                 "RUNTIME_SANDBOX_VERSION": config["sandbox_version"],
                 "RUNTIME_CODEX_IMAGE": next(
                     image["reference"] for image in config["images"] if image["language"] == "AGENT"
@@ -127,7 +135,7 @@ def main() -> int:
             for module in (["alembic", "upgrade", "head"], ["polycolab.bootstrap_admin"]):
                 command([sys.executable, "-m", *module], cwd=ROOT / "src/backend", env=env)
             if not development:
-                command(["pnpm", "--filter", "@polycolab/web", "run", "build"], cwd=ROOT)
+                command(["pnpm", "--filter", "@polycolab/web", "run", "build"], cwd=ROOT, env=env)
             api = subprocess.Popen(
                 [
                     sys.executable,
@@ -190,35 +198,62 @@ def main() -> int:
                     time.sleep(0.2)
                 else:
                     raise RuntimeError("web_readiness_timeout")
-            remote_script = source + "/remote_hosted.py"
-            command(
-                ["scp", str(ROOT / "tests/system/remote_hosted.py"), host + ":" + remote_script]
-            )
-            remote = subprocess.Popen(
-                [
-                    *ssh[:-1],
-                    "-o",
-                    "ExitOnForwardFailure=yes",
-                    "-R",
-                    f"127.0.0.1:{remote_port}:127.0.0.1:{api_port}",
-                    host,
-                    shlex.join(
-                        [
-                            source + "/src/backend/.venv/bin/python",
-                            remote_script,
-                            source,
-                            identity,
-                            str(remote_port),
-                        ]
-                    ),
-                ],
-                stdin=subprocess.PIPE,
-                stdout=log,
-                stderr=log,
-                start_new_session=True,
-            )
+            if local_source:
+                remote = subprocess.Popen(
+                    [
+                        str(Path(source) / ".venv/bin/python"),
+                        str(ROOT / "tests/system/remote_hosted.py"),
+                        source,
+                        identity,
+                        str(api_port),
+                    ],
+                    cwd=source,
+                    env={
+                        key: os.environ[key]
+                        for key in (
+                            "PATH",
+                            "HOME",
+                            "USER",
+                            "XDG_RUNTIME_DIR",
+                            "DBUS_SESSION_BUS_ADDRESS",
+                        )
+                        if key in os.environ
+                    },
+                    stdin=subprocess.PIPE,
+                    stdout=log,
+                    stderr=log,
+                    start_new_session=True,
+                )
+            else:
+                remote_script = source + "/remote_hosted.py"
+                command(
+                    ["scp", str(ROOT / "tests/system/remote_hosted.py"), host + ":" + remote_script]
+                )
+                remote = subprocess.Popen(
+                    [
+                        *ssh[:-1],
+                        "-o",
+                        "ExitOnForwardFailure=yes",
+                        "-R",
+                        f"127.0.0.1:{remote_port}:127.0.0.1:{api_port}",
+                        host,
+                        shlex.join(
+                            [
+                                source + "/src/backend/.venv/bin/python",
+                                remote_script,
+                                source,
+                                identity,
+                                str(remote_port),
+                            ]
+                        ),
+                    ],
+                    stdin=subprocess.PIPE,
+                    stdout=log,
+                    stderr=log,
+                    start_new_session=True,
+                )
             children.append(remote)
-            started_remote = True
+            started_remote = not bool(local_source)
             assert remote.stdin is not None
             remote.stdin.write((token + "\n").encode())
             remote.stdin.close()
@@ -246,7 +281,7 @@ def main() -> int:
                 },
             )
             print(
-                "PASS: native Docker/gVisor chat and reload against PostgreSQL/Garage/core"
+                f"PASS: native {config['backend']} chat and reload against PostgreSQL/Garage/core"
                 + (" (Vite frontend)" if development else " (compiled frontend)")
             )
             return 0

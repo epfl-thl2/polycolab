@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { chatDrafts, ChatDrafts } from '../../lib/chat-drafts.svelte';
   import ChatWorkbenchShell from './components/ChatWorkbenchShell.svelte';
   import ChatWorkbenchPages from './components/ChatWorkbenchPages.svelte';
   import ProjectFileExplorer from './components/ProjectFileExplorer.svelte';
@@ -32,6 +33,7 @@
   import ProjectFileView from './components/ProjectFileView.svelte';
   let { project, path }: { project: Project; path: string } = $props();
   const context = projectContext();
+  const chatDraftStore = chatDrafts() ?? new ChatDrafts();
   let revision = $state(0);
   const live = new CollaborativeSession(
     untrack(() => project.id),
@@ -81,12 +83,6 @@
   let selectionVersion = 0;
   const canChat = $derived(
     canWriteProject(project.current_user_role, Boolean(project.archived_at)),
-  );
-  const draftChats = $derived(
-    tabs.filter(
-      (item) =>
-        item.kind === 'chat' && new URL(item.href, 'http://local').pathname.endsWith('/new'),
-    ),
   );
 
   let error = $state('');
@@ -225,7 +221,7 @@
     });
   }
   function newChat() {
-    navigate(`/projects/${project.id}/conversations/new?draft=${crypto.randomUUID()}`);
+    navigate(chatDraftStore.newChatHref(project.id, tabs, null, true));
   }
   async function createFile(newPath: string) {
     await attempt(async () => {
@@ -300,9 +296,7 @@
   {project}
   {section}
   {entity}
-  {activeId}
   {canChat}
-  {draftChats}
   {conversations}
   {chatsLoaded}
   {chatsError}

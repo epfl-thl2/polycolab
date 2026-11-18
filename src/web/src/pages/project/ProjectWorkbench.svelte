@@ -123,9 +123,7 @@
     return `/projects/${projectId}/conversations?view=empty&branch=${encodeURIComponent(workingBranch)}${selectedWorktree ? `&worktree=${encodeURIComponent(selectedWorktree.id)}` : ''}`;
   }
   function newChat(worktreeId: string | null = selectedWorktree?.id || null) {
-    navigate(
-      `/projects/${projectId}/conversations/new?draft=${crypto.randomUUID()}${worktreeId ? `&worktree=${encodeURIComponent(worktreeId)}` : ''}`,
-    );
+    navigate(chatDraftStore.newChatHref(projectId, tabs, worktreeId));
   }
   async function selectWorktree(worktree?: Worktree) {
     const version = ++routeVersion;

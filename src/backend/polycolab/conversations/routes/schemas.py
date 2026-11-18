@@ -28,8 +28,8 @@ class ConversationCreate(RequestModel):
 
     @model_validator(mode="after")
     def custom_configuration(self) -> ConversationCreate:
-        if (self.harness is None) != (self.system_prompt is None):
-            raise ValueError("custom conversations require a harness and system prompt")
+        if self.system_prompt is not None and self.harness is None:
+            raise ValueError("custom instructions require a harness")
         if self.system_prompt is not None and not self.system_prompt.strip():
             raise ValueError("system prompt must not be blank")
         return self

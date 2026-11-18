@@ -37,7 +37,7 @@ Budget enough host memory for four 1 GiB VMs plus four 512 MiB executor allowanc
 Reducing capacity is supported in both API settings and controller configuration.
 
 Build `Dockerfile.agent` from an approved digest-pinned Node/glibc base containing Python 3.
-The Dockerfile pins Codex CLI 0.154.0.
+The Dockerfile pins Codex CLI 0.169.0.
 Record the resulting OCI manifest digest, base digest, architecture, and build evidence.
 Export an OCI/Docker archive.
 An image tag is insufficient.
@@ -67,7 +67,7 @@ It does not prove VM isolation or real Codex compatibility.
 ## Acceptance and enablement
 
 On the disposable target, test the actual transient unit and VM before enabling production.
-Record SDK 0.6.18 and Codex 0.154.0 versions and image identity alongside results for:
+Record SDK 0.6.18 and Codex 0.169.0 versions and image identity alongside results for:
 
 - Offline guest networking, read-only inputs and inaccessible service credentials.
 - CPU, memory, process, wall-time and disk exhaustion.

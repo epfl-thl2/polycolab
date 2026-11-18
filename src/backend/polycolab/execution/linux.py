@@ -280,7 +280,7 @@ class LinuxRuntime(MicrosandboxRuntime, SlotPool):
                 "--property=NoNewPrivileges=yes",
                 "--property=ProtectSystem=strict",
                 "--property=ProtectHome=yes",
-                "--property=InaccessiblePaths=/etc/polycolab-execution",
+                "--property=InaccessiblePaths=-/etc/polycolab-execution",
                 "--property=PrivateTmp=yes",
                 "--property=ReadWritePaths=" + str(slot),
                 "--setenv=MSB_HOME=" + str(slot / "msb"),

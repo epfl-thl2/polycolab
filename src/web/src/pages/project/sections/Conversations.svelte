@@ -15,8 +15,10 @@
   import { advancesCursor, statusFromEvent } from '../../../svelte-lib/conversation-events';
   import type { AgentRun, ConversationSharing } from '../../../lib/conversations-api';
   import ConversationTranscriptItem from '../components/ConversationTranscriptItem.svelte';
+  import ConversationTranscript from '../components/ConversationTranscript.svelte';
+  import Markdown from '../../../ui/Markdown.svelte';
   import ChatComposer from '../../../ui/ChatComposer.svelte';
-  import { ChevronDown, RotateCcw, SlidersHorizontal, Sparkles } from '@lucide/svelte';
+  import { ChevronDown, LoaderCircle, Sparkles } from '@lucide/svelte';
   import { Popover } from 'bits-ui';
   import { chatPanelPortal } from '../../../lib/chat-panel-portal';
   import { chatDrafts, ChatDrafts, chatDraftKey } from '../../../lib/chat-drafts.svelte';
@@ -48,6 +50,9 @@
     view ? view === 'list' : page.url.pathname.endsWith('/conversations'),
   );
   const { api, agents, query, capabilities: applicationCapabilities } = projectContext();
+  const viewer = createQuery(
+    toStore(() => ({ queryKey: ['chat-viewer'], queryFn: () => api.currentUser() })),
+  );
   const executionEnabled = $derived(applicationCapabilities?.enabled('agent_execution') ?? false);
   const repository = projectContext().repository;
   const collaborative = projectContext().collaborative;
@@ -69,10 +74,7 @@
   );
   let agentId = $state('');
   let providerConnectionId = $state('');
-  let configurationMode = $state<'preset' | 'custom'>('preset');
-  let customSystemPrompt = $state('');
-  let customizationOpen = $state(false);
-  let responseStyle = $state('balanced');
+  let harness = $state<'platform' | 'codex'>('platform');
   let sharing = $state(false);
   let sharingMode = $state<ConversationSharing>('members_can_view');
   let titleDraft = $state('');
@@ -186,16 +188,24 @@
     })),
   );
   const hostedAvailable = $derived($capabilities.data?.hosted_agents ?? false);
+  const selectedExportRunId = $derived(
+    exportRunId ||
+      $runs.data?.pages
+        .flatMap((p) => p.items)
+        .filter((item) => item.status === 'COMPLETED' && item.can_read_private_context)
+        .at(-1)?.id ||
+      '',
+  );
   const exports = createQuery(
     toStore(() => ({
-      queryKey: ['run-artifacts', exportRunId],
-      enabled: Boolean(exportRunId),
-      queryFn: () => agents.listArtifacts(exportRunId),
+      queryKey: ['run-artifacts', selectedExportRunId],
+      enabled: Boolean(selectedExportRunId),
+      queryFn: () => agents.listArtifacts(selectedExportRunId),
     })),
   );
   async function downloadExport(id: string, name: string) {
     try {
-      const blob = await agents.downloadArtifact(exportRunId, id);
+      const blob = await agents.downloadArtifact(selectedExportRunId, id);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -206,6 +216,17 @@
       error = explain(reason);
     }
   }
+  const platformModels = createQuery(
+    toStore(() => ({ queryKey: ['platform-models'], queryFn: () => api.listPlatformModels() })),
+  );
+  const selectedHarness = $derived(
+    !conversationId ? harness : ($conversation.data?.configuration?.harness ?? 'platform'),
+  );
+  const sharedModels = $derived(
+    ($platformModels.data ?? []).filter(
+      (model) => model.uses.includes('project_chat') && model.harnesses.includes(selectedHarness),
+    ),
+  );
   const connections = createInfiniteQuery(
     toStore(() => ({
       queryKey: ['connections'],
@@ -229,36 +250,31 @@
     toStore(() => ({ queryKey: ['agents'], queryFn: () => agents.listAgents() })),
   );
   const availableAgents = $derived($available.data?.items ?? []);
-  const availableConnections = $derived(
+  const personalConnections = $derived(
     $connections.data?.pages.flatMap((connectionPage) => connectionPage.items) ?? [],
   );
-  const selectedAgent = $derived(availableAgents.find((agent) => agent.id === agentId));
-  const hasCustomSettings = $derived(
-    configurationMode === 'custom' || responseStyle !== 'balanced',
-  );
+  const availableConnections = $derived([...sharedModels, ...personalConnections]);
   $effect(() => {
-    if (!agentId && availableAgents[0]) agentId = availableAgents[0].id;
+    // Existing API versions still require a preset identity; it is not a composer choice.
+    const defaultAgent = availableAgents
+      .filter((agent) => agent.agent_kind === 'RESEARCHER')
+      .sort((a, b) => b.version - a.version)[0];
+    if (!agentId && defaultAgent) agentId = defaultAgent.id;
   });
   $effect(() => {
-    if (!conversationId && !allConversations && !providerConnectionId && availableConnections[0])
-      providerConnectionId = availableConnections[0].id;
+    if ($platformModels.isPending) return;
+    const selectedShared = ($platformModels.data ?? []).find(
+      (model) => model.id === providerConnectionId,
+    );
+    if (
+      !providerConnectionId ||
+      (selectedShared && !sharedModels.some((model) => model.id === providerConnectionId))
+    )
+      providerConnectionId =
+        sharedModels.find((model) => model.default_for.includes('project_chat'))?.id ??
+        availableConnections[0]?.id ??
+        '';
   });
-  function agentDescription(kind: string) {
-    if (kind === 'RESEARCHER') return 'Explore project files and develop approaches.';
-    if (kind === 'CRITIC') return 'Review arguments, evidence, and possible gaps.';
-    return 'Use this platform agent for the conversation.';
-  }
-  function setCustomConfiguration(enabled: boolean) {
-    configurationMode = enabled ? 'custom' : 'preset';
-  }
-  function resetNewChatSettings() {
-    agentId = availableAgents[0]?.id ?? '';
-    providerConnectionId = availableConnections[0]?.id ?? '';
-    configurationMode = 'preset';
-    customSystemPrompt = '';
-    responseStyle = 'balanced';
-    customizationOpen = false;
-  }
   const active = $derived(
     run && ['QUEUED', 'CLAIMED', 'RUNNING', 'CANCELLING'].includes(run.status),
   );
@@ -268,17 +284,12 @@
     if (worktreeId && $worktree.isError) return 'This worktree is unavailable.';
     if ($worktree.data?.removed_at) return 'This worktree is removed.';
     if (!executionEnabled) return 'Hosted execution is disabled.';
-    if (configurationMode === 'custom' && !hostedAvailable) return 'Hosted Codex is unavailable.';
-    if (!agentId) return 'Choose a preset below.';
+    if (harness === 'codex' && !hostedAvailable) return 'Codex is unavailable.';
+    if (!agentId) return 'Loading agent configuration…';
     if (!providerConnectionId) return 'Choose an AI provider.';
-    if (configurationMode === 'custom' && !customSystemPrompt.trim())
-      return 'Add a system prompt in Customize.';
     if (!chatDraft.message.trim()) return 'Write a message to send.';
     return '';
   });
-  const newChatVisibleSendReason = $derived(
-    newChatSendReason === 'Choose an AI provider.' ? '' : newChatSendReason,
-  );
   const conversationSendReason = $derived.by(() => {
     if ($conversation.data?.origin === 'legacy_direct')
       return 'Retired direct-chat history is read-only.';
@@ -290,7 +301,7 @@
     if (!executionEnabled) return 'Hosted execution is disabled.';
     if (!$capabilities.data?.execution_available) return 'Agent execution is unavailable.';
     if (active) return 'Wait for the current run to finish.';
-    if (!providerConnectionId) return 'Choose an AI provider in Chat settings.';
+    if (!providerConnectionId) return 'Choose a model connection.';
     if (!chatDraft.message.trim()) return 'Write a message to send.';
     return '';
   });
@@ -302,7 +313,7 @@
       !executionEnabled ||
       !chatDraft.message.trim() ||
       !providerConnectionId ||
-      (configurationMode === 'custom' && (!hostedAvailable || !customSystemPrompt.trim()))
+      (harness === 'codex' && !hostedAvailable)
     )
       return;
     busy = true;
@@ -318,9 +329,7 @@
           ...(worktreeId ? { worktree_id: worktreeId } : {}),
           agent_kind: choice.agent_kind,
           agent_version: choice.version,
-          ...(configurationMode === 'custom'
-            ? { harness: 'codex' as const, system_prompt: customSystemPrompt.trim() }
-            : {}),
+          ...(harness === 'codex' ? { harness: 'codex' as const } : {}),
         });
         query.setQueryData(conversationKeys.detail(created.id), created);
         chatDraft.startingConversationId = created.id;
@@ -503,6 +512,129 @@
   }
 </script>
 
+{#snippet harnessIcon(codex: boolean)}
+  {#if codex}<span class="chat-harness-icon chat-harness-icon-codex" aria-hidden="true"></span>
+  {:else}<Sparkles class="chat-harness-icon" aria-hidden="true" />{/if}
+{/snippet}
+
+{#snippet harnessModelPicker(newConversation: boolean)}
+  {@const label = (
+    newConversation ? harness === 'codex' : $conversation.data?.configuration?.harness === 'codex'
+  )
+    ? 'Codex'
+    : 'Base'}
+  {@const model = availableConnections.find((connection) => connection.id === providerConnectionId)}
+  {@const modelLabel =
+    model && 'default_for' in model && model.default_for.includes('project_chat')
+      ? 'Default'
+      : (model?.display_name ?? 'Choose model')}
+  <DropdownMenu.Root>
+    <DropdownMenu.Trigger
+      type="button"
+      class="chat-model-trigger"
+      aria-label="Choose harness and model"
+      title={`${label} · ${(model && 'catalog_id' in model ? model.display_name : model?.model_id) ?? 'Choose model'}`}
+      disabled={newConversation ? Boolean(chatDraft.startingConversationId) : Boolean(active)}
+    >
+      {@render harnessIcon(label === 'Codex')}
+      <span class="sr-only">{label}: </span>
+      <span class="chat-model-name">{modelLabel}</span>
+      <ChevronDown class="size-3" aria-hidden="true" />
+    </DropdownMenu.Trigger>
+    <DropdownMenu.Content side="top" align="end" sideOffset={8} class="chat-model-menu">
+      <DropdownMenu.Label>Harness</DropdownMenu.Label>
+      {#if newConversation}
+        <DropdownMenu.RadioGroup bind:value={harness}>
+          <DropdownMenu.RadioItem value="platform"
+            >{@render harnessIcon(false)} Base</DropdownMenu.RadioItem
+          >
+          <DropdownMenu.RadioItem value="codex"
+            >{@render harnessIcon(true)} Codex{!hostedAvailable
+              ? ' · unavailable'
+              : ''}</DropdownMenu.RadioItem
+          >
+        </DropdownMenu.RadioGroup>
+      {:else}
+        <div class="chat-model-fixed">{label}<small>Fixed for this conversation</small></div>
+      {/if}
+      <DropdownMenu.Separator />
+      {#if sharedModels.length}
+        <DropdownMenu.Label>Polycolab models</DropdownMenu.Label>
+        <DropdownMenu.RadioGroup bind:value={providerConnectionId}>
+          {#each sharedModels as model (model.id)}
+            <DropdownMenu.RadioItem value={model.id}>
+              <span class="chat-model-option"
+                ><span>{model.display_name}</span><small>{model.model_id}</small></span
+              >
+            </DropdownMenu.RadioItem>
+          {/each}
+        </DropdownMenu.RadioGroup>
+        <DropdownMenu.Separator />
+      {/if}
+      <DropdownMenu.Label>Your connections</DropdownMenu.Label>
+      <DropdownMenu.RadioGroup bind:value={providerConnectionId}>
+        {#each personalConnections as connection (connection.id)}
+          <DropdownMenu.RadioItem value={connection.id}>
+            <span class="chat-model-option"
+              ><span>{connection.model_id}</span><small>{connection.display_name}</small></span
+            >
+          </DropdownMenu.RadioItem>
+        {/each}
+      </DropdownMenu.RadioGroup>
+      {#if !availableConnections.length}<p class="chat-model-empty">
+          No model connections yet.
+        </p>{/if}
+      {#if $connections.hasNextPage}<DropdownMenu.Item
+          onSelect={(event) => {
+            event.preventDefault();
+            void $connections.fetchNextPage();
+          }}>Load more providers</DropdownMenu.Item
+        >{/if}
+      <DropdownMenu.Separator />
+      <DropdownMenu.Item onclick={() => goto('/settings/provider-connections')}
+        >Manage model connections</DropdownMenu.Item
+      >
+    </DropdownMenu.Content>
+  </DropdownMenu.Root>
+{/snippet}
+
+{#snippet downloadFiles()}
+  <Popover.Root>
+    <Popover.Trigger
+      type="button"
+      class="chat-files-trigger"
+      disabled={!$exports.data?.length}
+      aria-label="Generated files"
+    >
+      Files{#if $exports.data?.length}
+        · {$exports.data.length}{/if}
+    </Popover.Trigger>
+    <Popover.Portal>
+      <Popover.Content
+        side="top"
+        align="end"
+        sideOffset={8}
+        class="chat-files-popover"
+        role="dialog"
+        aria-label="Generated files"
+      >
+        <strong>Generated files</strong>
+        <p>
+          Downloads from {exportRunId ? 'the selected' : 'the latest completed'} run. These are separate
+          from project files.
+        </p>
+        {#each $exports.data ?? [] as file (file.artifact_id)}
+          <Button
+            variant="outline"
+            onclick={() => downloadExport(file.artifact_id, file.display_name)}
+            >Download {file.display_name}</Button
+          >
+        {/each}
+      </Popover.Content>
+    </Popover.Portal>
+  </Popover.Root>
+{/snippet}
+
 <FeedbackToast
   message={$available.isError ? explain($available.error) : ''}
   variant="error"
@@ -564,106 +696,9 @@
         label="Message the agent"
         onsubmit={create}
         disabled={Boolean(newChatSendReason)}
-        sendReason={newChatVisibleSendReason}
+        sendReason={newChatSendReason === 'Write a message to send.' ? '' : newChatSendReason}
         prompts={promptStarters}
       >
-        {#snippet configuration()}
-          <Popover.Root bind:open={customizationOpen}>
-            <Popover.Trigger
-              type="button"
-              class="project-chat-customize-trigger"
-              aria-label="Customize chat"
-              disabled={Boolean(chatDraft.startingConversationId)}
-            >
-              <SlidersHorizontal class="size-4" aria-hidden="true" />
-              <span>{hasCustomSettings ? 'Custom' : 'Customize'}</span>
-            </Popover.Trigger>
-            <Popover.Portal>
-              <Popover.Content
-                side="top"
-                align="end"
-                sideOffset={10}
-                class="project-chat-customization-popover"
-                role="dialog"
-                aria-label="Customize chat"
-              >
-                <header class="project-chat-customization-header">
-                  <h2>Customize chat</h2>
-                  <p>
-                    {selectedAgent
-                      ? agentDescription(selectedAgent.agent_kind)
-                      : 'Configure this conversation.'}
-                  </p>
-                </header>
-                <div class="project-chat-customization-fields">
-                  <Field.Label
-                    >Response style<NativeSelect
-                      aria-label="Response style"
-                      bind:value={responseStyle}
-                      disabled={Boolean(chatDraft.startingConversationId)}
-                    >
-                      <option value="balanced">Balanced</option>
-                      <option value="concise">Concise</option>
-                      <option value="detailed">Detailed</option>
-                    </NativeSelect></Field.Label
-                  >
-                  <a href="/settings/provider-connections">Manage provider connections</a>
-                  <button
-                    type="button"
-                    class="project-chat-custom-toggle"
-                    aria-pressed={configurationMode === 'custom'}
-                    disabled={Boolean(chatDraft.startingConversationId)}
-                    onclick={() => setCustomConfiguration(configurationMode !== 'custom')}
-                  >
-                    <span>
-                      <strong>Custom instructions</strong>
-                      <small>Add a conversation-specific system prompt through Hosted Codex.</small>
-                    </span>
-                    <span class="project-chat-custom-toggle-state"
-                      >{configurationMode === 'custom' ? 'On' : 'Off'}</span
-                    >
-                  </button>
-                  {#if configurationMode === 'custom'}
-                    {#if !hostedAvailable}
-                      <p class="project-chat-unavailable" role="status">
-                        Hosted Codex is unavailable right now. You can review these options, but
-                        cannot start a customized chat.
-                      </p>
-                    {/if}
-                    <Field.Label
-                      >System prompt<Textarea
-                        required
-                        aria-label="System prompt"
-                        placeholder="Give the agent instructions for this chat…"
-                        maxlength={10000}
-                        bind:value={customSystemPrompt}
-                        disabled={Boolean(chatDraft.startingConversationId)}
-                      /></Field.Label
-                    >
-                    <p class="muted project-chat-config-help">
-                      Added to the base agent instructions for this conversation.
-                    </p>
-                    <Field.Label
-                      >Harness<NativeSelect aria-label="Harness" value="codex" disabled>
-                        <option value="codex">Hosted Codex</option>
-                      </NativeSelect></Field.Label
-                    >
-                  {/if}
-                </div>
-                <footer class="project-chat-customization-footer">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    class="project-chat-reset"
-                    disabled={Boolean(chatDraft.startingConversationId)}
-                    onclick={resetNewChatSettings}
-                    ><RotateCcw class="size-4" aria-hidden="true" />Reset to defaults</Button
-                  >
-                </footer>
-              </Popover.Content>
-            </Popover.Portal>
-          </Popover.Root>
-        {/snippet}
         {#snippet contextControls()}
           {#if !worktreeId && $repositoryState.data?.enabled && hostedAvailable}
             <label
@@ -672,49 +707,20 @@
             >
           {/if}
         {/snippet}
-        {#snippet preset()}
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger
-              type="button"
-              class="project-chat-agent-trigger"
-              aria-label="Choose agent"
-              disabled={Boolean(chatDraft.startingConversationId) || !availableAgents.length}
-            >
-              <Sparkles class="size-4" aria-hidden="true" />
-              <span class="project-chat-agent-trigger-copy">
-                <strong>{selectedAgent?.display_name ?? 'Loading agents…'}</strong>
-                {#if selectedAgent}<small>v{selectedAgent.version}</small>{/if}
-              </span>
-              <ChevronDown class="size-3" aria-hidden="true" />
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content
-              side="top"
-              align="end"
-              sideOffset={8}
-              class="project-chat-agent-menu"
-            >
-              <DropdownMenu.Label>Choose an agent</DropdownMenu.Label>
-              <DropdownMenu.Separator />
-              <DropdownMenu.RadioGroup bind:value={agentId}>
-                {#each availableAgents as agent (agent.id)}
-                  <DropdownMenu.RadioItem value={agent.id} class="project-chat-agent-option">
-                    <span class="project-chat-agent-option-icon">
-                      <Sparkles class="size-4" aria-hidden="true" />
-                    </span>
-                    <span class="project-chat-agent-option-copy">
-                      <span>
-                        <strong>{agent.display_name}</strong>
-                        <small>v{agent.version}</small>
-                      </span>
-                      <small>{agentDescription(agent.agent_kind)}</small>
-                    </span>
-                  </DropdownMenu.RadioItem>
-                {/each}
-              </DropdownMenu.RadioGroup>
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
-        {/snippet}
+        {#snippet preset()}{@render harnessModelPicker(true)}{/snippet}
       </ChatComposer>
+      {#if $connections.hasNextPage}<Button
+          type="button"
+          variant="ghost"
+          onclick={() => $connections.fetchNextPage()}>Load more providers</Button
+        >{/if}
+      {#if !$connections.isPending && !$connections.isError && !availableConnections.length}
+        <p role="status">
+          Add a provider connection to send messages. <a href="/settings/provider-connections"
+            >Set up an AI provider</a
+          >
+        </p>
+      {/if}
     {/if}
     {#if allConversations}<section
         class="project-chat-history"
@@ -756,30 +762,55 @@
           >← All conversations</a
         >{/if}
       <h1>{$conversation.data?.title || $conversation.data?.configuration?.display_name}</h1>
-      {#if $conversation.data?.capabilities.can_manage}
-        <Button
-          variant="outline"
-          onclick={() => {
-            titleDraft = $conversation.data?.title || '';
-            editingTitle = true;
-          }}>Rename</Button
-        >
-        <Button
-          variant="outline"
-          onclick={async () => {
-            try {
-              await agents.updateConversation(conversationId!, {
-                archived: $conversation.data?.status !== 'archived',
-              });
-              await invalidateConversation(query, projectId, conversationId);
-            } catch (reason) {
-              error = explain(reason);
-            }
-          }}
-          >{$conversation.data?.status === 'archived'
-            ? 'Restore conversation'
-            : 'Archive conversation'}</Button
-        >
+      {#if $conversation.data?.capabilities.can_manage || $conversation.data?.capabilities.can_share}
+        <details class="chat-header-actions">
+          <summary aria-label="Conversation actions" title="Conversation actions">•••</summary>
+          <div class="chat-header-action-menu">
+            {#if $conversation.data?.capabilities.can_manage}
+              <Button
+                variant="outline"
+                onclick={() => {
+                  titleDraft = $conversation.data?.title || '';
+                  editingTitle = true;
+                }}>Rename</Button
+              >
+              <Button
+                variant="outline"
+                onclick={async () => {
+                  try {
+                    await agents.updateConversation(conversationId!, {
+                      archived: $conversation.data?.status !== 'archived',
+                    });
+                    await invalidateConversation(query, projectId, conversationId);
+                  } catch (reason) {
+                    error = explain(reason);
+                  }
+                }}
+                >{$conversation.data?.status === 'archived'
+                  ? 'Restore conversation'
+                  : 'Archive conversation'}</Button
+              >
+            {/if}
+            {#if $conversation.data?.capabilities.can_share}<Button
+                variant="outline"
+                onclick={async () => {
+                  try {
+                    while ($messages.hasNextPage) {
+                      await $messages.fetchNextPage();
+                      await tick();
+                    }
+                    sharingMode =
+                      $conversation.data?.sharing === 'private'
+                        ? 'members_can_view'
+                        : $conversation.data!.sharing;
+                    sharing = true;
+                  } catch (reason) {
+                    error = explain(reason);
+                  }
+                }}>Sharing</Button
+              >{/if}
+          </div>
+        </details>
       {/if}
       {#if editingTitle}<form
           onsubmit={async (event) => {
@@ -801,24 +832,6 @@
           <Button type="submit">Save title</Button>
           <Button variant="outline" onclick={() => (editingTitle = false)}>Cancel</Button>
         </form>{/if}
-      {#if $conversation.data?.capabilities.can_share}<Button
-          variant="outline"
-          onclick={async () => {
-            try {
-              while ($messages.hasNextPage) {
-                await $messages.fetchNextPage();
-                await tick();
-              }
-              sharingMode =
-                $conversation.data?.sharing === 'private'
-                  ? 'members_can_view'
-                  : $conversation.data!.sharing;
-              sharing = true;
-            } catch (reason) {
-              error = explain(reason);
-            }
-          }}>Sharing</Button
-        >{/if}
       {#if sharing}<section class="share-preview" aria-label="Preview shared conversation">
           <h2>Share this conversation</h2>
           <Field.Label
@@ -867,37 +880,58 @@
     </header>
     <div class="project-chat-panel-meta" use:chatPanelPortal={isVisible}>
       <h2>Conversation</h2>
-      <p role="status">{run?.status ?? connection}</p>
+      <p>{run?.status ? run.status.toLowerCase().replaceAll('_', ' ') : connection}</p>
       {#if $conversation.data?.configuration?.harness === 'codex'}
-        <p>Hosted Codex</p>
-        <details>
-          <summary>System prompt</summary>
-          <p class="project-chat-saved-prompt">
-            {$conversation.data.configuration?.system_prompt_override}
-          </p>
-        </details>
+        <p>Codex</p>
+        {#if $conversation.data.configuration?.system_prompt_override}<details>
+            <summary>System prompt</summary>
+            <p class="project-chat-saved-prompt">
+              {$conversation.data.configuration?.system_prompt_override}
+            </p>
+          </details>{/if}
       {/if}
     </div>
     {#if $messages.isError}
       <Button type="submit" onclick={() => $messages.refetch()}>Retry messages</Button>{/if}
-    <div class="transcript">
-      {#each $messages.data?.pages.flatMap((p) => p.items) ?? [] as item (item.id)}
-        <ConversationTranscriptItem
-          {item}
-          ownerId={$conversation.data?.owner_id}
-          agentName={$conversation.data?.configuration?.display_name}
-        />
-      {/each}
-    </div>
+    <ConversationTranscript
+      items={$messages.data?.pages.flatMap((p) => p.items) ?? []}
+      ownerId={$conversation.data?.owner_id}
+      viewerId={$viewer.data?.id}
+      agentName={$conversation.data?.configuration?.display_name}
+    />
     {#if $messages.hasNextPage}<Button
         type="submit"
         variant="outline"
         class=""
         onclick={() => $messages.fetchNextPage()}>Load more messages</Button
       >{/if}
+    {#if active || busy || connection.startsWith('Disconnected')}
+      <div class="chat-run-status" role="status" aria-live="polite">
+        <LoaderCircle
+          size={16}
+          class="animate-spin motion-reduce:animate-none"
+          aria-hidden="true"
+        />
+        <span
+          >{connection.startsWith('Disconnected')
+            ? 'Reconnecting to your conversation…'
+            : busy
+              ? 'Sending your message…'
+              : run?.status === 'QUEUED'
+                ? 'Queued · waiting for an available runner'
+                : run?.status === 'CLAIMED'
+                  ? 'Starting the agent…'
+                  : run?.status === 'CANCELLING'
+                    ? 'Stopping…'
+                    : streaming
+                      ? 'Writing a response…'
+                      : 'Working on your request…'}</span
+        >
+      </div>
+    {/if}
     {#if streaming}<article class="message">
         <p class="message-author">Agent · responding</p>
-        <p class="message-stream">{streaming}</p>
+        <div class="message-body"><Markdown content={streaming} /></div>
       </article>{/if}
     {#if $conversation.data?.origin === 'agent'}<details
         class="project-chat-files"
@@ -938,7 +972,7 @@
         </ol>
         <Field.Label
           >Files from completed run<NativeSelect bind:value={exportRunId}>
-            <option value="">Choose a completed run</option>
+            <option value="">Latest completed run</option>
             {#each $runs.data?.pages
               .flatMap((p) => p.items)
               .filter((r) => r.status === 'COMPLETED' && r.can_read_private_context) ?? [] as value (value.id)}
@@ -948,16 +982,6 @@
             {/each}
           </NativeSelect></Field.Label
         >
-
-        {#if $exports.data?.length}
-          <div aria-label="Conversation files">
-            {#each $exports.data as file (file.artifact_id)}
-              <Button onclick={() => downloadExport(file.artifact_id, file.display_name)}>
-                Download {file.display_name}
-              </Button>
-            {/each}
-          </div>
-        {/if}
       </details>
     {/if}
     {#if run?.failure_code?.endsWith('resume_required')}
@@ -992,22 +1016,12 @@
           submitLabel="Send message"
         >
           {#snippet preset()}
-            <span class="project-chat-reply-agent"
-              ><Sparkles size={16} aria-hidden="true" />{$conversation.data?.configuration
-                ?.display_name}</span
-            >
+            {@render downloadFiles()}
+            {@render harnessModelPicker(false)}
           {/snippet}
           {#snippet contextControls()}
             <div class="project-chat-side-controls" use:chatPanelPortal={isVisible}>
-              <Field.Label
-                >AI provider<NativeSelect required bind:value={providerConnectionId}
-                  ><option value="">Choose an AI provider</option
-                  >{#each $connections.data?.pages.flatMap((p) => p.items) ?? [] as connection (connection.id)}<option
-                      value={connection.id}
-                      >{connection.display_name} · {connection.model_id}</option
-                    >{/each}</NativeSelect
-                ></Field.Label
-              >{#if $connections.hasNextPage}<Button
+              {#if $connections.hasNextPage}<Button
                   type="button"
                   onclick={() => $connections.fetchNextPage()}>Load more providers</Button
                 >{/if}<a href="/settings/provider-connections">Manage provider connections</a>
@@ -1023,7 +1037,9 @@
             </div>
           {/snippet}
         </ChatComposer>
-      </div>{:else}<p role="status">
+      </div>{:else}
+      {@render downloadFiles()}
+      <p role="status">
         {$conversation.data?.origin === 'legacy_direct'
           ? 'This saved direct-chat history cannot execute new messages.'
           : $conversation.data?.status === 'archived'

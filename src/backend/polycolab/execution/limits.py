@@ -620,7 +620,11 @@ def purge_expired_rate_windows(
     ids = list(
         session.scalars(
             select(SqlExecutionRateWindow.id)
-            .where(SqlExecutionRateWindow.window_started_at < cutoff)
+            .where(
+                SqlExecutionRateWindow.window_started_at < cutoff,
+                (SqlExecutionRateWindow.scope != "platform_budget")
+                | (SqlExecutionRateWindow.window_started_at < _day(now)),
+            )
             .order_by(SqlExecutionRateWindow.window_started_at)
             .limit(batch_size)
             .with_for_update(skip_locked=True)

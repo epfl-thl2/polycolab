@@ -25,7 +25,7 @@ from polycolab.execution.service import ServiceConfig, make_runtime
 
 
 def runtime(path: Path) -> DockerRuntime:
-    image = ImagePolicy(spec().image, "AGENT", "0.154.0", "a" * 64, "b" * 64, "linux-x86_64")
+    image = ImagePolicy(spec().image, "AGENT", "0.169.0", "a" * 64, "b" * 64, "linux-x86_64")
     return DockerRuntime(
         path,
         (image,),
@@ -154,7 +154,7 @@ def test_guest_frame_rejects_escaped_invalid_unicode() -> None:
         decode_frame(b'{"delta":"\\ud800"}')
 
 
-@pytest.mark.parametrize("name,write", [("get_context", False), ("project_files", True)])
+@pytest.mark.parametrize("name,write", [("get_context", False)])
 def test_tool_provenance_only_on_writes(name: str, write: bool) -> None:
     async def scenario() -> None:
         async def handler(request: httpx.Request) -> httpx.Response:

@@ -186,8 +186,10 @@ test('unified sessions persist shared browser participation and fence concurrent
       )
       .toBe(0);
     await ownerPage.reload();
-    await ownerPage.getByRole('button', { name: 'Archive session', exact: true }).click();
-    await expect(ownerPage.getByText('This session is archived.', { exact: true })).toBeVisible();
+    await ownerPage.getByRole('button', { name: 'Archive conversation', exact: true }).click();
+    await expect(
+      ownerPage.getByText('This conversation is archived.', { exact: true }),
+    ).toBeVisible();
     const stream = await request.get(`${apiUrl}/api/v1/conversations/${conversationId}/stream`, {
       headers: auth('reader'),
     });

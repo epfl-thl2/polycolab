@@ -2,7 +2,7 @@
 
 Only assistant text and normalized tool summaries become durable events. Codex
 thread IDs, reasoning, commands, file contents and token claims are not history.
-The protocol is pinned to Codex CLI 0.154.0, including dynamic tools.
+The protocol is pinned to Codex CLI 0.169.0, including dynamic tools.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-CODEX_VERSION = "0.154.0"
+CODEX_VERSION = "0.169.0"
 MAX_FRAME_BYTES = 1_000_000
 
 

@@ -1,3 +1,4 @@
+import { localController } from './development-controller.mjs';
 import { createSupervisor } from './development-processes.mjs';
 import {
   controlSocketPath,
@@ -146,6 +147,9 @@ try {
       ],
       env,
     );
+    const controller = await localController(root, env, ports.api);
+    if (controller) services.push(controller.service);
+    else console.log('Codex controller not configured; see README local Codex setup.');
     await run(
       process.execPath,
       ['node_modules/@sveltejs/kit/svelte-kit.js', 'sync'],
@@ -191,8 +195,12 @@ try {
         ],
       ];
       phase = 'starting';
-      console.log('Starting services; waiting for API, collaboration, and website readiness…');
+      console.log('Starting services; waiting for configured services to become ready…');
       const names = ['Collaboration', 'API', 'Website'];
+      if (controller) {
+        commands.push(controller.command);
+        names.push('Codex controller');
+      }
       const exited = Promise.race(
         commands.map(async ([cmd, args, directory], index) => {
           try {

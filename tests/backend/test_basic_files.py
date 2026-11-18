@@ -151,13 +151,13 @@ def test_symlinks_and_quotas(files: tuple[TestClient, str, Path]) -> None:
     assert not (directory / "large").exists()
 
 
-def test_agent_tool_uses_current_directory_without_repository(
+def test_removed_project_files_tool_is_not_advertised_or_executable(
     client: TestClient, tmp_path: Path
 ) -> None:
     from test_hosted_artifacts import WORKER
     from test_hosted_scheduler import new_hosted
 
-    from polycolab.db.models import SqlAgentRun, SqlProject, SqlUser
+    from polycolab.db.models import SqlAgentRun, SqlProject, SqlRunToolCapability, SqlUser
 
     run_id = new_hosted(client)
     app = cast(Any, client.app)
@@ -175,7 +175,16 @@ def test_agent_tool_uses_current_directory_without_repository(
     )
     assert claim.status_code == 200, claim.text
     assert "repository" not in claim.json()
-    assert "project_files" in {t["function"]["name"] for t in claim.json()["tools"]}
+    assert {t["function"]["name"] for t in claim.json()["tools"]} == {"get_context"}
+    # Even a capability issued before removal must not revive the retired tool.
+    with app.state.session_factory() as db:
+        from sqlalchemy import select
+
+        capability = db.scalar(
+            select(SqlRunToolCapability).where(SqlRunToolCapability.run_id == run_id)
+        )
+        capability.allowed_tools = ["get_context", "project_files"]
+        db.commit()
     tool_headers = {
         "Authorization": "Bearer " + claim.json()["tool_capability"],
         "x-polycolab-tool-invocation": "default-write",
@@ -193,37 +202,16 @@ def test_agent_tool_uses_current_directory_without_repository(
             },
         },
     )
-    assert result.status_code == 200, result.text
-    assert (tmp_path / f"{project_id}.files" / "agent.txt").read_text() == "Agent output"
-    assert not (tmp_path / f"{project_id}.git").exists()
-    assert "content" not in result.json()
-    partial = client.post(
-        "/internal/v1/tools/call",
-        headers=tool_headers,
-        json={
-            "name": "project_files",
-            "arguments": {"action": "read", "path": "agent.txt", "limit": 5},
-        },
-    )
-    assert partial.status_code == 200
-    assert partial.json()["content"] == "Agent"
-    assert partial.json()["next_offset"] == 5
-    # Revocation must apply to an already issued capability.
-    client.patch(
-        f"/api/v1/projects/{project_id}",
+    assert result.status_code in {401, 403}
+    assert not (tmp_path / f"{project_id}.files" / "agent.txt").exists()
+    # Normal file access still uses the guarded project API.
+    created = client.post(
+        f"/api/v1/projects/{project_id}/files",
         headers=headers("owner"),
-        json={"archived": True},
+        json={"action": "write", "path": "human.txt", "content": "Project output"},
     )
-    denied = client.post(
-        "/internal/v1/tools/call",
-        headers=tool_headers,
-        json={
-            "name": "project_files",
-            "arguments": {"action": "write", "path": "late.txt", "content": "late"},
-        },
-    )
-    assert denied.status_code in {401, 403}
-    assert not (tmp_path / f"{project_id}.files" / "late.txt").exists()
+    assert created.status_code == 200, created.text
+    assert (tmp_path / f"{project_id}.files" / "human.txt").read_text() == "Project output"
 
 
 @pytest.mark.parametrize("client", ["file"], indirect=True)

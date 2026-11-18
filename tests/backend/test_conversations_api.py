@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import cast
 from uuid import uuid4
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import Response
@@ -504,3 +505,29 @@ def test_message_receipt_replays_after_archival_without_new_execution(
     assert run.json()["status"] == "CANCELLED"
     runs = client.get(f"/api/v1/conversations/{conversation_id}/runs", headers=headers("owner"))
     assert len(runs.json()) == 1
+
+
+def test_codex_selection_without_override_is_persisted(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app = cast(FastAPI, client.app)
+    app.state.settings.runtime_codex_image = "codex@sha256:" + "a" * 64
+    project = create_project(client)
+    unavailable = client.post(
+        "/api/v1/conversations",
+        headers=headers("owner"),
+        json={"project_id": project["id"], "agent_kind": "RESEARCHER", "harness": "codex"},
+    )
+    assert unavailable.status_code == 503
+    monkeypatch.setattr("polycolab.agents.routes.capabilities.hosted_ready", lambda *_: True)
+    response = client.post(
+        "/api/v1/conversations",
+        headers=headers("owner"),
+        json={"project_id": project["id"], "agent_kind": "RESEARCHER", "harness": "codex"},
+    )
+    assert response.status_code == 201, response.text
+    conversation_id = response.json()["id"]
+    saved = client.get(f"/api/v1/conversations/{conversation_id}", headers=headers("owner"))
+    assert saved.status_code == 200
+    assert saved.json()["configuration"]["harness"] == "codex"
+    assert saved.json()["configuration"]["system_prompt_override"] is None

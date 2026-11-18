@@ -6,6 +6,7 @@ from datetime import datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -27,12 +28,21 @@ class SqlProviderConnection(Base):
     __tablename__ = "provider_connections"
     __table_args__ = (
         CheckConstraint(
+            "(user_id IS NOT NULL AND platform_model_id IS NULL AND platform_config IS NULL) "
+            "OR (user_id IS NULL AND platform_model_id IS NOT NULL "
+            "AND platform_config IS NOT NULL)",
+            name="ck_provider_connection_owner",
+        ),
+        UniqueConstraint("platform_model_id", name="uq_provider_connections_platform_model_id"),
+        CheckConstraint(
             "wire_api IN ('responses', 'chat_completions')", name="ck_gateway_wire_api"
         ),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    user_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), index=True)
+    platform_model_id: Mapped[str | None] = mapped_column(String(64))
+    platform_config: Mapped[dict[str, object] | None] = mapped_column(JSON(none_as_null=True))
     display_name: Mapped[str] = mapped_column(String(200))
     base_url: Mapped[str] = mapped_column(String(2048))
     model_id: Mapped[str] = mapped_column(String(500))

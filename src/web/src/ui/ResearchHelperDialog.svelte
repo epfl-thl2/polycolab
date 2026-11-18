@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { createQuery } from '@tanstack/svelte-query';
+  import { toStore } from 'svelte/store';
+  import * as DropdownMenu from '../lib/components/ui/dropdown-menu';
+  import { ChevronDown } from '@lucide/svelte';
   import { onDestroy, tick } from 'svelte';
   import { Sparkles, Plus } from '@lucide/svelte';
   import * as Dialog from '../lib/components/ui/dialog';
@@ -15,10 +19,27 @@
     question,
     onClose,
   }: { open?: boolean; question: string; onClose: () => void } = $props();
-  const { auth, capabilities } = projectContext();
+  const { auth, capabilities, api: projects } = projectContext();
   const api = createResearchHelperApi({
     getAccessToken: auth.token,
     onUnauthorized: () => auth.expireSession(),
+  });
+  let selectedModel = $state('');
+  const modelCatalog = createQuery(
+    toStore(() => ({
+      queryKey: ['platform-models'],
+      enabled: open && auth.signedIn,
+      queryFn: () => projects.listPlatformModels(),
+    })),
+  );
+  const helperModels = $derived(
+    ($modelCatalog.data ?? []).filter((model) => model.uses.includes('research_helper')),
+  );
+  $effect(() => {
+    if (!selectedModel && helperModels.length)
+      selectedModel =
+        helperModels.find((model) => model.default_for.includes('research_helper'))?.catalog_id ??
+        helperModels[0].catalog_id;
   });
   let messages = $state<ResearchMessage[]>([]);
   let message = $state('');
@@ -46,7 +67,7 @@
     const next: ResearchMessage[] = [...messages, { role: 'user', content: pending }];
     controller = new AbortController();
     try {
-      const response = await api.ask(next, controller.signal);
+      const response = await api.ask(next, controller.signal, selectedModel);
       messages = [...next, { role: 'assistant', content: response.content }];
       if (message.trim() === pending) message = '';
       await tick();
@@ -132,7 +153,32 @@
         inputDisabled={busy}
         maxlength={8000}
         placeholder="Ask a research question…"
-      />
+      >
+        {#snippet preset()}
+          {#if helperModels.length}
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger
+                class="chat-model-trigger"
+                disabled={busy}
+                aria-label="Choose research model"
+              >
+                {helperModels.find((model) => model.catalog_id === selectedModel)?.display_name ??
+                  'Choose model'}<ChevronDown class="size-3" />
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content side="top" align="end">
+                <DropdownMenu.Label>Polycolab models</DropdownMenu.Label>
+                <DropdownMenu.RadioGroup bind:value={selectedModel}>
+                  {#each helperModels as model (model.id)}
+                    <DropdownMenu.RadioItem value={model.catalog_id}
+                      >{model.display_name}</DropdownMenu.RadioItem
+                    >
+                  {/each}
+                </DropdownMenu.RadioGroup>
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
+          {/if}
+        {/snippet}
+      </ChatComposer>
       <p class="helper-note">
         This chat isn’t saved to your history. The assistant has no access to project files or live
         web search.

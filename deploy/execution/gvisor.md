@@ -75,7 +75,7 @@ Linux VM with the prerequisites above. The controller does not run directly on m
 
 Build [Dockerfile.agent](Dockerfile.agent) for the host's OCI platform using an
 approved digest-pinned Node/glibc base for that architecture containing Python
-3.11 or newer. It installs Codex 0.154.0 for the build platform and the pinned guest
+3.11 or newer. It installs Codex 0.169.0 for the build platform and the pinned guest
 bridge. For example, build an ARM64 image from the repository root:
 
 ```sh
@@ -101,7 +101,7 @@ controller configuration path. Register the accepted image:
 [[images]]
 reference = "REGISTRY/agent@sha256:MANIFEST_DIGEST"
 language = "AGENT"
-toolchain_version = "0.154.0"
+toolchain_version = "0.169.0"
 dependency_lock_digest = "BUILD_LOCK_SHA256"
 build_digest = "BUILD_RECIPE_SHA256"
 platform_identity = "linux-x86_64"

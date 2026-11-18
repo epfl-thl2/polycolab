@@ -22,8 +22,8 @@ def main() -> None:
     pid.write_text(str(os.getpid()))
     try:
         config = ServiceConfig.model_validate(tomllib.loads((root / "controller.toml").read_text()))
-        if config.backend != "gvisor":
-            raise ValueError("gvisor test configuration required")
+        if config.backend not in {"gvisor", "microsandbox"}:
+            raise ValueError("native test configuration required")
         config = config.model_copy(
             update={
                 "api_url": f"http://127.0.0.1:{port}",

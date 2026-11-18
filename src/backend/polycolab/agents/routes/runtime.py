@@ -310,19 +310,30 @@ def claim_work(payload: RuntimeRequest, request: Request) -> Response | dict[str
                 ttl_seconds=settings.gateway_run_token_ttl_seconds,
                 lease_generation=run.lease_generation,
             )
+            from polycolab.db.models import SqlProviderConnection
+
+            model_connection = session.get(SqlProviderConnection, run.provider_connection_id)
+            model_output_cap = settings.gateway_max_output_tokens
+            if model_connection is not None and model_connection.platform_config:
+                model_output_cap = min(
+                    model_output_cap,
+                    int(str(model_connection.platform_config["max_output_tokens"])),
+                )
             envelope = {
                 "run_id": str(run.id),
                 "lease_generation": run.lease_generation,
                 "model_id": run.gateway_model_id,
                 "messages": _messages(session, run),
                 "tool_capability": capability,
-                "max_output_tokens": settings.gateway_max_output_tokens,
+                "max_output_tokens": model_output_cap,
                 "max_model_rounds": settings.runtime_max_model_rounds,
                 "max_tool_calls": 16,
                 "max_tool_argument_bytes": 65_536,
                 "max_tool_result_bytes": 262_144,
                 "lease_seconds": settings.runtime_lease_seconds,
-                "deadline_at": run.deadline_at.isoformat() if run.deadline_at else None,
+                "deadline_at": run.deadline_at.replace(tzinfo=UTC).isoformat()
+                if run.deadline_at
+                else None,
                 "runtime_spec": run.runtime_spec,
             }
             if payload.engine == "codex":

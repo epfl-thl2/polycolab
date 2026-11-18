@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from ipaddress import ip_address, ip_network
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -366,8 +367,22 @@ def create_app(
     configure_logging(settings)
     pool_meter = PoolMeter(settings, PoolRole.API)
     engine = make_engine(settings, pool_class=pool_meter.pool_class)
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        from polycolab.model_gateway.catalog import sync_catalog
+
+        if settings.polycolab_model_config or settings.model_catalog.models:
+            with app.state.session_factory() as session:
+                sync_catalog(session, settings.model_catalog, app.state.credential_wrapper)
+        if background_jobs:
+            async with maintenance_lifespan(app):
+                yield
+        else:
+            yield
+
     app = FastAPI(
-        lifespan=maintenance_lifespan if background_jobs else None,
+        lifespan=lifespan,
         title="Polycolab application service",
         version=settings.service_version,
         docs_url=None,
@@ -378,6 +393,13 @@ def create_app(
     app.state.engine = engine
     app.state.pool_meter = pool_meter
     app.state.session_factory = make_session_factory(engine)
+    app.state.session_factory.configure(
+        info={
+            "platform_model_ids": frozenset(
+                model.id for model in settings.model_catalog.models if "project_chat" in model.uses
+            )
+        }
+    )
     app.state.transaction_factory = make_transaction_factory(app.state.session_factory)
     app.state.identity_verifier = identity_verifier or verifier_from_settings(
         settings, app.state.session_factory

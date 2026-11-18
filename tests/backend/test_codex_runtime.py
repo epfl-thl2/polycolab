@@ -50,6 +50,13 @@ def spec() -> RuntimeSpec:
     )
 
 
+def test_runtime_version_defaults_to_current_and_preserves_historical_pin() -> None:
+    current = spec()
+    assert current.engine_version == "0.169.0"
+    historical = RuntimeSpec.model_validate({**current.model_dump(), "engine_version": "0.154.0"})
+    assert historical.engine_version == "0.154.0"
+
+
 class Channel:
     def __init__(self, notifications: list[dict[str, Any]]) -> None:
         self.frames = deque(
@@ -523,7 +530,7 @@ def test_attempt_cleanup_confirms_death_before_removing_staging(
             pass
 
     runtime = FakeAcceptedRuntime(tmp_path / "state")
-    image = ImagePolicy(spec().image, "AGENT", "0.154.0", "b" * 64, "c" * 64, "test")
+    image = ImagePolicy(spec().image, "AGENT", "0.169.0", "b" * 64, "c" * 64, "test")
 
     async def exercise() -> None:
         async with runtime.attempt(
@@ -672,7 +679,7 @@ def test_hosted_controller_stops_before_collecting_only_declared_files(
     gateway.inputs.return_value = {}
     gateway.lease.return_value = {"active": True}
     gateway.export.side_effect = lambda *args: actions.append("uploaded")
-    image = ImagePolicy(spec().image, "AGENT", "0.154.0", "b" * 64, "c" * 64, "test")
+    image = ImagePolicy(spec().image, "AGENT", "0.169.0", "b" * 64, "c" * 64, "test")
     runtime = SimpleNamespace(
         backend="microsandbox",
         version="0.6.18",

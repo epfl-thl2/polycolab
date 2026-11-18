@@ -453,9 +453,9 @@ def test_remote_worker_completes_without_database_dependency() -> None:
 
 @pytest.mark.parametrize(
     "tool_name",
-    ["project_files"],
+    ["get_context"],
 )
-def test_remote_worker_sends_trusted_mutation_event_cursor(tool_name: str) -> None:
+def test_remote_worker_omits_mutation_cursor_for_context_tool(tool_name: str) -> None:
     class MutationModel:
         def stream(self, turn: ModelTurn, *, grant: str) -> Iterator[ModelStreamFrame]:
             if not any(message.get("role") == "tool" for message in turn.messages):
@@ -505,7 +505,7 @@ def test_remote_worker_sends_trusted_mutation_event_cursor(tool_name: str) -> No
         tool_gateway=MutationTools(),
     )
     assert worker.run_once()
-    assert calls == [(tool_name, f"tool-{claim.run_id}-1-0", 2)]
+    assert calls == [(tool_name, f"tool-{claim.run_id}-1-0", None)]
     assert runtime.finishes == [("COMPLETED", None, "Saved")]
 
 

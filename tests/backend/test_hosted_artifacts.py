@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -32,6 +32,7 @@ def hosted_claim(client: TestClient) -> tuple[Any, UUID, dict[str, Any]]:
         json={"worker_id": "hosted", "engine": "codex"},
     )
     assert response.status_code == 200, response.text
+    assert datetime.fromisoformat(response.json()["deadline_at"]).utcoffset() == timedelta(0)
     return app, run_id, response.json()
 
 

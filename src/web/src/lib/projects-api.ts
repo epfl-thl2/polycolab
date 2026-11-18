@@ -10,6 +10,7 @@ export type MembershipInput =
   | { username: string; user_id?: never; role: Role }
   | { user_id: string; username?: never; role: Role };
 export type Invitation = components['schemas']['InvitationRead'];
+export type PlatformModel = components['schemas']['PlatformModelRead'];
 export type ProviderConnection = components['schemas']['ProviderConnectionRead'];
 export interface Page<T> {
   total?: number;
@@ -57,6 +58,7 @@ export interface ProjectsApi {
   listInvitations(projectId: string, cursor?: string): Promise<Page<Invitation>>;
   createInvitation(projectId: string, input: { email: string; role: Role }): Promise<Invitation>;
   revokeInvitation(projectId: string, invitationId: string): Promise<void>;
+  listPlatformModels(): Promise<PlatformModel[]>;
   listProviderConnections(cursor?: string): Promise<Page<ProviderConnection>>;
   createProviderConnection(input: {
     display_name: string;
@@ -219,6 +221,7 @@ export function createProjectsApi(
           params: { path: { project_id: projectId, invitation_id: invitationId } },
         }),
       ),
+    listPlatformModels: () => unwrap(memberClient.GET('/api/v1/platform-models')),
     listProviderConnections: (cursor) =>
       unwrapPage(
         memberClient.GET('/api/v1/account/provider-connections', {

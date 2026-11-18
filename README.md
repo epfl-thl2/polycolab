@@ -105,6 +105,30 @@ The command starts these processes:
 - Vite.
 - The collaboration server.
 - The Python API, which reloads after source changes.
+- The Codex runner controller, when a prepared local execution host is configured.
+
+To include Codex, first prepare an execution host using the
+[execution host guide](deploy/execution/README.md), including the pinned image and controller slots.
+Save its Python interpreter and controller TOML paths in the ignored file
+`.local/codex-controller.json`:
+
+```json
+{
+  "python": "/absolute/path/to/runtime/.venv/bin/python",
+  "config": "/absolute/path/to/controller.toml"
+}
+```
+
+Then use the same `pnpm run dev:local` command. The launcher sets the controller's
+API address to the selected local port, supplies the local API worker credential
+through a private temporary file, and configures the API with the controller's image
+and sandbox version. The interpreter and installed controller package must be accessible
+outside `/home` for microsandbox's systemd isolation. Each concurrently running checkout
+needs its own controller state directory and prepared slots.
+`dev:status` includes controller heartbeat readiness, and `dev:stop` stops it with the app.
+A controller exit stops the other services. Without this configuration, the launcher
+prints that Codex is not configured and starts the other services normally.
+Provider connections still need to be configured in the application's settings.
 
 The API owns hosted-run recovery, artifact cleanup, and document-build maintenance
 as background jobs in the same process.
@@ -119,7 +143,8 @@ A failed upgrade stops startup.
 The workspace-only migration intentionally discards the retired research-object data while preserving workspace data. See the [upgrade notes](deploy/README.md).
 
 The launcher prints **Ready** only after the API readiness endpoint, collaboration health
-endpoint, and website return successful HTTP responses. If a service exits or startup
+endpoint, and website return successful HTTP responses, and any configured Codex controller
+has advertised a fresh compatible readiness heartbeat. If a service exits or startup
 health checks still fail after two minutes, it names the failing service and stops the
 remaining services. Database setup and the initial administrator prompt happen before
 this readiness timeout begins.

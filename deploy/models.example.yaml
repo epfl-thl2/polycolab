@@ -1,0 +1,36 @@
+# Copy outside version control, set POLYCOLAB_MODEL_CONFIG to its absolute path,
+# and inject POLYCOLAB_PRIMARY_API_KEY through the server environment/secret store.
+providers:
+  primary:
+    base_url: https://provider.example/v1
+    api_key_env: POLYCOLAB_PRIMARY_API_KEY
+    wire_api: responses
+
+models:
+  - id: quick
+    label: Polycolab Quick
+    provider: primary
+    model: provider-fast-model
+    uses: [research_helper, project_chat]
+    harnesses: [platform, codex]
+    max_output_tokens: 4096
+    # Replace these illustrative prices with the provider's applicable rates.
+    # Units: micro-US dollars per million tokens (1 USD = 1,000,000 micro-USD).
+    input_microusd_per_million_tokens: 100000
+    output_microusd_per_million_tokens: 400000
+  - id: capable
+    label: Polycolab Capable
+    provider: primary
+    model: provider-capable-model
+    uses: [research_helper, project_chat]
+    harnesses: [platform, codex]
+    max_output_tokens: 8192
+    input_microusd_per_million_tokens: 1000000
+    output_microusd_per_million_tokens: 4000000
+
+defaults:
+  research_helper: quick
+  project_chat: quick
+
+# Conservative admission budget: worst-case reservations are not refunded.
+daily_budget_microusd: 10000000

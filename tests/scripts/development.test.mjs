@@ -136,13 +136,22 @@ test(
             await mkdir(resolve(directory, 'deploy/docker'), { recursive: true });
             await mkdir(resolve(directory, 'bin'));
             await writeFile(resolve(directory, 'deploy/docker/.env'), 'REGISTRATION_MODE=open\n');
+            const withController = method !== 'automatic';
+            const serviceCount = withController ? 4 : 3;
             const unready = resolve(directory, 'unready');
             if (['command', 'cancel-startup'].includes(method)) await writeFile(unready, 'wait');
             // Replace only the service commands; exercise the real launcher and stop CLI.
             const fake = `#!${process.execPath}
 const fs = require('fs');
 if (process.argv.includes('polycolab.operations.local_development')) process.exit(0);
+if (process.argv.includes('describe')) { console.log(JSON.stringify({image: 'codex@sha256:test', backend: 'microsandbox', version: '0.6.18', previous: 'old'})); process.exit(0); }
+if (process.argv.includes('health')) { console.log(JSON.stringify({healthy: !fs.existsSync(${JSON.stringify(resolve(directory, 'unready'))}), detail: 'waiting for heartbeat'})); process.exit(0); }
 fs.appendFileSync(${JSON.stringify(resolve(directory, 'configuration'))}, JSON.stringify({ pid: process.pid, args: process.argv, origin: process.env.PUBLIC_APP_ORIGIN, allowed: JSON.parse(process.env.ALLOWED_ORIGINS), proxy: process.env.POLYCOLAB_API_PROXY_TARGET, collaboration: process.env.COLLABORATION_URL, cookie: process.env.LOCAL_AUTH_COOKIE_NAME }) + '\\n');
+if (process.argv.includes('run') && process.argv.includes('--api-url')) {
+  fs.appendFileSync(${JSON.stringify(resolve(directory, 'services'))}, String(process.pid) + '\\n');
+  process.on('SIGTERM', () => process.exit(0));
+  setInterval(() => {}, 1000);
+} else {
 const port = process.argv.includes('--port') ? Number(process.argv[process.argv.indexOf('--port') + 1]) : Number(process.env.COLLABORATION_PORT);
 require('http').createServer((_request, response) => {
   response.writeHead(fs.existsSync(${JSON.stringify(resolve(directory, 'unready'))}) ? 503 : 200).end('test service');
@@ -151,8 +160,19 @@ require('http').createServer((_request, response) => {
 });
 process.on('SIGTERM', () => { if (!process.argv[1].endsWith('/uv')) process.exit(0); });
 setInterval(() => {}, 1000);
+}
 `;
             await writeFile(resolve(directory, 'bin/uv'), fake, { mode: 0o755 });
+            if (withController) {
+              await mkdir(resolve(directory, '.local'));
+              await writeFile(
+                resolve(directory, '.local/codex-controller.json'),
+                JSON.stringify({
+                  python: resolve(directory, 'bin/uv'),
+                  config: resolve(directory, 'controller.toml'),
+                }),
+              );
+            }
             for (const path of [
               'src/collaboration/src/server.ts',
               'src/web/node_modules/vite/bin/vite.js',
@@ -217,7 +237,7 @@ setInterval(() => {}, 1000);
                   .trim()
                   .split('\n')
                   .map(Number);
-                return pids.length === 3;
+                return pids.length === serviceCount;
               } catch (error) {
                 if (error.code !== 'ENOENT') throw error;
                 return false;
@@ -227,7 +247,7 @@ setInterval(() => {}, 1000);
               .trim()
               .split('\n')
               .map((line) => JSON.parse(line));
-            assert.equal(configurations.length, 3);
+            assert.equal(configurations.length, serviceCount);
             if (method === 'automatic') {
               webPort = Number(new URL(configurations[0].origin).port);
               apiPort = Number(new URL(configurations[0].proxy).port);
@@ -243,6 +263,13 @@ setInterval(() => {}, 1000);
               assert.equal(
                 config.cookie,
                 webPort === 5174 ? 'polycolab_session' : `polycolab_session_${webPort}`,
+              );
+            }
+            if (withController) {
+              const controller = configurations.find((config) => config.args.includes('--api-url'));
+              assert.equal(
+                controller.args[controller.args.indexOf('--api-url') + 1],
+                `http://127.0.0.1:${apiPort}`,
               );
             }
             assert.ok(configurations.some((config) => config.args.includes(String(apiPort))));
@@ -263,7 +290,7 @@ setInterval(() => {}, 1000);
               const healthy = await requestStatus(socket);
               assert.equal(healthy.phase, 'ready');
               assert.equal(healthy.origin, `http://localhost:${webPort}`);
-              assert.equal(healthy.services.length, 3);
+              assert.equal(healthy.services.length, serviceCount);
               assert.equal(
                 healthy.services.every((service) => service.healthy),
                 true,
@@ -286,7 +313,7 @@ setInterval(() => {}, 1000);
               assert.equal((await requestStatus(socket)).phase, 'degraded');
             }
             if (method === 'service-exit') {
-              const api = configurations.find((config) => config.args.includes(String(apiPort)));
+              const api = configurations.find((config) => config.args.includes('--api-url'));
               process.kill(api.pid, 'SIGKILL');
             } else if (method === 'SIGINT') launcher.kill('SIGINT');
             else {
@@ -297,7 +324,7 @@ setInterval(() => {}, 1000);
               assert.equal((await once(stop, 'exit'))[0], 0);
             }
             assert.equal((await exited)[0], method === 'service-exit' ? 1 : 0, output);
-            if (method === 'service-exit') assert.match(output, /API:.*SIGKILL/);
+            if (method === 'service-exit') assert.match(output, /Codex controller:.*SIGKILL/);
             if (method === 'cancel-startup') assert.equal(output.includes('Ready:'), false);
             for (const pid of pids) await until(async () => !(await running(pid)));
             assert.equal(await requestStop(await controlSocketPath(directory)), false);

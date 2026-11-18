@@ -40,3 +40,13 @@ __all__ = [
     "ProviderConnectionRotate",
     "ProviderConnectionRead",
 ]
+
+
+class PlatformModelRead(ApiModel):
+    id: UUID
+    catalog_id: str
+    display_name: str
+    model_id: str
+    uses: list[str]
+    harnesses: list[str]
+    default_for: list[str]

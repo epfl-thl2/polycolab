@@ -4,7 +4,7 @@ Hosted conversations belong to a project and retain private or explicitly shared
 
 A queued turn contains message text, a provider connection, and optional exact project artifact IDs. The context manifest contains artifact IDs and a canonical version-3 digest. It has no research revisions, public targets, or per-run research grants.
 
-The builtin tool contract is `get_context` plus `project_files` for supported Basic projects. Context returns the project and selected artifact metadata after reauthorization. File tools operate on the same directory as human file access. Git and Collaborative hosted execution keep their existing snapshot/worktree paths. Retired tool names are rejected even if an old token listed them.
+The builtin tool contract is `get_context`. Context returns the project and selected artifact metadata after reauthorization. The retired `project_files` tool is not advertised or executable. Git and Collaborative hosted execution keep their existing snapshot/worktree paths. Retired tool names are rejected even if an old token listed them.
 
 Workers use authenticated internal APIs. Admission, bounded resource allocation, lease generations, execution slots, provider-request accounting, event cursors, and output limits remain enforced. Provider credentials stay behind the gateway. See [hosted controller](hosted-controller.md) and [failure handling](hosted-failures.md).
 

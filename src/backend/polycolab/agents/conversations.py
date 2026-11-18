@@ -287,12 +287,17 @@ def _active_connection(
         select(SqlProviderConnection)
         .where(
             SqlProviderConnection.id == provider_connection_id,
-            SqlProviderConnection.user_id == user_id,
+            (
+                (SqlProviderConnection.user_id == user_id)
+                | SqlProviderConnection.platform_model_id.is_not(None)
+            ),
             SqlProviderConnection.deleted_at.is_(None),
         )
         .with_for_update()
     )
-    if connection is None:
+    from polycolab.model_gateway.catalog import connection_enabled
+
+    if connection is None or not connection_enabled(session, connection):
         raise ConversationStateError("provider connection is unavailable")
     return connection
 
@@ -399,6 +404,16 @@ def append_user_message_and_queue_run(
     connection = _active_connection(
         session, provider_connection_id=provider_connection_id, user_id=requested_by_user_id
     )
+    if connection.platform_config:
+        from polycolab.model_gateway.catalog import apply_run_policy
+
+        runtime_spec = apply_run_policy(
+            session,
+            connection,
+            parent.configuration.harness if parent.configuration else "platform",
+            runtime_spec,
+            execution_limits,
+        )
     if runtime_spec is not None and connection.wire_api != "responses":
         raise ConversationStateError("provider_protocol_incompatible")
     run_id = uuid4()
@@ -849,11 +864,11 @@ def renew_lease(
     except LeaseLost:
         session.rollback()
         return False
-    run.lease_expires_at = (
-        min(renewed_at + lease_for, _utc(run.deadline_at))
-        if run.deadline_at
-        else renewed_at + lease_for
-    )
+    # Requests can capture their timestamps before waiting for the run lock.
+    # A later lock holder must not shorten a renewal already committed by another request.
+    assert run.lease_expires_at is not None
+    expires_at = max(_utc(run.lease_expires_at), renewed_at + lease_for)
+    run.lease_expires_at = min(expires_at, _utc(run.deadline_at)) if run.deadline_at else expires_at
     from polycolab.db.models import SqlExecutionSlotLease
 
     slot = session.scalar(
@@ -1314,6 +1329,16 @@ def resume_run(
     connection = _active_connection(
         session, provider_connection_id=provider_connection_id, user_id=requested_by_user_id
     )
+    if connection.platform_config:
+        from polycolab.model_gateway.catalog import apply_run_policy
+
+        runtime_spec = apply_run_policy(
+            session,
+            connection,
+            parent.configuration.harness if parent.configuration else "platform",
+            runtime_spec,
+            execution_limits,
+        )
     if runtime_spec is not None and connection.wire_api != "responses":
         raise ConversationStateError("provider_protocol_incompatible")
     parent.next_run_sequence += 1

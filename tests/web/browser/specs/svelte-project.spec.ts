@@ -77,6 +77,7 @@ async function mock(
         },
       });
     requests.push(`${request.method()} ${path}`);
+    if (path === '/api/v1/platform-models') return route.fulfill({ json: [] });
     if (request.method() === 'GET' && path === `/api/v1/projects/${projectId}/repository`)
       return route.fulfill({
         json: {
@@ -1198,15 +1199,17 @@ test('project chat has distinct layout icons and an uncluttered composer', async
   );
   await expect(rail.getByRole('link', { name: 'Map', exact: true })).toHaveCount(0);
   await expect(rail.getByRole('link', { name: 'Research objects', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Choose agent' })).toContainText('Researcher');
+  await expect(page.getByRole('button', { name: 'Choose harness and model' })).toContainText(
+    'Base',
+  );
   await expect(page.getByLabel('AI provider')).toHaveCount(0);
   const suggested = page.getByLabel('Suggested prompts');
   await expect(suggested.getByRole('button')).toHaveCount(5);
   await suggested.getByRole('button', { name: 'Summarize this project' }).click();
   await expect(page.getByLabel('Message the agent')).toHaveValue('Summarize this project');
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: /Customize chat/ }).click();
-  await expect(page.getByRole('dialog', { name: 'Customize chat' })).toBeVisible();
+  await page.getByRole('button', { name: 'Choose harness and model' }).click();
+  await expect(page.getByRole('menuitemradio', { name: 'Base', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
@@ -1235,97 +1238,61 @@ test('Main groups all loaded conversations without a recent-session cutoff', asy
     ).toBeVisible();
 });
 
-test('new chat customizes the hosted prompt and model endpoint', async ({ page }) => {
+test('new chat chooses its harness in the footer without persona or customization controls', async ({
+  page,
+}) => {
   await mock(page);
   await page.route('**/api/v1/agent-capabilities', (route) =>
     route.fulfill({
-      json: {
-        conversations: true,
-        execution_available: true,
-        hosted_agents: true,
-        verification: false,
-      },
+      json: { conversations: true, execution_available: true, hosted_agents: true },
     }),
   );
   await page.goto(`/projects/${projectId}/conversations/new`);
   const composer = page.locator('#main .project-chat-start');
-  await expect(composer.getByRole('button', { name: 'Choose agent' })).toContainText('Researcher');
-  await expect(composer.getByLabel('AI provider')).toHaveCount(0);
-  await composer.getByRole('button', { name: /Customize chat/ }).click();
-  const customization = page.getByRole('dialog', { name: 'Customize chat' });
-  const customToggle = customization.getByRole('button', { name: /Custom instructions/ });
-  await customToggle.click();
-  await expect(customToggle).toHaveAttribute('aria-pressed', 'true');
-  await expect(customization.getByLabel('Harness')).toHaveValue('codex');
-  await customization.getByLabel('System prompt').fill('Look for counterexamples first.');
-  await page.screenshot({ path: '/tmp/polycolab-custom-chat.png' });
+  await expect(composer.getByRole('button', { name: 'Choose agent' })).toHaveCount(0);
+  await expect(composer.getByRole('button', { name: 'Customize chat' })).toHaveCount(0);
+  await expect(composer.getByLabel('Response style')).toHaveCount(0);
+  await expect(composer.getByRole('button', { name: 'Choose harness and model' })).toBeVisible();
+  const harness = composer
+    .locator('.project-chat-start-footer')
+    .getByRole('button', { name: 'Choose harness and model' });
+  await harness.click();
+  await page.getByRole('menuitemradio', { name: 'Codex', exact: true }).click();
+  await expect(harness).toContainText('Codex');
+  await harness.click();
+  await expect(page.getByRole('menuitemradio', { name: /test-model/ })).toBeVisible();
+  await page.getByRole('menuitemradio', { name: /test-model/ }).click();
   await page.keyboard.press('Escape');
+  await expect(harness).toContainText('Research model');
+  await expect(harness.locator('.chat-harness-icon-codex')).toBeVisible();
+  await page.screenshot({ path: '/tmp/polycolab-combined-composer.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(harness).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: '/tmp/polycolab-combined-composer-mobile.png' });
   await page.getByLabel('Message the agent').fill('Examine this conjecture.');
-  const createRequest = page.waitForRequest(
+  const created = page.waitForRequest(
     (request) =>
       request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/conversations',
   );
   await page.getByRole('button', { name: 'Send message' }).click();
-  expect((await createRequest).postDataJSON()).toMatchObject({
-    agent_kind: 'RESEARCHER',
-    harness: 'codex',
-    system_prompt: 'Look for counterexamples first.',
-  });
+  const body = (await created).postDataJSON();
+  expect(body.harness).toBe('codex');
+  expect(body.system_prompt).toBeUndefined();
   await expect(page).toHaveURL(`/projects/${projectId}/conversations/${conversationId}`);
 });
 
-test('new chat top bar stays synchronized and resets local settings', async ({ page }) => {
+test('new chat explains unavailable harness and allows returning to platform', async ({ page }) => {
   await mock(page);
-  await page.route('**/api/v1/platform-agents**', (route) =>
-    route.fulfill({
-      json: [
-        { id: 'agent-1', agent_kind: 'RESEARCHER', version: 1, display_name: 'Researcher' },
-        { id: 'agent-2', agent_kind: 'CRITIC', version: 1, display_name: 'Critic' },
-      ],
-    }),
-  );
-  await page.route('**/api/v1/agent-capabilities', (route) =>
-    route.fulfill({
-      json: {
-        conversations: true,
-        execution_available: true,
-        hosted_agents: true,
-        verification: false,
-      },
-    }),
-  );
   await page.goto(`/projects/${projectId}/conversations/new`);
-
-  const composer = page.locator('#main .project-chat-start');
-  const agentPicker = composer.getByRole('button', { name: 'Choose agent' });
-  await expect(agentPicker).toContainText('Researcher');
-  await agentPicker.click();
-  await page.getByRole('menuitemradio', { name: /Critic/ }).click();
-  await expect(agentPicker).toContainText('Critic');
-  await agentPicker.click();
-  await page.getByRole('menuitemradio', { name: /Researcher/ }).click();
-  await expect(composer.getByRole('combobox', { name: 'AI provider' })).toHaveCount(0);
-  await composer.getByRole('button', { name: /Customize chat/ }).click();
-  const customization = page.getByRole('dialog', { name: 'Customize chat' });
-  await customization.getByLabel('Response style').selectOption('detailed');
-  const customToggle = customization.getByRole('button', { name: /Custom instructions/ });
-  await customToggle.click();
-  await customization.getByLabel('System prompt').fill('Keep this draft until reset.');
-  await customToggle.click();
-  await expect(customization.getByLabel('System prompt')).toHaveCount(0);
-  await customToggle.click();
-  await expect(customization.getByLabel('System prompt')).toHaveValue(
-    'Keep this draft until reset.',
-  );
-
-  await customization.getByRole('button', { name: 'Reset to defaults' }).click();
-  await expect(agentPicker).toContainText('Researcher');
-  await expect(customization).toHaveCount(0);
-  await composer.getByRole('button', { name: /Customize chat/ }).click();
-  await expect(customization.getByLabel('Response style')).toHaveValue('balanced');
-  await expect(customToggle).toHaveAttribute('aria-pressed', 'false');
-  await customToggle.click();
-  await expect(customization.getByLabel('System prompt')).toHaveValue('');
+  await page.getByLabel('Message the agent').fill('Review this project.');
+  await page.getByRole('button', { name: 'Choose harness and model' }).click();
+  await page.getByRole('menuitemradio', { name: 'Codex · unavailable' }).click();
+  await expect(page.getByText('Codex is unavailable.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Send message' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Choose harness and model' }).click();
+  await page.getByRole('menuitemradio', { name: 'Base', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Send message' })).toBeEnabled();
 });
 
 test('chat composers grow only after overflow and send with Enter', async ({ page }) => {
@@ -1398,7 +1365,8 @@ test('new chat keeps its first message and session when the first send fails', a
   });
   await page.goto(`/projects/${projectId}/conversations/new`);
   const reason = page.locator('.project-chat-start-footer .project-chat-send-reason');
-  await expect(reason).toHaveText('Write a message to send.');
+  await expect(reason).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Send message' })).toBeDisabled();
   await expect(page.getByText('Choose an AI provider in Customize.')).toHaveCount(0);
   await expect(page.getByLabel('AI provider')).toHaveCount(0);
   await page.getByLabel('Message the agent').fill('Check the smallest counterexample.');
@@ -2128,9 +2096,17 @@ test('hosted run history keeps prior files and offers explicit resume after lost
   ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Resume run' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Send message', exact: true })).toBeDisabled();
+  const composer = page.getByRole('textbox', { name: 'Private message' });
+  const before = await composer.boundingBox();
+  await page.getByRole('button', { name: 'Generated files', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Generated files' })).toBeVisible();
+  expect(await composer.boundingBox()).toEqual(before);
+  await expect(page.getByRole('button', { name: 'Download Saved result.txt' })).toBeVisible();
+  await page.keyboard.press('Escape');
   await page.getByRole('tab', { name: 'Agent history', exact: true }).click();
   await page.getByText('Files and run history', { exact: true }).click();
   await page.getByLabel('Files from completed run').selectOption('completed-run');
+  await page.getByRole('button', { name: 'Generated files', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Download Saved result.txt' })).toBeVisible();
   await expect(page.getByText('Execution unavailable', { exact: true })).toBeVisible();
 });
@@ -3205,6 +3181,11 @@ test('middle panel plus creates independent new chat tabs and preserves their dr
   const tabs = page.getByRole('tab', { name: /^New chat(?: Unsaved changes)?$/ });
   const composer = page.getByLabel('Message the agent').filter({ visible: true });
   const plus = page.getByRole('button', { name: 'New chat tab', exact: true });
+  const emptyUrl = page.url();
+  await plus.click();
+  await plus.click();
+  await expect(tabs).toHaveCount(1);
+  await expect(page).toHaveURL(emptyUrl);
   await composer.fill('First draft');
   await plus.click();
   await expect(tabs).toHaveCount(2);
@@ -3924,4 +3905,184 @@ test('LaTeX builds save all drafts, retain the PDF after failure, and cancel by 
   await page.getByRole('button', { name: 'Compile', exact: true }).click();
   await page.getByRole('button', { name: 'Cancel build', exact: true }).click();
   await expect(page.getByText('Build: cancelled', { exact: true })).toBeVisible();
+});
+
+test('new chat explains missing provider setup instead of silently disabling send', async ({
+  page,
+}) => {
+  await mock(page);
+  await page.route('**/api/v1/account/provider-connections**', (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.goto(`/projects/${projectId}/conversations/new`);
+  await page.getByLabel('Message the agent').fill('Help me review this project.');
+  await expect(page.getByRole('button', { name: 'Send message', exact: true })).toBeDisabled();
+  await expect(page.getByRole('link', { name: 'Set up an AI provider' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Choose harness and model' })).toBeVisible();
+});
+
+test('chat groups tool activity and keeps progress and model controls visible', async ({
+  page,
+}) => {
+  await mock(page);
+  await page.route('**/api/v1/conversations/*/items*', (route) =>
+    route.fulfill({
+      json: {
+        items: [
+          messageItemFixture({
+            author: { type: 'human', user_id: 'author-1' },
+            data: { role: 'user', content_md: 'Review the project and suggest a next step.' },
+          }),
+          {
+            ...messageItemFixture(),
+            id: 'tool-1',
+            sequence: 2,
+            type: 'tool_call',
+            author: { type: 'tool', name: 'workspace_status' },
+            data: { name: 'workspace_status', call_id: 'call-1', arguments_json: null },
+          },
+          {
+            ...messageItemFixture(),
+            id: 'result-1',
+            sequence: 3,
+            type: 'tool_result',
+            author: { type: 'tool', name: 'workspace_status' },
+            data: {
+              name: 'workspace_status',
+              call_id: 'call-1',
+              outcome: 'success',
+              output_json: null,
+            },
+          },
+          messageItemFixture({
+            id: 'reply-1',
+            sequence: 4,
+            author: { type: 'agent', display_name: 'Researcher', agent_version_id: null },
+            data: {
+              role: 'assistant',
+              content_md:
+                'The project is ready. **Start with a small test** to validate the main claim.',
+            },
+          }),
+        ],
+        next_cursor: null,
+      },
+    }),
+  );
+  await page.route('**/api/v1/conversations/*/runs*', (route) =>
+    route.fulfill({
+      json: [
+        runFixture({
+          id: runId,
+          conversation_id: conversationId,
+          status: 'QUEUED',
+          can_interrupt: true,
+        }),
+      ],
+    }),
+  );
+  await page.route('**/api/v1/conversations/*/stream*', (route) =>
+    route.fulfill({ contentType: 'text/event-stream', body: ': connected\n\n' }),
+  );
+  await page.goto(`/projects/${projectId}/conversations/${conversationId}`);
+  await expect(
+    page.getByText('Queued · waiting for an available runner', { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Choose harness and model' })).toBeVisible();
+  await expect(page.getByText('Start with a small test', { exact: true })).toBeVisible();
+  await expect(page.getByText('Tool call ·', { exact: false })).not.toBeVisible();
+  await page.getByText('Tool activity', { exact: false }).click();
+  await expect(page.getByText('Tool call ·', { exact: false })).toBeVisible();
+  await page.getByText('Tool activity', { exact: false }).click();
+  await page.getByLabel('Conversation actions', { exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Rename', exact: true })).toBeVisible();
+  await page.getByLabel('Conversation actions', { exact: true }).click();
+  await page.screenshot({ path: '/tmp/polycolab-chat-desktop.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole('button', { name: 'Choose harness and model' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Stop agent', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await page.screenshot({ path: '/tmp/polycolab-chat-mobile.png', fullPage: true });
+});
+
+test('new chat defaults to a shared model without a personal connection', async ({ page }) => {
+  await mock(page);
+  const sharedId = 'aaaaaaaa-1111-4111-8111-111111111111';
+  await page.route('**/api/v1/account/provider-connections*', (route) =>
+    route.fulfill({ json: [] }),
+  );
+  await page.route('**/api/v1/platform-models', (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: sharedId,
+          catalog_id: 'quick',
+          display_name: 'Polycolab Quick',
+          model_id: 'fast-model',
+          uses: ['project_chat'],
+          harnesses: ['platform'],
+          default_for: ['project_chat'],
+        },
+        {
+          id: 'aaaaaaaa-2222-4222-8222-222222222222',
+          catalog_id: 'codex',
+          display_name: 'Polycolab Code',
+          model_id: 'code-model',
+          uses: ['project_chat'],
+          harnesses: ['codex'],
+          default_for: [],
+        },
+      ],
+    }),
+  );
+  await page.goto(`/projects/${projectId}/conversations/new`);
+  const picker = page.getByRole('button', { name: 'Choose harness and model' });
+  await expect(picker).toContainText('Default');
+  await expect(picker).toHaveAttribute('title', /Base.*Polycolab Quick/);
+  await picker.click();
+  await expect(page.getByText('Polycolab models', { exact: true })).toBeVisible();
+  await expect(page.getByRole('menuitemradio', { name: /Polycolab Code/ })).toHaveCount(0);
+  await page.getByRole('menuitemradio', { name: /Codex/ }).click();
+  await expect(picker).toContainText('Polycolab Code');
+  await picker.click();
+  await page.getByRole('menuitemradio', { name: 'Base', exact: true }).click();
+  await expect(picker).toContainText('Default');
+  await expect(picker).toHaveAttribute('title', /Base.*Polycolab Quick/);
+  await page.getByLabel('Message the agent').fill('Use the shared model.');
+  const sent = page.waitForRequest(
+    (request) => request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/events'),
+  );
+  await page.getByRole('button', { name: 'Send message' }).click();
+  expect((await sent).postDataJSON().provider_connection_id).toBe(sharedId);
+});
+
+test('basic new chat stays out of Recents and reuses its unfinished composer', async ({ page }) => {
+  const requests = await mock(page);
+  await page.route(`**/api/v1/projects/${projectId}`, (route) =>
+    route.fulfill({ json: { ...project, file_mode: 'basic' } }),
+  );
+  await page.route(`**/api/v1/projects/${projectId}/files`, (route) =>
+    route.fulfill({ json: { files: [], writable: true } }),
+  );
+  await page.goto(`/projects/${projectId}/conversations/new`);
+  const recents = page.getByRole('navigation', { name: 'Recent conversations' });
+  const newChat = page.getByRole('button', { name: 'New chat', exact: true });
+  const composer = page.getByLabel('Message the agent').filter({ visible: true });
+  const emptyUrl = page.url();
+  await expect(recents.getByText('Draft', { exact: true })).toHaveCount(0);
+  await expect(recents.getByRole('link', { name: /New chat/ })).toHaveCount(0);
+  await newChat.click();
+  await newChat.click();
+  await expect(page).toHaveURL(emptyUrl);
+  await composer.fill('Keep this unfinished message.');
+  await recents.getByRole('link', { name: 'Gap investigation' }).click();
+  await expect(page).toHaveURL(new RegExp(`/conversations/${conversationId}$`));
+  await newChat.click();
+  await expect(page).toHaveURL(emptyUrl);
+  await expect(composer).toHaveValue('Keep this unfinished message.');
+  await newChat.click();
+  await expect(composer).toHaveValue('Keep this unfinished message.');
+  expect(requests.filter((request) => request === 'POST /api/v1/conversations')).toHaveLength(0);
 });

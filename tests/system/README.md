@@ -128,6 +128,26 @@ volumes. It retains private synthetic diagnostics on failure. This gate does not
 establish live provider behavior, full resource-exhaustion coverage or production
 readiness.
 
+## Local native microsandbox browser gate
+
+The hosted runner also accepts an idle local execution setup:
+
+```sh
+POLYCOLAB_HOSTED_LOCAL_SOURCE=/absolute/prepared/runtime \
+  uv run --directory src/backend python ../../tests/system/run_hosted.py
+```
+
+The directory must contain a matching `.venv`, installed backend code, and
+`controller.toml` selecting `microsandbox` with a pinned image and prepared bounded
+slots. The current account must own the controller state and have KVM and systemd
+user-service access. Run native preflight before this gate. Keep the runtime outside
+`/home`, since executor units protect home directories.
+
+This runs the same browser journey against real PostgreSQL, Garage, API, Codex and
+microsandbox. Only provider Responses are deterministic. The runner creates a temporary
+worker token and uses one slot, stops its controller, and removes its disposable
+Compose services afterward. It does not establish live-provider acceptance.
+
 ## LaTeX compilation
 
 Build the pinned compiler image using the [compiler guide](../../deploy/latex/README.md),

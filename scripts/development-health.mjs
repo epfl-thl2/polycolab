@@ -12,6 +12,7 @@ export async function serviceHealth(services, signal, requestTimeoutMs = 2000) {
   return Promise.all(
     services.map(async (service) => {
       try {
+        if (service.check) return { ...service, ...(await service.check(signal)) };
         const timeout = AbortSignal.timeout(requestTimeoutMs);
         const response = await fetch(`${service.url}${service.path}`, {
           signal: signal ? AbortSignal.any([signal, timeout]) : timeout,

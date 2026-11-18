@@ -28,6 +28,7 @@ class ResearchProvider:
     model: str
     wire_api: str
     api_key: SecretStr
+    max_output_tokens: int = MAX_OUTPUT_TOKENS
 
 
 def answer(
@@ -49,14 +50,14 @@ def answer(
                     "model": provider.model,
                     "instructions": SYSTEM_PROMPT,
                     "input": messages,
-                    "max_output_tokens": MAX_OUTPUT_TOKENS,
+                    "max_output_tokens": provider.max_output_tokens,
                     "stream": True,
                     "store": False,
                 },
             )
             try:
                 frames, _ = completed_response(
-                    stream.chunks, max_bytes=262_144, max_output_tokens=MAX_OUTPUT_TOKENS
+                    stream.chunks, max_bytes=262_144, max_output_tokens=provider.max_output_tokens
                 )
             finally:
                 stream.close()
@@ -68,7 +69,7 @@ def answer(
                 payload={
                     "model": provider.model,
                     "messages": [{"role": "system", "content": SYSTEM_PROMPT}, *messages],
-                    "max_tokens": MAX_OUTPUT_TOKENS,
+                    "max_tokens": provider.max_output_tokens,
                     "store": False,
                 },
             )

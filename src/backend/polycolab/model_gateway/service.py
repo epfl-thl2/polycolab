@@ -13,12 +13,13 @@ from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from polycolab.db.models import SqlGatewayRunGrant, SqlProviderConnection
 from polycolab.entities.accounts import IdentifiedUser
 from polycolab.entities.time import utc_now
+from polycolab.model_gateway.catalog import connection_enabled
 from polycolab.model_gateway.credentials import (
     CredentialError,
     EncryptedCredential,
@@ -106,17 +107,27 @@ def validate_base_url(value: str, *, production: bool, resolver=socket.getaddrin
 
 
 def connection_for_user(
-    session: Session, *, provider_connection_id: UUID, user_id: UUID, lock: bool = False
+    session: Session,
+    *,
+    provider_connection_id: UUID,
+    user_id: UUID,
+    lock: bool = False,
+    allow_platform: bool = False,
 ) -> SqlProviderConnection:
     statement = select(SqlProviderConnection).where(
         SqlProviderConnection.id == provider_connection_id,
-        SqlProviderConnection.user_id == user_id,
+        or_(
+            SqlProviderConnection.user_id == user_id,
+            SqlProviderConnection.platform_model_id.is_not(None),
+        )
+        if allow_platform
+        else SqlProviderConnection.user_id == user_id,
         SqlProviderConnection.deleted_at.is_(None),
     )
     if lock:
         statement = statement.with_for_update()
     connection = session.scalar(statement)
-    if connection is None:
+    if connection is None or not connection_enabled(session, connection):
         raise GatewayNotFound
     return connection
 
@@ -247,7 +258,11 @@ def issue_run_grant(
     if ttl_seconds < 1 or ttl_seconds > max_ttl_seconds:
         raise GrantInvalid
     connection = connection_for_user(
-        session, provider_connection_id=provider_connection_id, user_id=user_id, lock=True
+        session,
+        provider_connection_id=provider_connection_id,
+        user_id=user_id,
+        lock=True,
+        allow_platform=True,
     )
     if connection.model_id != model_id or (
         expected_credential_version is not None
@@ -304,7 +319,8 @@ def exchange_run_grant(
         if (
             connection is None
             or connection.deleted_at is not None
-            or connection.user_id != grant.user_id
+            or not connection_enabled(session, connection)
+            or (connection.user_id != grant.user_id and connection.platform_model_id is None)
             or connection.credential_version != grant.credential_version
         ):
             raise GrantInvalid
@@ -440,12 +456,21 @@ def request_model(
         session, token=token, run_id=run_id, user_id=user_id, model_id=model_id
     )
     connection = connection_for_user(
-        session, provider_connection_id=grant.provider_connection_id, user_id=user_id
+        session,
+        provider_connection_id=grant.provider_connection_id,
+        user_id=user_id,
+        allow_platform=True,
     )
+    if connection.platform_config:
+        cap = int(str(connection.platform_config["max_output_tokens"]))
+        if max_output_tokens > cap:
+            raise ProviderFailure("gateway_output_limit_exceeded")
     try:
         credential = decrypt_credential(
             wrapper,
-            context=credential_context(user_id=user_id, provider_connection_id=connection.id),
+            context=credential_context(
+                user_id=connection.user_id or connection.id, provider_connection_id=connection.id
+            ),
             encrypted=EncryptedCredential(
                 connection.encrypted_credential,
                 connection.wrapped_data_key,
@@ -521,12 +546,21 @@ def stream_model(
     ):
         raise GrantInvalid
     connection = connection_for_user(
-        session, provider_connection_id=grant.provider_connection_id, user_id=grant.user_id
+        session,
+        provider_connection_id=grant.provider_connection_id,
+        user_id=grant.user_id,
+        allow_platform=True,
     )
+    if connection.platform_config:
+        cap = int(str(connection.platform_config["max_output_tokens"]))
+        if max_output_tokens > cap:
+            raise ProviderFailure("gateway_output_limit_exceeded")
     try:
         credential = decrypt_credential(
             wrapper,
-            context=credential_context(user_id=grant.user_id, provider_connection_id=connection.id),
+            context=credential_context(
+                user_id=connection.user_id or connection.id, provider_connection_id=connection.id
+            ),
             encrypted=EncryptedCredential(
                 connection.encrypted_credential,
                 connection.wrapped_data_key,
@@ -580,7 +614,9 @@ def validate_connection_credential(
 
     credential = decrypt_credential(
         wrapper,
-        context=credential_context(user_id=user_id, provider_connection_id=connection.id),
+        context=credential_context(
+            user_id=connection.user_id or connection.id, provider_connection_id=connection.id
+        ),
         encrypted=EncryptedCredential(
             connection.encrypted_credential,
             connection.wrapped_data_key,

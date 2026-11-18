@@ -15,6 +15,7 @@
     maxlength = 100000,
     prompts = [],
     configuration,
+    configurationPlacement = 'above',
     preset,
     contextControls,
     onsubmit,
@@ -32,6 +33,7 @@
     maxlength?: number;
     prompts?: string[];
     configuration?: Snippet;
+    configurationPlacement?: 'above' | 'inside';
     preset?: Snippet;
     contextControls?: Snippet;
     onsubmit: (event: SubmitEvent) => void | Promise<void>;
@@ -75,9 +77,11 @@
       return onsubmit(event);
     }}
   >
-    {#if configuration}<div class="project-chat-config-bar" aria-label="Chat configuration">
+    {#if configuration && configurationPlacement === 'above'}
+      <div class="project-chat-config-bar project-chat-config-tab" aria-label="Chat configuration">
         {@render configuration()}
-      </div>{/if}
+      </div>
+    {/if}
     <div class="project-chat-composer-surface">
       <Textarea
         required
@@ -89,6 +93,12 @@
         disabled={inputDisabled}
         onkeydown={keydown}
       />
+      {#if configuration && configurationPlacement === 'inside'}<div
+          class="project-chat-config-bar"
+          aria-label="Chat configuration"
+        >
+          {@render configuration()}
+        </div>{/if}
       {#if contextControls}{@render contextControls()}{/if}
       <div class="project-chat-start-footer">
         {#if sendReason}<span class="project-chat-send-reason" role="status">{sendReason}</span

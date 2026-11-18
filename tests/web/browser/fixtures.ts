@@ -12,6 +12,7 @@ export const test = base.extend({
     await context.route('**/api/v1/config', (route) =>
       route.fulfill({ json: configuredCapabilities }),
     );
+    await context.route('**/api/v1/platform-models', (route) => route.fulfill({ json: [] }));
     await use(context);
   },
 });

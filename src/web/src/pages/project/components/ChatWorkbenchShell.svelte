@@ -2,7 +2,6 @@
   import type { Snippet } from 'svelte';
   import type { Project } from '../../../lib/projects-api';
   import type { Conversation } from '../../../lib/conversations-api';
-  import type { ProjectTab } from '../../../lib/project-tabs';
   import { projectContext } from '../../../svelte-lib/context';
   import { Button } from '../../../lib/components/ui/button';
   import { SquarePen, PanelLeftClose } from '@lucide/svelte';
@@ -16,9 +15,7 @@
     project,
     section,
     entity,
-    activeId,
     canChat,
-    draftChats,
     conversations,
     chatsLoaded,
     chatsError,
@@ -35,9 +32,7 @@
     project: Project;
     section: string;
     entity?: string;
-    activeId: string;
     canChat: boolean;
-    draftChats: ProjectTab[];
     conversations: Conversation[];
     chatsLoaded: boolean;
     chatsError: string;
@@ -143,12 +138,6 @@
       <Button variant="ghost" onclick={refreshChats}>Retry conversations</Button>{/if}
     {#if !chatsLoaded && !chatsError}<p class="muted">Loading conversations…</p>{/if}
     <nav aria-label="Recent conversations">
-      {#each draftChats as draft (draft.id)}<a
-          href={draft.href}
-          aria-current={activeId === draft.id ? 'page' : undefined}
-          onclick={(event) => openChat(event, draft.href)}
-          ><span>New chat</span><small>Draft</small></a
-        >{/each}
       {#each conversations as conversation (conversation.id)}
         {@const href = `/projects/${project.id}/conversations/${conversation.id}`}
         <a
@@ -164,7 +153,7 @@
           >{#if conversation.sharing !== 'private'}<small>Shared</small>{/if}</a
         >
       {/each}
-      {#if chatsLoaded && !draftChats.length && !conversations.length}<p class="muted">
+      {#if chatsLoaded && !conversations.length}<p class="muted">
           Your recent conversations will appear here.
         </p>{/if}
     </nav>

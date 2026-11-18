@@ -11,7 +11,7 @@ class RuntimeSpec(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     engine: Literal["codex"] = "codex"
-    engine_version: Literal["0.154.0"] = "0.154.0"
+    engine_version: Literal["0.154.0", "0.169.0"] = "0.169.0"
     sandbox_backend: Literal["microsandbox", "gvisor"] = "microsandbox"
     sandbox_version: str = Field(
         default="0.6.18", min_length=1, max_length=128, pattern=r"^[a-zA-Z0-9._+-]+$"

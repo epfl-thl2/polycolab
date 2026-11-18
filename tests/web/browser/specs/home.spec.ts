@@ -263,12 +263,37 @@ test('search offers general research chat using the platform model', async ({ pa
   await page.route('**/api/v1/library?*', (route) =>
     route.fulfill({ json: { items: [item], next_cursor: null } }),
   );
+  await page.route('**/api/v1/platform-models', (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: 'aaaaaaaa-1111-4111-8111-111111111111',
+          catalog_id: 'quick',
+          display_name: 'Polycolab Quick',
+          model_id: 'fast-model',
+          uses: ['research_helper'],
+          harnesses: [],
+          default_for: ['research_helper'],
+        },
+        {
+          id: 'aaaaaaaa-2222-4222-8222-222222222222',
+          catalog_id: 'capable',
+          display_name: 'Polycolab Capable',
+          model_id: 'capable-model',
+          uses: ['research_helper'],
+          harnesses: [],
+          default_for: [],
+        },
+      ],
+    }),
+  );
   let personalConnectionRequests = 0;
   page.on('request', (request) => {
     if (request.url().includes('/api/v1/account/provider-connections'))
       personalConnectionRequests++;
   });
   const requests: {
+    model_id?: string;
     messages: { role: string; content: string }[];
   }[] = [];
   let fail = false;
@@ -300,11 +325,15 @@ test('search offers general research chat using the platform model', async ({ pa
   await expect(dialog.getByText('falsifiable predictions')).toBeVisible();
   expect(personalConnectionRequests).toBe(0);
   expect(requests[0]).toEqual({
+    model_id: 'quick',
     messages: [{ role: 'user', content: 'How can I test this hypothesis?' }],
   });
+  await dialog.getByRole('button', { name: 'Choose research model' }).click();
+  await page.getByRole('menuitemradio', { name: 'Polycolab Capable' }).click();
   await dialog.getByRole('textbox', { name: 'Message' }).fill('What should I measure?');
   await dialog.getByRole('button', { name: 'Send message', exact: true }).click();
   await expect(dialog.getByText('falsifiable predictions')).toHaveCount(2);
+  expect(requests[1].model_id).toBe('capable');
   expect(requests[1].messages.map((message) => message.role)).toEqual([
     'user',
     'assistant',

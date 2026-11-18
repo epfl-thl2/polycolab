@@ -472,7 +472,7 @@ class ApiBackedWorker:
                 for call in calls:
                     invocation = f"tool-{claim.run_id}-{round_number}-{call.index}"
                     try:
-                        cursor = self._runtime.append_event(
+                        self._runtime.append_event(
                             run_id=claim.run_id,
                             worker_id=self._worker_id,
                             lease_generation=claim.lease_generation,
@@ -488,7 +488,7 @@ class ApiBackedWorker:
                             name=call.name,
                             arguments=cast(dict[str, object], arguments),
                             invocation=invocation,
-                            source_event_cursor=cursor if call.name == "project_files" else None,
+                            source_event_cursor=None,
                         )
                         encoded = json.dumps(response, separators=(",", ":"), ensure_ascii=False)
                         if len(encoded.encode()) > claim.max_tool_result_bytes:

@@ -104,7 +104,9 @@ def verify_credentials(
             try:
                 decrypt_credential(
                     wrapper,
-                    context=credential_context(user_id=row.user_id, provider_connection_id=row.id),
+                    context=credential_context(
+                        user_id=row.user_id or row.id, provider_connection_id=row.id
+                    ),
                     encrypted=EncryptedCredential(
                         row.encrypted_credential, row.wrapped_data_key, row.encryption_key_version
                     ),

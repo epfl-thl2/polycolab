@@ -30,6 +30,7 @@ from polycolab.entities.time import utc_now
 from polycolab.execution.allocator import utc
 from polycolab.execution.limits import _lock_scopes
 from polycolab.model_gateway import async_transport
+from polycolab.model_gateway.catalog import connection_enabled
 from polycolab.model_gateway.credentials import (
     CredentialError,
     EncryptedCredential,
@@ -202,7 +203,11 @@ def prepare(
         if (
             connection is None
             or connection.deleted_at is not None
-            or connection.user_id != run.requested_by_user_id
+            or not connection_enabled(session, connection)
+            or (
+                connection.user_id != run.requested_by_user_id
+                and connection.platform_model_id is None
+            )
             or connection.credential_version != run.gateway_credential_version
             or connection.model_id != run.gateway_model_id
         ):
@@ -229,7 +234,7 @@ def prepare(
             connection.encryption_key_version,
         )
         user_id, provider_connection_id, base_url = (
-            connection.user_id,
+            connection.user_id or connection.id,
             connection.id,
             connection.base_url,
         )
@@ -249,6 +254,7 @@ def authorize_delivery(request: Request, run_id: UUID, worker_id: str, generatio
             run.status != AgentRunStatus.RUNNING
             or connection is None
             or connection.deleted_at is not None
+            or not connection_enabled(session, connection)
             or connection.credential_version != run.gateway_credential_version
             or not can_execute(
                 SqlAlchemyTransaction(session), run.conversation_id, run.requested_by_user_id

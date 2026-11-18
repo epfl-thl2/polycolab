@@ -30,6 +30,7 @@ from polycolab.agents.conversations import (
     finish_run,
     platform_agent_version,
     record_usage,
+    renew_lease,
     request_cancel,
     requeue_expired_runs,
     resume_run,
@@ -159,8 +160,10 @@ def test_custom_session_requires_a_harness_and_nonblank_prompt() -> None:
         "project_id": "00000000-0000-0000-0000-000000000001",
         "agent_kind": "RESEARCHER",
     }
+    selected = ConversationCreate.model_validate({**base, "harness": "codex"})
+    assert selected.harness == "codex"
+    assert selected.system_prompt is None
     for fields in (
-        {"harness": "codex"},
         {"system_prompt": "custom"},
         {"harness": "codex", "system_prompt": "  "},
     ):
@@ -565,5 +568,29 @@ def test_semantic_items_commit_with_events_and_do_not_become_model_inputs(
         assert len(model_messages(session, claim)) == 2
         session.close()
         assert items[3].data.content_md == "Final answer"  # type: ignore[union-attr]
+    finally:
+        session.close()
+
+
+def test_lease_renewal_with_earlier_request_time_cannot_shorten_lease(client: TestClient) -> None:
+    session, _, _, run_id = _new_run(client)
+    try:
+        now = datetime.now(UTC)
+        run = claim_next_run(
+            session, worker_id="renewal-worker", lease_for=timedelta(seconds=30), now=now
+        )
+        assert run is not None
+        for offset in (10, 5):
+            assert renew_lease(
+                session,
+                run_id=run_id,
+                worker_id="renewal-worker",
+                lease_generation=run.lease_generation,
+                lease_for=timedelta(seconds=30),
+                now=now + timedelta(seconds=offset),
+            )
+        session.refresh(run)
+        assert run.lease_expires_at is not None
+        assert run.lease_expires_at.replace(tzinfo=UTC) == now + timedelta(seconds=40)
     finally:
         session.close()

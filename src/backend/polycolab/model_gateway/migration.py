@@ -158,7 +158,7 @@ def rewrap_snapshot_page(
     return [
         CredentialEnvelopeSnapshot(
             provider_connection_id=connection.id,
-            user_id=connection.user_id,
+            user_id=connection.user_id or connection.id,
             credential_version=connection.credential_version,
             encrypted=EncryptedCredential(
                 connection.encrypted_credential,
@@ -195,7 +195,7 @@ def commit_rewrap_candidate(
         if (
             connection is None
             or connection.deleted_at is not None
-            or connection.user_id != snapshot.user_id
+            or (connection.user_id or connection.id) != snapshot.user_id
         ):
             raise CredentialMigrationConflict("credential_owner_binding_changed")
         current = EncryptedCredential(

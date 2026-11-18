@@ -858,6 +858,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform-models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List platform models
+         * @description **Access:** Human authentication required. Agent API keys are not accepted. Current role and operation-specific authority apply.
+         *
+         *     **Availability:** Optional deployment capability; documentation does not imply that this service is enabled.
+         */
+        get: operations["listPlatformModels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects": {
         parameters: {
             query?: never;
@@ -3167,6 +3189,26 @@ export interface components {
             /** Version */
             version: number;
         };
+        /** PlatformModelRead */
+        PlatformModelRead: {
+            /** Catalog Id */
+            catalog_id: string;
+            /** Default For */
+            default_for: string[];
+            /** Display Name */
+            display_name: string;
+            /** Harnesses */
+            harnesses: string[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Model Id */
+            model_id: string;
+            /** Uses */
+            uses: string[];
+        };
         /** ProjectCollection */
         ProjectCollection: {
             /** Items */
@@ -3501,6 +3543,8 @@ export interface components {
         ResearchHelperRequest: {
             /** Messages */
             messages: components["schemas"]["ResearchHelperMessage"][];
+            /** Model Id */
+            model_id?: string | null;
         };
         /** Restore */
         Restore: {
@@ -8375,6 +8419,102 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformAgentRead"][];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Request too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Request or write limit exhausted */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Internal error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listPlatformModels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    /** @description Opaque cursor for the next page, omitted at the end. */
+                    "X-Next-Cursor"?: string;
+                    /** @description Total items matching the stable listing order. */
+                    "X-Total-Count"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformModelRead"][];
                 };
             };
             /** @description Authentication required */

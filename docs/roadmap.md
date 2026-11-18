@@ -8,6 +8,13 @@ External keys currently access Basic files. Equivalent agent-key support for Git
 
 The removed research-object database, commons, catalogue, publication, proposal reviews, and verification execution are outside the current scope. Reintroducing them would require a separate product decision.
 
+## Basic agent workspace
+
+The `project_files` model tool is removed. Basic hosted agents do not yet have an
+automatically populated `/workspace` or guarded save-back of native file edits.
+Implement that mapping before claiming hosted agents can edit Basic project files
+through their shell tools. Existing human and external-key file APIs remain supported.
+
 ## Unified conversations
 
 The single conversation API, canonical conversation entities and typed transcripts,

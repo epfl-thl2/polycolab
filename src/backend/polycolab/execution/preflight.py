@@ -20,7 +20,7 @@ async def image_check(reference: str, archive: str | None) -> None:
     from microsandbox import Image
 
     if archive is not None:
-        await Image.load(archive)
+        await Image.load(archive, tag=reference)
     image = await Image.get(reference)
     expected = reference.rsplit("@sha256:", 1)[-1]
     if (

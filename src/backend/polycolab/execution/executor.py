@@ -36,7 +36,7 @@ async def execute(config_path: Path) -> None:
         for path in (work / "inputs").rglob("*")
         if path.is_file()
     }
-    image = ImagePolicy(config["image"], "AGENT", "0.154.0", "0" * 64, "0" * 64, "linux-x86_64")
+    image = ImagePolicy(config["image"], "AGENT", "0.169.0", "0" * 64, "0" * 64, "linux-x86_64")
     async with runtime.attempt(
         name=config["name"],
         image=image,

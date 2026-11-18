@@ -13,6 +13,7 @@ from polycolab.accounts.schemas import UserRead
 from polycolab.app.dependencies import CurrentUser, DbSession, Page, paginated
 from polycolab.db.models import SqlProviderConnection
 from polycolab.model_gateway.schemas import (
+    PlatformModelRead,
     ProviderConnectionCreate,
     ProviderConnectionRead,
     ProviderConnectionRotate,
@@ -162,3 +163,47 @@ def remove_provider_connection(
     except GatewayNotFound:
         raise ProjectNotFound from None
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get(
+    "/platform-models",
+    response_model=list[PlatformModelRead],
+    operation_id="listPlatformModels",
+    tags=["models"],
+)
+def list_platform_models(
+    request: Request, response: Response, user: CurrentUser
+) -> list[PlatformModelRead]:
+    response.headers["Cache-Control"] = "private, no-store"
+    settings = request.app.state.settings
+    catalog = settings.model_catalog
+    return [
+        PlatformModelRead(
+            id=model.connection_id,
+            catalog_id=model.id,
+            display_name=model.label,
+            model_id=model.model,
+            uses=model.uses,
+            harnesses=[
+                harness
+                for harness in model.harnesses
+                if (
+                    (
+                        settings.runtime_codex_image is not None
+                        and catalog.providers[model.provider].wire_api == "responses"
+                    )
+                    or (
+                        settings.runtime_codex_image is None
+                        and harness == "platform"
+                        and catalog.providers[model.provider].wire_api == "chat_completions"
+                    )
+                )
+            ],
+            default_for=[
+                use
+                for use, identifier in catalog.defaults.model_dump().items()
+                if identifier == model.id
+            ],
+        )
+        for model in catalog.models
+    ]

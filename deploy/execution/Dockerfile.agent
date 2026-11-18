@@ -5,8 +5,8 @@ ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 USER root
 RUN apt-get update && apt-get install --yes --no-install-recommends git && rm -rf /var/lib/apt/lists/*
-RUN test -x /usr/bin/python3 && npm install --global @openai/codex@0.154.0 \
-    && codex --version | grep -Fx 'codex-cli 0.154.0' \
+RUN test -x /usr/bin/python3 && npm install --global @openai/codex@0.169.0 \
+    && codex --version | grep -Fx 'codex-cli 0.169.0' \
     && mkdir -p /workspace /inputs /outputs /opt/polycolab /home/agent \
     && chown -R 1000:1000 /workspace /outputs /home/agent
 COPY src/backend/polycolab/execution/guest_start.py /opt/polycolab/guest_start.py

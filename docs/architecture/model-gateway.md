@@ -11,6 +11,14 @@ Validation uses the declared protocol.
 The disabled [hosted controller candidate](hosted-controller.md) uses a private bounded native Responses endpoint and records provider usage or conservative failure estimates.
 The legacy normalized model endpoint remains for the existing worker.
 
+## Platform model catalog
+
+`POLYCOLAB_MODEL_CONFIG` selects an operator-owned YAML catalog of providers, models, and defaults. Provider keys are resolved from named environment variables at startup. Models have stable catalog IDs and deterministic internal connection IDs. Project-chat entries are synchronized into platform-owned provider connections with no user owner, encrypted credentials, and versioned routing/policy snapshots. Runs retain their connection reference and resolved upstream model ID. Removing a catalog entry disables its connection; running without a catalog denies all platform connections even if old rows remain; changing its routing, key, or policy invalidates outstanding grants. Account credential-management endpoints remain owner-only and cannot edit platform connections.
+
+Authenticated `GET /api/v1/platform-models` returns labels, IDs, uses, defaults, and harness compatibility, never credential previews or provider endpoints. The composer groups platform models separately from personal connections and prefers the configured project default. Compatibility also reflects the configured executor protocol. The research helper accepts an optional catalog model ID and otherwise uses its configured default. Legacy single-helper environment settings remain a compatibility fallback.
+
+Catalog project runs retain existing per-user/project admission limits. All catalog models share a UTC daily cost reservation in `execution_rate_windows`, admitted atomically before execution or helper dispatch. Project reservations cover all possible rounds and attempts; helper reservations bound input bytes and output tokens. Reservations remain charged on failure and are not refunded, so the ceiling is conservative rather than an actual-spend report. Current-day budget rows are excluded from minute-counter cleanup. Configured global price ceilings must cover every project model for existing user/project budget calculations.
+
 ## Credential handling
 
 Provider connections never return the full API key, ciphertext, or wrapped data key.
@@ -36,7 +44,7 @@ Orchestration and live key rotation/restore verification remain deployment work.
 
 The human-only `POST /api/v1/research-helper/messages` endpoint provides project-independent, text-only research assistance using a shared model configured by the platform operator. It accepts no personal provider connection selection. It supports Chat Completions and Responses endpoints, keeps the platform credential on the server, and sends a fixed research-assistant system prompt without tools. It does not read project data or persist transcripts. Provider requests disable stored responses; provider retention policies still apply.
 
-Helper requests accept at most 31 alternating user/assistant messages totaling 48,000 UTF-8 bytes and cap output at 2,048 tokens. The existing IP-pinned transport bounds request/response size and timeouts, rejects unsafe destinations, and performs no retries for helper requests. Durable per-user and global minute counters admit each request before provider I/O, including failed requests. These counters bound request volume; helper turns are not agent runs and do not participate in the agent-run usage ledger.
+Catalog helper turns also participate in the shared admission budget; they do not create agent runs. Helper requests accept at most 31 alternating user/assistant messages totaling 48,000 UTF-8 bytes and cap output at 2,048 tokens. The existing IP-pinned transport bounds request/response size and timeouts, rejects unsafe destinations, and performs no retries for helper requests. Durable per-user and global minute counters admit each request before provider I/O, including failed requests. These counters bound request volume; helper turns are not agent runs and do not participate in the agent-run usage ledger.
 
 Provider base URLs reject insecure schemes outside local development, credentialed URLs, private or metadata addresses, unsafe DNS answers, redirects, and proxy-environment routing.
 Connections use a vetted public IP while preserving the original HTTP host and TLS identity.

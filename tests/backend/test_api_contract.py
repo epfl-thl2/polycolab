@@ -92,6 +92,8 @@ def test_research_contract_is_removed() -> None:
     for path in document["paths"]:
         assert not (retired & set(path.removeprefix("/api/v1/").split("/")))
     for name in document["components"]["schemas"]:
+        if name.startswith("ResearchHelper"):
+            continue
         assert not name.startswith(
             (
                 "Research",

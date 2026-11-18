@@ -29,6 +29,28 @@ export class ChatDrafts {
     }
     return draft;
   }
+  newChatHref(
+    projectId: string,
+    tabs: { kind: string; href: string }[],
+    worktreeId: string | null = null,
+    singleComposer = false,
+  ) {
+    const existing = tabs.find((tab) => {
+      const url = new URL(tab.href, 'http://project.local');
+      if (
+        tab.kind !== 'chat' ||
+        url.pathname !== `/projects/${projectId}/conversations/new` ||
+        url.searchParams.get('worktree') !== worktreeId
+      )
+        return false;
+      const draft = this.entries.get(chatDraftKey(projectId, tab.href));
+      return singleComposer || (!draft?.dirty && !draft?.startingConversationId);
+    });
+    return (
+      existing?.href ??
+      `/projects/${projectId}/conversations/new?draft=${crypto.randomUUID()}${worktreeId ? `&worktree=${encodeURIComponent(worktreeId)}` : ''}`
+    );
+  }
   isDirty(key: string) {
     return this.entries.get(key)?.dirty ?? false;
   }

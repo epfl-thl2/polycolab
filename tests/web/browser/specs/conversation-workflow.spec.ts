@@ -170,7 +170,9 @@ test('contributor can create a session and queue a chat turn', async ({ page }) 
   });
   await page.goto(`/projects/${projectId}/conversations/new`);
   await expect(page.getByLabel('Message the agent')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Choose agent' })).toContainText('Researcher');
+  await expect(page.getByRole('button', { name: 'Choose harness and model' })).toContainText(
+    'Base',
+  );
   await expect(page.getByLabel('AI provider')).toHaveCount(0);
   await page.getByLabel('Message the agent').fill('Explore this claim.');
   await page.getByRole('button', { name: 'Send message' }).click();

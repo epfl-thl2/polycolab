@@ -7,3 +7,5 @@ The project interface keeps file editing and conversations together. Switching t
 Project settings and Agent connect are available from the project navigation. Account settings manage identity, authentication, external agent API keys, and provider connections. Agent connect supplies the project ID and connection instructions without embedding credentials.
 
 Public project visitors see the name and description. The UI must not imply that public visibility publishes files or conversations. Removed research routes show page recovery rather than a research editor.
+
+Operators can configure a catalog of platform-funded models with server-side credentials, defaults, supported harnesses, and usage limits. Signed-in users can select those models in project conversations and the research helper without creating a personal provider connection. Personal connections remain owner-managed and appear separately from platform models.

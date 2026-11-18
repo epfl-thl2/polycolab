@@ -57,14 +57,12 @@ Collaborative's Yjs collaboration service.
 
 ## Agents
 
-Private Basic conversations expose the `project_files` tool through the existing
-authenticated tool gateway. It reads and writes the same current server files with
-the same digest checks and current membership checks. Mutations apply immediately;
-there is no batch merge, revert, or checkpoint. The existing run capability and
-lease checks apply.
+Basic hosted conversations expose `get_context` for authorized project and artifact
+metadata. The `project_files` model tool is removed; calls to that retired name are
+rejected, including calls using previously issued capabilities.
 
 Basic files are not automatically mounted in a hosted execution directory.
-An agent uses `project_files` to read inputs and save outputs; shell commands act
-on its isolated execution directory. No repository binding or Git bundle is
-created for a Basic run. Conversation and tool event records remain part of the
-existing agent system, independently of filesystem versioning.
+Shell commands act on the isolated execution directory; they do not update Basic
+project files. Automatic `/workspace` snapshot and save-back support is unfinished
+and tracked in the roadmap. The guarded file API remains available to humans and
+external agents with authorized API keys.

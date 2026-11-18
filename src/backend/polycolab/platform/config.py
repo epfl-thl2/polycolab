@@ -11,6 +11,8 @@ from typing import Literal
 from pydantic import AliasChoices, AnyUrl, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from polycolab.model_gateway.catalog import ModelCatalog, load_catalog
+
 # Source checkouts share deploy/docker/.env. Installed containers use only
 # injected settings; no implicit working-directory dotenv fallback.
 _source_root = next(
@@ -72,6 +74,23 @@ class Settings(BaseSettings):
     database_pool_timeout_seconds: float = Field(default=30.0, gt=0, le=300, allow_inf_nan=False)
     allowed_origins: list[AnyUrl] = Field(default_factory=lambda: [AnyUrl("http://localhost:5173")])
     log_level: str = "INFO"
+    polycolab_model_config: str | None = None
+    model_catalog: ModelCatalog = Field(default_factory=ModelCatalog, exclude=True, repr=False)
+
+    @model_validator(mode="after")
+    def configured_catalog(self) -> Settings:
+        if self.polycolab_model_config:
+            self.model_catalog = load_catalog(self.polycolab_model_config)
+        for model in self.model_catalog.models:
+            if "project_chat" in model.uses and (
+                model.input_microusd_per_million_tokens
+                > self.gateway_input_microusd_per_million_tokens
+                or model.output_microusd_per_million_tokens
+                > self.gateway_output_microusd_per_million_tokens
+            ):
+                raise ValueError("gateway pricing ceilings must cover every catalog model")
+        return self
+
     feature_research_helper_enabled: bool = True
     research_helper_api_key: SecretStr | None = Field(default=None, min_length=1, max_length=4096)
     research_helper_base_url: str | None = Field(default=None, min_length=1, max_length=2048)
@@ -82,12 +101,17 @@ class Settings(BaseSettings):
     def research_helper_available(self) -> bool:
         return bool(
             self.feature_research_helper_enabled
-            and self.research_helper_api_key
-            and self.research_helper_api_key.get_secret_value().strip()
-            and self.research_helper_base_url
-            and self.research_helper_base_url.strip()
-            and self.research_helper_model
-            and self.research_helper_model.strip()
+            and (
+                self.model_catalog.default_model("research_helper") is not None
+                or (
+                    self.research_helper_api_key
+                    and self.research_helper_api_key.get_secret_value().strip()
+                    and self.research_helper_base_url
+                    and self.research_helper_base_url.strip()
+                    and self.research_helper_model
+                    and self.research_helper_model.strip()
+                )
+            )
         )
 
     research_helper_requests_per_minute: int = Field(default=5, ge=1, le=100)

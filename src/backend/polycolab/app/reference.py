@@ -187,6 +187,7 @@ OPERATION_SECTIONS = {
     "submitConversationEvent": "conversations",
     "readArtifact": "artifacts",
     "downloadArtifact": "artifacts",
+    "listPlatformModels": "provider-connections",
     "listProviderConnections": "provider-connections",
     "createProviderConnection": "provider-connections",
     "deleteProviderConnection": "provider-connections",

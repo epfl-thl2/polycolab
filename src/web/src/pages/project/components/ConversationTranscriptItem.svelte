@@ -5,11 +5,16 @@
   let {
     item,
     ownerId,
+    viewerId,
     agentName,
-  }: { item: ConversationItem; ownerId?: string; agentName?: string } = $props();
+  }: { item: ConversationItem; ownerId?: string; viewerId?: string; agentName?: string } = $props();
   const author = $derived(
     item.author.type === 'human'
-      ? `${item.author.user_id === ownerId ? 'Conversation owner' : 'Participant'} · ${item.author.user_id.slice(0, 8)}`
+      ? item.author.user_id === viewerId
+        ? 'You'
+        : item.author.user_id === ownerId
+          ? 'Conversation owner'
+          : `Participant · ${item.author.user_id.slice(0, 8)}`
       : item.author.type === 'agent'
         ? item.author.display_name ||
           (item.author.agent_version_id ? agentName || 'Agent' : 'Assistant')
@@ -32,23 +37,3 @@
   {/if}
   {#if item.status !== 'completed'}<small>{item.status.replaceAll('_', ' ')}</small>{/if}
 </article>
-
-<style>
-  .message {
-    margin: 16px 0;
-    min-width: 0;
-  }
-  .message-author {
-    color: var(--muted-foreground);
-    font-size: 12px;
-    margin-bottom: 6px;
-  }
-  .message-body {
-    overflow-wrap: anywhere;
-  }
-  .user {
-    background: var(--muted);
-    border-radius: 10px;
-    padding: 12px 16px;
-  }
-</style>

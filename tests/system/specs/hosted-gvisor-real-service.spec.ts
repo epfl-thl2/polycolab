@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
 
-test('native gVisor chat completes and survives reload', async ({ page }) => {
+test('native hosted chat completes and survives reload', async ({ page }) => {
   test.skip(process.env.POLYCOLAB_GVISOR_BROWSER !== '1', 'Requires the disposable native runner');
   test.setTimeout(120_000);
   page.setDefaultTimeout(15_000);
@@ -45,6 +45,8 @@ test('native gVisor chat completes and survives reload', async ({ page }) => {
     )
     .toBe(true);
   await page.goto(`/projects/${projectId}/conversations/new`);
+  await page.getByRole('button', { name: 'Choose harness and model' }).click();
+  await page.getByRole('menuitemradio', { name: 'Codex', exact: true }).click();
   await page
     .getByLabel('Message the agent')
     .filter({ visible: true })
